@@ -14,7 +14,29 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
-    "paths": {}
+    "paths": {
+      "@investflow/investments-domain": [
+        "libs/investments/domain/src/index.ts"
+      ],
+      "@investflow/investments-application": [
+        "libs/investments/application/src/index.ts"
+      ],
+      "@investflow/investments-infrastructure": [
+        "libs/investments/infrastructure/src/index.ts"
+      ],
+      "@investflow/portfolio-domain": ["libs/portfolio/domain/src/index.ts"],
+      "@investflow/portfolio-application": [
+        "libs/portfolio/application/src/index.ts"
+      ],
+      "@investflow/portfolio-infrastructure": [
+        "libs/portfolio/infrastructure/src/index.ts"
+      ],
+      "@investflow/shared-domain": ["libs/shared/domain/src/index.ts"],
+      "@investflow/shared-infrastructure": [
+        "libs/shared/infrastructure/src/index.ts"
+      ],
+      "@investflow/shared-types": ["libs/shared/types/src/index.ts"]
+    }
   },
   "exclude": ["node_modules", "tmp"]
 }

@@ -1,0 +1,20 @@
+{
+  "name": "investments-infrastructure",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/investments/infrastructure/src",
+  "projectType": "library",
+  "tags": ["scope:investments", "layer:infrastructure"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/investments/infrastructure",
+        "tsConfig": "libs/investments/infrastructure/tsconfig.lib.json",
+        "packageJson": "libs/investments/infrastructure/package.json",
+        "main": "libs/investments/infrastructure/src/index.ts",
+        "assets": ["libs/investments/infrastructure/*.md"]
+      }
+    }
+  }
+}

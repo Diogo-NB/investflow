@@ -17,8 +17,28 @@ export default [
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {
-              sourceTag: '*',
-              onlyDependOnLibsWithTags: ['*'],
+              sourceTag: 'layer:domain',
+              onlyDependOnLibsWithTags: ['layer:domain', 'scope:shared'],
+            },
+            {
+              sourceTag: 'layer:application',
+              onlyDependOnLibsWithTags: ['layer:domain', 'layer:application', 'scope:shared'],
+            },
+            {
+              sourceTag: 'layer:infrastructure',
+              onlyDependOnLibsWithTags: ['layer:application', 'layer:domain', 'layer:infrastructure', 'scope:shared'],
+            },
+            {
+              sourceTag: 'scope:investments',
+              notDependOnLibsWithTags: ['scope:portfolio'],
+            },
+            {
+              sourceTag: 'scope:portfolio',
+              notDependOnLibsWithTags: ['scope:investments'],
+            },
+            {
+              sourceTag: 'scope:shared',
+              notDependOnLibsWithTags: ['scope:investments', 'scope:portfolio'],
             },
           ],
         },

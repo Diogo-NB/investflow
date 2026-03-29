@@ -93,6 +93,9 @@ importers:
       jest-util:
         specifier: ^30.0.2
         version: 30.3.0
+      jsonc-eslint-parser:
+        specifier: ^2.1.0
+        version: 2.4.2
       nx:
         specifier: 22.6.3
         version: 22.6.3(@swc-node/register@1.11.1(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@swc/core@1.15.21(@swc/helpers@0.5.20))(@swc/types@0.1.26)(typescript@5.9.3))(@swc/core@1.15.21(@swc/helpers@0.5.20))
