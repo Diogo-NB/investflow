@@ -2,7 +2,12 @@
   "name": "@investflow/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d postgres",
+    "db:logs": "docker compose logs -f postgres"
+  },
   "private": true,
   "dependencies": {
     "@nestjs/common": "^11.0.0",
