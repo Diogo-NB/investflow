@@ -6,7 +6,10 @@
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && docker compose up -d postgres",
-    "db:logs": "docker compose logs -f postgres"
+    "db:logs": "docker compose logs -f postgres",
+    "kc:up": "docker compose up -d keycloak",
+    "kc:down": "docker compose stop keycloak",
+    "kc:logs": "docker compose logs -f keycloak"
   },
   "private": true,
   "dependencies": {
