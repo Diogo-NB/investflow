@@ -1,12 +1,19 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
+import { SkipTransaction } from '@investflow/shared-infrastructure';
+import { AppHealth } from './app.health';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly health: HealthCheckService,
+    private readonly appHealth: AppHealth,
+  ) {}
 
-  @Get()
-  getData() {
-    return this.appService.getData();
+  @SkipTransaction()
+  @Get('health-check')
+  @HealthCheck()
+  check() {
+    return this.health.check([() => this.appHealth.checkDatabase()]);
   }
 }
