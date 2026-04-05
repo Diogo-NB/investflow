@@ -7,29 +7,29 @@ All aggregates extend a custom `AggregateRoot` base class defined in `shared/dom
 ```typescript
 // shared/domain/src/lib/aggregate-root.base.ts
 export abstract class AggregateRoot {
-  private _domainEvents: DomainEvent[] = [];
+  private readonly _domainEvents: DomainEvent[] = [];
 
   protected apply(event: DomainEvent): void {
     this._domainEvents.push(event);
   }
 
-  getUncommittedEvents(): DomainEvent[] {
+  getDomainEvents(): DomainEvent[] {
     return [...this._domainEvents];
   }
 
-  clearEvents(): void {
+  clearDomainEvents(): void {
     this._domainEvents = [];
   }
 }
 ```
 
 ```typescript
-// In a use case — after persisting:
+// In a use case — just save, events are handled by the repository automatically:
 order.approve();
-await this.orderRepo.save(order);                    // persist state
-// dispatch order.getUncommittedEvents() — mechanism TBD
-order.clearEvents();
+await this.orderRepo.save(order); // persists state + writes domain events to outbox (same tx)
 ```
+
+> `BaseRepository.save()` in `shared/infrastructure` calls `aggregate.getDomainEvents()`, writes them to `outbox_events`, then calls `aggregate.clearDomainEvents()` — all within the same Prisma transaction. Use cases never touch events directly.
 
 ## Building Blocks
 
@@ -95,22 +95,19 @@ export class OrderApprovedEvent {
 
 - One class per use case in `application/use-cases/`
 - Single public `execute(input)` method
-- Orchestrates: load aggregate → call domain method → persist → dispatch events
+- Orchestrates: load aggregate → call domain method → persist (events handled automatically by repository)
 - Returns void or a scalar (ID) — never a domain aggregate
+- **Single aggregate per transaction** — if a use case needs to affect another aggregate, it does so via domain events (outbox → SQS → consumer) or in a separate transaction after the primary one
+- **Never call `getDomainEvents()` or `clearDomainEvents()` from a use case** — that is `BaseRepository`'s responsibility
 
 ```typescript
 export class ApproveOrderUseCase {
-  constructor(
-    private readonly orderRepo: IOrderRepository,
-    // event dispatching dependency injected here — mechanism TBD
-  ) {}
+  constructor(private readonly orderRepo: IOrderRepository) {}
 
   async execute(orderId: string): Promise<void> {
     const order = await this.orderRepo.findByIdOrThrow(orderId);
     order.approve();
-    await this.orderRepo.save(order);
-    // dispatch order.getUncommittedEvents()
-    order.clearEvents();
+    await this.orderRepo.save(order); // state + domain events written atomically
   }
 }
 ```
@@ -130,6 +127,44 @@ export interface IOrderRepository {
   findByIdOrThrow(id: string): Promise<Order>;
   save(order: Order): Promise<void>;
   findExpiredOrders(before: Date): Promise<Order[]>;
+  sumActiveOrderAmounts(productId: string): Promise<Money>;
+}
+```
+
+### BaseRepository (Infrastructure)
+
+- Lives in `shared/infrastructure` — all concrete repositories extend it
+- Defines the `save(aggregate: T)` template: persist state → write domain events to outbox → clear events
+- Concrete repositories only implement `persistAggregate(aggregate, client)` — the domain-specific DB writes
+- This is the **only place in the codebase** that calls `getDomainEvents()` and `clearDomainEvents()`
+
+```typescript
+// shared/infrastructure/src/lib/base.repository.ts
+export abstract class BaseRepository<T extends AggregateRoot> {
+  constructor(protected readonly prisma: PrismaService) {}
+
+  async save(aggregate: T): Promise<void> {
+    const client = this.prisma.client; // transactional client from AsyncLocalStorage
+    await this.persistAggregate(aggregate, client);
+    const events = aggregate.getDomainEvents();
+    if (events.length > 0) {
+      await client.outboxEvent.createMany({ data: events.map(serialize) });
+      aggregate.clearDomainEvents();
+    }
+  }
+
+  protected abstract persistAggregate(
+    aggregate: T,
+    client: TransactionalPrismaClient,
+  ): Promise<void>;
+}
+
+// OrderRepository — only cares about Order-specific persistence
+export class OrderRepository extends BaseRepository<Order> implements IOrderRepository {
+  protected async persistAggregate(order: Order, client: TransactionalPrismaClient): Promise<void> {
+    await client.order.upsert({ /* ... */ });
+  }
+  // query methods (findById, sumActiveOrderAmounts, etc.) defined here
 }
 ```
 
@@ -147,9 +182,12 @@ export interface IOrderRepository {
 | Anemic domain model — aggregate is a plain data class, logic in services | Put logic inside the aggregate method |
 | `new Order({ status: 'APPROVED' })` from outside | Use `Order.create()` factory or transition methods |
 | Calling `orderRepo.save()` from a domain service | Domain services receive aggregates, use cases call repos |
-| Two aggregate saves in one transaction | Redesign using domain events to decouple |
+| Two aggregate saves in one transaction | Redesign: use domain events via outbox to affect the second aggregate asynchronously, or derive the shared state via query (e.g., allocated volume = SUM of active order amounts) |
 | `if (order.status === 'PENDING') order.status = 'APPROVED'` from use case | Call `order.approve()` — invariant lives in the aggregate |
-| Publishing events inside the aggregate method | Collect via `this.apply()`, publish from the use case after `save()` |
+| Publishing events inside the aggregate method | Collect via `this.apply()` — `BaseRepository.save()` writes them to the outbox automatically |
+| Calling `getDomainEvents()` or `clearDomainEvents()` from a use case | Only `BaseRepository` does this — use cases just call `repo.save()` |
+| Publishing events directly to SQS from use case | Always write to `outbox_events` table in the same transaction — `OutboxPollerService` handles SQS delivery |
+| Storing derived state on an aggregate to avoid cross-aggregate queries | Derive via query (e.g., volume = SUM of order amounts) — keeps aggregates independent |
 
 ## Naming Conventions
 

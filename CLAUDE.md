@@ -5,7 +5,7 @@
 | Concern | Technology |
 |---|---|
 | Runtime | NestJS 11 + TypeScript |
-| Database | PostgreSQL (TypeORM or raw queries) |
+| Database | PostgreSQL (Prisma 7 + @prisma/adapter-pg) |
 | Message Broker | AWS SQS |
 | IAM | Keycloak (OIDC + JWT) |
 | Monorepo | Nx 22 |
@@ -47,7 +47,11 @@ Modular Monolith + Event-Driven Architecture + DDD.
 ## Patterns
 
 - **Aggregates:** use static factory methods (`Entity.create(props)`) — no `new` calls outside the aggregate file
-- **Domain Events:** raised inside aggregate methods, collected by `getUncommittedEvents()`, dispatched after persistence — transport mechanism TBD
+- **Single aggregate per transaction** — never modify two aggregates in one transaction. Side effects on other aggregates use domain events via outbox
+- **Domain Events:** raised inside aggregate methods via `this.apply()`, accessible via `getDomainEvents()`. Use cases never handle events directly — just call `repo.save()`
+- **BaseRepository pattern:** every repository extends `BaseRepository<T extends AggregateRoot>` from `shared/infrastructure`. `BaseRepository.save()` atomically persists the aggregate state AND writes its domain events to `outbox_events`. Concrete repositories only implement `persistAggregate()`. `getDomainEvents()` and `clearDomainEvents()` are called exclusively by `BaseRepository`
+- **Transactional Outbox:** `BaseRepository.save()` writes events to `outbox_events` in the same Prisma transaction → `OutboxPollerService` (@Cron 5s) reads unpublished rows → publishes to SQS → marks `published_at`. Consumers are idempotent via `processed_events` table
+- **Derived Volume:** `InvestmentProduct` does NOT store `allocatedVolume`. Volume is derived via `SUM(orders.amount) WHERE status IN ('PENDING','ANALYZING','APPROVED')`. This avoids cross-aggregate transactions on Order creation. Terminal order states automatically "release" volume
 - **Calculation Strategy:** `InvestmentCalculationService` uses Strategy pattern — one class per indexer type (SELIC, CDI, IPCA)
 - **Ports & Adapters:** application layer defines interfaces (ports); infrastructure implements them
 

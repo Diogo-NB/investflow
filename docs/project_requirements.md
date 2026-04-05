@@ -108,11 +108,12 @@ root/
 
 - Investor seleciona um `InvestmentProduct` e informa o `amount` desejado
 - **Validação síncrona (API):**
-  - Product está `OPEN`?
-  - Volume disponível >= amount?
+  - Product está `OPEN`? (`product.validateAcceptsOrders()`)
+  - Volume disponível >= amount? (query derivada: `totalVolume − SUM(orders.amount) WHERE status IN (PENDING, ANALYZING, APPROVED)`)
   - Amount >= PU mínimo do Product?
-- Se válido: Order criada com status `PENDING`, volume reservado no Product (mesma transação)
-- Publica `OrderCreatedEvent` via outbox → SQS
+- Se válido: `Order.create()` com status `PENDING` — **apenas o agregado Order é modificado** (single aggregate per transaction)
+- `OrderCreatedEvent` salvo na tabela `outbox_events` dentro da mesma transação
+- Após criação, use case verifica se volume do Product esgotou → se sim, `product.close()` em transação separada (consistência eventual)
 
 #### UC-03: Analisar Order (Consumer Assíncrono)
 
@@ -120,12 +121,12 @@ root/
 - Order transita para `ANALYZING`
 - Serviço externo de análise de risco é consultado (mockado — simula compliance/decisão)
 - **Se aprovada:** Order → `APPROVED`, Application é criada com status `ACTIVE`. Publica `OrderApprovedEvent` e `ApplicationCreatedEvent`
-- **Se rejeitada:** Order → `REJECTED`, volume liberado no Product. Publica `OrderRejectedEvent`
+- **Se rejeitada:** Order → `REJECTED`. Publica `OrderRejectedEvent`. O volume é automaticamente liberado — Orders em estado terminal são excluídas da query derivada de volume
 
 #### UC-04: Expiração de Order (Scheduler)
 
 - Scheduler verifica Orders `PENDING` ou `ANALYZING` cujo timeout foi atingido (configurável pela organização, default 2 dias)
-- Order → `EXPIRED`, volume liberado no Product
+- Order → `EXPIRED` (single aggregate transaction). Volume automaticamente liberado via query derivada
 - Publica `OrderExpiredEvent`
 
 #### UC-05: Consultar Investimentos
@@ -181,7 +182,7 @@ O contexto principal do sistema. Contém três agregados com ciclos de vida inde
 
 #### Agregado: InvestmentProduct (Aggregate Root)
 
-O catálogo de produtos disponíveis para investimento. Criado e gerenciado pelo ORG_USER. Controla volume disponível e define os parâmetros que toda Order deve respeitar.
+O catálogo de produtos disponíveis para investimento. Criado e gerenciado pelo ORG_USER. Define os parâmetros (volume máximo, PU mínimo, indexador) que toda Order deve respeitar. O volume alocado é um valor derivado — calculado a partir da soma dos amounts de Orders em estados não-terminais (`PENDING`, `ANALYZING`, `APPROVED`) — e nunca armazenado no agregado.
 
 **Campos:**
 
@@ -196,7 +197,6 @@ O catálogo de produtos disponíveis para investimento. Criado e gerenciado pelo
 | period | ProductPeriod (Value Object) | Value Object | startDate + endDate do produto |
 | minimumAmount | Money (Value Object) | Value Object | PU mínimo para aplicação |
 | totalVolume | Money (Value Object) | Value Object | Volume máximo de captação |
-| allocatedVolume | Money (Value Object) | Value Object | Volume já reservado/aplicado |
 | status | ProductStatus (Enum) | Value Object | `DRAFT` \| `OPEN` \| `CLOSED` |
 | createdAt | Date | Metadata | Timestamp de criação |
 
@@ -209,22 +209,21 @@ DRAFT → OPEN → CLOSED
 | Transição | Trigger | Regra |
 |---|---|---|
 | DRAFT → OPEN | ORG_USER publica | Todos os campos obrigatórios preenchidos |
-| OPEN → CLOSED | Volume esgotado ou ORG_USER fecha | Pode ser automático (volume) ou manual |
+| OPEN → CLOSED | ORG_USER fecha manualmente ou volume esgotado (detectado após criação de Order) | Fechamento por volume é eventual — verificado via query derivada |
 
 **Invariantes:**
 
-1. `allocatedVolume` nunca ultrapassa `totalVolume`
-2. Apenas produtos `OPEN` aceitam novas Orders
-3. `minimumAmount` deve ser positivo
-4. `endDate` > `startDate`
-5. Tipo e indexador devem ser compatíveis (SELIC não aceita % CDI)
+1. Apenas produtos `OPEN` aceitam novas Orders
+2. `minimumAmount` deve ser positivo
+3. `endDate` > `startDate`
+4. Tipo e indexador devem ser compatíveis (SELIC não aceita % CDI)
+5. Volume disponível (`totalVolume` − soma de Orders ativas) é validado no use case via query derivada — não é responsabilidade do agregado
 
 **Métodos:**
 
 - `InvestmentProduct.create(props)` — Factory method, status = DRAFT
 - `product.publish()` — DRAFT → OPEN, valida campos obrigatórios
-- `product.reserveVolume(amount)` — Incrementa `allocatedVolume`, valida contra `totalVolume`
-- `product.releaseVolume(amount)` — Decrementa `allocatedVolume` (rejeição/expiração de Order)
+- `product.validateAcceptsOrders()` — Verifica que status é OPEN (read-only, sem mutação)
 - `product.close()` — OPEN → CLOSED
 
 **Eventos:**
@@ -236,7 +235,7 @@ DRAFT → OPEN → CLOSED
 
 #### Agregado: Order (Aggregate Root)
 
-Representa a intenção do investidor de aplicar em um produto. Passa por validação síncrona (API) e assíncrona (serviço de risco). Reserva volume no Product durante sua existência.
+Representa a intenção do investidor de aplicar em um produto. Passa por validação síncrona (API — volume disponível via query derivada) e assíncrona (serviço de risco). Enquanto em estado não-terminal (`PENDING`, `ANALYZING`, `APPROVED`), seu amount é contabilizado na query de volume alocado do Product.
 
 **Campos:**
 
@@ -264,10 +263,10 @@ ANALYZING → EXPIRED
 | Transição | Trigger | Efeito |
 |---|---|---|
 | PENDING → ANALYZING | Consumer inicia análise | Serviço de risco consultado |
-| ANALYZING → APPROVED | Análise aprovada | Application criada, volume confirmado |
-| ANALYZING → REJECTED | Análise rejeitada | Volume liberado no Product |
-| PENDING → EXPIRED | Timeout atingido (scheduler) | Volume liberado no Product |
-| ANALYZING → EXPIRED | Timeout atingido (scheduler) | Volume liberado no Product |
+| ANALYZING → APPROVED | Análise aprovada | Application criada |
+| ANALYZING → REJECTED | Análise rejeitada | Amount excluído da query de volume (estado terminal) |
+| PENDING → EXPIRED | Timeout atingido (scheduler) | Amount excluído da query de volume (estado terminal) |
+| ANALYZING → EXPIRED | Timeout atingido (scheduler) | Amount excluído da query de volume (estado terminal) |
 
 **Invariantes:**
 
@@ -279,7 +278,7 @@ ANALYZING → EXPIRED
 
 **Métodos:**
 
-- `Order.create(props, product)` — Factory method, valida contra Product, status = PENDING
+- `Order.create(props)` — Factory method, status = PENDING (volume validation happens in use case via derived query, not in aggregate)
 - `order.startAnalysis()` — PENDING → ANALYZING
 - `order.approve()` — ANALYZING → APPROVED
 - `order.reject(reason)` — ANALYZING → REJECTED
@@ -287,11 +286,11 @@ ANALYZING → EXPIRED
 
 **Eventos:**
 
-- `OrderCreatedEvent` — ordem registrada, volume reservado
+- `OrderCreatedEvent` — ordem registrada
 - `OrderAnalysisStartedEvent` — análise de risco iniciada
 - `OrderApprovedEvent` — ordem aprovada, Application será criada
-- `OrderRejectedEvent` — ordem rejeitada, volume liberado
-- `OrderExpiredEvent` — ordem expirou, volume liberado
+- `OrderRejectedEvent` — ordem rejeitada (amount automaticamente excluído do volume derivado)
+- `OrderExpiredEvent` — ordem expirou (amount automaticamente excluído do volume derivado)
 
 ---
 
@@ -367,7 +366,7 @@ ACTIVE → MATURED → REDEEMED
 
 **InvestmentMaturationService** — Serviço de domínio invocado pelo scheduler. Busca Applications `ACTIVE` cuja `endDate` foi atingida, calcula valor final e executa `mature()` no agregado.
 
-**OrderExpirationService** — Serviço de domínio invocado pelo scheduler. Busca Orders `PENDING` ou `ANALYZING` cujo `expiresAt` foi atingido, executa `expire()` e libera volume no Product.
+**OrderExpirationService** — Serviço de domínio invocado pelo scheduler. Busca Orders `PENDING` ou `ANALYZING` cujo `expiresAt` foi atingido, executa `expire()`. O volume é automaticamente liberado pois o estado terminal da Order exclui seu amount da query derivada de volume alocado.
 
 **RiskAnalysisService** — Porta (interface) para o serviço externo de análise de risco. Implementação mockada que simula compliance/decisão com latência configurável. Retorna `APPROVED` ou `REJECTED` com reason.
 
@@ -435,7 +434,7 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 | OrderAnalysisStartedEvent | Consumer inicia análise | orderId | — |
 | OrderApprovedEvent | Análise aprovada | orderId, productId, amount | Application Creator |
 | OrderRejectedEvent | Análise rejeitada | orderId, reason | Portfolio (futuro) |
-| OrderExpiredEvent | Timeout atingido | orderId, releasedVolume | — |
+| OrderExpiredEvent | Timeout atingido | orderId, productId, amount | — |
 | ApplicationCreatedEvent | Order aprovada → Application | applicationId, investorId, type, amount | Portfolio Projection |
 | ApplicationValueUpdatedEvent | Valor recalculado | applicationId, newValue | Portfolio Projection |
 | ApplicationMaturedEvent | endDate atingida | applicationId, finalValue | Portfolio Projection |
@@ -458,17 +457,21 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 
 1. Investor autenticado envia `POST /orders` com `productId` e `amount`
 2. Guard valida JWT e extrai claims (role = INVESTOR)
-3. **Validação síncrona:** Product OPEN? Volume disponível? Amount >= PU mínimo?
+3. **Validação síncrona:**
+   - `product.validateAcceptsOrders()` — status OPEN?
+   - Query derivada: `SUM(orders.amount) WHERE product_id = ? AND status IN ('PENDING','ANALYZING','APPROVED')` — volume disponível >= amount?
+   - Amount >= PU mínimo do Product?
 4. Se falhar: retorna 400/422 com motivo
-5. Se ok: `Order.create()` + `product.reserveVolume(amount)` na mesma transação
-6. Order status = PENDING, `OrderCreatedEvent` salvo no outbox
-7. Outbox Publisher envia para SQS
-8. Consumer consome evento, `order.startAnalysis()` → ANALYZING
-9. `RiskAnalysisService` é consultado (mockado)
-10. **Se aprovado:** `order.approve()`, `Application.createFromOrder(order, product)` → ACTIVE
-11. **Se rejeitado:** `order.reject(reason)`, `product.releaseVolume(amount)`
-12. Eventos publicados via outbox → SQS
-13. Portfolio Projection consumer atualiza read model
+5. Se ok: `Order.create()` — **single aggregate transaction** (apenas Order é modificado)
+6. `OrderCreatedEvent` salvo no outbox na mesma transação
+7. Use case verifica se volume do Product esgotou → se sim, `product.close()` em transação separada
+8. Outbox Poller envia para SQS
+9. Consumer consome evento, `order.startAnalysis()` → ANALYZING
+10. `RiskAnalysisService` é consultado (mockado)
+11. **Se aprovado:** `order.approve()`, `Application.createFromOrder(order, product)` → ACTIVE
+12. **Se rejeitado:** `order.reject(reason)` — volume automaticamente liberado (estado terminal excluído da query derivada)
+13. Eventos publicados via outbox → SQS
+14. Portfolio Projection consumer atualiza read model
 
 ### 7.3 Fluxo: Maturação
 
@@ -491,8 +494,9 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 
 1. Scheduler executa `OrderExpirationService` periodicamente
 2. Busca Orders `PENDING` ou `ANALYZING` com `expiresAt <= now()`
-3. Para cada: `order.expire()`, `product.releaseVolume(amount)`
-4. `OrderExpiredEvent` publicado via outbox → SQS
+3. Para cada: `order.expire()` — **single aggregate transaction** (apenas Order é modificado)
+4. Volume automaticamente liberado — estado terminal exclui o amount da query derivada
+5. `OrderExpiredEvent` publicado via outbox → SQS
 
 ---
 
@@ -508,20 +512,103 @@ Cada bounded context é uma Nx library com contrato público definido via `share
 | Investments | Portfolio | Eventos via SQS | Domain Events (Application lifecycle) |
 | Investments | Market Data (tabela) | Leitura direta (DB) | Taxas atualizadas para cálculo |
 
-### 8.2 Padrão Outbox
+### 8.2 Padrão Transactional Outbox
 
-Para garantir consistência entre a persistência do estado e a publicação de eventos, o sistema utiliza o padrão Transactional Outbox:
+Para garantir consistência entre a persistência do estado e a publicação de eventos, o sistema utiliza o padrão Transactional Outbox.
 
-- O evento de domínio é salvo na tabela `outbox_events` dentro da mesma transação do agregado
-- Um Outbox Publisher (polling ou CDC) lê eventos pendentes e publica no SQS
-- Após confirmação de publicação, marca o evento como publicado
-- Garante at-least-once delivery + consistência eventual
+**Princípio:** O evento de domínio é salvo na tabela `outbox_events` dentro da mesma transação do agregado. Um poller assíncrono lê eventos pendentes e publica no SQS. Garante at-least-once delivery + consistência eventual.
+
+**Tabela `outbox_events`:**
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| id | UUID (PK) | Identificador único do evento |
+| event_type | string | Nome do evento (ex: `OrderCreatedEvent`) |
+| payload | JSONB | Dados serializados do evento (segue envelope padrão §6.1) |
+| aggregate_id | string | ID do agregado que originou o evento |
+| aggregate_type | string | Tipo do agregado (ex: `Order`, `InvestmentProduct`) |
+| correlation_id | UUID | ID de correlação para rastreabilidade |
+| actor_id | UUID | Usuário que disparou a ação |
+| created_at | timestamptz | Timestamp de criação |
+| published_at | timestamptz (nullable) | Timestamp de publicação — `null` = pendente |
+
+**Fluxo:**
+
+1. Use case chama `aggregate.method()` → domain events coletados via `this.apply()`
+2. Use case chama `repo.save(aggregate)` — **`BaseRepository.save()` faz tudo atomicamente:**
+   - Persiste o estado do agregado no banco
+   - Lê `aggregate.getDomainEvents()` e insere na tabela `outbox_events`
+   - Chama `aggregate.clearDomainEvents()`
+3. Steps 2a-2c ocorrem na **mesma transação** (via `TransactionInterceptor` + `AsyncLocalStorage`)
+4. `OutboxPollerService` (`@Cron`, a cada 5s) lê eventos com `published_at IS NULL`, publica no SQS, e marca `published_at`
+
+**Padrão BaseRepository:**
+
+- `BaseRepository<T extends AggregateRoot>` — classe abstrata em `shared/infrastructure`
+- Define `save(aggregate: T)` como método final (não sobrescrito): persiste + drena eventos + limpa
+- Subclasses implementam apenas `persistAggregate(aggregate, client)` — a lógica DB específica do agregado
+- Use cases **nunca** chamam `getDomainEvents()` ou `clearDomainEvents()` diretamente — apenas `repo.save()`
+
+**Idempotência do Consumer:**
+
+Cada consumer mantém controle de idempotência via tabela `processed_events`:
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| event_id | UUID (PK) | ID do evento processado |
+| consumer_name | string | Nome do consumer que processou |
+| processed_at | timestamptz | Timestamp do processamento |
+
+Antes de processar, o consumer verifica se o `event_id` já existe em `processed_events`. Se sim, descarta a mensagem (deduplicação).
 
 ---
 
-## 9. Requisitos Não Funcionais
+## 9. Decisões Arquiteturais
 
-### 9.1 Resiliência
+### 9.1 Volume Alocado como Valor Derivado (ADR)
+
+**Contexto:** O volume alocado de um `InvestmentProduct` (quanto do `totalVolume` já foi reservado por Orders) é necessário para validar novas Orders. A modelagem original armazenava `allocatedVolume` como campo do agregado Product, com métodos `reserveVolume()` e `releaseVolume()`.
+
+**Problema:** Isso criava acoplamento transacional — criar uma Order exigia modificar dois agregados (Order + Product) na mesma transação, violando o princípio DDD de "single aggregate per transaction" (Vaughn Vernon).
+
+**Decisão:** `allocatedVolume` é um **valor derivado**, calculado via query:
+
+```sql
+SELECT COALESCE(SUM(amount), 0)
+FROM orders
+WHERE product_id = :productId
+  AND status IN ('PENDING', 'ANALYZING', 'APPROVED')
+```
+
+**Consequências:**
+- **Order.create()** modifica apenas o agregado Order — single aggregate per transaction
+- **Volume é sempre consistente** — derivado da fonte de verdade (tabela de Orders)
+- **Rejeição/Expiração liberam volume automaticamente** — a transição para estado terminal exclui o amount da query, sem necessidade de `releaseVolume()`
+- **Fechamento automático de Product** por volume esgotado é eventual — verificado no use case após criação da Order, em transação separada
+- **Race conditions** controladas via isolamento de transação do PostgreSQL (serializable ou SELECT FOR UPDATE nos rows relevantes)
+- **Trade-off:** query SUM vs leitura de coluna — negligível com índice adequado
+
+### 9.2 Transactional Outbox Pattern (ADR)
+
+**Contexto:** O sistema precisa publicar domain events no SQS de forma confiável após persistir o estado do agregado.
+
+**Problema:** Publicar diretamente no SQS após o commit cria uma janela de falha — se o publish falhar, o estado foi salvo mas o evento se perdeu. Publicar antes do commit tem o problema inverso.
+
+**Decisão:** Transactional Outbox via `BaseRepository` — toda persistência de agregado automaticamente grava os domain events na tabela `outbox_events` na mesma transação. Nenhum use case precisa saber disso. Um poller assíncrono (`OutboxPollerService`, `@Cron` a cada 5s) lê eventos pendentes, publica no SQS, e marca como publicados.
+
+**Consequências:**
+- Garante at-least-once delivery (eventual consistency)
+- Consumers devem ser idempotentes (tabela `processed_events`)
+- Latência de até 5s entre persistência e publicação (aceitável para o domínio)
+- Poller é simples e não requer infraestrutura adicional (CDC, triggers, etc.)
+- Use cases ficam limpos — apenas `repo.save(aggregate)`, sem coordenação de eventos
+- `BaseRepository` é o único lugar no codebase que chama `getDomainEvents()` / `clearDomainEvents()`
+
+---
+
+## 10. Requisitos Não Funcionais
+
+### 10.1 Resiliência
 
 | Mecanismo | Implementação | Propósito |
 |---|---|---|
@@ -529,9 +616,9 @@ Para garantir consistência entre a persistência do estado e a publicação de 
 | Dead Letter Queue (DLQ) | Fila separada no SQS | Isolar mensagens problemáticas |
 | Idempotência | Controle por `eventId` (tabela `processed_events`) | Evitar processamento duplicado |
 | Transactional Outbox | Tabela `outbox_events` + publisher | Consistência estado/evento |
-| Order Timeout | Scheduler + `expiresAt` | Liberar volume reservado em orders abandonadas |
+| Order Timeout | Scheduler + `expiresAt` | Transitar orders abandonadas para estado terminal (volume derivado automaticamente recalculado) |
 
-### 9.2 Observabilidade
+### 10.2 Observabilidade
 
 **Logs Estruturados:**
 - Campos obrigatórios: `userId`, `organizationId`, `correlationId`, `eventType`
@@ -545,7 +632,7 @@ Para garantir consistência entre a persistência do estado e a publicação de 
 - Taxa de erros e DLQ depth
 - Taxa de aprovação/rejeição de Orders
 
-### 9.3 Segurança
+### 10.3 Segurança
 
 - Validação de JWT em todas as requisições (Guard NestJS)
 - Autorização baseada em roles via decorators customizados
@@ -554,7 +641,7 @@ Para garantir consistência entre a persistência do estado e a publicação de 
 
 ---
 
-## 10. Multi-Tenancy
+## 11. Multi-Tenancy
 
 Isolamento lógico por `organizationId`. Sem isolamento físico de banco (intencional para simplificar a infra). Todas as queries são filtradas pelo escopo extraído do JWT.
 
@@ -562,7 +649,7 @@ Isolamento lógico por `organizationId`. Sem isolamento físico de banco (intenc
 
 ---
 
-## 11. Limitações Intencionais
+## 12. Limitações Intencionais
 
 - Sem conexão com mercado real (taxas via Lambda + seed)
 - Sem marcação a mercado complexa (MtM simplificado)
@@ -573,7 +660,7 @@ Isolamento lógico por `organizationId`. Sem isolamento físico de banco (intenc
 
 ---
 
-## 12. Roadmap
+## 13. Roadmap
 
 | Fase | Escopo | Entregável |
 |---|---|---|
@@ -592,14 +679,14 @@ Isolamento lógico por `organizationId`. Sem isolamento físico de banco (intenc
 
 ---
 
-## 13. Critérios de Sucesso
+## 14. Critérios de Sucesso
 
 - Usuário autenticado opera dentro do seu escopo sem vazamento de dados
 - Organizações isoladas corretamente em todas as operações
 - Produtos são gerenciados pelo ORG_USER e consumidos pelo INVESTOR
-- Orders passam por dupla validação (síncrona + assíncrona) com reserva de volume
+- Orders passam por dupla validação (síncrona + assíncrona) com volume verificado via query derivada
 - Applications evoluem de estado corretamente (state machine validada)
-- Volume do Product é consistente (reservas + liberações corretas)
+- Volume do Product é consistente — derivado da soma de Orders em estados não-terminais, sem estado mutável no agregado
 - Eventos dirigem o processamento end-to-end (EDA visível)
 - Sistema observável e testável sob carga
 - Modelagem DDD coerente com bounded contexts bem definidos
