@@ -1,7 +1,8 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { OutboxModule } from './outbox/outbox.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Global()
 @Module({
@@ -9,7 +10,8 @@ import { AuthModule } from './auth/auth.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    OutboxModule,
   ],
-  exports: [PrismaModule, AuthModule],
+  exports: [PrismaModule, AuthModule, OutboxModule],
 })
 export class SharedInfrastructureModule {}

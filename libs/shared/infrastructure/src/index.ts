@@ -8,3 +8,6 @@ export { RolesGuard } from './lib/auth/roles.guard';
 export { Public } from './lib/auth/public.decorator';
 export { Roles } from './lib/auth/roles.decorator';
 export { CurrentUser } from './lib/auth/current-user.decorator';
+export { BaseRepository } from './lib/base.repository';
+export type { IMessageBroker } from './lib/outbox/message-broker.port';
+export { MESSAGE_BROKER } from './lib/outbox/message-broker.port';

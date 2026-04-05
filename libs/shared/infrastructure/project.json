@@ -13,20 +13,21 @@
         "tsConfig": "libs/shared/infrastructure/tsconfig.lib.json",
         "packageJson": "libs/shared/infrastructure/package.json",
         "main": "libs/shared/infrastructure/src/index.ts",
-        "assets": ["libs/shared/infrastructure/*.md"]
+        "assets": ["libs/shared/infrastructure/*.md"],
+        "rootDir": "."
       }
     },
     "prisma-generate": {
-      "command": "pnpm prisma generate --schema=libs/shared/infrastructure/prisma"
+      "command": "pnpm prisma generate --config=libs/shared/infrastructure/prisma/prisma.config.ts"
     },
     "prisma-migrate-dev": {
-      "command": "pnpm prisma migrate dev --schema=libs/shared/infrastructure/prisma"
+      "command": "pnpm prisma migrate dev --config=libs/shared/infrastructure/prisma/prisma.config.ts"
     },
     "prisma-migrate-deploy": {
-      "command": "pnpm prisma migrate deploy --schema=libs/shared/infrastructure/prisma"
+      "command": "pnpm prisma migrate deploy --config=libs/shared/infrastructure/prisma/prisma.config.ts"
     },
     "prisma-studio": {
-      "command": "pnpm prisma studio --schema=libs/shared/infrastructure/prisma"
+      "command": "pnpm prisma studio --config=libs/shared/infrastructure/prisma/prisma.config.ts"
     }
   }
 }

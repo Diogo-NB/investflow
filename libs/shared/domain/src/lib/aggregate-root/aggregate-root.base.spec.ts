@@ -3,6 +3,10 @@ import { DomainEvent } from '../domain-event/domain-event.interface';
 
 class TestEvent implements DomainEvent {
   readonly occurredAt = new Date();
+  readonly eventType = 'TestEvent';
+  readonly aggregateId = 'test-aggregate-id';
+  readonly aggregateType = 'TestAggregate';
+  readonly context = 'test-context';
   constructor(readonly payload: string) {}
 }
 

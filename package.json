@@ -10,6 +10,7 @@
     "kc:up": "docker compose up -d keycloak",
     "kc:down": "docker compose stop keycloak",
     "kc:logs": "docker compose logs -f keycloak",
+    "start:api": "nx serve api",
     "test": "nx run-many -t test"
   },
   "private": true,
@@ -19,6 +20,7 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/schedule": "^6.1.1",
     "@nestjs/terminus": "^11.1.1",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
