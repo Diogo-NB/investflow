@@ -97,7 +97,7 @@ export class OrderApprovedEvent {
 - Single public `execute(input)` method
 - Orchestrates: load aggregate → call domain method → persist (events handled automatically by repository)
 - Returns void or a scalar (ID) — never a domain aggregate
-- **Single aggregate per transaction** — if a use case needs to affect another aggregate, it does so via domain events (outbox → SQS → consumer) or in a separate transaction after the primary one
+- **Single aggregate per transaction** — if a use case needs to affect another aggregate, it does so via domain events (outbox → SNS → SQS → consumer) or in a separate transaction after the primary one
 - **Never call `getDomainEvents()` or `clearDomainEvents()` from a use case** — that is `BaseRepository`'s responsibility
 
 ```typescript
@@ -186,7 +186,7 @@ export class OrderRepository extends BaseRepository<Order> implements IOrderRepo
 | `if (order.status === 'PENDING') order.status = 'APPROVED'` from use case | Call `order.approve()` — invariant lives in the aggregate |
 | Publishing events inside the aggregate method | Collect via `this.apply()` — `BaseRepository.save()` writes them to the outbox automatically |
 | Calling `getDomainEvents()` or `clearDomainEvents()` from a use case | Only `BaseRepository` does this — use cases just call `repo.save()` |
-| Publishing events directly to SQS from use case | Always write to `outbox_events` table in the same transaction — `OutboxPollerService` handles SQS delivery |
+| Publishing events directly to SNS/SQS from use case | Always write to `outbox_events` table in the same transaction — `OutboxPollerService` handles SNS delivery |
 | Storing derived state on an aggregate to avoid cross-aggregate queries | Derive via query (e.g., volume = SUM of order amounts) — keeps aggregates independent |
 
 ## Naming Conventions

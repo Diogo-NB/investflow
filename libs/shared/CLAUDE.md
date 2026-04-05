@@ -34,9 +34,10 @@ If a type, class, or utility is used by only one bounded context, it belongs in 
 | `PrismaService` | DB connection via Prisma 7 + `@prisma/adapter-pg`. `.client` getter returns transactional client from `AsyncLocalStorage` |
 | `TransactionInterceptor` | Global interceptor — wraps requests in Prisma `$transaction` via `AsyncLocalStorage` |
 | `BaseRepository<T>` | Abstract base for all repositories — `save()` persists aggregate state + writes domain events to `outbox_events` atomically. Subclasses implement `persistAggregate()` |
-| `OutboxPollerService` | `@Cron` (5s) — reads unpublished `outbox_events`, publishes to SQS, marks `published_at` |
+| `OutboxPollerService` | `@Cron` (5s) — reads unpublished `outbox_events`, publishes to SNS topic (via `context` field), marks `published_at` |
+| `IMessageBroker` | Port — `publish(topicArn, message): Promise<void>`. SNS implementation in infra, console stub for dev before LocalStack |
 | `JwtAuthGuard` | Global NestJS guard — validates Keycloak JWT on every request |
-| `SqsConsumerBase` | Abstract base class for SQS consumers — handles retry, DLQ, idempotency via `processed_events` table |
+| `SqsConsumerBase` | Abstract base for SQS consumers — unwraps SNS envelope, checks `processed_events` idempotency, handles retry + DLQ |
 
 ## Types (shared/types)
 

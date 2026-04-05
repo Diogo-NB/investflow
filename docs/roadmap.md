@@ -154,21 +154,26 @@
 
 ---
 
-## Step 8 — SQS Integration (LocalStack)
+## Step 8 — SNS + SQS Integration (LocalStack)
 
-**Goal:** Outbox events are actually delivered to SQS queues and consumable.
+**Goal:** Outbox events are published to SNS and fan out to SQS queues via LocalStack.
 
 **Deliverables:**
-- LocalStack added to `docker-compose.yml` (SQS service)
-- SQS queue creation script (init hook or setup script): `investments-events`, `portfolio-events`, DLQ queues
-- `SqsMessageBroker` (`shared/infrastructure`) — implements `IMessageBroker`, sends to real SQS via AWS SDK
-- `SqsConsumerBase` abstract class (`shared/infrastructure`) — polling, deserialization, idempotency check via `processed_events`, error handling
-- `OutboxPollerService` now uses `SqsMessageBroker` instead of console logging
-- Environment config: `AWS_ENDPOINT`, `SQS_INVESTMENTS_QUEUE_URL`, etc.
+- LocalStack added to `docker-compose.yml`
+- Init script (`infra/localstack/init.sh`) runs on startup:
+  - Creates SNS topic: `investflow-investments`
+  - Creates SQS queues: `investflow-portfolio-events`, `investflow-portfolio-events-dlq`
+  - Subscribes `investflow-portfolio-events` to `investflow-investments` SNS topic
+  - Sets redrive policy on `investflow-portfolio-events` → DLQ after 3 failures
+- `SnsMessageBroker` (`shared/infrastructure`) — implements `IMessageBroker`, publishes to SNS topic ARN via AWS SDK. Topic ARN resolved from `context` field on outbox event
+- `SqsConsumerBase` (`shared/infrastructure`) — polls SQS, unwraps SNS envelope, checks `processed_events` idempotency, calls `handle()`, handles retry + DLQ
+- `OutboxPollerService` now wired with `SnsMessageBroker` instead of console stub
+- Environment config: `AWS_ENDPOINT`, `SNS_INVESTMENTS_TOPIC_ARN`, `SQS_PORTFOLIO_QUEUE_URL`
 
 **Testable:**
-- Create an order → outbox row written → poller sends to SQS → message visible in LocalStack queue
-- `processed_events` row written when a test consumer processes the message
+- Create an order → outbox row written → poller publishes to SNS → message arrives in `investflow-portfolio-events` SQS queue
+- SNS envelope correctly unwrapped by `SqsConsumerBase`
+- Message sent to DLQ after 3 failed processing attempts
 
 ---
 
@@ -358,4 +363,4 @@ Before starting Step 2, ensure:
 
 Before starting Step 8, ensure:
 - LocalStack added to `docker-compose.yml`
-- `.env` has `AWS_ENDPOINT`, `SQS_INVESTMENTS_QUEUE_URL`, `SQS_PORTFOLIO_QUEUE_URL`
+- `.env` has `AWS_ENDPOINT`, `AWS_REGION`, `SNS_INVESTMENTS_TOPIC_ARN`, `SQS_PORTFOLIO_QUEUE_URL`

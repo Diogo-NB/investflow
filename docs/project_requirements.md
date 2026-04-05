@@ -1,7 +1,7 @@
 # Documento de Requisitos — Sistema de Gerenciamento de Investimentos
 
 > **Arquitetura:** Modular Monolith | Event-Driven Architecture (EDA) | DDD
-> **Stack:** Nx Monorepo | NestJS + TypeScript | PostgreSQL | AWS SQS | Keycloak
+> **Stack:** Nx Monorepo | NestJS + TypeScript | PostgreSQL | AWS SNS + SQS | Keycloak
 > **Propósito:** Projeto showcase profissional
 
 ---
@@ -17,7 +17,7 @@ Sistema backend para gerenciamento de investimentos de renda fixa, com arquitetu
 | Estilo | Event-Driven Architecture (EDA) — estado persistido + eventos como side effect |
 | Modelagem | Domain-Driven Design (DDD) — Agregados, Entidades, Value Objects |
 | Persistência | PostgreSQL (isolamento lógico por organização) |
-| Message Broker | AWS SQS (filas por contexto) |
+| Message Broker | AWS SNS + SQS (SNS pub/sub por bounded context, SQS por consumer) |
 | IAM | Keycloak (OIDC + JWT) |
 
 ### 1.1 Estrutura do Monorepo (Nx)
@@ -36,14 +36,14 @@ root/
 │   ├── investments/                # Bounded Context: Investments (core domain)
 │   │   ├── domain/                 # Agregados, Value Objects, Domain Events, Domain Services
 │   │   ├── application/            # Use Cases, Commands, Queries, Ports (interfaces)
-│   │   └── infrastructure/         # Repositories, SQS Publishers, Adapters
+│   │   └── infrastructure/         # Repositories, SNS Publishers, Adapters
 │   ├── portfolio/                  # Bounded Context: Portfolio (supporting)
 │   │   ├── domain/
 │   │   ├── application/
 │   │   └── infrastructure/
 │   └── shared/                     # Shared Kernel
 │       ├── domain/                 # Value Objects compartilhados (Money, etc), base classes
-│       ├── infrastructure/         # Outbox, JWT Guard, SQS base consumer, DB config
+│       ├── infrastructure/         # Outbox, JWT Guard, SNS publisher, SQS base consumer, DB config
 │       └── types/                  # DTOs públicos, interfaces de contrato entre contextos
 ├── nx.json
 ├── tsconfig.base.json
@@ -60,7 +60,7 @@ root/
 | `portfolio/*` | `shared/*` | `investments/*` (recebe dados via eventos, não via import) |
 | `shared/*` | — | `investments/*`, `portfolio/*` |
 
-> **Princípio:** O Portfolio nunca importa código do Investments. A comunicação é exclusivamente via eventos SQS. O `shared/` contém apenas o que é genuinamente transversal (Money, Outbox, Guards). Se um tipo é usado por apenas um contexto, ele pertence àquele contexto, não ao shared.
+> **Princípio:** O Portfolio nunca importa código do Investments. A comunicação é exclusivamente via eventos (SNS → SQS). O `shared/` contém apenas o que é genuinamente transversal (Money, Outbox, Guards). Se um tipo é usado por apenas um contexto, ele pertence àquele contexto, não ao shared.
 | Consistência | Transactional Outbox Pattern (at-least-once delivery) |
 
 ---
@@ -70,7 +70,7 @@ root/
 - Gerenciar investimentos de renda fixa (SELIC, CDI, IPCA) com ciclo de vida completo
 - Suportar múltiplos perfis de usuário com controle de acesso granular
 - Garantir rastreabilidade completa via eventos de domínio
-- Permitir processamento assíncrono escalável via filas SQS
+- Permitir processamento assíncrono escalável via SNS + SQS
 - Demonstrar arquitetura profissional: EDA + DDD + IAM + Modular Monolith
 
 ---
@@ -171,7 +171,7 @@ root/
 | Bounded Context | Nx Lib | Responsabilidade | Comunicação |
 |---|---|---|---|
 | Identity (externo) | — (Keycloak) | Autenticação e autorização | JWT via HTTP headers |
-| Investments (core) | `libs/investments/*` | Produtos, orders e applications | Comando via API, Eventos via SQS |
+| Investments (core) | `libs/investments/*` | Produtos, orders e applications | Comando via API, Eventos via SNS |
 | Portfolio (supporting) | `libs/portfolio/*` | Visão consolidada das posições | Read model (projeção de eventos) |
 
 ### 5.2 Contexto: Investments (Core Domain)
@@ -389,7 +389,7 @@ ACTIVE → MATURED → REDEEMED
 | activeCount | Integer | Quantidade de applications ativas |
 | lastUpdatedAt | Date | Timestamp da última atualização |
 
-A projeção é atualizada por um consumer SQS que escuta eventos de Application (`Created`, `ValueUpdated`, `Matured`, `Redeemed`).
+A projeção é atualizada por um consumer SQS (`investflow-portfolio-events`) que recebe eventos de Application (`Created`, `ValueUpdated`, `Matured`, `Redeemed`) via subscrição ao tópico SNS `investflow-investments`.
 
 ### 5.6 Contexto: Identity (Generic Subdomain)
 
@@ -451,7 +451,7 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 3. `InvestmentProduct.create()` — status = DRAFT
 4. ORG_USER envia `PATCH /products/:id/publish`
 5. `product.publish()` — DRAFT → OPEN, valida campos obrigatórios
-6. `ProductPublishedEvent` salvo no outbox e publicado via SQS
+6. `ProductPublishedEvent` salvo no outbox → OutboxPoller publica no SNS `investflow-investments`
 
 ### 7.2 Fluxo: Criação de Order + Análise (INVESTOR)
 
@@ -465,13 +465,13 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 5. Se ok: `Order.create()` — **single aggregate transaction** (apenas Order é modificado)
 6. `OrderCreatedEvent` salvo no outbox na mesma transação
 7. Use case verifica se volume do Product esgotou → se sim, `product.close()` em transação separada
-8. Outbox Poller envia para SQS
-9. Consumer consome evento, `order.startAnalysis()` → ANALYZING
+8. OutboxPoller publica no SNS `investflow-investments` → SQS faz fan-out
+9. Consumer consome da fila SQS, `order.startAnalysis()` → ANALYZING
 10. `RiskAnalysisService` é consultado (mockado)
 11. **Se aprovado:** `order.approve()`, `Application.createFromOrder(order, product)` → ACTIVE
 12. **Se rejeitado:** `order.reject(reason)` — volume automaticamente liberado (estado terminal excluído da query derivada)
-13. Eventos publicados via outbox → SQS
-14. Portfolio Projection consumer atualiza read model
+13. Eventos publicados via outbox → SNS → SQS
+14. Portfolio Projection consumer consome da fila SQS e atualiza read model
 
 ### 7.3 Fluxo: Maturação
 
@@ -479,7 +479,7 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 2. Service busca Applications `ACTIVE` com `endDate <= now()`
 3. Para cada: `InvestmentCalculationService` calcula valor final
 4. `application.mature(finalValue)` — ACTIVE → MATURED
-5. `ApplicationMaturedEvent` salvo no outbox e publicado via SQS
+5. `ApplicationMaturedEvent` salvo no outbox → OutboxPoller publica no SNS → SQS
 6. Portfolio Projection atualiza posição consolidada
 
 ### 7.4 Fluxo: Resgate
@@ -487,7 +487,7 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 1. Investor solicita `POST /applications/:id/redeem`
 2. Valida que Application está `MATURED` e pertence ao investor
 3. `application.redeem()` — MATURED → REDEEMED
-4. `ApplicationRedeemedEvent` publicado via outbox → SQS
+4. `ApplicationRedeemedEvent` publicado via outbox → SNS → SQS
 5. Portfolio Projection atualiza posição
 
 ### 7.5 Fluxo: Expiração de Order
@@ -496,7 +496,7 @@ Não é um bounded context do sistema. Uma Lambda AWS externa busca diariamente 
 2. Busca Orders `PENDING` ou `ANALYZING` com `expiresAt <= now()`
 3. Para cada: `order.expire()` — **single aggregate transaction** (apenas Order é modificado)
 4. Volume automaticamente liberado — estado terminal exclui o amount da query derivada
-5. `OrderExpiredEvent` publicado via outbox → SQS
+5. `OrderExpiredEvent` publicado via outbox → SNS → SQS
 
 ---
 
@@ -509,7 +509,7 @@ Cada bounded context é uma Nx library com contrato público definido via `share
 | De | Para | Mecanismo | O Que Flui |
 |---|---|---|---|
 | Identity (Keycloak) | Investments | JWT (HTTP Header) | userId, roles, organizationId |
-| Investments | Portfolio | Eventos via SQS | Domain Events (Application lifecycle) |
+| Investments | Portfolio | SNS → SQS | Domain Events (Application lifecycle) |
 | Investments | Market Data (tabela) | Leitura direta (DB) | Taxas atualizadas para cálculo |
 
 ### 8.2 Padrão Transactional Outbox
@@ -527,6 +527,7 @@ Para garantir consistência entre a persistência do estado e a publicação de 
 | payload | JSONB | Dados serializados do evento (segue envelope padrão §6.1) |
 | aggregate_id | string | ID do agregado que originou o evento |
 | aggregate_type | string | Tipo do agregado (ex: `Order`, `InvestmentProduct`) |
+| context | string | Bounded context de origem (`investments` \| `portfolio`) — determina qual tópico SNS usar |
 | correlation_id | UUID | ID de correlação para rastreabilidade |
 | actor_id | UUID | Usuário que disparou a ação |
 | created_at | timestamptz | Timestamp de criação |
@@ -537,10 +538,13 @@ Para garantir consistência entre a persistência do estado e a publicação de 
 1. Use case chama `aggregate.method()` → domain events coletados via `this.apply()`
 2. Use case chama `repo.save(aggregate)` — **`BaseRepository.save()` faz tudo atomicamente:**
    - Persiste o estado do agregado no banco
-   - Lê `aggregate.getDomainEvents()` e insere na tabela `outbox_events`
+   - Lê `aggregate.getDomainEvents()` e insere na tabela `outbox_events` (com `context` do bounded context)
    - Chama `aggregate.clearDomainEvents()`
 3. Steps 2a-2c ocorrem na **mesma transação** (via `TransactionInterceptor` + `AsyncLocalStorage`)
-4. `OutboxPollerService` (`@Cron`, a cada 5s) lê eventos com `published_at IS NULL`, publica no SQS, e marca `published_at`
+4. `OutboxPollerService` (`@Cron`, a cada 5s) lê eventos com `published_at IS NULL`
+5. Para cada evento, usa o campo `context` para determinar o tópico SNS e publica via `IMessageBroker`
+6. Após confirmação do SNS, marca `published_at`
+7. SNS faz fan-out para as SQS queues subscritas
 
 **Padrão BaseRepository:**
 
@@ -548,6 +552,41 @@ Para garantir consistência entre a persistência do estado e a publicação de 
 - Define `save(aggregate: T)` como método final (não sobrescrito): persiste + drena eventos + limpa
 - Subclasses implementam apenas `persistAggregate(aggregate, client)` — a lógica DB específica do agregado
 - Use cases **nunca** chamam `getDomainEvents()` ou `clearDomainEvents()` diretamente — apenas `repo.save()`
+
+### 8.3 Topologia de Mensageria (SNS + SQS)
+
+O sistema utiliza SNS como barramento pub/sub por bounded context, com SQS dedicado por consumer. O publisher (OutboxPoller) conhece apenas o tópico SNS — não sabe quem consome.
+
+**Tópicos SNS:**
+
+| Tópico | Publisher | Descrição |
+|---|---|---|
+| `investflow-investments` | OutboxPollerService | Todos os domain events do contexto Investments |
+
+**Filas SQS:**
+
+| Fila | Subscrição | Consumer | DLQ |
+|---|---|---|---|
+| `investflow-portfolio-events` | `investflow-investments` | Portfolio Projection | `investflow-portfolio-events-dlq` |
+
+**SNS Message Attributes** — cada mensagem SNS inclui `eventType` como atributo, permitindo filtragem no lado do subscriber se necessário no futuro.
+
+**SNS Envelope Unwrapping** — o SNS encapsula a mensagem ao entregar no SQS. O `SqsConsumerBase` é responsável por unwrap do envelope SNS antes de deserializar o domain event:
+
+```json
+// Mensagem recebida na fila SQS (envelope SNS)
+{
+  "Type": "Notification",
+  "MessageId": "uuid",
+  "TopicArn": "arn:aws:sns:...:investflow-investments",
+  "Message": "{\"eventId\":\"...\",\"eventType\":\"OrderCreatedEvent\", ...}",
+  "MessageAttributes": {
+    "eventType": { "Type": "String", "Value": "OrderCreatedEvent" }
+  }
+}
+```
+
+**LocalStack** — emula SNS e SQS localmente. Script de init cria tópicos, filas, subscriptions e redrive policies automaticamente no `docker-compose up`.
 
 **Idempotência do Consumer:**
 
@@ -594,7 +633,7 @@ WHERE product_id = :productId
 
 **Problema:** Publicar diretamente no SQS após o commit cria uma janela de falha — se o publish falhar, o estado foi salvo mas o evento se perdeu. Publicar antes do commit tem o problema inverso.
 
-**Decisão:** Transactional Outbox via `BaseRepository` — toda persistência de agregado automaticamente grava os domain events na tabela `outbox_events` na mesma transação. Nenhum use case precisa saber disso. Um poller assíncrono (`OutboxPollerService`, `@Cron` a cada 5s) lê eventos pendentes, publica no SQS, e marca como publicados.
+**Decisão:** Transactional Outbox via `BaseRepository` — toda persistência de agregado automaticamente grava os domain events na tabela `outbox_events` na mesma transação. Nenhum use case precisa saber disso. Um poller assíncrono (`OutboxPollerService`, `@Cron` a cada 5s) lê eventos pendentes, publica no tópico SNS correspondente ao `context` do evento, e marca como publicados. SNS faz fan-out para as SQS queues subscritas.
 
 **Consequências:**
 - Garante at-least-once delivery (eventual consistency)
@@ -603,6 +642,28 @@ WHERE product_id = :productId
 - Poller é simples e não requer infraestrutura adicional (CDC, triggers, etc.)
 - Use cases ficam limpos — apenas `repo.save(aggregate)`, sem coordenação de eventos
 - `BaseRepository` é o único lugar no codebase que chama `getDomainEvents()` / `clearDomainEvents()`
+
+### 9.3 SNS + SQS em vez de SQS direto (ADR)
+
+**Contexto:** O sistema precisa de um mecanismo de mensageria para comunicação assíncrona entre bounded contexts.
+
+**Alternativas consideradas:**
+- **SQS direto:** point-to-point, publisher conhece a fila de destino
+- **SNS + SQS:** pub/sub, publisher conhece apenas o tópico; subscribers são transparentes
+- **EventBridge:** event bus gerenciado com roteamento por conteúdo e schema registry
+
+**Decisão:** SNS + SQS.
+
+**Por que não SQS direto:** O publisher (OutboxPoller no contexto Investments) passaria a conhecer a fila do Portfolio — acoplamento direto entre bounded contexts, exatamente o que EDA evita. Adicionar um novo consumer exigiria mudança no Investments.
+
+**Por que não EventBridge:** Complexidade desproporcional. O projeto tem um conjunto pequeno e conhecido de consumers. Content-based routing não é necessário — consumers filtram por `event_type` no payload. EventBridge desviaria foco da arquitetura DDD/EDA para configuração AWS.
+
+**Consequências:**
+- Publisher conhece apenas o tópico SNS do seu próprio contexto — zero acoplamento com consumers
+- Adicionar novo consumer = criar SQS queue + subscription no SNS, zero mudanças no publisher
+- `SqsConsumerBase` deve fazer unwrap do envelope SNS antes de processar
+- `outbox_events` precisa do campo `context` para o poller determinar o tópico SNS correto
+- LocalStack emula SNS + SQS localmente com fidelidade suficiente para desenvolvimento
 
 ---
 
@@ -613,7 +674,7 @@ WHERE product_id = :productId
 | Mecanismo | Implementação | Propósito |
 |---|---|---|
 | Retry | Exponential backoff no consumer SQS | Tolerar falhas transientes |
-| Dead Letter Queue (DLQ) | Fila separada no SQS | Isolar mensagens problemáticas |
+| Dead Letter Queue (DLQ) | Fila SQS dedicada por consumer (ex: `investflow-portfolio-events-dlq`) | Isolar mensagens problemáticas sem bloquear a fila principal |
 | Idempotência | Controle por `eventId` (tabela `processed_events`) | Evitar processamento duplicado |
 | Transactional Outbox | Tabela `outbox_events` + publisher | Consistência estado/evento |
 | Order Timeout | Scheduler + `expiresAt` | Transitar orders abandonadas para estado terminal (volume derivado automaticamente recalculado) |
