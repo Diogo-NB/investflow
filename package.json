@@ -11,7 +11,8 @@
     "kc:down": "docker compose stop keycloak",
     "kc:logs": "docker compose logs -f keycloak",
     "start:api": "nx serve api",
-    "test": "nx run-many -t test"
+    "build:api": "nx build api",
+    "test": "nx run-many -t test --passWithNoTests"
   },
   "private": true,
   "dependencies": {
@@ -25,6 +26,7 @@
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
     "axios": "^1.6.0",
+    "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
     "jwks-rsa": "^4.0.1",
     "passport": "^0.7.0",

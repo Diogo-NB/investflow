@@ -70,3 +70,29 @@ function parsePayload(raw: unknown): string {
 - Decorators or framework internals require it (e.g. NestJS metadata reflection)
 
 Exceptions must be accompanied by an `// eslint-disable-next-line @typescript-eslint/no-explicit-any` comment and a brief reason.
+
+## 4. Fluent Domain Methods
+
+Aggregate methods that have no meaningful return value must return `this` instead of `void`, enabling fluent chaining.
+
+```typescript
+// Bad
+approve(): void {
+  this._status = OrderStatus.APPROVED;
+  this.apply(new OrderApprovedEvent(...));
+}
+
+// Good
+approve(): this {
+  this._status = OrderStatus.APPROVED;
+  this.apply(new OrderApprovedEvent(...));
+  return this;
+}
+```
+
+This applies to all aggregate methods across all bounded contexts. Use cases and tests can then chain calls naturally:
+
+```typescript
+await repo.save(order.approve());
+product.publish().validateAcceptsOrders();
+```

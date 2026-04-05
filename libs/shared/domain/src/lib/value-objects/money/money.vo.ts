@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { DomainError } from '../../errors/domain.error';
+import { ValueObject } from '../value-object.base';
 
 export class InvalidMoneyError extends DomainError {
   constructor(amount: Decimal) {
@@ -7,11 +8,13 @@ export class InvalidMoneyError extends DomainError {
   }
 }
 
-export class Money {
+export class Money extends ValueObject<Money> {
   private constructor(
     readonly amount: Decimal,
     readonly currency: 'BRL',
-  ) {}
+  ) {
+    super();
+  }
 
   static of(amount: Decimal | number | string): Money {
     const decimal = new Decimal(amount);

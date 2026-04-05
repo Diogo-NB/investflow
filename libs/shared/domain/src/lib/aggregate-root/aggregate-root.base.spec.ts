@@ -2,6 +2,7 @@ import { AggregateRoot } from './aggregate-root.base';
 import { DomainEvent } from '../domain-event/domain-event.interface';
 
 class TestEvent implements DomainEvent {
+  readonly eventId = crypto.randomUUID();
   readonly occurredAt = new Date();
   readonly eventType = 'TestEvent';
   readonly aggregateId = 'test-aggregate-id';
@@ -11,6 +12,11 @@ class TestEvent implements DomainEvent {
 }
 
 class TestAggregate extends AggregateRoot {
+  constructor() {
+    const now = new Date();
+    super('test-id', now, now);
+  }
+
   doSomething(payload: string): void {
     this.apply(new TestEvent(payload));
   }

@@ -15,10 +15,10 @@ export abstract class BaseRepository<T extends AggregateRoot> {
 
     await client.outboxEvent.createMany({
       data: events.map((event) => ({
+        id: event.eventId,
         aggregateType: event.aggregateType,
         aggregateId: event.aggregateId,
         eventType: event.eventType,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         payload: event as unknown as Prisma.InputJsonValue,
         context: event.context,
         occurredAt: event.occurredAt,

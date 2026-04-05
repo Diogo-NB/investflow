@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import { DomainError } from '../../errors/domain.error';
 import { RateReferenceType } from '../rate-reference-type/rate-reference-type.enum';
+import { ValueObject } from '../value-object.base';
 
 export class InvalidRateError extends DomainError {
   constructor(value: Decimal) {
@@ -8,11 +9,13 @@ export class InvalidRateError extends DomainError {
   }
 }
 
-export class Rate {
+export class Rate extends ValueObject<Rate> {
   private constructor(
     readonly value: Decimal,
     readonly referenceType: RateReferenceType,
-  ) {}
+  ) {
+    super();
+  }
 
   static of(value: Decimal | number | string, referenceType: RateReferenceType): Rate {
     const decimal = new Decimal(value);

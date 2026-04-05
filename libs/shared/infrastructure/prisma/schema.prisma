@@ -27,3 +27,26 @@ model ProcessedEvent {
 
   @@map("processed_events")
 }
+
+model InvestmentProduct {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  type           String
+  indexerType    String   @map("indexer_type")
+  indexerPct     Decimal? @map("indexer_pct") @db.Decimal(10, 4)
+  indexerSpread  Decimal? @map("indexer_spread") @db.Decimal(10, 4)
+  rateValue      Decimal  @map("rate_value") @db.Decimal(10, 4)
+  rateRefType    String   @map("rate_ref_type")
+  startDate      DateTime @map("start_date")
+  endDate        DateTime @map("end_date")
+  minimumAmount  Decimal  @map("minimum_amount") @db.Decimal(20, 4)
+  totalVolume    Decimal  @map("total_volume") @db.Decimal(20, 4)
+  status         String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("investment_products")
+}
