@@ -3,3 +3,8 @@ export { PrismaModule } from './lib/prisma/prisma.module';
 export { PrismaService } from './lib/prisma/prisma.service';
 export type { TransactionalPrismaClient } from './lib/prisma/prisma-client.type';
 export { SkipTransaction } from './lib/prisma/skip-transaction.decorator';
+export { JwtAuthGuard } from './lib/auth/jwt-auth.guard';
+export { RolesGuard } from './lib/auth/roles.guard';
+export { Public } from './lib/auth/public.decorator';
+export { Roles } from './lib/auth/roles.decorator';
+export { CurrentUser } from './lib/auth/current-user.decorator';

@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
-import { SkipTransaction } from '@investflow/shared-infrastructure';
+import { Public, SkipTransaction } from '@investflow/shared-infrastructure';
 import { AppHealth } from './app.health';
 
 @Controller()
@@ -10,6 +10,7 @@ export class AppController {
     private readonly appHealth: AppHealth,
   ) {}
 
+  @Public()
   @SkipTransaction()
   @Get('health-check')
   @HealthCheck()
