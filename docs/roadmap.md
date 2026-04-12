@@ -19,6 +19,7 @@
 **Goal:** Implement the base building blocks used by all aggregates and the event publishing port.
 
 **Deliverables:**
+
 - `AggregateRoot` base class (`shared/domain`) — `apply()`, `getDomainEvents()`, `clearDomainEvents()`
 - `DomainEvent` base interface (`shared/domain`)
 - Value Objects in `shared/domain`:
@@ -37,6 +38,7 @@
 **Goal:** JWT guard wired into NestJS, roles and claims extractable from requests.
 
 **Deliverables:**
+
 - `JwtAuthGuard` (global) in `shared/infrastructure` — validates Keycloak-issued JWTs
 - `RolesGuard` + `@Roles()` decorator — enforces `INVESTOR` | `ORG_USER`
 - `CurrentUser` decorator — extracts `userId`, `organizationId`, `roles` from JWT claims
@@ -53,6 +55,7 @@
 **Goal:** `BaseRepository` handles event persistence automatically. The outbox table and poller are operational — SQS integration is stubbed (logged to console) until LocalStack is set up in Step 8.
 
 **Deliverables:**
+
 - Prisma schema: `outbox_events` table + `processed_events` table (migration)
 - `BaseRepository<T extends AggregateRoot>` (`shared/infrastructure`):
   - `save(aggregate)` — calls `persistAggregate()`, writes `getDomainEvents()` to outbox, calls `clearDomainEvents()` — all in same Prisma transaction
@@ -70,6 +73,7 @@
 **Goal:** Full Product aggregate with state machine, events, and DB persistence.
 
 **Deliverables:**
+
 - `InvestmentProduct` aggregate (`investments/domain`):
   - Value Objects: `Indexer`, `ProductPeriod`, `ProductStatus` enum
   - Methods: `create()`, `publish()`, `validateAcceptsOrders()`, `close()`
@@ -90,6 +94,7 @@
 **Goal:** REST endpoints for managing products, secured by role.
 
 **Deliverables:**
+
 - Use cases (`investments/application`):
   - `CreateProductUseCase` — creates product (DRAFT), publishes events to outbox
   - `PublishProductUseCase` — DRAFT → OPEN, publishes `ProductPublishedEvent` to outbox
@@ -101,6 +106,7 @@
 - All queries scoped by `organizationId`
 
 **Testable:**
+
 - `POST /products` creates product (ORG_USER JWT)
 - `PATCH /products/:id/publish` transitions to OPEN, `outbox_events` row appears
 - `GET /products` returns only org's products
@@ -113,6 +119,7 @@
 **Goal:** Order aggregate with state machine, invariants, and DB persistence.
 
 **Deliverables:**
+
 - `Order` aggregate (`investments/domain`):
   - Methods: `create()`, `startAnalysis()`, `approve()`, `reject()`, `expire()`
   - Events: `OrderCreatedEvent`, `OrderAnalysisStartedEvent`, `OrderApprovedEvent`, `OrderRejectedEvent`, `OrderExpiredEvent`
@@ -134,6 +141,7 @@
 **Goal:** INVESTOR can create an order; volume is validated via derived query, single aggregate transaction.
 
 **Deliverables:**
+
 - `CreateOrderUseCase` (`investments/application`):
   - Loads product → `product.validateAcceptsOrders()` (read-only, checks OPEN status)
   - Queries `orderRepo.sumActiveOrderAmounts(productId)` → calculates available volume
@@ -146,6 +154,7 @@
 - `GetOrderUseCase` + `ListOrdersUseCase`
 
 **Testable:**
+
 - `POST /orders` with valid product returns Order (PENDING), `outbox_events` row appears
 - `POST /orders` with CLOSED product returns 422
 - `POST /orders` with amount < minimum returns 422
@@ -159,6 +168,7 @@
 **Goal:** Outbox events are published to SNS and fan out to SQS queues via LocalStack.
 
 **Deliverables:**
+
 - LocalStack added to `docker-compose.yml`
 - Init script (`infra/localstack/init.sh`) runs on startup:
   - Creates SNS topic: `investflow-investments`
@@ -171,6 +181,7 @@
 - Environment config: `AWS_ENDPOINT`, `SNS_INVESTMENTS_TOPIC_ARN`, `SQS_PORTFOLIO_QUEUE_URL`
 
 **Testable:**
+
 - Create an order → outbox row written → poller publishes to SNS → message arrives in `investflow-portfolio-events` SQS queue
 - SNS envelope correctly unwrapped by `SqsConsumerBase`
 - Message sent to DLQ after 3 failed processing attempts
@@ -182,6 +193,7 @@
 **Goal:** Application aggregate with full lifecycle and DB persistence.
 
 **Deliverables:**
+
 - `Application` aggregate (`investments/domain`):
   - Value Object: `ApplicationPeriod`
   - Methods: `createFromOrder()`, `updateValue()`, `mature()`, `redeem()`
@@ -201,6 +213,7 @@
 **Goal:** SQS consumer processes `OrderCreatedEvent`, runs mock risk analysis, creates Application on approval.
 
 **Deliverables:**
+
 - `RiskAnalysisService` interface (port) + mock implementation — simulates APPROVED/REJECTED
 - `AnalyzeOrderUseCase` (`investments/application`):
   - `order.startAnalysis()` → calls RiskAnalysisService
@@ -211,6 +224,7 @@
 - `ListApplicationsUseCase` + `GET /applications` endpoint
 
 **Testable:**
+
 - Publish `OrderCreatedEvent` to SQS → Order transitions to ANALYZING → APPROVED/REJECTED
 - Approved: Application record created with status ACTIVE
 - Rejected: no Application created, volume automatically freed (terminal Order excluded from derived query)
@@ -223,6 +237,7 @@
 **Goal:** Value calculation for all three indexer types using market rates from DB.
 
 **Deliverables:**
+
 - Prisma schema: `market_rates` table (migration) + seed with sample SELIC/CDI/IPCA rates
 - `IMarketRateRepository` port + implementation
 - `InvestmentCalculationService` (`investments/domain`) with Strategy pattern:
@@ -240,6 +255,7 @@
 **Goal:** Automated lifecycle transitions via NestJS scheduled tasks.
 
 **Deliverables:**
+
 - `ExpireOrdersUseCase` (`investments/application`):
   - Finds PENDING/ANALYZING orders where `expiresAt <= now()`
   - For each: `order.expire()` — single aggregate transaction
@@ -253,6 +269,7 @@
 - `SchedulerModule` (`investments/infrastructure`) — NestJS `@Cron` tasks wiring both use cases
 
 **Testable:**
+
 - Seed an order with `expiresAt` in the past → scheduler run → Order becomes EXPIRED
 - Seed an application with `endDate` in the past → scheduler run → Application becomes MATURED
 
@@ -263,12 +280,14 @@
 **Goal:** INVESTOR can redeem a matured application.
 
 **Deliverables:**
+
 - `RedeemApplicationUseCase` (`investments/application`):
   - Validates Application is MATURED and belongs to investor
   - `application.redeem()` → `ApplicationRedeemedEvent` written to outbox
 - `POST /applications/:id/redeem` endpoint
 
 **Testable:**
+
 - `POST /applications/:id/redeem` on MATURED application → status becomes REDEEMED
 - Same endpoint on ACTIVE application returns 422
 - INVESTOR cannot redeem another investor's application (403)
@@ -280,6 +299,7 @@
 **Goal:** Portfolio context maintains a consolidated position view updated by Application events.
 
 **Deliverables:**
+
 - `PortfolioPosition` read model (`portfolio/domain` — plain class, no aggregate)
 - Prisma schema: `portfolio_positions` table (migration)
 - `IPortfolioPositionRepository` (`portfolio/application`)
@@ -293,6 +313,7 @@
 - `GET /portfolio` endpoint — returns consolidated positions for authenticated user
 
 **Testable:**
+
 - End-to-end: create order → approve → Application created → Portfolio position appears
 - Maturation updates `currentValue` in position
 - Redemption decrements `activeCount`
@@ -304,6 +325,7 @@
 **Goal:** System tolerates transient failures and duplicate messages without data corruption.
 
 **Deliverables:**
+
 - `SqsConsumerBase` enhanced with exponential backoff retry (configurable max attempts)
 - DLQ configured for each SQS queue (LocalStack)
 - Idempotency via `processed_events` verified across all consumers
@@ -311,6 +333,7 @@
 - Integration tests: send duplicate event → second processing skipped
 
 **Testable:**
+
 - Consumer throwing on first attempt retries and eventually succeeds
 - Processed event ID deduplicated across all consumers
 
@@ -321,12 +344,14 @@
 **Goal:** All requests and consumer executions emit structured JSON logs with required fields.
 
 **Deliverables:**
+
 - `LoggingInterceptor` (`shared/infrastructure`) — per-request JSON log with `userId`, `organizationId`, `correlationId`, method, path, duration, status
 - `CorrelationIdMiddleware` — generates/propagates `X-Correlation-ID`
 - Consumer logging — each message processed logs `eventType`, `eventId`, `correlationId`, duration, outcome
 - Wired globally in `apps/api`
 
 **Testable:**
+
 - HTTP request produces JSON log line with all required fields
 - Consumer processing produces JSON log with eventId and outcome
 
@@ -357,10 +382,12 @@ Steps 15–16 can run after Step 10 is complete
 ## Infrastructure Prerequisites (one-time setup)
 
 Before starting Step 2, ensure:
+
 - `docker-compose up` starts PostgreSQL and Keycloak
 - Keycloak realm `investflow` exists with client `api`, roles `INVESTOR` and `ORG_USER`
 - `.env` has `DATABASE_URL`, `KEYCLOAK_URL`
 
 Before starting Step 8, ensure:
+
 - LocalStack added to `docker-compose.yml`
 - `.env` has `AWS_ENDPOINT`, `AWS_REGION`, `SNS_INVESTMENTS_TOPIC_ARN`, `SQS_PORTFOLIO_QUEUE_URL`

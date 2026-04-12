@@ -28,10 +28,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
     this._client = new PrismaClient({
       adapter,
-      log:
-        config.get('NODE_ENV') === 'production'
-          ? ['error', 'warn']
-          : ['error', 'warn', 'query'],
+      log: ['error', 'warn'],
     });
   }
 

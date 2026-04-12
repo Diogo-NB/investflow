@@ -54,6 +54,7 @@ Modular Monolith + Event-Driven Architecture + DDD.
 - **SNS + SQS topology:** one SNS topic per bounded context (`investflow-investments`), one SQS queue + DLQ per consumer (`investflow-portfolio-events`, `investflow-portfolio-events-dlq`). Publisher knows only the SNS topic — zero coupling to consumers. `SqsConsumerBase` unwraps the SNS envelope before processing
 - **Derived Volume:** `InvestmentProduct` does NOT store `allocatedVolume`. Volume is derived via `SUM(orders.amount) WHERE status IN ('PENDING','ANALYZING','APPROVED')`. This avoids cross-aggregate transactions on Order creation. Terminal order states automatically "release" volume
 - **Calculation Strategy:** `InvestmentCalculationService` uses Strategy pattern — one class per indexer type (SELIC, CDI, IPCA)
+- **CQRS (lightweight):** Use cases are the write side — their input is a plain command DTO. Query handlers are the read side — they query Prisma directly, never loading domain aggregates. No mediator bus — handlers are injected and called directly. Command DTOs live in `application/use-cases/<feature>/`. Query handlers (and their query DTOs) live in `infrastructure/query-handlers/`. No `*ReadModel` interfaces unless explicitly requested.
 - **Ports & Adapters:** application layer defines interfaces (ports); infrastructure implements them
 
 ## Nx Guidelines

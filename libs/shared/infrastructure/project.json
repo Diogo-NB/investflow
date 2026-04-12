@@ -13,8 +13,7 @@
         "tsConfig": "libs/shared/infrastructure/tsconfig.lib.json",
         "packageJson": "libs/shared/infrastructure/package.json",
         "main": "libs/shared/infrastructure/src/index.ts",
-        "assets": ["libs/shared/infrastructure/*.md"],
-        "rootDir": "."
+        "assets": ["libs/shared/infrastructure/*.md"]
       }
     },
     "prisma-generate": {

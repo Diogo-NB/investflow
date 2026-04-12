@@ -1,4 +1,4 @@
-import { DomainError } from '@investflow/shared-domain';
+import { DomainError, NotFoundError } from '@investflow/shared-domain';
 
 export class InvalidIndexerError extends DomainError {
   constructor(message: string) {
@@ -18,7 +18,7 @@ export class ProductNotOpenError extends DomainError {
   }
 }
 
-export class ProductNotFoundError extends DomainError {
+export class ProductNotFoundError extends NotFoundError {
   constructor(id: string) {
     super(`InvestmentProduct not found: ${id}`);
   }

@@ -5,3 +5,7 @@ export class DomainError extends Error {
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
+
+export class NotFoundError extends DomainError {}
+
+export class ConflictError extends DomainError {}

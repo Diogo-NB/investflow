@@ -11,3 +11,4 @@ export { CurrentUser } from './lib/auth/current-user.decorator';
 export { BaseRepository } from './lib/base.repository';
 export type { IMessageBroker } from './lib/outbox/message-broker.port';
 export { MESSAGE_BROKER } from './lib/outbox/message-broker.port';
+export { DomainExceptionFilter } from './lib/filters/domain-exception.filter';

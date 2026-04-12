@@ -5,6 +5,7 @@
     "sourceMap": true,
     "declaration": false,
     "moduleResolution": "node10",
+    "ignoreDeprecations": "5.0",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "importHelpers": true,

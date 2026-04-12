@@ -180,23 +180,63 @@ export class Order extends AggregateRoot {
 ### Use Case
 
 - One class per use case in `application/use-cases/`
-- Single public `execute(input)` method
+- Takes a **command DTO** as its input — a plain typed class co-located in the same folder
+- Single public `execute(command)` method
 - Orchestrates: load aggregate → call domain method → persist (events handled automatically by repository)
 - Returns void or a scalar (ID) — never a domain aggregate
 - **Single aggregate per transaction** — if a use case needs to affect another aggregate, it does so via domain events (outbox → SNS → SQS → consumer) or in a separate transaction after the primary one
 - **Never call `getDomainEvents()` or `clearDomainEvents()` from a use case** — that is `BaseRepository`'s responsibility
 
 ```typescript
+// application/use-cases/approve-order/approve-order.command.ts
+export class ApproveOrderCommand {
+  constructor(readonly orderId: string) {}
+}
+
+// application/use-cases/approve-order/approve-order.use-case.ts
 export class ApproveOrderUseCase {
   constructor(private readonly orderRepo: IOrderRepository) {}
 
-  async execute(orderId: string): Promise<void> {
-    const order = await this.orderRepo.findByIdOrThrow(orderId);
-    order.approve();
-    await this.orderRepo.save(order); // state + domain events written atomically
+  async execute(command: ApproveOrderCommand): Promise<void> {
+    const order = await this.orderRepo.findByIdOrThrow(command.orderId);
+    await this.orderRepo.save(order.approve());
   }
 }
 ```
+
+### CQRS
+
+No mediator bus, no automatic dispatch — handlers are injected and called directly.
+
+**Command DTO** — plain typed class, the input of a use case. Co-located with its use case in `application/use-cases/<feature>/`.
+
+**Query DTO** — plain typed class, the input of a query handler. Co-located with its query handler in `infrastructure/query-handlers/`.
+
+Query handlers live in `infrastructure/query-handlers/` because they depend on Prisma directly. They never load domain aggregates — they query the DB and map to the desired shape. Handler and query interfaces are defined locally — no shared base interface required.
+
+```typescript
+// infrastructure/query-handlers/get-product.query-handler.ts
+export class GetProductQuery {
+  constructor(
+    readonly productId: string,
+    readonly organizationId: string,
+  ) {}
+}
+
+@Injectable()
+export class GetProductQueryHandler {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async execute(query: GetProductQuery): Promise<{ id: string; name: string; status: string }> {
+    return this.prisma.client.investmentProduct.findUniqueOrThrow({
+      where: { id: query.productId, organizationId: query.organizationId },
+      select: { id: true, name: true, status: true },
+    });
+  }
+}
+```
+
+No `*ReadModel` interfaces — return an inline type unless explicitly asked.
 
 ### Repository (Port)
 
