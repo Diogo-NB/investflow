@@ -4,39 +4,37 @@
     "rootDir": ".",
     "sourceMap": true,
     "declaration": false,
-    "moduleResolution": "node10",
-    "ignoreDeprecations": "5.0",
+    "moduleResolution": "node",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "importHelpers": true,
-    "target": "es2015",
-    "module": "esnext",
+    "target": "es2021",
+    "module": "commonjs",
     "lib": ["es2020", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "@investflow/investments-domain": [
-        "libs/investments/domain/src/index.ts"
+        "./libs/investments/domain/src/index.ts"
       ],
       "@investflow/investments-application": [
-        "libs/investments/application/src/index.ts"
+        "./libs/investments/application/src/index.ts"
       ],
       "@investflow/investments-infrastructure": [
-        "libs/investments/infrastructure/src/index.ts"
+        "./libs/investments/infrastructure/src/index.ts"
       ],
-      "@investflow/portfolio-domain": ["libs/portfolio/domain/src/index.ts"],
+      "@investflow/portfolio-domain": ["./libs/portfolio/domain/src/index.ts"],
       "@investflow/portfolio-application": [
-        "libs/portfolio/application/src/index.ts"
+        "./libs/portfolio/application/src/index.ts"
       ],
       "@investflow/portfolio-infrastructure": [
-        "libs/portfolio/infrastructure/src/index.ts"
+        "./libs/portfolio/infrastructure/src/index.ts"
       ],
-      "@investflow/shared-domain": ["libs/shared/domain/src/index.ts"],
+      "@investflow/shared-domain": ["./libs/shared/domain/src/index.ts"],
       "@investflow/shared-infrastructure": [
-        "libs/shared/infrastructure/src/index.ts"
+        "./libs/shared/infrastructure/src/index.ts"
       ],
-      "@investflow/shared-types": ["libs/shared/types/src/index.ts"]
+      "@investflow/shared-types": ["./libs/shared/types/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]
