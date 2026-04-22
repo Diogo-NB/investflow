@@ -57,6 +57,12 @@ Modular Monolith + Event-Driven Architecture + DDD.
 - **CQRS (lightweight):** Use cases are the write side — their input is a plain command DTO. Query handlers are the read side — they query Prisma directly, never loading domain aggregates. No mediator bus — handlers are injected and called directly. Command DTOs live in `application/use-cases/<feature>/`. Query handlers (and their query DTOs) live in `infrastructure/query-handlers/`. No `*ReadModel` interfaces unless explicitly requested.
 - **Ports & Adapters:** application layer defines interfaces (ports); infrastructure implements them
 
+## Build & Dev Commands
+
+```bash
+nvm use && pnpm build:api   # Build the API (use this instead of nx build directly)
+```
+
 ## Nx Guidelines
 
 @AGENTS.md

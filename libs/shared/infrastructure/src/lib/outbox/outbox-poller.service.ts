@@ -5,8 +5,6 @@ import { IMessageBroker, MESSAGE_BROKER } from './message-broker.port';
 
 @Injectable()
 export class OutboxPollerService {
-  private readonly logger = new Logger(OutboxPollerService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     @Inject(MESSAGE_BROKER) private readonly messageBroker: IMessageBroker,

@@ -169,12 +169,6 @@
 
 **Deliverables:**
 
-- LocalStack added to `docker-compose.yml`
-- Init script (`infra/localstack/init.sh`) runs on startup:
-  - Creates SNS topic: `investflow-investments`
-  - Creates SQS queues: `investflow-portfolio-events`, `investflow-portfolio-events-dlq`
-  - Subscribes `investflow-portfolio-events` to `investflow-investments` SNS topic
-  - Sets redrive policy on `investflow-portfolio-events` → DLQ after 3 failures
 - `SnsMessageBroker` (`shared/infrastructure`) — implements `IMessageBroker`, publishes to SNS topic ARN via AWS SDK. Topic ARN resolved from `context` field on outbox event
 - `SqsConsumerBase` (`shared/infrastructure`) — polls SQS, unwraps SNS envelope, checks `processed_events` idempotency, calls `handle()`, handles retry + DLQ
 - `OutboxPollerService` now wired with `SnsMessageBroker` instead of console stub
@@ -185,6 +179,8 @@
 - Create an order → outbox row written → poller publishes to SNS → message arrives in `investflow-portfolio-events` SQS queue
 - SNS envelope correctly unwrapped by `SqsConsumerBase`
 - Message sent to DLQ after 3 failed processing attempts
+
+Note: for now we won't add the possibility to run using localstack, we will do that later on
 
 ---
 

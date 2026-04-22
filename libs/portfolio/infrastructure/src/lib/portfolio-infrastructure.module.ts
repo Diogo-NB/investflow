@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
+import { PortfolioEventsListener } from './consumers/portfolio-events.listener';
 
 @Module({
-  controllers: [],
-  providers: [],
-  exports: [],
+  providers: [PortfolioEventsListener],
 })
 export class PortfolioInfrastructureModule {}

@@ -1,4 +1,11 @@
-import { AggregateRoot, AggregateRootProps, DateRange, InvestmentType, Money, Rate } from '@investflow/shared-domain';
+import {
+  AggregateRoot,
+  AggregateRootProps,
+  DateRange,
+  InvestmentType,
+  Money,
+  Rate,
+} from '@investflow/shared-domain';
 import {
   InvalidProductTransitionError,
   ProductNotFoundError,
@@ -50,7 +57,10 @@ export class InvestmentProduct extends AggregateRoot {
   }
 
   static create(
-    props: Omit<InvestmentProductProps, 'id' | 'status' | 'createdAt' | 'updatedAt'> & { id?: string },
+    props: Omit<
+      InvestmentProductProps,
+      'id' | 'status' | 'createdAt' | 'updatedAt'
+    > & { id?: string },
   ): InvestmentProduct {
     const now = new Date();
     return new InvestmentProduct({
@@ -93,7 +103,10 @@ export class InvestmentProduct extends AggregateRoot {
 
   close(): this {
     if (this._status !== ProductStatus.OPEN) {
-      throw new InvalidProductTransitionError(this._status, ProductStatus.CLOSED);
+      throw new InvalidProductTransitionError(
+        this._status,
+        ProductStatus.CLOSED,
+      );
     }
     this._status = ProductStatus.CLOSED;
     this.updatedAt = new Date();
