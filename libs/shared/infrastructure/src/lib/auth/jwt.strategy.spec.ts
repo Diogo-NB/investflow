@@ -31,7 +31,7 @@ describe('JwtStrategy', () => {
 
     expect(result).toEqual({
       userId: 'user-uuid',
-      organizationId: 'd4e5f6a7-b8c9-0123-defa-234567890321',
+      organizationId: undefined,
       roles: ['INVESTOR'],
       email: '',
     });
@@ -76,6 +76,6 @@ describe('JwtStrategy', () => {
     const result = strategy.validate({ sub: 'user-uuid' });
 
     expect(result.roles).toEqual([]);
-    expect(result.organizationId).toBe('d4e5f6a7-b8c9-0123-defa-234567890321');
+    expect(result.organizationId).toBeUndefined();
   });
 });

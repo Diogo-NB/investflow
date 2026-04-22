@@ -59,8 +59,20 @@ Modular Monolith + Event-Driven Architecture + DDD.
 
 ## Build & Dev Commands
 
+Always prefer the workspace scripts over invoking `nx` directly.
+
 ```bash
-nvm use && pnpm build:api   # Build the API (use this instead of nx build directly)
+pnpm start:api      # Start the API (nx serve api)
+pnpm build:api      # Build the API
+pnpm test           # Run all tests (nx run-many -t test)
+pnpm db:generate    # Regenerate Prisma client
+pnpm db:up          # Start Postgres via docker compose
+pnpm kc:up          # Start Keycloak via docker compose
+```
+
+To test a single project:
+```bash
+pnpm nx run <project>:test --testPathPatterns=<file>
 ```
 
 ## Nx Guidelines
