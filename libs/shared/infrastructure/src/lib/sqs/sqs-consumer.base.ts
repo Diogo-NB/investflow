@@ -1,6 +1,10 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Interval } from '@nestjs/schedule';
 import {
   DeleteMessageCommand,
   Message,
@@ -19,7 +23,7 @@ interface SnsEnvelope {
 }
 
 @Injectable()
-export abstract class SqsConsumerBase implements OnModuleInit {
+export abstract class SqsConsumerBase implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(this.constructor.name);
   private readonly sqsClient: SQSClient;
   private readonly dispatchMap = new Map<
@@ -27,6 +31,7 @@ export abstract class SqsConsumerBase implements OnModuleInit {
     (payload: unknown) => Promise<void>
   >();
   private resolvedQueueUrl!: string;
+  private running = false;
 
   constructor(
     config: ConfigService,
@@ -42,6 +47,12 @@ export abstract class SqsConsumerBase implements OnModuleInit {
   onModuleInit(): void {
     this.resolvedQueueUrl = this.getQueueUrl();
     this.buildDispatchMap();
+    this.running = true;
+    void this.poll();
+  }
+
+  onModuleDestroy(): void {
+    this.running = false;
   }
 
   private buildDispatchMap(): void {
@@ -66,21 +77,21 @@ export abstract class SqsConsumerBase implements OnModuleInit {
     }
   }
 
-  @Interval(5000)
-  async poll(): Promise<void> {
-    const response = await this.sqsClient.send(
-      new ReceiveMessageCommand({
-        QueueUrl: this.resolvedQueueUrl,
-        MaxNumberOfMessages: 10,
-        WaitTimeSeconds: 0,
-      }),
-    );
+  private async poll(): Promise<void> {
+    while (this.running) {
+      const response = await this.sqsClient.send(
+        new ReceiveMessageCommand({
+          QueueUrl: this.resolvedQueueUrl,
+          MaxNumberOfMessages: 10,
+          WaitTimeSeconds: 20,
+        }),
+      );
 
-    const messages = response.Messages ?? [];
-    if (messages.length === 0) return;
+      this.logger.debug(`Pooled messages: ${response.Messages}`);
 
-    for (const message of messages) {
-      await this.processMessage(message);
+      for (const message of response.Messages ?? []) {
+        await this.processMessage(message);
+      }
     }
   }
 

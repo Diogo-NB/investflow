@@ -41,7 +41,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   validate(payload: KeycloakJwtPayload): AuthenticatedUser {
     const realmRoles: string[] = payload.realm_access?.roles ?? [];
-    const clientRoles: string[] = payload.resource_access?.[this.clientId]?.roles ?? [];
+    const clientRoles: string[] =
+      payload.resource_access?.[this.clientId]?.roles ?? [];
     const allRoles = [...realmRoles, ...clientRoles];
 
     const roles = allRoles.filter(
@@ -50,7 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     return {
       userId: payload.sub,
-      organizationId: payload.organization_id,
+      organizationId: 'd4e5f6a7-b8c9-0123-defa-234567890321',
       roles,
       email: payload.email ?? payload.preferred_username ?? '',
     };

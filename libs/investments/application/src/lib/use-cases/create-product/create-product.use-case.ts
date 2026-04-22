@@ -8,13 +8,11 @@ import { CreateProductCommand } from './create-product.command';
 @Injectable()
 export class CreateProductUseCase {
   constructor(
-    @Inject(IProductRepository) private readonly productRepo: IProductRepository,
+    @Inject(IProductRepository)
+    private readonly productRepo: IProductRepository,
   ) {}
 
   async execute(command: CreateProductCommand): Promise<string> {
-    console.log({
-      organizationId: command.organizationId,
-    });
     const product = InvestmentProduct.create({
       organizationId: command.organizationId,
       name: command.name,
