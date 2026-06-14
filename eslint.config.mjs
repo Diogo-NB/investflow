@@ -18,7 +18,12 @@ export default [
           depConstraints: [
             {
               sourceTag: 'scope:api',
-              onlyDependOnLibsWithTags: ['layer:infrastructure', 'layer:application', 'layer:domain', 'scope:shared'],
+              onlyDependOnLibsWithTags: [
+                'layer:infrastructure',
+                'layer:application',
+                'layer:domain',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'layer:domain',
@@ -26,23 +31,24 @@ export default [
             },
             {
               sourceTag: 'layer:application',
-              onlyDependOnLibsWithTags: ['layer:domain', 'layer:application', 'scope:shared'],
+              onlyDependOnLibsWithTags: [
+                'layer:domain',
+                'layer:application',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'layer:infrastructure',
-              onlyDependOnLibsWithTags: ['layer:application', 'layer:domain', 'layer:infrastructure', 'scope:shared'],
-            },
-            {
-              sourceTag: 'scope:investments',
-              notDependOnLibsWithTags: ['scope:portfolio'],
-            },
-            {
-              sourceTag: 'scope:portfolio',
-              notDependOnLibsWithTags: ['scope:investments'],
+              onlyDependOnLibsWithTags: [
+                'layer:application',
+                'layer:domain',
+                'layer:infrastructure',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'scope:shared',
-              notDependOnLibsWithTags: ['scope:investments', 'scope:portfolio'],
+              onlyDependOnLibsWithTags: ['scope:shared'],
             },
           ],
         },

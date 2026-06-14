@@ -12,6 +12,7 @@ export { BaseRepository } from './lib/base.repository';
 export type { IMessageBroker } from './lib/outbox/message-broker.port';
 export { MESSAGE_BROKER } from './lib/outbox/message-broker.port';
 export { SnsMessageBroker } from './lib/outbox/sns-message-broker';
+export { OutboxTopicRegistry } from './lib/outbox/outbox-topic.registry';
 export { SqsConsumerBase } from './lib/sqs/sqs-consumer.base';
 export { OnEvent } from './lib/sqs/on-event.decorator';
 export { DomainExceptionFilter } from './lib/filters/domain-exception.filter';

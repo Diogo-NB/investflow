@@ -2,9 +2,9 @@
 
 ## Project Structure & Module Organization
 
-InvestFlow is a NestJS 11 modular monolith managed with Nx and pnpm. The deployable API lives in `apps/api/src`. Bounded contexts live under `libs/investments` and `libs/portfolio`, each split into `domain`, `application`, and `infrastructure` libraries. Cross-context code belongs in `libs/shared`. Prisma configuration and migrations are in `libs/shared/infrastructure/prisma`; Docker and Keycloak setup are in `infra/`. Architecture and domain decisions are documented in `docs/`.
+InvestFlow is a NestJS 11 modular monolith managed with Nx and pnpm. The deployable API lives in `apps/api/src`. New bounded contexts belong under `libs/`, split into `domain`, `application`, and `infrastructure` projects. Cross-context code belongs in `libs/shared`. Prisma configuration is in `libs/shared/infrastructure/prisma`; Docker and Keycloak setup are in `infra/`.
 
-Respect the dependency boundaries enforced by ESLint tags: domain code must not depend on application or infrastructure code, bounded contexts must communicate through events, and shared libraries must not depend on feature contexts. Export public APIs through each library's `src/index.ts`.
+The repository currently contains shared architecture and investment-oriented value objects but no implemented bounded context. Respect the dependency boundaries enforced by ESLint tags: domain code must not depend on application or infrastructure code, bounded contexts must communicate through events, and shared libraries must not depend on feature contexts. Export public APIs through each library's `src/index.ts`.
 
 ## Build, Test, and Development Commands
 
@@ -15,7 +15,7 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 - In sandboxes or containers that prohibit Unix sockets, prefix Nx commands with `NX_DAEMON=false`.
 - `pnpm install`: install workspace dependencies.
 - `pnpm db:up && pnpm kc:up`: start PostgreSQL and Keycloak.
-- `pnpm db:migrate`: apply local Prisma migrations.
+- `pnpm db:migrate`: create/apply local Prisma migrations after schema changes.
 - `pnpm start:api`: serve the API in development mode.
 - `pnpm build:api`: build the API into `dist/`.
 - `pnpm test`: run all Jest project tests.
@@ -26,7 +26,7 @@ Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding,
 
 ## Coding Style & Naming Conventions
 
-TypeScript uses Prettier with single quotes and ESLint's Nx flat configuration. Run `pnpm nx affected -t lint` before submitting. Follow existing kebab-case filenames such as `create-product.use-case.ts`; use PascalCase for classes and camelCase for methods and variables. Keep domain behavior in aggregates/value objects, application orchestration in use cases, and external integrations in infrastructure.
+TypeScript uses Prettier with single quotes and ESLint's Nx flat configuration. Run `pnpm nx affected -t lint` before submitting. Follow kebab-case filenames such as `create-item.use-case.ts`; use PascalCase for classes and camelCase for methods and variables. Keep domain behavior in aggregates/value objects, application orchestration in use cases, and external integrations in infrastructure.
 
 The workspace intentionally retains `baseUrl` because the Nx TypeScript executor requires it for workspace path aliases. Use the workspace TypeScript version configured in `.vscode/settings.json`; do not add `ignoreDeprecations`.
 

@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TerminusModule } from '@nestjs/terminus';
-import { SharedInfrastructureModule, JwtAuthGuard, RolesGuard, DomainExceptionFilter } from '@investflow/shared-infrastructure';
-import { InvestmentsInfrastructureModule } from '@investflow/investments-infrastructure';
+import {
+  SharedInfrastructureModule,
+  JwtAuthGuard,
+  RolesGuard,
+  DomainExceptionFilter,
+} from '@investflow/shared-infrastructure';
 import { AppController } from './app.controller';
 import { AppHealth } from './app.health';
 
 @Module({
-  imports: [SharedInfrastructureModule, TerminusModule, InvestmentsInfrastructureModule],
+  imports: [SharedInfrastructureModule, TerminusModule],
   controllers: [AppController],
   providers: [
     AppHealth,

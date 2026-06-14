@@ -8,7 +8,9 @@ const makeContext = (user?: AuthenticatedUser, requiredRoles?: string[]) => {
   const reflector = new Reflector();
   jest
     .spyOn(reflector, 'getAllAndOverride')
-    .mockImplementation((key) => (key === ROLES_KEY ? requiredRoles : undefined));
+    .mockImplementation((key) =>
+      key === ROLES_KEY ? requiredRoles : undefined,
+    );
 
   const context: ExecutionContext = {
     getHandler: jest.fn().mockReturnValue({}),
@@ -30,27 +32,25 @@ describe('RolesGuard', () => {
   it('allows access when user has required role', () => {
     const user: AuthenticatedUser = {
       userId: 'u1',
-      organizationId: undefined,
-      roles: ['INVESTOR'],
+      roles: ['reader'],
       email: '',
     };
-    const { guard, context } = makeContext(user, ['INVESTOR']);
+    const { guard, context } = makeContext(user, ['reader']);
     expect(guard.canActivate(context)).toBe(true);
   });
 
   it('throws ForbiddenException when user lacks required role', () => {
     const user: AuthenticatedUser = {
       userId: 'u1',
-      organizationId: undefined,
-      roles: ['INVESTOR'],
+      roles: ['reader'],
       email: '',
     };
-    const { guard, context } = makeContext(user, ['ORG_USER']);
+    const { guard, context } = makeContext(user, ['writer']);
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
   it('throws ForbiddenException when user is not set', () => {
-    const { guard, context } = makeContext(undefined, ['INVESTOR']);
+    const { guard, context } = makeContext(undefined, ['reader']);
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 });

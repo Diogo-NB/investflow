@@ -30,7 +30,9 @@ describe('JwtAuthGuard', () => {
   });
 
   it('throws UnauthorizedException when user is falsy', () => {
-    expect(() => guard.handleRequest(null, null)).toThrow(UnauthorizedException);
+    expect(() => guard.handleRequest(null, null)).toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('throws UnauthorizedException when error is present', () => {
@@ -40,7 +42,7 @@ describe('JwtAuthGuard', () => {
   });
 
   it('returns user when valid', () => {
-    const user = { userId: 'user-uuid', roles: ['INVESTOR'] };
+    const user = { userId: 'user-uuid', roles: ['reader'] };
     const result = guard.handleRequest(null, user);
     expect(result).toBe(user);
   });

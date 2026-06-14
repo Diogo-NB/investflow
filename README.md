@@ -1,14 +1,16 @@
 # InvestFlow
 
-NestJS + Nx monorepo. Modular monolith, event-driven, DDD.
+NestJS + Nx modular monolith starter for an investment-related, event-driven
+DDD application. The repository currently contains shared architectural
+building blocks only; bounded contexts are added as the domain is defined.
 
 ## Prerequisites
 
 - Node.js 22.x LTS
-- pnpm
+- pnpm 10
 - Docker
 
-## First-time setup
+## First-Time Setup
 
 ```sh
 cp .env.example .env
@@ -16,55 +18,39 @@ nvm install
 nvm use
 corepack enable
 pnpm install
-pnpm db:up       # starts Postgres (creates investflow + keycloak DBs)
-pnpm kc:up       # starts Keycloak (imports investflow realm automatically)
-pnpm db:migrate  # run Prisma migrations
+pnpm db:up
+pnpm kc:up
+pnpm db:generate
 ```
 
 The repository pins Node through `.nvmrc` and pnpm through `packageManager`.
-Run `nvm use` before installing dependencies or running Nx commands. In
-non-interactive shells, load NVM first with
-`source "${NVM_DIR:-$HOME/.nvm}/nvm.sh"`.
+Load NVM before running Node, pnpm, or Nx commands.
 
-## Running the API
+## Development
 
 ```sh
 pnpm start:api
+pnpm check
 ```
 
-## Validation
+The API exposes a public database health check at
+`http://localhost:3000/api/health-check`. All other routes are authenticated by
+the shared Keycloak JWT guard unless marked with `@Public()`.
 
-```sh
-pnpm check       # lint, test, and build all Nx projects
-```
+## Infrastructure
 
-## Infrastructure scripts
+| Script             | What it does                                 |
+| ------------------ | -------------------------------------------- |
+| `pnpm db:up`       | Start PostgreSQL                             |
+| `pnpm db:down`     | Stop and remove containers                   |
+| `pnpm db:reset`    | Wipe volumes and restart PostgreSQL          |
+| `pnpm db:logs`     | Tail PostgreSQL logs                         |
+| `pnpm kc:up`       | Start Keycloak and import the local realm    |
+| `pnpm kc:down`     | Stop Keycloak                                |
+| `pnpm kc:logs`     | Tail Keycloak logs                           |
+| `pnpm db:generate` | Regenerate the Prisma client                 |
+| `pnpm db:migrate`  | Create/apply migrations after schema changes |
 
-| Script | What it does |
-|---|---|
-| `pnpm db:up` | Start Postgres |
-| `pnpm db:down` | Stop and remove containers |
-| `pnpm db:reset` | Wipe volumes and restart Postgres |
-| `pnpm db:logs` | Tail Postgres logs |
-| `pnpm kc:up` | Start Keycloak |
-| `pnpm kc:down` | Stop Keycloak |
-| `pnpm kc:logs` | Tail Keycloak logs |
-
-## Local service URLs
-
-| Service | URL | Credentials |
-|---|---|---|
-| API | http://localhost:3000 | — |
-| Keycloak admin | http://localhost:8080 | admin / admin |
-| Postgres | localhost:5432 | postgres / postgres |
-
-## Verify Keycloak is working
-
-```sh
-# Realm discovery
-curl http://localhost:8080/realms/investflow/.well-known/openid-configuration
-
-# Client credentials token
-curl -s -X POST http://localhost:8080/realms/investflow/protocol/openid-connect/token \
-  -d "client_id=investflow-api&client_secret=dev-investflow-api-secret&grant_type=client_credentials"
-```
+Domain events use their `context` field to select an SNS topic. Each bounded
+context registers its own topic during module initialization through the shared
+`OutboxTopicRegistry`.

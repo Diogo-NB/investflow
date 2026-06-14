@@ -26,41 +26,29 @@ describe('JwtStrategy', () => {
   it('maps realm roles to AuthenticatedUser', () => {
     const result = strategy.validate({
       sub: 'user-uuid',
-      realm_access: { roles: ['INVESTOR', 'offline_access'] },
+      realm_access: { roles: ['reader', 'offline_access'] },
     });
 
     expect(result).toEqual({
       userId: 'user-uuid',
-      organizationId: undefined,
-      roles: ['INVESTOR'],
+      roles: ['reader', 'offline_access'],
       email: '',
     });
   });
 
-  it('merges client roles with realm roles and filters to known roles', () => {
+  it('merges and deduplicates client roles with realm roles', () => {
     const result = strategy.validate({
-      sub: 'org-user-uuid',
-      realm_access: { roles: ['offline_access'] },
-      resource_access: { 'investflow-api': { roles: ['ORG_USER'] } },
-      organization_id: 'org-uuid',
-      email: 'org@test.com',
+      sub: 'user-uuid',
+      realm_access: { roles: ['reader'] },
+      resource_access: { 'investflow-api': { roles: ['reader', 'writer'] } },
+      email: 'user@test.com',
     });
 
     expect(result).toEqual({
-      userId: 'org-user-uuid',
-      organizationId: 'org-uuid',
-      roles: ['ORG_USER'],
-      email: 'org@test.com',
+      userId: 'user-uuid',
+      roles: ['reader', 'writer'],
+      email: 'user@test.com',
     });
-  });
-
-  it('strips unknown roles', () => {
-    const result = strategy.validate({
-      sub: 'user-uuid',
-      realm_access: { roles: ['uma_authorization', 'INVESTOR', 'some-unknown-role'] },
-    });
-
-    expect(result.roles).toEqual(['INVESTOR']);
   });
 
   it('falls back to preferred_username when email is absent', () => {
@@ -76,6 +64,5 @@ describe('JwtStrategy', () => {
     const result = strategy.validate({ sub: 'user-uuid' });
 
     expect(result.roles).toEqual([]);
-    expect(result.organizationId).toBeUndefined();
   });
 });

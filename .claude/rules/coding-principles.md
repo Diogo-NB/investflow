@@ -1,98 +1,11 @@
 # Coding Principles
 
-These apply to all code written or modified in this project.
-
-## 1. Early Return Over Nested Conditionals
-
-Prefer guard clauses that return (or throw) early. Avoid cascading `if/else` trees.
-
-```typescript
-// Bad
-function process(order: Order) {
-  if (order) {
-    if (order.status === 'PENDING') {
-      if (order.amount > 0) {
-        // actual logic
-      }
-    }
-  }
-}
-
-// Good
-function process(order: Order) {
-  if (!order) return;
-  if (order.status !== 'PENDING') return;
-  if (order.amount <= 0) return;
-  // actual logic
-}
-```
-
-## 2. Self-Documenting Code — Comments Only When Necessary
-
-Code should document itself through good naming. **Do not add comments** that merely restate what the code does.
-
-Add a comment **only** when it communicates something the code cannot express on its own:
-- A warning about a non-obvious side effect
-- A workaround for a bug (link to issue if possible)
-- A business rule that looks wrong but is intentionally contradictory
-
-```typescript
-// Bad — restates the code
-// Check if the order is expired
-if (order.expiresAt < new Date()) { ... }
-
-// Good — explains the non-obvious business rule
-// Expired orders still reserve volume until explicitly released by the scheduler
-if (order.expiresAt < new Date()) { ... }
-```
-
-## 3. No `any` — Use `unknown` and Be Strict
-
-Never use `any`. Use `unknown` for values whose type is genuinely not known at compile time, then narrow explicitly.
-
-```typescript
-// Bad
-function parsePayload(raw: any) {
-  return raw.orderId;
-}
-
-// Good
-function parsePayload(raw: unknown): string {
-  if (typeof raw !== 'object' || raw === null || !('orderId' in raw)) {
-    throw new Error('Invalid payload');
-  }
-  return (raw as { orderId: string }).orderId;
-}
-```
-
-**Exceptions** — `any` is allowed only when:
-- A third-party library's typings force it (no alternative types available)
-- Decorators or framework internals require it (e.g. NestJS metadata reflection)
-
-Exceptions must be accompanied by an `// eslint-disable-next-line @typescript-eslint/no-explicit-any` comment and a brief reason.
-
-## 4. Fluent Domain Methods
-
-Aggregate methods that have no meaningful return value must return `this` instead of `void`, enabling fluent chaining.
-
-```typescript
-// Bad
-approve(): void {
-  this._status = OrderStatus.APPROVED;
-  this.apply(new OrderApprovedEvent(...));
-}
-
-// Good
-approve(): this {
-  this._status = OrderStatus.APPROVED;
-  this.apply(new OrderApprovedEvent(...));
-  return this;
-}
-```
-
-This applies to all aggregate methods across all bounded contexts. Use cases and tests can then chain calls naturally:
-
-```typescript
-await repo.save(order.approve());
-product.publish().validateAcceptsOrders();
-```
+- Prefer guard clauses and early returns over nested conditional trees.
+- Use names and structure that explain behavior; comment only non-obvious
+  constraints, side effects, and workarounds.
+- Do not use `any`. Accept `unknown` and narrow it explicitly unless framework
+  typings make `any` unavoidable.
+- Aggregate methods with no distinct result return `this` to support fluent
+  domain operations.
+- Keep edits scoped, preserve project boundaries, and export public APIs through
+  each library's `src/index.ts`.

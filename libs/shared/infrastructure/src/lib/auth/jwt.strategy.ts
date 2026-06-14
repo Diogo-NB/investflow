@@ -9,7 +9,6 @@ interface KeycloakJwtPayload {
   sub: string;
   realm_access?: { roles: string[] };
   resource_access?: Record<string, { roles: string[] }>;
-  organization_id?: string;
   email?: string;
   preferred_username?: string;
 }
@@ -43,15 +42,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const realmRoles: string[] = payload.realm_access?.roles ?? [];
     const clientRoles: string[] =
       payload.resource_access?.[this.clientId]?.roles ?? [];
-    const allRoles = [...realmRoles, ...clientRoles];
-
-    const roles = allRoles.filter(
-      (r): r is UserRole => r === 'INVESTOR' || r === 'ORG_USER',
-    );
+    const roles: UserRole[] = [...new Set([...realmRoles, ...clientRoles])];
 
     return {
       userId: payload.sub,
-      organizationId: payload.organization_id,
       roles,
       email: payload.email ?? payload.preferred_username ?? '',
     };
