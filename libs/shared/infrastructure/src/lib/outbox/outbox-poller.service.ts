@@ -2,7 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { IMessageBroker, MESSAGE_BROKER } from './message-broker.port';
+import { MESSAGE_BROKER } from './message-broker.port';
+import type { IMessageBroker } from './message-broker.port';
 
 @Injectable()
 export class OutboxPollerService {

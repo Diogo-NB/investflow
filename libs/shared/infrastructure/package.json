@@ -6,6 +6,23 @@
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
+    "@aws-sdk/client-sns": "^3.1034.0",
+    "@aws-sdk/client-sqs": "^3.1034.0",
+    "@investflow/shared-domain": "*",
+    "@investflow/shared-types": "*",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.3",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/schedule": "^6.1.1",
+    "@prisma/adapter-pg": "^7.6.0",
+    "@prisma/client": "^7.6.0",
+    "dotenv": "^17.3.1",
+    "jwks-rsa": "^4.0.1",
+    "passport-jwt": "^4.0.1",
+    "pg": "^8.20.0",
+    "prisma": "^7.6.0",
+    "rxjs": "^7.8.0",
     "tslib": "^2.3.0"
   }
 }

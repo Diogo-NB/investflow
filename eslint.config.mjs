@@ -63,6 +63,12 @@ export default [
     // Override or add rules here
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 ];

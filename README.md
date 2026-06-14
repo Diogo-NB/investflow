@@ -4,7 +4,7 @@ NestJS + Nx monorepo. Modular monolith, event-driven, DDD.
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 22.x LTS
 - pnpm
 - Docker
 
@@ -12,16 +12,30 @@ NestJS + Nx monorepo. Modular monolith, event-driven, DDD.
 
 ```sh
 cp .env.example .env
+nvm install
+nvm use
+corepack enable
 pnpm install
 pnpm db:up       # starts Postgres (creates investflow + keycloak DBs)
 pnpm kc:up       # starts Keycloak (imports investflow realm automatically)
-pnpm nx run api:migrate   # run Prisma migrations
+pnpm db:migrate  # run Prisma migrations
 ```
+
+The repository pins Node through `.nvmrc` and pnpm through `packageManager`.
+Run `nvm use` before installing dependencies or running Nx commands. In
+non-interactive shells, load NVM first with
+`source "${NVM_DIR:-$HOME/.nvm}/nvm.sh"`.
 
 ## Running the API
 
 ```sh
-pnpm nx serve api
+pnpm start:api
+```
+
+## Validation
+
+```sh
+pnpm check       # lint, test, and build all Nx projects
 ```
 
 ## Infrastructure scripts

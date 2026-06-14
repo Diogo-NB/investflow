@@ -6,6 +6,10 @@
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
+    "@investflow/investments-domain": "*",
+    "@investflow/shared-domain": "*",
+    "@nestjs/common": "^11.0.0",
+    "decimal.js": "^10.6.0",
     "tslib": "^2.3.0"
   }
 }

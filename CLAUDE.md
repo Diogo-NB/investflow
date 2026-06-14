@@ -60,12 +60,19 @@ Modular Monolith + Event-Driven Architecture + DDD.
 ## Build & Dev Commands
 
 Always prefer the workspace scripts over invoking `nx` directly.
+Before Node, pnpm, or Nx commands, load NVM when needed with
+`source "${NVM_DIR:-$HOME/.nvm}/nvm.sh"` and run `nvm use` to activate
+`.nvmrc`. If pnpm is unavailable after installing that Node version, run
+`corepack enable`. Use `NX_DAEMON=false` in environments that prohibit Unix
+sockets.
 
 ```bash
 pnpm start:api      # Start the API (nx serve api)
 pnpm build:api      # Build the API
 pnpm test           # Run all tests (nx run-many -t test)
+pnpm check          # Lint, test, and build all projects
 pnpm db:generate    # Regenerate Prisma client
+pnpm db:migrate     # Apply local Prisma migrations
 pnpm db:up          # Start Postgres via docker compose
 pnpm kc:up          # Start Keycloak via docker compose
 ```

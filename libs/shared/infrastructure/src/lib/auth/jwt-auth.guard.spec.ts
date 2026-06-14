@@ -7,7 +7,7 @@ describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
   let reflector: Reflector;
 
-  const mockContext = (isPublic: boolean): ExecutionContext =>
+  const mockContext = (): ExecutionContext =>
     ({
       getHandler: jest.fn().mockReturnValue({}),
       getClass: jest.fn().mockReturnValue({}),
@@ -24,7 +24,7 @@ describe('JwtAuthGuard', () => {
       .spyOn(reflector, 'getAllAndOverride')
       .mockImplementation((key) => (key === IS_PUBLIC_KEY ? true : undefined));
 
-    const result = guard.canActivate(mockContext(true));
+    const result = guard.canActivate(mockContext());
 
     expect(result).toBe(true);
   });
