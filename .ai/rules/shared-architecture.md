@@ -4,6 +4,7 @@
 
 | Alias                               | Path                                      |
 | ----------------------------------- | ----------------------------------------- |
+| `@investflow/shared-application`    | `libs/shared/application/src/index.ts`    |
 | `@investflow/shared-domain`         | `libs/shared/domain/src/index.ts`         |
 | `@investflow/shared-infrastructure` | `libs/shared/infrastructure/src/index.ts` |
 | `@investflow/shared-types`          | `libs/shared/types/src/index.ts`          |

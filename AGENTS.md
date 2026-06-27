@@ -75,3 +75,7 @@ assistant:
 @.ai/rules/ddd.md
 @.ai/rules/outbox-event-flow.md
 @.ai/rules/shared-architecture.md
+@.ai/rules/project-structure.md
+@.ai/rules/di-and-handlers.md
+@.ai/rules/errors-and-results.md
+@.ai/rules/class-design.md

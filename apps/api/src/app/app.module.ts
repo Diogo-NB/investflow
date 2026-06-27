@@ -5,7 +5,7 @@ import {
   SharedInfrastructureModule,
   JwtAuthGuard,
   RolesGuard,
-  DomainExceptionFilter,
+  AppExceptionFilter,
 } from '@investflow/shared-infrastructure';
 import { AppController } from './app.controller';
 import { AppHealth } from './app.health';
@@ -15,7 +15,7 @@ import { AppHealth } from './app.health';
   controllers: [AppController],
   providers: [
     AppHealth,
-    { provide: APP_FILTER, useClass: DomainExceptionFilter },
+    { provide: APP_FILTER, useClass: AppExceptionFilter },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

@@ -19,8 +19,8 @@
 - Value objects extend `ValueObject<T>`, use private constructors and static
   factories, validate on creation, and compare by value.
 - Domain invariant failures extend `DomainError`.
-- Domain events implement `DomainEvent`, carry IDs and scalar data only, and
-  use a logical bounded-context name in `context`.
+- Domain events implement `DomainEvent`, carry IDs, `version`, scalar data
+  only, and use a logical bounded-context name in `context`.
 - Keep a concrete value object in shared domain only when it is intentionally
   reusable across contexts.
 
@@ -28,9 +28,10 @@
 
 - Use cases expose one `execute(command)` method and modify one aggregate per
   transaction.
-- Application ports extend shared repository contracts and do not expose ORM
-  types.
-- Concrete repositories extend `BaseRepository`; only `BaseRepository` reads
+- Application ports are abstract classes, may extend shared repository
+  contracts, and do not expose ORM types.
+- Concrete command-side repositories extend `BaseRepository`; its `save()`
+  returns `Result<void, RepositorySaveError>`, and only `BaseRepository` reads
   and clears aggregate domain events.
 - Query handlers live in infrastructure, query Prisma directly, and return
   read-oriented shapes without loading aggregates.

@@ -1,10 +1,11 @@
 import { AggregateRoot } from './aggregate-root.base';
-import { DomainEvent } from '../domain-event/domain-event.interface';
+import { DomainEvent } from '../domain-event/domain-event.contract';
 
 class TestEvent implements DomainEvent {
   readonly eventId = crypto.randomUUID();
   readonly occurredAt = new Date();
   readonly eventType = 'TestEvent';
+  readonly version = 1;
   readonly aggregateId = 'test-aggregate-id';
   readonly aggregateType = 'TestAggregate';
   readonly context = 'test-context';

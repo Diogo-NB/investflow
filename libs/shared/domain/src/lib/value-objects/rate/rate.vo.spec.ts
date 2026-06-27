@@ -3,9 +3,28 @@ import { Rate, InvalidRateError } from './rate.vo';
 import { RateReferenceType } from '../rate-reference-type/rate-reference-type.enum';
 
 describe('Rate', () => {
+  describe('Rate.create()', () => {
+    it('returns ok for positive values', () => {
+      const result = Rate.create('0.12', RateReferenceType.PERCENTAGE_CDI);
+
+      expect(result.isOk()).toBe(true);
+      expect(result.value.value.toString()).toBe('0.12');
+    });
+
+    it('returns an error for invalid values', () => {
+      const result = Rate.create(0, RateReferenceType.FIXED);
+
+      expect(result.isErr()).toBe(true);
+      expect(result.error).toBeInstanceOf(InvalidRateError);
+    });
+  });
+
   describe('Rate.of()', () => {
     it('creates a Rate from a positive Decimal', () => {
-      const rate = Rate.of(new Decimal('0.12'), RateReferenceType.PERCENTAGE_CDI);
+      const rate = Rate.of(
+        new Decimal('0.12'),
+        RateReferenceType.PERCENTAGE_CDI,
+      );
       expect(rate.value.toString()).toBe('0.12');
       expect(rate.referenceType).toBe(RateReferenceType.PERCENTAGE_CDI);
     });
@@ -21,15 +40,21 @@ describe('Rate', () => {
     });
 
     it('throws InvalidRateError for zero', () => {
-      expect(() => Rate.of(0, RateReferenceType.FIXED)).toThrow(InvalidRateError);
+      expect(() => Rate.of(0, RateReferenceType.FIXED)).toThrow(
+        InvalidRateError,
+      );
     });
 
     it('throws InvalidRateError for negative values', () => {
-      expect(() => Rate.of(-1, RateReferenceType.FIXED)).toThrow(InvalidRateError);
+      expect(() => Rate.of(-1, RateReferenceType.FIXED)).toThrow(
+        InvalidRateError,
+      );
     });
 
     it('throws InvalidRateError for negative Decimal', () => {
-      expect(() => Rate.of(new Decimal('-0.01'), RateReferenceType.PERCENTAGE_CDI)).toThrow(InvalidRateError);
+      expect(() =>
+        Rate.of(new Decimal('-0.01'), RateReferenceType.PERCENTAGE_CDI),
+      ).toThrow(InvalidRateError);
     });
   });
 

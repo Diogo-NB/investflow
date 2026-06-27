@@ -2,6 +2,22 @@ import Decimal from 'decimal.js';
 import { Money, InvalidMoneyError } from './money.vo';
 
 describe('Money', () => {
+  describe('Money.create()', () => {
+    it('returns ok for positive values', () => {
+      const result = Money.create('100.50');
+
+      expect(result.isOk()).toBe(true);
+      expect(result.value.amount.toString()).toBe('100.5');
+    });
+
+    it('returns an error for invalid values', () => {
+      const result = Money.create(0);
+
+      expect(result.isErr()).toBe(true);
+      expect(result.error).toBeInstanceOf(InvalidMoneyError);
+    });
+  });
+
   describe('Money.of()', () => {
     it('creates a Money instance from a positive Decimal', () => {
       const money = Money.of(new Decimal('100.50'));

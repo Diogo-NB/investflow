@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IMessageBroker } from './message-broker.port';
+import { MessageBroker } from './message-broker.port';
 
 @Injectable()
-export class ConsoleMessageBroker implements IMessageBroker {
+export class ConsoleMessageBroker extends MessageBroker {
   private readonly logger = new Logger(ConsoleMessageBroker.name);
 
   async publish(topicArn: string, message: string): Promise<void> {

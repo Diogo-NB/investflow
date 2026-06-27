@@ -1,8 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { MESSAGE_BROKER } from './message-broker.port';
-import type { IMessageBroker } from './message-broker.port';
+import { MessageBroker } from './message-broker.port';
 import { OutboxTopicRegistry } from './outbox-topic.registry';
 
 @Injectable()
@@ -12,7 +11,7 @@ export class OutboxPollerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly topicRegistry: OutboxTopicRegistry,
-    @Inject(MESSAGE_BROKER) private readonly messageBroker: IMessageBroker,
+    private readonly messageBroker: MessageBroker,
   ) {}
 
   @Cron(CronExpression.EVERY_5_SECONDS)

@@ -6,6 +6,7 @@ import {
   isWithinInterval,
 } from 'date-fns';
 import { DomainError } from '../../errors/domain.error';
+import { Result } from '../../result/result';
 import { ValueObject } from '../value-object.base';
 
 export class InvalidDateRangeError extends DomainError {
@@ -22,9 +23,18 @@ export class DateRange extends ValueObject<DateRange> {
     super();
   }
 
+  static create(
+    start: Date,
+    end: Date,
+  ): Result<DateRange, InvalidDateRangeError> {
+    if (!isAfter(end, start)) return Result.err(new InvalidDateRangeError());
+    return Result.ok(new DateRange(start, end));
+  }
+
   static of(start: Date, end: Date): DateRange {
-    if (!isAfter(end, start)) throw new InvalidDateRangeError();
-    return new DateRange(start, end);
+    const result = DateRange.create(start, end);
+    if (result.isErr()) throw result.error;
+    return result.value;
   }
 
   lengthInDays(): number {

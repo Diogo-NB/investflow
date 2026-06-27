@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { DomainError } from '../../errors/domain.error';
+import { Result } from '../../result/result';
 import { ValueObject } from '../value-object.base';
 
 export class InvalidMoneyError extends DomainError {
@@ -16,10 +17,21 @@ export class Money extends ValueObject<Money> {
     super();
   }
 
-  static of(amount: Decimal | number | string): Money {
+  static create(
+    amount: Decimal | number | string,
+  ): Result<Money, InvalidMoneyError> {
     const decimal = new Decimal(amount);
-    if (decimal.lessThanOrEqualTo(0)) throw new InvalidMoneyError(decimal);
-    return new Money(decimal, 'BRL');
+    if (decimal.lessThanOrEqualTo(0)) {
+      return Result.err(new InvalidMoneyError(decimal));
+    }
+
+    return Result.ok(new Money(decimal, 'BRL'));
+  }
+
+  static of(amount: Decimal | number | string): Money {
+    const result = Money.create(amount);
+    if (result.isErr()) throw result.error;
+    return result.value;
   }
 
   add(other: Money): Money {

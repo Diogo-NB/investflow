@@ -1,4 +1,4 @@
-import { DomainEvent } from '../domain-event/domain-event.interface';
+import { DomainEvent } from '../domain-event/domain-event.contract';
 
 export interface AggregateRootProps {
   id: string;

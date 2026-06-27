@@ -54,3 +54,9 @@ the shared Keycloak JWT guard unless marked with `@Public()`.
 Domain events use their `context` field to select an SNS topic. Each bounded
 context registers its own topic during module initialization through the shared
 `OutboxTopicRegistry`.
+
+## Architecture Conventions
+
+Project structure, file suffixes, dependency injection, Result/error handling,
+and class design conventions are documented in
+[`docs/architecture/project-structure.md`](docs/architecture/project-structure.md).
