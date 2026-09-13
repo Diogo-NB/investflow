@@ -1,9 +1,8 @@
 # InvestFlow
 
-NestJS + Nx modular monolith for an investment-related, event-driven DDD
-application. The API is a thin deployable host that composes bounded contexts
-implemented as Nx libraries. The investment simulator is the first active
-bounded context.
+NestJS and Angular Nx workspace for an investment-related, event-driven DDD
+application. The API and client-rendered web application are independent
+deployable hosts. The investment simulator is the first active bounded context.
 
 ## Prerequisites
 
@@ -31,8 +30,13 @@ Load NVM before running Node, pnpm, or Nx commands.
 
 ```sh
 pnpm start:api
+pnpm start:web
 pnpm check
 ```
+
+The web application runs at `http://localhost:4200` and proxies relative
+`/api` requests to the API at `http://localhost:3000` during development.
+Production hosting must route `/api` to the NestJS deployment.
 
 The API exposes a public database health check at
 `http://localhost:3000/api/health-check`. All other routes are authenticated by

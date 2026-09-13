@@ -17,6 +17,31 @@ export default [
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {
+              sourceTag: 'platform:browser',
+              onlyDependOnLibsWithTags: [
+                'platform:browser',
+                'platform:neutral',
+              ],
+            },
+            {
+              sourceTag: 'platform:server',
+              onlyDependOnLibsWithTags: ['platform:server', 'platform:neutral'],
+            },
+            {
+              sourceTag: 'type:web-app',
+              onlyDependOnLibsWithTags: ['type:web-feature'],
+            },
+            {
+              sourceTag: 'type:web-feature',
+              notDependOnLibsWithTags: [
+                'layer:domain',
+                'layer:application',
+                'layer:infrastructure',
+                'layer:types',
+                'platform:server',
+              ],
+            },
+            {
               sourceTag: 'scope:api',
               onlyDependOnLibsWithTags: [
                 'layer:infrastructure',

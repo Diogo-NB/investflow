@@ -1,0 +1,76 @@
+<main class="page-shell">
+  <header class="masthead" aria-label="InvestFlow">
+    <a class="wordmark" href="/" aria-label="InvestFlow, página inicial">
+      Invest<span>Flow</span>
+    </a>
+    <p class="section-name">Simulador de investimentos</p>
+  </header>
+
+  <section class="intro" aria-labelledby="page-title">
+    <div class="intro-copy">
+      <p class="context-line">Comece pelo essencial</p>
+      <h1 id="page-title">Invista com um plano claro.</h1>
+      <p class="lead">
+        Antes de comparar cenários, confirmamos que o simulador está pronto para
+        receber seus dados.
+      </p>
+    </div>
+
+    <div class="service-panel">
+      @if (state(); as currentState) {
+        @switch (currentState.kind) {
+          @case ('loading') {
+            <div
+              class="state-content loading-state"
+              role="status"
+              aria-live="polite"
+            >
+              <mat-spinner diameter="30" aria-label="Carregando"></mat-spinner>
+              <div>
+                <p class="state-label">Conectando ao simulador</p>
+                <p class="state-detail">Só um instante.</p>
+              </div>
+            </div>
+          }
+
+          @case ('success') {
+            <div
+              class="state-content success-state"
+              role="status"
+              aria-live="polite"
+            >
+              <p class="state-label">Serviço disponível</p>
+              <p class="response-message">{{ currentState.message }}</p>
+              <p class="state-detail">A conexão com a API foi confirmada.</p>
+            </div>
+          }
+
+          @case ('error') {
+            <div class="state-content error-state" role="alert">
+              <p class="state-label">Não foi possível conectar</p>
+              <p class="state-detail">
+                Verifique se a API está em execução e tente novamente.
+              </p>
+              <button
+                class="retry-button"
+                mat-flat-button
+                type="button"
+                (click)="retry()"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          }
+        }
+      }
+
+      <div class="balance-marker" aria-hidden="true">
+        <span>Hoje</span>
+        <i></i>
+        <span>Objetivo</span>
+        <i></i>
+        <span>Estratégia</span>
+      </div>
+    </div>
+  </section>
+</main>

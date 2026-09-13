@@ -33,6 +33,9 @@
       ],
       "@investflow/investment-simulator-infrastructure": [
         "./libs/investment-simulator/infrastructure/src/index.ts"
+      ],
+      "@investflow/investment-simulator-web": [
+        "libs/investment-simulator/web/src/index.ts"
       ]
     }
   },

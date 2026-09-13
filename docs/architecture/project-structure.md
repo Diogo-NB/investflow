@@ -19,7 +19,8 @@ enforce layer dependencies. An Nx library does not need to be shared by
 multiple apps. `libs/shared` is the exception: it contains intentionally
 cross-context building blocks and is not itself a bounded context.
 
-The current topology is a modular monolith:
+The current topology combines independently deployable server and browser
+applications:
 
 ```text
 apps/api
@@ -27,6 +28,9 @@ apps/api
     ├── SharedInfrastructureModule
     ├── InvestmentSimulatorInfrastructureModule
     └── future bounded-context modules
+
+apps/web
+└── lazy route -> libs/investment-simulator/web
 ```
 
 `apps/api` is the system composition root. It chooses the contexts deployed in
@@ -71,8 +75,8 @@ only by a host whose invocation and lifecycle model supports it.
 
 ## Layer And Context Layout
 
-Bounded contexts live under `libs/<context>/` and are split into three Nx
-projects:
+Bounded contexts live under `libs/<context>/` and are split into backend layer
+projects plus an optional browser presentation project:
 
 - `domain`: aggregates, entities, value objects, domain services, events, and
   domain errors.
@@ -80,11 +84,28 @@ projects:
   and abstract-class ports.
 - `infrastructure`: Nest modules, controllers, DTOs, Prisma repositories,
   query handlers, mappers, presenters, consumers, and logging adapters.
+- `web`: Angular routes, feature components, browser API clients, and display
+  types. Its public API exposes route definitions for a browser app to compose.
+
+`apps/web` is the browser composition root. It lazy-loads context-owned web
+projects and sends relative `/api` requests. The development server proxies
+those requests to `http://localhost:3000`; production hosting must route them
+to the independently deployed NestJS API.
 
 Contexts do not import one another's internals directly. Cross-context
 communication uses integration events or explicit versioned transport
 contracts. Internal aggregates and domain events are not shared wire
 contracts. Shared building blocks stay under `libs/shared`.
+
+Nx platform tags keep browser projects from importing server projects and keep
+server projects from importing browser projects. Existing domain, application,
+infrastructure, and shared projects are intentionally tagged
+`platform:server`; they are not platform-neutral contracts.
+
+Repository-wide `pnpm build` and `pnpm check` intentionally include both
+applications. Backend-only build and delivery pipelines use targeted API tasks
+such as `pnpm build:api` or `pnpm nx run api:prune` so Angular dependencies are
+not pulled into the API artifact.
 
 ## Folder Taxonomy
 

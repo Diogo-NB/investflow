@@ -1,0 +1,12 @@
+{
+  "name": "@investflow/investment-simulator-web",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "@angular/material": "^21.2.0",
+    "@angular/common": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "sideEffects": false
+}

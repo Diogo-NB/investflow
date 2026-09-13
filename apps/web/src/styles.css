@@ -1,0 +1,58 @@
+@import '@angular/material/prebuilt-themes/azure-blue.css';
+
+:root {
+  --font-display:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-body: Aptos, 'Trebuchet MS', sans-serif;
+  --text-sm: 0.8125rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.953rem;
+  --text-3xl: 3.052rem;
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2rem;
+  --space-6: 3rem;
+  --space-8: 4rem;
+  --radius-small: 0.25rem;
+  --radius-surface: 0.75rem;
+  --color-bg: oklch(0.975 0.012 238);
+  --color-surface: oklch(0.995 0.003 240);
+  --color-fg: oklch(0.24 0.035 248);
+  --color-muted: oklch(0.47 0.035 248);
+  --color-border: oklch(0.84 0.035 235);
+  --color-accent: oklch(0.48 0.14 245);
+  --color-accent-fg: oklch(0.99 0.002 240);
+  --color-success: oklch(0.43 0.11 155);
+  --color-warning: oklch(0.55 0.13 70);
+  --color-error: oklch(0.49 0.18 28);
+  --duration-fast: 150ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  color-scheme: light;
+  font-family: var(--font-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-body);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}

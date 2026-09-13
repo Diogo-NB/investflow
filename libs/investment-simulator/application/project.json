@@ -5,21 +5,18 @@
   "projectType": "library",
   "tags": [
     "scope:investment-simulator",
-    "layer:application"
+    "layer:application",
+    "platform:server"
   ],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "options": {
         "outputPath": "dist/libs/investment-simulator/application",
         "main": "libs/investment-simulator/application/src/index.ts",
         "tsConfig": "libs/investment-simulator/application/tsconfig.lib.json",
-        "assets": [
-          "libs/investment-simulator/application/*.md"
-        ]
+        "assets": ["libs/investment-simulator/application/*.md"]
       }
     }
   }
