@@ -30,6 +30,17 @@ incoming native value with `UtcInstant.fromDate(...)`; use the defensive
 Obtain the current time through the shared application `Clock`: `now()` returns
 an exact `UtcInstant`, while `today()` returns the current UTC `CalendarDate`.
 
+## Money
+
+Use `Money` for signed monetary amounts. A money value carries an explicit
+three-letter uppercase currency code, defaults to `BRL`, and prevents arithmetic
+or ordering comparisons between different currencies. Whether a particular
+field may be negative is an invariant of the owning feature. Its JSON
+representation preserves the decimal amount as a string.
+
+Locale-sensitive display is an infrastructure concern. Use `formatMoney` with
+an explicit locale or `formatMoneyPtBr` from `@investflow/shared-infrastructure`.
+
 ## Building
 
 Run `pnpm nx build shared-domain` to build the library.

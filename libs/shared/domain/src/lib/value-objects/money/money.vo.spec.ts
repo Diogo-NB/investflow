@@ -1,127 +1,150 @@
 import Decimal from 'decimal.js';
-import { Money, InvalidMoneyError } from './money.vo';
+import {
+  InvalidMoneyError,
+  Money,
+  MoneyCurrencyMismatchError,
+} from './money.vo';
 
 describe('Money', () => {
-  describe('Money.create()', () => {
-    it('returns ok for positive values', () => {
+  describe('create()', () => {
+    it('creates a BRL amount by default', () => {
       const result = Money.create('100.50');
 
       expect(result.isOk()).toBe(true);
       expect(result.value.amount.toString()).toBe('100.5');
+      expect(result.value.currency).toBe('BRL');
     });
 
-    it('returns an error for invalid values', () => {
-      const result = Money.create(0);
+    it('accepts zero', () => {
+      const result = Money.create(0, 'USD');
 
-      expect(result.isErr()).toBe(true);
-      expect(result.error).toBeInstanceOf(InvalidMoneyError);
+      expect(result.isOk()).toBe(true);
+      expect(result.value.isZero()).toBe(true);
+      expect(result.value.currency).toBe('USD');
+    });
+
+    it.each([['not-a-number'], [Number.NaN], [Number.POSITIVE_INFINITY]])(
+      'returns InvalidMoneyError for a malformed or non-finite amount: %s',
+      (amount) => {
+        const result = Money.create(amount);
+
+        expect(result.isErr()).toBe(true);
+        expect(result.error).toBeInstanceOf(InvalidMoneyError);
+      },
+    );
+
+    it('accepts negative amounts', () => {
+      const result = Money.create('-0.01');
+
+      expect(result.isOk()).toBe(true);
+      expect(result.value.amount.toString()).toBe('-0.01');
+      expect(result.value.isNegative()).toBe(true);
+    });
+
+    it.each(['brl', 'REAL', 'BR'])(
+      'rejects invalid currency code %s',
+      (currency) => {
+        const result = Money.create(10, currency);
+
+        expect(result.isErr()).toBe(true);
+        expect(result.error).toBeInstanceOf(InvalidMoneyError);
+      },
+    );
+  });
+
+  describe('of()', () => {
+    it('creates money from Decimal, number, and string amounts', () => {
+      expect(Money.of(new Decimal('100.50')).amount.toString()).toBe('100.5');
+      expect(Money.of(100).amount.toNumber()).toBe(100);
+      expect(Money.of('250.75').amount.toString()).toBe('250.75');
+    });
+
+    it('throws InvalidMoneyError for invalid input', () => {
+      expect(() => Money.of('invalid')).toThrow(InvalidMoneyError);
+      expect(() => Money.of(1, 'brl')).toThrow(InvalidMoneyError);
     });
   });
 
-  describe('Money.of()', () => {
-    it('creates a Money instance from a positive Decimal', () => {
-      const money = Money.of(new Decimal('100.50'));
-      expect(money.amount.toString()).toBe('100.5');
-      expect(money.currency).toBe('BRL');
-    });
+  describe('zero()', () => {
+    it('creates zero in the requested currency', () => {
+      const money = Money.zero('EUR');
 
-    it('creates a Money instance from a positive number', () => {
-      const money = Money.of(100);
-      expect(money.amount.toNumber()).toBe(100);
-    });
-
-    it('creates a Money instance from a positive string', () => {
-      const money = Money.of('250.75');
-      expect(money.amount.toString()).toBe('250.75');
-    });
-
-    it('throws InvalidMoneyError for zero', () => {
-      expect(() => Money.of(0)).toThrow(InvalidMoneyError);
-    });
-
-    it('throws InvalidMoneyError for negative values', () => {
-      expect(() => Money.of(-1)).toThrow(InvalidMoneyError);
-    });
-
-    it('throws InvalidMoneyError for negative Decimal', () => {
-      expect(() => Money.of(new Decimal('-0.01'))).toThrow(InvalidMoneyError);
+      expect(money.isZero()).toBe(true);
+      expect(money.currency).toBe('EUR');
     });
   });
 
-  describe('add()', () => {
-    it('returns a new Money with the summed amount', () => {
-      const a = Money.of('100');
-      const b = Money.of('50.25');
-      expect(a.add(b).amount.toString()).toBe('150.25');
+  describe('arithmetic', () => {
+    it('adds amounts without mutating either operand', () => {
+      const left = Money.of('100');
+      const right = Money.of('50.25');
+
+      expect(left.add(right).amount.toString()).toBe('150.25');
+      expect(left.amount.toString()).toBe('100');
+      expect(right.amount.toString()).toBe('50.25');
     });
 
-    it('does not mutate the original instances', () => {
-      const a = Money.of('100');
-      const b = Money.of('50');
-      a.add(b);
-      expect(a.amount.toString()).toBe('100');
-    });
-  });
-
-  describe('subtract()', () => {
-    it('returns a new Money with the difference', () => {
-      const a = Money.of('200');
-      const b = Money.of('50');
-      expect(a.subtract(b).amount.toString()).toBe('150');
+    it('allows subtraction to produce zero', () => {
+      expect(Money.of('50').subtract(Money.of('50')).isZero()).toBe(true);
     });
 
-    it('throws when result would be zero', () => {
-      const a = Money.of('50');
-      const b = Money.of('50');
-      expect(() => a.subtract(b)).toThrow(InvalidMoneyError);
+    it('allows subtraction to produce a negative amount', () => {
+      const result = Money.of('10').subtract(Money.of('20'));
+
+      expect(result.amount.toString()).toBe('-10');
+      expect(result.isNegative()).toBe(true);
     });
 
-    it('throws when result would be negative', () => {
-      const a = Money.of('10');
-      const b = Money.of('20');
-      expect(() => a.subtract(b)).toThrow(InvalidMoneyError);
+    it('rejects arithmetic between different currencies', () => {
+      const brl = Money.of(10, 'BRL');
+      const usd = Money.of(10, 'USD');
+
+      expect(() => brl.add(usd)).toThrow(MoneyCurrencyMismatchError);
+      expect(() => brl.subtract(usd)).toThrow(MoneyCurrencyMismatchError);
     });
   });
 
-  describe('comparison methods', () => {
+  describe('comparison', () => {
     const low = Money.of('10');
     const high = Money.of('20');
     const same = Money.of('10');
 
-    it('greaterThan() returns true when this > other', () => {
+    it('compares amounts in the same currency', () => {
       expect(high.greaterThan(low)).toBe(true);
-    });
-
-    it('greaterThan() returns false when this < other', () => {
-      expect(low.greaterThan(high)).toBe(false);
-    });
-
-    it('greaterThan() returns false when equal', () => {
-      expect(low.greaterThan(same)).toBe(false);
-    });
-
-    it('greaterThanOrEqual() returns true when this > other', () => {
       expect(high.greaterThanOrEqual(low)).toBe(true);
-    });
-
-    it('greaterThanOrEqual() returns true when equal', () => {
       expect(low.greaterThanOrEqual(same)).toBe(true);
-    });
-
-    it('lessThan() returns true when this < other', () => {
       expect(low.lessThan(high)).toBe(true);
+      expect(low.lessThanOrEqual(high)).toBe(true);
+      expect(low.lessThanOrEqual(same)).toBe(true);
+      expect(high.isPositive()).toBe(true);
+      expect(Money.of(-1).isNegative()).toBe(true);
     });
 
-    it('lessThan() returns false when this >= other', () => {
-      expect(high.lessThan(low)).toBe(false);
+    it('rejects comparison between different currencies', () => {
+      expect(() => Money.of(10, 'BRL').lessThan(Money.of(10, 'USD'))).toThrow(
+        MoneyCurrencyMismatchError,
+      );
     });
 
-    it('equals() returns true for same amount', () => {
+    it('includes currency in equality', () => {
       expect(low.equals(same)).toBe(true);
+      expect(low.equals(high)).toBe(false);
+      expect(low.equals(Money.of(10, 'USD'))).toBe(false);
+    });
+  });
+
+  describe('serialization', () => {
+    const money = Money.of('1234.50', 'USD');
+
+    it('has a canonical string representation', () => {
+      expect(money.toString()).toBe('1234.5 USD');
     });
 
-    it('equals() returns false for different amounts', () => {
-      expect(low.equals(high)).toBe(false);
+    it('serializes amount without losing decimal precision', () => {
+      expect(money.toJSON()).toEqual({ amount: '1234.5', currency: 'USD' });
+      expect(JSON.stringify(money)).toBe(
+        '{"amount":"1234.5","currency":"USD"}',
+      );
     });
   });
 });

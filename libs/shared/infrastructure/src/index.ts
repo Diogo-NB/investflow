@@ -15,6 +15,11 @@ export {
   formatUtcInstantDatePtBr,
   formatUtcInstantDateTimePtBr,
 } from './lib/formatters/temporal.formatter';
+export {
+  formatMoney,
+  formatMoneyPtBr,
+  type MoneyFormatOptions,
+} from './lib/formatters/money.formatter';
 export { MessageBroker } from './lib/outbox/message-broker.port';
 export { SnsMessageBroker } from './lib/outbox/sns-message-broker';
 export { OutboxTopicRegistry } from './lib/outbox/outbox-topic.registry';
