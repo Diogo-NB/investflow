@@ -26,6 +26,8 @@
 - Domain events are immutable versioned classes.
 - Events include `eventId`, `occurredAt`, `eventType`, `version`,
   `aggregateId`, `aggregateType`, `context`, and scalar payload data.
+- Event metadata uses `UtcInstant` for `occurredAt` while in memory. Serialize it
+  only at persistence or transport boundaries.
 - Event names are past tense.
 - Event payloads must not contain entities, value objects, or ORM objects.
 

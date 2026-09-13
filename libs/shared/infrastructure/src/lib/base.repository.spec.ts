@@ -10,7 +10,7 @@ import type { TransactionalPrismaClient } from './prisma/prisma-client.type';
 
 class TestEvent implements DomainEvent {
   readonly eventId = 'event-id';
-  readonly occurredAt = '2026-01-01T00:00:00.000Z';
+  readonly occurredAt = UtcInstant.ofIso('2026-01-01T00:00:00Z');
   readonly eventType = 'TestEvent';
   readonly version = 1;
   readonly aggregateId = 'aggregate-id';
@@ -80,6 +80,15 @@ describe('BaseRepository', () => {
           eventType: 'TestEvent',
           context: 'test-context',
           occurredAt: new Date('2026-01-01T00:00:00.000Z'),
+          payload: {
+            eventId: 'event-id',
+            occurredAt: '2026-01-01T00:00:00.000Z',
+            eventType: 'TestEvent',
+            version: 1,
+            aggregateId: 'aggregate-id',
+            aggregateType: 'TestAggregate',
+            context: 'test-context',
+          },
         }),
       ],
     });
@@ -102,28 +111,6 @@ describe('BaseRepository', () => {
       aggregateId: 'aggregate-id',
       aggregateType: 'TestAggregate',
     });
-    expect(aggregate.getDomainEvents()).toHaveLength(1);
-  });
-
-  it('returns RepositorySaveError for a non-canonical event timestamp', async () => {
-    class InvalidTimestampEvent extends TestEvent {
-      override readonly occurredAt = '2026-01-01T00:00:00';
-    }
-
-    class InvalidTimestampAggregate extends TestAggregate {
-      recordInvalidEvent(): this {
-        return this.apply(new InvalidTimestampEvent());
-      }
-    }
-
-    const prisma = createPrismaService();
-    const repository = new TestRepository(prisma);
-    const aggregate = new InvalidTimestampAggregate().recordInvalidEvent();
-
-    const result = await repository.save(aggregate);
-
-    expect(result.isErr()).toBe(true);
-    expect(result.error).toBeInstanceOf(RepositorySaveError);
     expect(aggregate.getDomainEvents()).toHaveLength(1);
   });
 });

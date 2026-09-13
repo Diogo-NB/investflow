@@ -7,7 +7,6 @@ const UPDATED_AT = UtcInstant.ofIso('2026-01-02T00:00:00Z');
 
 class TestEvent implements DomainEvent {
   readonly eventId = crypto.randomUUID();
-  readonly occurredAt: string;
   readonly eventType = 'TestEvent';
   readonly version = 1;
   readonly aggregateId = 'test-aggregate-id';
@@ -15,10 +14,8 @@ class TestEvent implements DomainEvent {
   readonly context = 'test-context';
   constructor(
     readonly payload: string,
-    occurredAt: UtcInstant,
-  ) {
-    this.occurredAt = occurredAt.toISOString();
-  }
+    readonly occurredAt: UtcInstant,
+  ) {}
 }
 
 class TestAggregate extends AggregateRoot {
@@ -60,12 +57,10 @@ describe('AggregateRoot', () => {
       expect(events[1].payload).toBe('second');
     });
 
-    it('stores event timestamps as canonical scalar strings', () => {
+    it('stores event timestamps as immutable UTC instants', () => {
       aggregate.doSomething('first');
 
-      expect(aggregate.getDomainEvents()[0].occurredAt).toBe(
-        '2026-01-02T00:00:00.000Z',
-      );
+      expect(aggregate.getDomainEvents()[0].occurredAt).toBe(UPDATED_AT);
     });
   });
 

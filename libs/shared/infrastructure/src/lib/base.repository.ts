@@ -1,4 +1,4 @@
-import { AggregateRoot, Result, UtcInstant } from '@investflow/shared-domain';
+import { AggregateRoot, DomainEvent, Result } from '@investflow/shared-domain';
 import type { Prisma } from '@prisma/client';
 import { RepositorySaveError } from './errors/repository.error';
 import type { TransactionalPrismaClient } from './prisma/prisma-client.type';
@@ -22,9 +22,9 @@ export abstract class BaseRepository<T extends AggregateRoot> {
             aggregateType: event.aggregateType,
             aggregateId: event.aggregateId,
             eventType: event.eventType,
-            payload: event as unknown as Prisma.InputJsonValue,
+            payload: serializeDomainEvent(event),
             context: event.context,
-            occurredAt: UtcInstant.ofIso(event.occurredAt).date,
+            occurredAt: event.occurredAt.date,
           })),
         });
 
@@ -38,4 +38,11 @@ export abstract class BaseRepository<T extends AggregateRoot> {
     aggregate: T,
     client: TransactionalPrismaClient,
   ): Promise<void>;
+}
+
+function serializeDomainEvent(event: DomainEvent): Prisma.InputJsonObject {
+  return {
+    ...event,
+    occurredAt: event.occurredAt.toISOString(),
+  };
 }

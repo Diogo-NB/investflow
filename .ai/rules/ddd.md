@@ -54,8 +54,9 @@
   call `Date.now()` or construct a native `Date` to read the current time.
 - Aggregate audit timestamps use `UtcInstant`. Mutating behavior receives an
   explicit instant and must not read the system clock from domain code.
-- Domain-event timestamp fields are canonical UTC ISO strings so event payloads
-  remain scalar. Event constructors receive a `UtcInstant` and serialize it.
+- Domain-event `occurredAt` metadata remains a `UtcInstant` in memory. The
+  infrastructure adapter serializes it to a canonical UTC ISO string for the
+  outbox payload and converts it to native `Date` for database timestamp fields.
 
 ## Application And Infrastructure
 
