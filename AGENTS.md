@@ -2,9 +2,21 @@
 
 ## Project Structure & Module Organization
 
-InvestFlow is a NestJS 11 modular monolith managed with Nx and pnpm. The deployable API lives in `apps/api/src`. New bounded contexts belong under `libs/`, split into `domain`, `application`, and `infrastructure` projects. Cross-context code belongs in `libs/shared`. Prisma configuration is in `libs/shared/infrastructure/prisma`; Docker and Keycloak setup are in `infra/`.
+InvestFlow is a NestJS 11 modular monolith managed with Nx and pnpm. Deployable
+runtime hosts live under `apps/`; the current `apps/api` project is a thin
+composition root that bootstraps Nest and imports the public infrastructure
+module of each active bounded context. Business capabilities live under
+`libs/<context>/`, where the context grouping is split into `domain`,
+`application`, and `infrastructure` Nx projects. Cross-context building blocks
+belong in `libs/shared`. Prisma configuration is in
+`libs/shared/infrastructure/prisma`; Docker and Keycloak setup are in `infra/`.
 
-The repository currently contains shared architecture and investment-oriented value objects but no implemented bounded context. Respect the dependency boundaries enforced by ESLint tags: domain code must not depend on application or infrastructure code, bounded contexts must communicate through events, and shared libraries must not depend on feature contexts. Export public APIs through each library's `src/index.ts`.
+The investment simulator is the first implemented bounded context. Respect the
+dependency boundaries enforced by ESLint tags: domain code must remain
+framework-free and must not depend on application or infrastructure code,
+bounded contexts must communicate through events or explicit integration
+contracts, and shared libraries must not depend on feature contexts. Export
+public APIs through each library's `src/index.ts`.
 
 ## Build, Test, and Development Commands
 
@@ -27,6 +39,14 @@ Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding,
 ## Coding Style & Naming Conventions
 
 TypeScript uses Prettier with single quotes and ESLint's Nx flat configuration. Run `pnpm nx affected -t lint` before submitting. Follow kebab-case filenames such as `create-item.use-case.ts`; use PascalCase for classes and camelCase for methods and variables. Keep domain behavior in aggregates/value objects, application orchestration in use cases, and external integrations in infrastructure.
+
+Domain and application code must use the temporal value objects exported by
+`@investflow/shared-domain`: `CalendarDate` for civil dates,
+`CalendarDateRange` for date intervals, and `UtcInstant` for exact moments. Do
+not perform business logic, arithmetic, comparison, or formatting with native
+`Date`. Obtain time through the shared `Clock` port (`now()` or `today()`). A
+native `Date` is allowed only at an infrastructure boundary; convert it to or
+from a temporal value object immediately.
 
 The workspace intentionally retains `baseUrl` because the Nx TypeScript executor requires it for workspace path aliases. Use the workspace TypeScript version configured in `.vscode/settings.json`; do not add `ignoreDeprecations`.
 
@@ -76,6 +96,7 @@ assistant:
 @.ai/rules/outbox-event-flow.md
 @.ai/rules/shared-architecture.md
 @.ai/rules/project-structure.md
+@.ai/rules/deployment-composition.md
 @.ai/rules/di-and-handlers.md
 @.ai/rules/errors-and-results.md
 @.ai/rules/class-design.md

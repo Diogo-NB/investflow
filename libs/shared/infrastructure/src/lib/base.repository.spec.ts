@@ -1,4 +1,8 @@
-import { AggregateRoot, DomainEvent } from '@investflow/shared-domain';
+import {
+  AggregateRoot,
+  DomainEvent,
+  UtcInstant,
+} from '@investflow/shared-domain';
 import { RepositorySaveError } from './errors/repository.error';
 import { BaseRepository } from './base.repository';
 import { PrismaService } from './prisma/prisma.service';
@@ -6,7 +10,7 @@ import type { TransactionalPrismaClient } from './prisma/prisma-client.type';
 
 class TestEvent implements DomainEvent {
   readonly eventId = 'event-id';
-  readonly occurredAt = new Date('2026-01-01T00:00:00.000Z');
+  readonly occurredAt = '2026-01-01T00:00:00.000Z';
   readonly eventType = 'TestEvent';
   readonly version = 1;
   readonly aggregateId = 'aggregate-id';
@@ -16,7 +20,7 @@ class TestEvent implements DomainEvent {
 
 class TestAggregate extends AggregateRoot {
   constructor() {
-    const now = new Date('2026-01-01T00:00:00.000Z');
+    const now = UtcInstant.ofIso('2026-01-01T00:00:00Z');
     super('aggregate-id', now, now);
   }
 
@@ -75,6 +79,7 @@ describe('BaseRepository', () => {
           aggregateType: 'TestAggregate',
           eventType: 'TestEvent',
           context: 'test-context',
+          occurredAt: new Date('2026-01-01T00:00:00.000Z'),
         }),
       ],
     });
@@ -97,6 +102,28 @@ describe('BaseRepository', () => {
       aggregateId: 'aggregate-id',
       aggregateType: 'TestAggregate',
     });
+    expect(aggregate.getDomainEvents()).toHaveLength(1);
+  });
+
+  it('returns RepositorySaveError for a non-canonical event timestamp', async () => {
+    class InvalidTimestampEvent extends TestEvent {
+      override readonly occurredAt = '2026-01-01T00:00:00';
+    }
+
+    class InvalidTimestampAggregate extends TestAggregate {
+      recordInvalidEvent(): this {
+        return this.apply(new InvalidTimestampEvent());
+      }
+    }
+
+    const prisma = createPrismaService();
+    const repository = new TestRepository(prisma);
+    const aggregate = new InvalidTimestampAggregate().recordInvalidEvent();
+
+    const result = await repository.save(aggregate);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.error).toBeInstanceOf(RepositorySaveError);
     expect(aggregate.getDomainEvents()).toHaveLength(1);
   });
 });

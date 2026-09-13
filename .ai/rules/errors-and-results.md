@@ -22,9 +22,9 @@
   - repository operations with meaningful failure semantics;
   - external integrations.
 - Do not force `Result` onto trivial pure methods.
-- Command-side repository ports return `Result` for lookups and persistence.
-  A missing aggregate is represented as an error, usually a context-specific
-  not-found error.
+- Command-side repository ports return `Result` for aggregate lookups and
+  persistence. A missing aggregate is represented as an error, usually a
+  context-specific not-found error.
 - Read/query models may still use nullable values when absence is just data and
   has no business failure semantics.
 - Controllers unwrap `Result` at the transport boundary and never return raw

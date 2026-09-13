@@ -1,8 +1,9 @@
 # InvestFlow
 
-NestJS + Nx modular monolith starter for an investment-related, event-driven
-DDD application. The repository currently contains shared architectural
-building blocks only; bounded contexts are added as the domain is defined.
+NestJS + Nx modular monolith for an investment-related, event-driven DDD
+application. The API is a thin deployable host that composes bounded contexts
+implemented as Nx libraries. The investment simulator is the first active
+bounded context.
 
 ## Prerequisites
 
@@ -57,6 +58,17 @@ context registers its own topic during module initialization through the shared
 
 ## Architecture Conventions
 
-Project structure, file suffixes, dependency injection, Result/error handling,
-and class design conventions are documented in
+Deployable processes live under `apps/`, while each business capability lives
+under `libs/<context>/` and is split into domain, application, and
+infrastructure projects. `apps/api` currently imports every active context and
+deploys them together as a modular monolith. Future service or Lambda apps can
+compose one context and only the adapters needed by that runtime without moving
+the business code.
+
+Only domain projects must remain framework-free. Application and
+infrastructure projects may use NestJS, but process bootstrap, lifecycle, and
+EC2/Lambda-specific setup belong to the app that hosts them.
+
+Project structure, runtime composition, file suffixes, dependency injection,
+Result/error handling, and class design conventions are documented in
 [`docs/architecture/project-structure.md`](docs/architecture/project-structure.md).

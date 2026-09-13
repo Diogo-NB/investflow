@@ -2,13 +2,27 @@
 
 ## Bounded Contexts
 
-- Keep bounded contexts under `libs/<context>/`.
+- Keep each bounded context under one `libs/<context>/` grouping. The grouping,
+  not each nested Nx project, represents the bounded context.
 - Split every bounded context into Nx projects by layer:
   - `libs/<context>/domain`
   - `libs/<context>/application`
   - `libs/<context>/infrastructure`
-- Keep cross-context code in `libs/shared`.
-- Contexts communicate through domain/integration events, never direct imports.
+- Keep deployable entrypoints and composition roots under `apps/`.
+- Keep genuinely cross-context building blocks in `libs/shared`; shared is not a
+  bounded context.
+- Contexts communicate through integration events or explicit contracts, never
+  direct imports of another context's internals.
+
+## Deployment Layout
+
+- An app selects and imports public bounded-context infrastructure modules.
+- Context-local controllers, handlers, repositories, listeners, mappers, and
+  provider bindings remain in their owning context.
+- Keep process bootstrap, host lifecycle, global middleware, and runtime-specific
+  entrypoints in the app.
+- Follow `.ai/rules/deployment-composition.md` when adding a service, Lambda,
+  worker, or independently activated adapter.
 
 ## Folder Layout
 

@@ -24,7 +24,16 @@
       "@investflow/shared-infrastructure": [
         "./libs/shared/infrastructure/src/index.ts"
       ],
-      "@investflow/shared-types": ["./libs/shared/types/src/index.ts"]
+      "@investflow/shared-types": ["./libs/shared/types/src/index.ts"],
+      "@investflow/investment-simulator-domain": [
+        "./libs/investment-simulator/domain/src/index.ts"
+      ],
+      "@investflow/investment-simulator-application": [
+        "./libs/investment-simulator/application/src/index.ts"
+      ],
+      "@investflow/investment-simulator-infrastructure": [
+        "./libs/investment-simulator/infrastructure/src/index.ts"
+      ]
     }
   },
   "exclude": ["node_modules", "tmp"]

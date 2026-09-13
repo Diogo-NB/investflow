@@ -7,11 +7,16 @@ import {
   RolesGuard,
   AppExceptionFilter,
 } from '@investflow/shared-infrastructure';
+import { InvestmentSimulatorInfrastructureModule } from '@investflow/investment-simulator-infrastructure';
 import { AppController } from './app.controller';
 import { AppHealth } from './app.health';
 
 @Module({
-  imports: [SharedInfrastructureModule, TerminusModule],
+  imports: [
+    SharedInfrastructureModule,
+    InvestmentSimulatorInfrastructureModule,
+    TerminusModule,
+  ],
   controllers: [AppController],
   providers: [
     AppHealth,

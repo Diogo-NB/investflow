@@ -1,11 +1,33 @@
 # shared-infrastructure
 
-This library was generated with [Nx](https://nx.dev).
+Cross-context NestJS infrastructure building blocks, including authentication,
+Prisma transaction support, HTTP error translation, and outbox/SNS/SQS
+adapters. This is shared technical infrastructure, not a bounded context or a
+deployable application.
+
+`SharedInfrastructureModule` is the current convenience composition module for
+the modular-monolith API. It activates configuration, Prisma, authentication,
+and scheduled outbox publishing together. A future Lambda, queue worker, or
+independent service must import focused modules appropriate to its lifecycle;
+it must not activate schedulers or consumers merely to obtain persistence or
+authentication.
+
+## Temporal boundaries
+
+Native `Date` is permitted only where a database driver, framework, or `Intl`
+API requires it. Convert native values to `UtcInstant` or `CalendarDate` as soon
+as they enter the application, and convert back only at the outgoing adapter by
+using the defensive `UtcInstant.date` getter. Infrastructure code must not use
+native `Date` for business rules.
+
+Use `SystemClock` through the shared application `Clock` port for the current
+time. For presentation, use the exported PT-BR temporal formatters and always
+provide an explicit IANA timezone when formatting a `UtcInstant`.
 
 ## Building
 
-Run `nx build shared-infrastructure` to build the library.
+Run `pnpm nx build shared-infrastructure` to build the library.
 
 ## Running unit tests
 
-Run `nx test shared-infrastructure` to execute the unit tests via [Jest](https://jestjs.io).
+Run `pnpm nx test shared-infrastructure` to execute its Jest tests.

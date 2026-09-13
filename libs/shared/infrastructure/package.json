@@ -8,6 +8,7 @@
   "dependencies": {
     "@aws-sdk/client-sns": "^3.1034.0",
     "@aws-sdk/client-sqs": "^3.1034.0",
+    "@investflow/shared-application": "*",
     "@investflow/shared-domain": "*",
     "@investflow/shared-types": "*",
     "@nestjs/common": "^11.0.0",

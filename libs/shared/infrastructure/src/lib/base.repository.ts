@@ -1,4 +1,4 @@
-import { AggregateRoot, Result } from '@investflow/shared-domain';
+import { AggregateRoot, Result, UtcInstant } from '@investflow/shared-domain';
 import type { Prisma } from '@prisma/client';
 import { RepositorySaveError } from './errors/repository.error';
 import type { TransactionalPrismaClient } from './prisma/prisma-client.type';
@@ -24,7 +24,7 @@ export abstract class BaseRepository<T extends AggregateRoot> {
             eventType: event.eventType,
             payload: event as unknown as Prisma.InputJsonValue,
             context: event.context,
-            occurredAt: event.occurredAt,
+            occurredAt: UtcInstant.ofIso(event.occurredAt).date,
           })),
         });
 

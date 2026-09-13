@@ -11,8 +11,8 @@
 5. The poller marks the outbox row published only after broker publication
    succeeds.
 
-Each bounded-context infrastructure module owns its topic configuration and
-registers it during module initialization:
+Each bounded context owns its topic registration provider. A host activates
+that provider by importing the context module that publishes the events:
 
 ```typescript
 @Injectable()
@@ -44,3 +44,9 @@ retry and DLQ handling.
 - Treat delivery as at least once and keep consumers idempotent.
 - Use one SNS topic per bounded context and one SQS queue per consumer.
 - Each bounded context owns and registers its broker configuration.
+- The deployable app decides whether the outbox poller and each consumer are
+  active. Do not start schedulers or queue polling merely because an app imports
+  unrelated shared persistence or authentication infrastructure.
+- Long-running servers may host scheduled polling. Lambda and worker apps must
+  select an invocation model appropriate to their trigger rather than assuming
+  the long-running schedule is available.

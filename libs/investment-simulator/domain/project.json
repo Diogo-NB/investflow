@@ -1,0 +1,26 @@
+{
+  "name": "investment-simulator-domain",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/investment-simulator/domain/src",
+  "projectType": "library",
+  "tags": [
+    "scope:investment-simulator",
+    "layer:domain"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/libs/investment-simulator/domain",
+        "main": "libs/investment-simulator/domain/src/index.ts",
+        "tsConfig": "libs/investment-simulator/domain/tsconfig.lib.json",
+        "assets": [
+          "libs/investment-simulator/domain/*.md"
+        ]
+      }
+    }
+  }
+}

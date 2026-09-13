@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Clock } from '@investflow/shared-application';
 import { PrismaService } from '../prisma/prisma.service';
 import { MessageBroker } from './message-broker.port';
 import { OutboxTopicRegistry } from './outbox-topic.registry';
@@ -12,6 +13,7 @@ export class OutboxPollerService {
     private readonly prisma: PrismaService,
     private readonly topicRegistry: OutboxTopicRegistry,
     private readonly messageBroker: MessageBroker,
+    private readonly clock: Clock,
   ) {}
 
   @Cron(CronExpression.EVERY_5_SECONDS)
@@ -40,7 +42,7 @@ export class OutboxPollerService {
         );
         await tx.outboxEvent.update({
           where: { id: event.id },
-          data: { publishedAt: new Date() },
+          data: { publishedAt: this.clock.now().date },
         });
       });
     }

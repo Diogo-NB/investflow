@@ -1,0 +1,26 @@
+{
+  "name": "investment-simulator-infrastructure",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/investment-simulator/infrastructure/src",
+  "projectType": "library",
+  "tags": [
+    "scope:investment-simulator",
+    "layer:infrastructure"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/libs/investment-simulator/infrastructure",
+        "main": "libs/investment-simulator/infrastructure/src/index.ts",
+        "tsConfig": "libs/investment-simulator/infrastructure/tsconfig.lib.json",
+        "assets": [
+          "libs/investment-simulator/infrastructure/*.md"
+        ]
+      }
+    }
+  }
+}

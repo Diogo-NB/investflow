@@ -21,6 +21,16 @@ export abstract class PortfolioRepository {
 export class InvestmentSimulatorInfrastructureModule {}
 ```
 
+The bounded-context infrastructure module is its local composition root: it
+registers context-owned controllers, handlers, ports, and adapters. A deployable
+app is the system composition root: it chooses which bounded-context modules to
+import and configures global runtime concerns. Do not make an app enumerate a
+context's internal providers.
+
+If different hosts need different adapters, expose focused Nest modules from
+the infrastructure project so each app can opt into HTTP, messaging,
+persistence, or background work independently.
+
 ## Handler Orchestration
 
 - Use simple classes with one `execute(input)` method.

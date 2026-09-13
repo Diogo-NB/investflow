@@ -1,25 +1,34 @@
 import { AggregateRoot } from './aggregate-root.base';
 import { DomainEvent } from '../domain-event/domain-event.contract';
+import { UtcInstant } from '../value-objects/utc-instant/utc-instant.vo';
+
+const CREATED_AT = UtcInstant.ofIso('2026-01-01T00:00:00Z');
+const UPDATED_AT = UtcInstant.ofIso('2026-01-02T00:00:00Z');
 
 class TestEvent implements DomainEvent {
   readonly eventId = crypto.randomUUID();
-  readonly occurredAt = new Date();
+  readonly occurredAt: string;
   readonly eventType = 'TestEvent';
   readonly version = 1;
   readonly aggregateId = 'test-aggregate-id';
   readonly aggregateType = 'TestAggregate';
   readonly context = 'test-context';
-  constructor(readonly payload: string) {}
+  constructor(
+    readonly payload: string,
+    occurredAt: UtcInstant,
+  ) {
+    this.occurredAt = occurredAt.toISOString();
+  }
 }
 
 class TestAggregate extends AggregateRoot {
   constructor() {
-    const now = new Date();
-    super('test-id', now, now);
+    super('test-id', CREATED_AT, CREATED_AT);
   }
 
-  doSomething(payload: string): void {
-    this.apply(new TestEvent(payload));
+  doSomething(payload: string, at: UtcInstant = UPDATED_AT): this {
+    this.apply(new TestEvent(payload, at));
+    return this.touch(at);
   }
 }
 
@@ -50,6 +59,23 @@ describe('AggregateRoot', () => {
       expect(events[0].payload).toBe('first');
       expect(events[1].payload).toBe('second');
     });
+
+    it('stores event timestamps as canonical scalar strings', () => {
+      aggregate.doSomething('first');
+
+      expect(aggregate.getDomainEvents()[0].occurredAt).toBe(
+        '2026-01-02T00:00:00.000Z',
+      );
+    });
+  });
+
+  it('stores aggregate timestamps as immutable UTC instants', () => {
+    expect(aggregate.createdAt).toBe(CREATED_AT);
+    expect(aggregate.getUpdatedAt()).toBe(CREATED_AT);
+
+    aggregate.doSomething('first', UPDATED_AT);
+
+    expect(aggregate.getUpdatedAt()).toBe(UPDATED_AT);
   });
 
   describe('clearDomainEvents()', () => {
