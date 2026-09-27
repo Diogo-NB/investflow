@@ -77,10 +77,26 @@ PDF/CSV ficam fora do escopo.
 ### Convenções
 
 - Capitalização usa 252 dias úteis por ano.
-- Datas e horas usam `America/Sao_Paulo`.
+- Instantes exatos usam UTC. A interface os apresenta no fuso
+  `America/Sao_Paulo`.
+- Datas civis, como aplicação e vencimento, não possuem fuso horário e são
+  apresentadas no mesmo dia de calendário informado pelo usuário.
 - O rendimento corresponde ao montante bruto menos o valor inicial.
 - IR e IOF incidem somente sobre o rendimento.
 - O montante líquido corresponde ao montante bruto menos IR e IOF.
+
+### Calendário de Dias Úteis
+
+- Um dia útil exclui sábados, domingos e os feriados nacionais usados pelo
+  calendário financeiro da ANBIMA.
+- Os feriados fixos são 1º de janeiro, 21 de abril, 1º de maio, 7 de setembro,
+  12 de outubro, 2, 15 e 20 de novembro e 25 de dezembro.
+- Carnaval (segunda e terça-feira), Paixão de Cristo e Corpus Christi são
+  derivados anualmente da data da Páscoa pelo computus gregoriano documentado
+  no projeto de domínio.
+- A contagem exclui a data inicial e inclui a data final.
+- Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
+  extraordinárias de calendário ficam fora do MVP.
 
 ### CDB Prefixado
 
@@ -109,12 +125,12 @@ exata de composição ainda precisa ser definida.
 
 Aplicar automaticamente a alíquota regressiva conforme o prazo efetivo:
 
-| Prazo efetivo | Alíquota |
-| --- | ---: |
-| até 180 dias | 22,5% |
-| 181 a 360 dias | 20% |
-| 361 a 720 dias | 17,5% |
-| acima de 720 dias | 15% |
+| Prazo efetivo     | Alíquota |
+| ----------------- | -------: |
+| até 180 dias      |    22,5% |
+| 181 a 360 dias    |      20% |
+| 361 a 720 dias    |    17,5% |
+| acima de 720 dias |      15% |
 
 ### IOF
 
@@ -183,7 +199,6 @@ validada antes da implementação.
 - Definir fórmula exata para CDB híbrido.
 - Definir tabela diária de IOF.
 - Validar regra de agregação para portfólios com vencimentos diferentes.
-- Definir calendário de dias úteis e fonte de feriados.
 - Definir se prazo tributário usa dias corridos enquanto capitalização usa dias
   úteis.
 - Definir arredondamento e precisão monetária.
