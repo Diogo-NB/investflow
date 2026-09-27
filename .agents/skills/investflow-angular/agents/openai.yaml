@@ -1,0 +1,7 @@
+interface:
+  display_name: "InvestFlow Angular"
+  short_description: "Build InvestFlow's lean Angular frontend"
+  default_prompt: "Use $investflow-angular to implement this frontend change with the repository's established patterns."
+
+policy:
+  allow_implicit_invocation: true

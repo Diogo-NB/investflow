@@ -1,22 +1,44 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Project Overview
 
 InvestFlow is a NestJS 11 modular monolith managed with Nx and pnpm. Deployable
-runtime hosts live under `apps/`; the current `apps/api` project is a thin
-composition root that bootstraps Nest and imports the public infrastructure
-module of each active bounded context. Business capabilities live under
-`libs/<context>/`, where the context grouping is split into `domain`,
-`application`, and `infrastructure` Nx projects. Cross-context building blocks
-belong in `libs/shared`. Prisma configuration is in
-`libs/shared/infrastructure/prisma`; Docker and Keycloak setup are in `infra/`.
+hosts live under `apps/`. Business capabilities live under `libs/<context>/`
+and are split into `domain`, `application`, and `infrastructure` Nx projects;
+browser presentation uses an optional `web` project. Cross-context building
+blocks belong in `libs/shared`. Infrastructure and identity setup live under
+`infra/`.
 
-The investment simulator is the first implemented bounded context. Respect the
-dependency boundaries enforced by ESLint tags: domain code must remain
-framework-free and must not depend on application or infrastructure code,
-bounded contexts must communicate through events or explicit integration
-contracts, and shared libraries must not depend on feature contexts. Export
-public APIs through each library's `src/index.ts`.
+## Codex Skills
+
+Load the repository skill that matches the work:
+
+- `$investflow-domain-application` for aggregates, value objects, domain
+  services, use cases, ports, application errors, and temporal behavior.
+- `$investflow-nestjs-infrastructure` for controllers, DTOs, Prisma adapters,
+  query handlers, Nest modules, dependency injection, and host composition.
+- `$investflow-eventing` for domain events, the transactional outbox, SNS/SQS,
+  consumers, retries, and idempotency.
+- `$investflow-angular` for routes, components, forms, browser API clients,
+  state, styling, accessibility, and frontend tests.
+
+Cross-layer changes can require more than one skill.
+
+## Architecture Invariants
+
+- Apps are thin composition roots; business behavior stays in its bounded
+  context.
+- Domain code is framework-free and cannot depend on application or
+  infrastructure code.
+- Bounded contexts communicate through integration events or explicit
+  contracts, never by importing one another's internals.
+- Shared libraries cannot depend on feature contexts.
+- Export every library's public API through `src/index.ts`; use workspace
+  aliases across projects and relative imports within a project.
+- Domain and application code use `CalendarDate`, `CalendarDateRange`, and
+  `UtcInstant` from `@investflow/shared-domain`, and obtain time through the
+  shared `Clock` port. Native `Date` is restricted to infrastructure boundaries
+  and must be converted immediately.
 
 ## Build, Test, and Development Commands
 
@@ -36,23 +58,23 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 
 Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding, use Nx generators and preserve existing project tags.
 
-## Coding Style & Naming Conventions
+## Coding Conventions
 
-TypeScript uses Prettier with single quotes and ESLint's Nx flat configuration. Run `pnpm nx affected -t lint` before submitting. Follow kebab-case filenames such as `create-item.use-case.ts`; use PascalCase for classes and camelCase for methods and variables. Keep domain behavior in aggregates/value objects, application orchestration in use cases, and external integrations in infrastructure.
-
-Domain and application code must use the temporal value objects exported by
-`@investflow/shared-domain`: `CalendarDate` for civil dates,
-`CalendarDateRange` for date intervals, and `UtcInstant` for exact moments. Do
-not perform business logic, arithmetic, comparison, or formatting with native
-`Date`. Obtain time through the shared `Clock` port (`now()` or `today()`). A
-native `Date` is allowed only at an infrastructure boundary; convert it to or
-from a temporal value object immediately.
+TypeScript uses Prettier with single quotes and the Nx flat ESLint configuration.
+Use kebab-case filenames, PascalCase classes, and camelCase methods and
+variables. Prefer guard clauses, accept `unknown` and narrow it explicitly, and
+do not use `any` unless unavoidable framework typing requires it. Keep changes
+scoped and comment only non-obvious constraints, side effects, or workarounds.
 
 The workspace intentionally retains `baseUrl` because the Nx TypeScript executor requires it for workspace path aliases. Use the workspace TypeScript version configured in `.vscode/settings.json`; do not add `ignoreDeprecations`.
 
 ## Testing Guidelines
 
 Jest is configured per Nx project. Place focused unit tests beside source files using `*.spec.ts`. Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
+
+Frontend tests follow the state-first policy in `$investflow-angular`: test
+stores and component orchestration without rendering templates or asserting
+HTML/UI details.
 
 ## Commit & Pull Request Guidelines
 
@@ -85,18 +107,3 @@ Recent history follows Conventional Commits, primarily `feat: ...` and `fix: ...
 - Use generator `--help` for basic syntax and option discovery.
 
 <!-- nx configuration end-->
-
-## Shared AI Rules
-
-The following project rules are vendor-neutral and apply to every AI coding
-assistant:
-
-@.ai/rules/coding-principles.md
-@.ai/rules/ddd.md
-@.ai/rules/outbox-event-flow.md
-@.ai/rules/shared-architecture.md
-@.ai/rules/project-structure.md
-@.ai/rules/deployment-composition.md
-@.ai/rules/di-and-handlers.md
-@.ai/rules/errors-and-results.md
-@.ai/rules/class-design.md

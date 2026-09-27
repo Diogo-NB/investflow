@@ -1,0 +1,7 @@
+interface:
+  display_name: "InvestFlow Domain and Application"
+  short_description: "Build domain and application behavior"
+  default_prompt: "Use $investflow-domain-application to implement this business behavior with the repository's domain and application patterns."
+
+policy:
+  allow_implicit_invocation: true

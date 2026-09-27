@@ -1,0 +1,7 @@
+interface:
+  display_name: "InvestFlow NestJS Infrastructure"
+  short_description: "Build NestJS and Prisma adapters"
+  default_prompt: "Use $investflow-nestjs-infrastructure to implement this server adapter with the repository's infrastructure patterns."
+
+policy:
+  allow_implicit_invocation: true
