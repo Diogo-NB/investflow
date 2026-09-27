@@ -1,6 +1,7 @@
 {
   "id": "93ffc82d-a6a9-4491-abca-64fd440ef1fe",
   "realm": "investflow",
+  "displayName": "InvestFlow - desenvolvimento local",
   "notBefore": 0,
   "defaultSignatureAlgorithm": "RS256",
   "revokeRefreshToken": false,
@@ -455,13 +456,24 @@
       "serviceAccountClientId": "investflow-api",
       "disableableCredentialTypes": [],
       "requiredActions": [],
-      "realmRoles": ["default-roles-investflow"],
-      "clientRoles": {
-        "investflow-api": ["uma_protection"]
-      },
       "notBefore": 0,
       "groups": [],
       "attributes": null
+    },
+    {
+      "id": "cf3bd428-79c2-4da4-b248-94896b00d4f8",
+      "username": "investflow-dev",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "investflow-dev",
+          "temporary": false
+        }
+      ],
+      "groups": []
     }
   ],
   "scopeMappings": [
@@ -713,7 +725,6 @@
         "web-origins",
         "service_account",
         "acr",
-        "roles",
         "profile",
         "api-access",
         "basic",
@@ -734,6 +745,55 @@
         "scopes": [],
         "decisionStrategy": "UNANIMOUS"
       }
+    },
+    {
+      "id": "8b160fa0-83de-4935-8e27-949a125cf206",
+      "clientId": "investflow-web",
+      "name": "InvestFlow web (desenvolvimento local)",
+      "description": "Cliente público da SPA local. Não contém segredo.",
+      "rootUrl": "${WEB_APP_ORIGIN}",
+      "baseUrl": "${WEB_APP_ORIGIN}/",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": ["${WEB_APP_ORIGIN}/*"],
+      "webOrigins": ["${WEB_APP_ORIGIN}"],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "publicClient": true,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "realm_client": "false",
+        "oidc.ciba.grant.enabled": "false",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "post.logout.redirect.uris": "${WEB_APP_ORIGIN}/*",
+        "pkce.code.challenge.method": "S256"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": false,
+      "nodeReRegistrationTimeout": 0,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "api-access",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "organization",
+        "microprofile-jwt"
+      ]
     },
     {
       "id": "6ac02b5c-f8c8-4e39-959c-f45da18600f5",

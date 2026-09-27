@@ -35,6 +35,7 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/${KC_DB_NAME:-keycloak}
       KC_DB_USERNAME: ${DB_USER:-postgres}
       KC_DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      WEB_APP_ORIGIN: ${WEB_APP_ORIGIN:-http://localhost:4200}
     volumes:
       - ./infra/keycloak/realms:/opt/keycloak/data/import
 

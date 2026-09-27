@@ -9,6 +9,8 @@
     "build": {
       "executor": "@angular/build:application",
       "outputs": ["{options.outputPath}"],
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
       "options": {
         "outputPath": "dist/apps/web",
         "browser": "apps/web/src/main.ts",
@@ -23,6 +25,12 @@
       },
       "configurations": {
         "production": {
+          "fileReplacements": [
+            {
+              "replace": "apps/web/src/environments/environment.ts",
+              "with": "apps/web/src/environments/environment.production.ts"
+            }
+          ],
           "budgets": [
             {
               "type": "initial",

@@ -39,6 +39,17 @@ Cross-layer changes can require more than one skill.
   `UtcInstant` from `@investflow/shared-domain`, and obtain time through the
   shared `Clock` port. Native `Date` is restricted to infrastructure boundaries
   and must be converted immediately.
+- Frontend state is signal-first: use native Angular `signal()` for mutable UI
+  state and `computed()` for derived state, including inside feature-scoped
+  state services. Keep RxJS at asynchronous boundaries. Do not introduce NgRx
+  SignalStore or another state library without demonstrated coordination or
+  workflow complexity that native signals do not handle clearly.
+- Frontend code defaults to stable, framework-native Angular APIs: standalone
+  components, zoneless change detection, `OnPush`, `inject()`, signal component
+  APIs, native template control flow, lazy feature routes, functional providers,
+  and typed reactive forms. Experimental Angular APIs require an explicit
+  adoption decision documented in `$investflow-angular` and the frontend
+  architecture guide.
 
 ## Build, Test, and Development Commands
 
@@ -48,7 +59,12 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 - If pnpm is unavailable after installing a new NVM Node version, run `corepack enable`; Corepack will use the pnpm version pinned in `packageManager`.
 - In sandboxes or containers that prohibit Unix sockets, prefix Nx commands with `NX_DAEMON=false`.
 - `pnpm install`: install workspace dependencies.
-- `pnpm db:up && pnpm kc:up`: start PostgreSQL and Keycloak.
+- `pnpm db:up`: start PostgreSQL and Keycloak with their existing local state.
+- `pnpm db:down`: stop and remove both containers while preserving local data.
+- `pnpm db:setup`: delete local PostgreSQL and Keycloak state, recreate both
+  services, apply Prisma migrations, and import the development realm.
+- `pnpm start`: start PostgreSQL and Keycloak, then serve the API and web
+  applications in parallel.
 - `pnpm db:migrate`: create/apply local Prisma migrations after schema changes.
 - `pnpm start:api`: serve the API in development mode.
 - `pnpm build:api`: build the API into `dist/`.

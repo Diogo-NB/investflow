@@ -42,7 +42,7 @@ describe('JwtAuthGuard', () => {
   });
 
   it('returns user when valid', () => {
-    const user = { userId: 'user-uuid', roles: ['reader'] };
+    const user = { userId: 'user-uuid', email: 'user@test.com' };
     const result = guard.handleRequest(null, user);
     expect(result).toBe(user);
   });

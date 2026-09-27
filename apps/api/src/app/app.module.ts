@@ -4,7 +4,6 @@ import { TerminusModule } from '@nestjs/terminus';
 import {
   SharedInfrastructureModule,
   JwtAuthGuard,
-  RolesGuard,
   AppExceptionFilter,
 } from '@investflow/shared-infrastructure';
 import { InvestmentSimulatorInfrastructureModule } from '@investflow/investment-simulator-infrastructure';
@@ -22,7 +21,6 @@ import { AppHealth } from './app.health';
     AppHealth,
     { provide: APP_FILTER, useClass: AppExceptionFilter },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

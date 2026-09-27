@@ -18,8 +18,7 @@ nvm install
 nvm use
 corepack enable
 pnpm install
-pnpm db:up
-pnpm kc:up
+pnpm db:setup
 pnpm db:generate
 ```
 
@@ -29,14 +28,42 @@ Load NVM before running Node, pnpm, or Nx commands.
 ## Development
 
 ```sh
-pnpm start:api
-pnpm start:web
+pnpm start
 pnpm check
 ```
+
+`pnpm start` starts PostgreSQL and Keycloak, then serves the API and web
+applications in parallel. Use `pnpm start:api` or `pnpm start:web` when only
+one application is needed, and `pnpm db:down` to stop the infrastructure
+containers.
 
 The web application runs at `http://localhost:4200` and proxies relative
 `/api` requests to the API at `http://localhost:3000` during development.
 Production hosting must route `/api` to the NestJS deployment.
+
+Opening the web application redirects to the local Keycloak login. For local
+development only, use username `investflow-dev` and initial password
+`investflow-dev`; Keycloak requires you to replace that password on first
+login. The imported realm and these credentials must never be used in
+production. If the realm already existed before this client was added, run
+`pnpm db:setup` to recreate the local databases and import it again.
+
+Angular uses two committed, typed environment files: `environment.ts` for
+local development and `environment.production.ts` for production. Update the
+production file with the deployed Keycloak public URL before releasing, then
+build with Angular's production configuration:
+
+```sh
+pnpm nx build web --configuration=production
+```
+
+The production configuration is compiled into the browser bundle and must not
+contain secrets. The SPA
+uses Authorization Code Flow with PKCE, persists no token, and sends bearer
+tokens only to relative `/api` requests. Production Keycloak provisioning is
+separate and must configure its own users plus the SPA URLs. `WEB_APP_ORIGIN`
+parameterizes the redirect, web-origin, and post-logout URLs in the local realm
+import.
 
 The API exposes a public database health check at
 `http://localhost:3000/api/health-check`. All other routes are authenticated by
@@ -44,17 +71,18 @@ the shared Keycloak JWT guard unless marked with `@Public()`.
 
 ## Infrastructure
 
-| Script             | What it does                                 |
-| ------------------ | -------------------------------------------- |
-| `pnpm db:up`       | Start PostgreSQL                             |
-| `pnpm db:down`     | Stop and remove containers                   |
-| `pnpm db:reset`    | Wipe volumes and restart PostgreSQL          |
-| `pnpm db:logs`     | Tail PostgreSQL logs                         |
-| `pnpm kc:up`       | Start Keycloak and import the local realm    |
-| `pnpm kc:down`     | Stop Keycloak                                |
-| `pnpm kc:logs`     | Tail Keycloak logs                           |
-| `pnpm db:generate` | Regenerate the Prisma client                 |
-| `pnpm db:migrate`  | Create/apply migrations after schema changes |
+| Script             | What it does                                           |
+| ------------------ | ------------------------------------------------------ |
+| `pnpm db:up`       | Start PostgreSQL and Keycloak with existing state      |
+| `pnpm db:down`     | Stop and remove both containers while preserving state |
+| `pnpm db:setup`    | Recreate both databases, migrate, and import the realm  |
+| `pnpm start`       | Start local infrastructure, API, and web applications  |
+| `pnpm db:generate` | Regenerate the Prisma client                           |
+| `pnpm db:migrate`  | Create/apply migrations after schema changes           |
+
+`pnpm db:setup` is destructive: it deletes all local PostgreSQL and Keycloak
+state before rebuilding the development environment. Application seed data can
+be added to this command when a development dataset is defined.
 
 Domain events use their `context` field to select an SNS topic. Each bounded
 context registers its own topic during module initialization through the shared

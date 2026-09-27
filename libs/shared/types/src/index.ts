@@ -1,4 +1,1 @@
-export type {
-  AuthenticatedUser,
-  UserRole,
-} from './lib/authenticated-user.type';
+export type { AuthenticatedUser } from './lib/authenticated-user.type';

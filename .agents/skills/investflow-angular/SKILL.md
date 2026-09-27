@@ -42,26 +42,45 @@ until a concrete extraction condition in the architecture guide is present.
 ## Angular defaults
 
 - Use standalone components, zoneless change detection, strict template
-  checking, `ChangeDetectionStrategy.OnPush`, and `inject()`.
-- Use signal inputs and outputs for new component APIs where they fit. Keep data
-  flowing down and user intent flowing up.
-- Use `signal()` for mutable component or feature state and `computed()` for
-  derived state. Model mutually exclusive async states with a discriminated
-  union rather than several booleans.
+  checking, `ChangeDetectionStrategy.OnPush`, and `inject()`. Standalone is the
+  Angular 21 default; do not add `standalone: true`, feature NgModules, or broad
+  `CommonModule` imports.
+- Use `input()` and `output()` for new component APIs, signal queries such as
+  `viewChild()` and `contentChild()`, and `model()` only when the component
+  genuinely owns a two-way editing contract. Keep data flowing down and user
+  intent flowing up.
+- Prefer native Angular signals for UI state. Use `signal()` for mutable
+  component or feature state and `computed()` for derived state. A
+  feature-scoped state service remains signal-first: keep its writable signals
+  private and expose read-only signals to consumers. Use `linkedSignal()` only
+  for state that is both derived and intentionally writable. Update signal
+  values immutably with `set()` or `update()`. Model mutually exclusive async
+  states with a discriminated union rather than several booleans.
 - Keep RxJS at asynchronous boundaries such as `HttpClient`, router streams, or
-  multi-event workflows. Convert or subscribe once near the owning feature.
+  multi-event workflows. Convert or subscribe once near the owning feature. Use
+  `AsyncPipe`, `toSignal()`, or `takeUntilDestroyed()` rather than manual
+  subscription bookkeeping.
 - Use `effect()` only to synchronize with something outside Angular state. Do
   not use effects to copy or propagate state.
-- Use Angular's native template control flow. Keep expressions cheap and move
-  non-trivial derivation to `computed()` values or pure functions.
+- Use Angular's native template control flow. Include an explicit `track`
+  expression in `@for` blocks. Keep expressions cheap and move non-trivial
+  derivation to `computed()` values or pure functions. Prefer direct `class`
+  and `style` bindings over `NgClass` and `NgStyle`.
+- Put host bindings and listeners in the component or directive `host` object,
+  not `@HostBinding` or `@HostListener` decorators.
 - Use typed reactive forms for production forms. Signal Forms, `resource()`, and
   `httpResource()` are not baseline choices while they remain experimental.
 - Use `@defer` only for heavy, non-critical content where deferred loading
   improves the initial route. Do not defer primary above-the-fold content.
+- Use `NgOptimizedImage` for non-decorative static images, with intrinsic
+  dimensions and appropriate priority for the likely LCP image.
 
 ## Components and data access
 
 - Let a route page coordinate loading, local state, and user actions.
+- Lazy-load bounded-context routes. Prefer functional guards, resolvers,
+  interceptors, and provider APIs; introduce classes only when framework
+  integration or meaningful reusable state requires an instance.
 - Extract a presentational component when it is reused, independently complex,
   or substantially improves the page's readability. Do not split markup merely
   to satisfy a size target.
@@ -112,7 +131,11 @@ could leak browser packages into the server artifact.
 
 ## Guardrails
 
-Do not add NgRx, another state library, SSR, hydration, service workers,
-micro-frontends, OpenAPI generation, a design-system library, or an end-to-end
-test project unless the task supplies a concrete need for it. Document a new
-frontend-wide pattern when one is intentionally introduced.
+Do not replace a native signal-backed service with NgRx SignalStore merely for
+API style or consistency. Add NgRx or another state library only when observed
+requirements such as cross-feature coordination, normalized client entities,
+undo/redo, or a comparably complex workflow justify it. Do not add SSR,
+hydration, service workers, micro-frontends, OpenAPI generation, a design-system
+library, or an end-to-end test project unless the task supplies a concrete need
+for it. Document a new frontend-wide pattern when one is intentionally
+introduced.

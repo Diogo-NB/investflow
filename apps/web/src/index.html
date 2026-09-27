@@ -12,6 +12,33 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
   </head>
   <body>
-    <app-root></app-root>
+    <app-root>
+      <main
+        id="authentication-initialization-failure"
+        class="hidden min-h-screen content-center justify-items-start px-[clamp(1.5rem,8vw,6rem)] py-[clamp(3rem,10vw,8rem)]"
+        role="alert"
+        hidden
+      >
+        <p
+          class="m-0 mb-4 text-sm font-bold tracking-[0.08em] text-accent uppercase"
+        >
+          Acesso seguro
+        </p>
+        <h1
+          class="m-0 max-w-[14ch] font-display text-[clamp(2.4rem,7vw,var(--text-3xl))] leading-[1.05] font-semibold tracking-[-0.015em]"
+        >
+          Não foi possível iniciar sua sessão.
+        </h1>
+        <p class="my-6 max-w-[42ch] text-lg leading-[1.55] text-muted">
+          Verifique sua conexão e tente novamente. Nenhum dado foi enviado.
+        </p>
+        <button
+          class="min-h-11 cursor-pointer rounded-small border-0 bg-accent px-6 font-bold text-accent-fg hover:bg-fg focus-visible:ring-3 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out active:scale-[0.97]"
+          type="button"
+        >
+          Tentar novamente
+        </button>
+      </main>
+    </app-root>
   </body>
 </html>

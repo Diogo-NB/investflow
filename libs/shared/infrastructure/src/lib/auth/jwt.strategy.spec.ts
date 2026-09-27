@@ -23,30 +23,14 @@ describe('JwtStrategy', () => {
     strategy = new JwtStrategy(mockConfig as unknown as ConfigService);
   });
 
-  it('maps realm roles to AuthenticatedUser', () => {
+  it('maps token identity to AuthenticatedUser', () => {
     const result = strategy.validate({
       sub: 'user-uuid',
-      realm_access: { roles: ['reader', 'offline_access'] },
-    });
-
-    expect(result).toEqual({
-      userId: 'user-uuid',
-      roles: ['reader', 'offline_access'],
-      email: '',
-    });
-  });
-
-  it('merges and deduplicates client roles with realm roles', () => {
-    const result = strategy.validate({
-      sub: 'user-uuid',
-      realm_access: { roles: ['reader'] },
-      resource_access: { 'investflow-api': { roles: ['reader', 'writer'] } },
       email: 'user@test.com',
     });
 
     expect(result).toEqual({
       userId: 'user-uuid',
-      roles: ['reader', 'writer'],
       email: 'user@test.com',
     });
   });
@@ -58,11 +42,5 @@ describe('JwtStrategy', () => {
     });
 
     expect(result.email).toBe('user@example.com');
-  });
-
-  it('returns empty roles when no role claims present', () => {
-    const result = strategy.validate({ sub: 'user-uuid' });
-
-    expect(result.roles).toEqual([]);
   });
 });

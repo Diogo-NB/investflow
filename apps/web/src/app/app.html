@@ -1,1 +1,51 @@
+<header
+  class="mx-auto flex w-[min(calc(100%-clamp(3rem,10vw,8rem)),70rem)] items-center justify-between gap-6 border-b border-border pt-6 pb-4 max-[34rem]:items-start"
+  aria-label="InvestFlow"
+>
+  <a
+    class="rounded-small font-display text-xl font-bold tracking-[-0.015em] text-fg no-underline focus-visible:ring-3 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none"
+    routerLink="/"
+    aria-label="InvestFlow, página inicial"
+  >
+    Invest<span class="text-accent">Flow</span>
+  </a>
+
+  <div
+    class="flex items-center gap-4 max-[34rem]:flex-col max-[34rem]:items-end max-[34rem]:gap-1"
+  >
+    <p class="identity m-0 grid text-right">
+      <span
+        class="text-[0.6875rem] font-bold tracking-[0.08em] text-muted uppercase"
+        >Sessão ativa</span
+      >
+      <strong
+        class="max-w-[22ch] truncate text-sm text-fg max-[34rem]:max-w-[15ch]"
+        >{{ auth.identity }}</strong
+      >
+    </p>
+    <button
+      class="min-h-11 min-w-18 rounded-small focus-visible:ring-3 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none"
+      mat-button
+      type="button"
+      [disabled]="auth.logoutState() === 'pending'"
+      [attr.aria-describedby]="
+        auth.logoutState() === 'error' ? 'logout-error' : null
+      "
+      (click)="logout()"
+    >
+      {{ auth.logoutState() === 'pending' ? 'Saindo…' : 'Sair' }}
+    </button>
+  </div>
+</header>
+
+@if (auth.logoutState() === 'error') {
+<p
+  id="logout-error"
+  class="mx-auto mt-2 w-[min(calc(100%-clamp(3rem,10vw,8rem)),70rem)] text-right text-sm text-error"
+  role="alert"
+>
+  Não foi possível sair. Tente novamente.
+</p>
+}
+
 <router-outlet></router-outlet>

@@ -1,69 +1,39 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
-import { Subject } from 'rxjs';
-import { InvestmentSimulatorHelloResponse } from '../models/investment-simulator-hello-response.type';
-import { InvestmentSimulatorApi } from '../api/investment-simulator-api.service';
+import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { InvestmentSimulatorStore } from './investment-simulator.store';
 import { InvestmentSimulatorPage } from './investment-simulator-page.component';
 
 describe('InvestmentSimulatorPage', () => {
-  let fixture: ComponentFixture<InvestmentSimulatorPage>;
-  let response: Subject<InvestmentSimulatorHelloResponse>;
-  let api: { hello: ReturnType<typeof vi.fn> };
+  const store = {
+    state: signal({ kind: 'loading' as const }).asReadonly(),
+    load: vi.fn(),
+    retry: vi.fn(),
+  };
 
-  beforeEach(async () => {
-    response = new Subject<InvestmentSimulatorHelloResponse>();
-    api = { hello: vi.fn(() => response.asObservable()) };
-
-    await TestBed.configureTestingModule({
-      imports: [InvestmentSimulatorPage],
-      providers: [{ provide: InvestmentSimulatorApi, useValue: api }],
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(InvestmentSimulatorPage);
-    fixture.detectChanges();
+  beforeEach(() => {
+    store.load.mockClear();
+    store.retry.mockClear();
+    TestBed.configureTestingModule({
+      providers: [{ provide: InvestmentSimulatorStore, useValue: store }],
+    });
   });
 
-  it('shows a loading state while the request is pending', () => {
-    expect(fixture.nativeElement.textContent).toContain(
-      'Conectando ao simulador',
+  it('loads state and exposes it to the template', () => {
+    const component = TestBed.runInInjectionContext(
+      () => new InvestmentSimulatorPage(),
     );
-    expect(api.hello).toHaveBeenCalledOnce();
+
+    expect(store.load).toHaveBeenCalledOnce();
+    expect(component.state()).toEqual({ kind: 'loading' });
   });
 
-  it('shows the API message after a successful request', () => {
-    response.next({ message: 'Hello World' });
-    response.complete();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('Serviço disponível');
-    expect(fixture.nativeElement.textContent).toContain('Hello World');
-  });
-
-  it('shows a recoverable failure state', () => {
-    response.error(new Error('unavailable'));
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain(
-      'Não foi possível conectar',
+  it('delegates retry intent to the store', () => {
+    const component = TestBed.runInInjectionContext(
+      () => new InvestmentSimulatorPage(),
     );
-    expect(
-      fixture.debugElement.query(By.css('button.retry-button')),
-    ).not.toBeNull();
-  });
 
-  it('retries the request and returns to loading', () => {
-    response.error(new Error('unavailable'));
-    fixture.detectChanges();
+    component.retry();
 
-    response = new Subject<InvestmentSimulatorHelloResponse>();
-    fixture.debugElement
-      .query(By.css('button.retry-button'))
-      .triggerEventHandler('click');
-    fixture.detectChanges();
-
-    expect(api.hello).toHaveBeenCalledTimes(2);
-    expect(fixture.nativeElement.textContent).toContain(
-      'Conectando ao simulador',
-    );
+    expect(store.retry).toHaveBeenCalledOnce();
   });
 });

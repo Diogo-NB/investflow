@@ -3,20 +3,16 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { passportJwtSecret } from 'jwks-rsa';
-import type { AuthenticatedUser, UserRole } from '@investflow/shared-types';
+import type { AuthenticatedUser } from '@investflow/shared-types';
 
 interface KeycloakJwtPayload {
   sub: string;
-  realm_access?: { roles: string[] };
-  resource_access?: Record<string, { roles: string[] }>;
   email?: string;
   preferred_username?: string;
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly clientId: string;
-
   constructor(config: ConfigService) {
     const keycloakUrl = config.getOrThrow<string>('KEYCLOAK_URL');
     const realm = config.getOrThrow<string>('KEYCLOAK_REALM');
@@ -34,19 +30,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       audience: clientId,
       algorithms: ['RS256'],
     });
-
-    this.clientId = clientId;
   }
 
   validate(payload: KeycloakJwtPayload): AuthenticatedUser {
-    const realmRoles: string[] = payload.realm_access?.roles ?? [];
-    const clientRoles: string[] =
-      payload.resource_access?.[this.clientId]?.roles ?? [];
-    const roles: UserRole[] = [...new Set([...realmRoles, ...clientRoles])];
-
     return {
       userId: payload.sub,
-      roles,
       email: payload.email ?? payload.preferred_username ?? '',
     };
   }

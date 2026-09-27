@@ -1,3 +1,6 @@
 import { bootstrapWebApplication } from './bootstrap';
+import { renderAuthenticationInitializationFailure } from './app/auth/auth-initialization-failure';
 
-bootstrapWebApplication().catch((error: unknown) => console.error(error));
+bootstrapWebApplication().catch(() =>
+  renderAuthenticationInitializationFailure(document),
+);

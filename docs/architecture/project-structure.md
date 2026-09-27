@@ -92,6 +92,9 @@ projects and sends relative `/api` requests. The development server proxies
 those requests to `http://localhost:3000`; production hosting must route them
 to the independently deployed NestJS API.
 
+The component, state, HTTP, form, testing, and library-extraction conventions
+are defined in [Frontend Patterns](./frontend-patterns.md).
+
 Contexts do not import one another's internals directly. Cross-context
 communication uses integration events or explicit versioned transport
 contracts. Internal aggregates and domain events are not shared wire
