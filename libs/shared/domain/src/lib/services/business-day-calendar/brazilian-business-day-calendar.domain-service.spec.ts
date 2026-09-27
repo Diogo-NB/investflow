@@ -1,4 +1,5 @@
-import { CalendarDate, CalendarDateRange } from '@investflow/shared-domain';
+import { CalendarDateRange } from '../../value-objects/calendar-date-range/calendar-date-range.vo';
+import { CalendarDate } from '../../value-objects/calendar-date/calendar-date.vo';
 import { BrazilianBusinessDayCalendar } from './brazilian-business-day-calendar.domain-service';
 
 describe('BrazilianBusinessDayCalendar', () => {

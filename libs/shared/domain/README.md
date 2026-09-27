@@ -30,6 +30,30 @@ incoming native value with `UtcInstant.fromDate(...)`; use the defensive
 Obtain the current time through the shared application `Clock`: `now()` returns
 an exact `UtcInstant`, while `today()` returns the current UTC `CalendarDate`.
 
+## Business-day calendars
+
+`BusinessDayCalendar` provides reusable weekend and interval-counting behavior.
+`BrazilianBusinessDayCalendar` additionally excludes the fixed dates 1 January,
+21 April, 1 May, 7 September, 12 October, 2, 15 and 20 November, and 25
+December. It also excludes four Easter-relative observances: Carnival Monday
+(-48 days), Carnival Tuesday (-47 days), Good Friday (-2 days), and Corpus
+Christi (+60 days). Business-day intervals exclude their start and include
+their end.
+
+Easter Sunday is calculated with the Gregorian algorithm published in Jean
+Meeus, _Astronomical Algorithms_, 2nd edition, chapter 8, “Date of Easter”
+(Willmann-Bell, 1998, ISBN 978-0-943396-61-3). See the
+[bibliographic record](https://books.google.com/books?id=PPeIQgAACAAJ). The
+implementation uses integer calendar arithmetic and returns `CalendarDate`; it
+does not read the system clock or create a native `Date`. Known-date tests use
+the
+[U.S. Census Bureau Easter table for 1600–2099](https://www.census.gov/data/software/x13as/genhol/easter-dates.html)
+as an independent fixture source.
+
+Exceptional B3 closures, state and municipal holidays, and extraordinary
+calendar changes are not inferred by this algorithm. Add confirmed exceptions
+to an explicit source-controlled registry when a bounded context requires them.
+
 ## Money
 
 Use `Money` for signed monetary amounts. A money value carries an explicit

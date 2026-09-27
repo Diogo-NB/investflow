@@ -1,5 +1,6 @@
-import { BusinessDayCalendar, CalendarDate } from '@investflow/shared-domain';
-import { calculateGregorianEasterSunday } from '../../utils/gregorian-easter';
+import { CalendarDate } from '../../value-objects/calendar-date/calendar-date.vo';
+import { BusinessDayCalendar } from './business-day-calendar.domain-service';
+import { calculateGregorianEasterSunday } from './gregorian-easter';
 
 const FIXED_HOLIDAYS = new Set([
   '01-01',

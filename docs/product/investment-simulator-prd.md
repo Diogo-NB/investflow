@@ -93,7 +93,7 @@ PDF/CSV ficam fora do escopo.
   12 de outubro, 2, 15 e 20 de novembro e 25 de dezembro.
 - Carnaval (segunda e terça-feira), Paixão de Cristo e Corpus Christi são
   derivados anualmente da data da Páscoa pelo computus gregoriano documentado
-  no projeto de domínio.
+  no domínio compartilhado.
 - A contagem exclui a data inicial e inclui a data final.
 - Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
   extraordinárias de calendário ficam fora do MVP.

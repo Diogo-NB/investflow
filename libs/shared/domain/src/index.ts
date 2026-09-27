@@ -4,6 +4,7 @@ export * from './lib/errors/app.error';
 export * from './lib/errors/domain.error';
 export * from './lib/repository/repository.port';
 export * from './lib/result/result';
+export * from './lib/services/business-day-calendar/brazilian-business-day-calendar.domain-service';
 export * from './lib/services/business-day-calendar/business-day-calendar.domain-service';
 export * from './lib/value-objects/value-object.base';
 export * from './lib/value-objects/calendar-date/calendar-date.vo';

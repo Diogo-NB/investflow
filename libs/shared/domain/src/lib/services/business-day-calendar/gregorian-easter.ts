@@ -1,4 +1,4 @@
-import { CalendarDate } from '@investflow/shared-domain';
+import { CalendarDate } from '../../value-objects/calendar-date/calendar-date.vo';
 
 /**
  * Calculates Easter Sunday using the Gregorian algorithm published in
