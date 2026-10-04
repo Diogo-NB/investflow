@@ -6,6 +6,9 @@
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
+    "@investflow/investment-simulator-domain": "*",
+    "@investflow/shared-application": "*",
+    "@investflow/shared-domain": "*",
     "tslib": "^2.3.0"
   }
 }

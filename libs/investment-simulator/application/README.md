@@ -8,6 +8,17 @@ specific deployment host or infrastructure implementation.
 Consumers import its public API through
 `@investflow/investment-simulator-application`.
 
+## Offer commands
+
+The offer catalog exposes use cases to create, partially update, and soft
+delete offers. Creation verifies that the referenced issuer exists. Empty or
+identical updates are successful no-ops and do not persist the aggregate.
+
+Application behavior is organized as vertical slices under `offers/create`,
+`offers/update`, and `offers/delete`. Contracts and conversion helpers shared by
+multiple operations live under `offers/shared`; feature-wide ports and errors
+remain at the feature root.
+
 ## Building
 
 Run `pnpm nx build investment-simulator-application` to build the library.

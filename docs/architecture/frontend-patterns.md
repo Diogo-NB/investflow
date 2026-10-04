@@ -160,6 +160,11 @@ the display shape. Keep presentation state in the page, not in a stateless API
 service. Introduce a shared error model only when multiple screens can render
 meaningfully different recovery paths.
 
+Monetary amounts cross the API boundary as decimal strings. Keep the original
+value unchanged in client state and round only the rendered representation
+with locale-aware formatting. A value rounded for display must never be sent
+back or stored as a replacement for the calculated amount.
+
 ## Forms and templates
 
 Use typed reactive forms for production forms. Angular 21 Signal Forms are

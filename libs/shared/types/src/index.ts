@@ -1,1 +1,1 @@
-export type { AuthenticatedUser } from './lib/authenticated-user.type';
+export type { AuthenticatedUser } from './lib/authentication/authenticated-user.type';

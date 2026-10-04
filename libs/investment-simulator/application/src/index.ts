@@ -1,1 +1,12 @@
 export {};
+export * from './lib/issuers/issuer-not-found.error';
+export * from './lib/issuers/issuer.repository';
+export * from './lib/offers/create/create-offer.command';
+export * from './lib/offers/create/create-offer.use-case';
+export * from './lib/offers/delete/delete-offer.command';
+export * from './lib/offers/delete/delete-offer.use-case';
+export * from './lib/offers/offer-not-found.error';
+export * from './lib/offers/offer.repository';
+export * from './lib/offers/shared/offer-command-input.type';
+export * from './lib/offers/update/update-offer.command';
+export * from './lib/offers/update/update-offer.use-case';

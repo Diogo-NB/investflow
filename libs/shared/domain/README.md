@@ -3,6 +3,13 @@
 Framework-free building blocks that are intentionally reusable across bounded
 contexts.
 
+Source is organized by reusable capability. Temporal values and business-day
+calendars live together under `src/lib/dates`; rate validation and values live
+under `src/lib/rates`; other foundations use cohesive roots such as `money`,
+`investments`, and `foundations`. The latter co-locates the mutually dependent
+DDD base abstractions. Shared code does not use global `value-objects`,
+`services`, `errors`, or `utils` buckets.
+
 ## Temporal values
 
 Use these types throughout domain and application code:
@@ -10,8 +17,14 @@ Use these types throughout domain and application code:
 - `CalendarDate` for civil dates such as maturity dates and business days. It
   serializes as `YYYY-MM-DD` and has no timezone.
 - `CalendarDateRange` for validated intervals between two civil dates.
-- `UtcInstant` for exact moments such as aggregate audit timestamps. It
-  serializes as an ISO timestamp normalized to `Z`.
+- `UtcInstant` for exact moments with business meaning, such as redemptions,
+  soft deletions, and domain-event occurrences. It serializes as an ISO
+  timestamp normalized to `Z`.
+
+Technical `created_at` and `updated_at` columns may remain in persistence
+models without appearing in aggregates or entities. Add a temporal field to a
+domain object only when business behavior uses it; database auditing alone does
+not justify carrying it across the infrastructure boundary.
 
 `CalendarDate` also formats the deterministic Brazilian `DD/MM/YYYY`
 representation. Formatting a `UtcInstant` requires an explicit IANA timezone;
@@ -29,6 +42,8 @@ incoming native value with `UtcInstant.fromDate(...)`; use the defensive
 `UtcInstant.date` getter when an ORM or framework requires a native value.
 Obtain the current time through the shared application `Clock`: `now()` returns
 an exact `UtcInstant`, while `today()` returns the current UTC `CalendarDate`.
+Depend on `Clock` only when application or domain behavior needs the current
+time.
 
 ## Business-day calendars
 
@@ -62,8 +77,27 @@ or ordering comparisons between different currencies. Whether a particular
 field may be negative is an invariant of the owning feature. Its JSON
 representation preserves the decimal amount as a string.
 
+Calculations use the default `decimal.js` precision. Do not introduce
+business-level rounding for intermediate or final calculated values, and do
+not convert amounts through JavaScript `number`. Persistence and transport
+boundaries must preserve the calculated decimal value as a string.
+
 Locale-sensitive display is an infrastructure concern. Use `formatMoney` with
 an explicit locale or `formatMoneyPtBr` from `@investflow/shared-infrastructure`.
+Display formatting may round according to its fraction-digit options, but it
+must not replace or mutate the underlying calculated value.
+
+## Rates
+
+Use `Rate` for a positive decimal rate whose business meaning is supplied by
+the owning domain field. Values are expressed in percentage points: `12` means
+12%, `105` means 105% of an index, and `7.5` means 7.5%. `Rate` does not carry
+an index or reference type; use expressive fields such as `annualRate` and
+`indexRate` in the owning model.
+
+Create rates from decimal strings at persistence and transport boundaries.
+`parsePositiveDecimal` and `Rate` reject zero, negative, non-finite, and invalid
+decimal values without converting through JavaScript `number`.
 
 ## Building
 

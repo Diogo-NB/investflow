@@ -29,14 +29,40 @@ placement, public contracts, or project boundaries.
   cross-context contracts.
 - Export intentional public APIs through each project's `src/index.ts`.
 
+## Feature-first organization
+
+- Use the same plural business-feature root across all bounded-context layers,
+  such as `offers` or `issuers`. Do not organize domain by technical type while
+  application is organized by feature.
+- Keep a cohesive domain feature shallow under `domain/src/lib/<feature>`:
+  co-locate its aggregate, entities, value objects, domain errors, and focused
+  tests. Introduce role subfolders only when the feature has genuinely outgrown
+  a readable flat directory.
+- Under `application/src/lib/<feature>`, use one vertical slice per operation.
+  Keep feature-wide repository ports and stable errors at the feature root, and
+  reserve `<feature>/shared` for contracts or helpers used by multiple
+  operations.
+- Leave only genuinely context-wide behavior at `src/lib`; do not use global
+  `aggregates`, `value-objects`, `commands`, `ports`, or `errors` folders to
+  scatter one feature across the project.
+- Apply the same rule to shared domain and application projects, treating a
+  reusable capability as the feature root. Co-locate temporal values and
+  calendars under `dates`, rate parsing and values under `rates`, and shared
+  application contracts under capabilities such as `clocks` and `handlers`.
+  Co-locate the mutually dependent DDD base abstractions under `foundations`.
+  Do not organize shared code primarily by generic roles such as
+  `value-objects`, `services`, `errors`, or `utils`.
+
 ## Domain objects
 
 - Aggregates extend `AggregateRoot`, keep state in private props, expose
   getters, protect changes behind behavior methods, and provide static
   `create()` and `reconstitute()` factories. Raise immutable events through
   `apply()` from aggregate behavior.
-- Mutating aggregate methods receive the current instant explicitly, stamp
-  `updatedAt`, and return `this` when they have no distinct result.
+- Do not add `createdAt` or `updatedAt` to domain objects only for technical
+  auditing. Include temporal state only when a business invariant, transition,
+  calculation, or domain event uses it. Mutating methods receive the current
+  instant only when the behavior needs it.
 - Value objects extend `ValueObject<T>`, use private constructors and static
   factories, validate on creation, and compare by value.
 - Use `create()` returning `Result` when validation failure is expected from
@@ -56,14 +82,25 @@ placement, public contracts, or project boundaries.
 - Parse transport values once at the entry boundary and serialize them only at
   output boundaries. Extend a shared temporal value object when reusable
   behavior is missing instead of duplicating raw date logic.
-- Use `Clock.now()` for the current instant and `Clock.today()` for the current
-  UTC date. Domain behavior receives time explicitly and never reads the system
-  clock.
+- When behavior needs the current time, use `Clock.now()` for the current
+  instant and `Clock.today()` for the current UTC date. Pass required time into
+  domain behavior explicitly; domain code never reads the system clock.
 
 ## Application orchestration
 
 - Use cases expose one `execute(command)` method and modify one aggregate per
   transaction.
+- Organize application behavior as feature-first vertical slices. Co-locate an
+  operation's command, use case, and focused tests under
+  `<feature>/<operation>`. Keep only genuinely cross-operation contracts and
+  helpers under `<feature>/shared`, and keep feature-wide ports and stable
+  errors at the feature root. Do not use a generic `commands/<feature>` folder
+  as a container for mixed application roles.
+- Commands are immutable classes with `fromRequest()` factories. The factory
+  accepts an application-owned structural input contract, immediately converts
+  transport strings to domain value objects, and keeps the resulting command
+  free of raw dates and decimal strings. Commands never import infrastructure
+  request DTO classes.
 - Application ports are abstract classes when they are Nest injection tokens.
   They may extend shared contracts but cannot expose ORM or transport types.
 - Keep command repositories narrow: aggregate lookup and persistence only. Do

@@ -112,38 +112,105 @@ not pulled into the API artifact.
 
 ## Folder Taxonomy
 
-Use loose type-first folders inside each layer. Add feature subfolders as a
-folder grows.
+Organize every bounded-context layer feature-first. The first directory below
+`src/lib` is a stable, plural business feature such as `offers` or `issuers`.
+Do not make one layer type-first while adjacent layers are feature-first.
 
-Domain folders:
+Each layer applies its own structure below that common feature root:
 
-- `aggregates/<feature>`
-- `entities/<feature>`
-- `value-objects/<feature>`
-- `events/<feature>`
-- `services/<feature>`
-- `errors/<feature>`
-- `utils`
+- Domain keeps cohesive models shallow under `<feature>/`: aggregates,
+  entities, value objects, domain errors, and their focused tests are
+  co-located. Add role subfolders only when the feature is large enough that a
+  flat directory is no longer readable.
+- Application uses vertical operation slices such as
+  `<feature>/<operation>/`. Co-locate the command, use case, and focused tests;
+  put only cross-operation contracts and helpers in `<feature>/shared`, and
+  keep feature-wide repository ports and stable errors at the feature root.
+- Infrastructure groups adapters by boundary under the feature, such as
+  `<feature>/http/` for controllers, request DTOs, HTTP validators, and
+  presenters, and `<feature>/persistence/` for repositories and mappers. Add
+  boundaries such as `messaging/` or `queries/` when the feature needs them.
 
-Application folders:
+For example:
 
-- `commands/<feature>`
-- `queries/<feature>`
-- `ports/<feature>`
-- `services/<feature>`
-- `listeners/<feature>`
-- `errors/<feature>`
+```text
+domain/src/lib/offers/
+  offer.aggregate.ts
+  offer-deleted.error.ts
+  title-type.enum.ts
+  terms/
+    redemption/
+      redemption-terms.vo.ts
+      redemption-terms.vo.spec.ts
+    remuneration/
+      remuneration-terms.vo.ts
+      remuneration-terms.vo.spec.ts
 
-Infrastructure folders:
+application/src/lib/offers/
+  create/
+  update/
+  delete/
+  shared/
+  offer.repository.ts
 
-- `controllers/<feature>`
-- `dtos/<feature>`
-- `repositories/<feature>`
-- `query-handlers/<feature>`
-- `mappers/<feature>`
-- `presenters/<feature>`
-- `listeners/<feature>`
-- `logging`
+infrastructure/src/lib/offers/
+  http/
+    offer.controller.ts
+    offer.controller.spec.ts
+    requests/
+      create-offer.request.ts
+      update-offer.request.ts
+      offer-id.request.ts
+      terms/
+        offer-terms.request.ts
+  persistence/
+```
+
+Context-wide composition modules and artifacts that genuinely coordinate more
+than one feature may remain at `src/lib`.
+
+Shared libraries follow the same navigation rule, using reusable capabilities
+as their feature roots. For example, shared domain groups temporal primitives
+and calendars under `dates` and decimal-rate behavior under `rates`; shared
+infrastructure groups adapters under capabilities such as `authentication`,
+`persistence`, `http`, and `messaging`. Do not fall back to global file-type
+folders such as `value-objects`, `services`, `validators`, or `formatters` in
+shared projects.
+
+```text
+shared/domain/src/lib/
+  dates/
+  foundations/
+  rates/
+
+shared/infrastructure/src/lib/
+  authentication/
+  dates/
+  http/
+  messaging/
+    outbox/
+    sqs/
+  persistence/
+    prisma/
+```
+
+Do not collect mixed operations in `commands/<feature>`, or split a single
+feature across top-level `controllers`, `dtos`, `repositories`, and `mappers`
+folders. Start navigation from the business feature, then from the operation
+or technical boundary relevant to that layer.
+
+HTTP input follows one direction: a class-validator request DTO under
+`infrastructure/src/lib/<feature>/http` is converted by an application command
+factory and then passed to its use case. Controllers only coordinate this
+`Request DTO -> Command -> Use case` flow; they do not declare request classes
+or contain request-mapping helper functions. Request DTOs implement structural
+input contracts exported by application, while application commands never
+import infrastructure classes.
+
+Request DTOs do not need unit suites that enumerate built-in `class-validator`
+decorators. Test custom validation rules in focused validator specs, controller
+orchestration in controller specs, and request-to-command conversion in command
+specs.
 
 ## File Naming
 
@@ -155,6 +222,7 @@ Use kebab-case filenames with a role suffix.
 | Nest module            | `*.module.ts`                                                             |
 | Listener or consumer   | `*.listener.ts`                                                           |
 | DTO                    | `*.dto.ts`                                                                |
+| HTTP request DTO       | `*.request.ts`                                                            |
 | Guard                  | `*.guard.ts`                                                              |
 | Decorator              | `*.decorator.ts`                                                          |
 | Filter                 | `*.filter.ts`                                                             |
@@ -238,7 +306,14 @@ HTTP errors are translated centrally from `AppError.kind` and use this envelope:
 }
 ```
 
-Success responses return presenter DTOs directly.
+Controllers return use-case Results directly. The API host registers
+`TransactionInterceptor` followed by `HttpResultInterceptor` globally. The
+transaction wraps result unwrapping so failed AppErrors trigger rollback before
+reaching the central exception filter. `@SkipTransaction()` bypasses the
+transaction but still unwraps Results. Ordinary responses pass through unchanged;
+no raw Result is serialized into an HTTP response. Success responses contain the
+returned values without a generic envelope. PrismaModule supplies persistence
+providers; the API host owns global HTTP interceptor activation and ordering.
 
 ## Class Design
 
@@ -246,7 +321,29 @@ Aggregates and entities store state in private props objects, expose getters,
 and mutate only through behavior methods. Use static factories for creation and
 reconstitution.
 
+The domain owns identity generation. Aggregate and entity `create()` factories
+do not accept an ID; they call `generateUuid()` from `@investflow/shared-domain`,
+which uses UUID v4 from the `uuid` package. Only `reconstitute()` accepts an
+existing ID when restoring persisted state. Tests that need a known identity
+use `reconstitute()` rather than injecting an ID into `create()`.
+
+`createdAt` and `updatedAt` are not mandatory domain fields. Keep technical
+audit timestamps in persistence models and omit them when reconstituting an
+aggregate unless a business invariant, transition, or calculation depends on
+them. Likewise, a behavior method receives the current instant only when that
+instant affects domain state or a domain event; do not add time parameters only
+to mirror database auditing.
+
 Value objects use private constructors, static factories, and value equality.
+Factories that accept validated value objects, enums, or constrained literal
+unions use those precise types and return the new object directly unless an
+additional business invariant can fail. Do not widen those inputs to `unknown` or repeat runtime type checks;
+for example, `RemunerationTerms.create('PREFIXED', rate)` returns
+`RemunerationTerms` directly.
+
+`RemunerationTerms` is a single value object containing a kind and a `Rate`.
+Its `create(kind, rate)` factory returns the object directly, and equality
+compares both fields. The domain interprets the rate according to the kind.
 Factories fed by external input should expose `create()` returning Result when
 validation failure is an expected flow. Keep `of()` only as an internal throwing
 convenience when useful. Throw typed domain errors only for internal invariant

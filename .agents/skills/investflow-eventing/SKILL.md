@@ -56,6 +56,10 @@ decides whether an outbox poller is active.
   persistence or authentication modules must not start background work.
 - Long-running servers may schedule polling. Lambda and worker hosts use an
   invocation model appropriate to their trigger.
+- Keep reusable messaging infrastructure under capability-first paths:
+  outbox/SNS publishing belongs in `shared/infrastructure/src/lib/messaging/outbox`
+  and SQS consumption belongs in
+  `shared/infrastructure/src/lib/messaging/sqs`.
 
 Use `$investflow-domain-application` for aggregate emission and listener use
 cases. Use `$investflow-nestjs-infrastructure` for provider registration,

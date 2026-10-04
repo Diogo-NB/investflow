@@ -6,8 +6,15 @@
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
+    "@investflow/investment-simulator-application": "*",
+    "@investflow/investment-simulator-domain": "*",
+    "@investflow/shared-application": "*",
+    "@investflow/shared-domain": "*",
     "@investflow/shared-infrastructure": "*",
     "@nestjs/common": "^11.0.0",
+    "@prisma/client": "^7.6.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
     "tslib": "^2.3.0"
   }
 }

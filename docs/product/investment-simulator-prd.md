@@ -77,12 +77,22 @@ PDF/CSV ficam fora do escopo.
 ### Convenções
 
 - Capitalização usa 252 dias úteis por ano.
+- Cálculos monetários usam a precisão padrão do `decimal.js` e não aplicam
+  arredondamento de negócio em etapas intermediárias nem no resultado final.
+- Valores persistidos e retornados preservam a precisão calculada. O frontend
+  arredonda somente a representação exibida, de acordo com o formato escolhido,
+  sem alterar o valor subjacente.
 - Instantes exatos usam UTC. A interface os apresenta no fuso
   `America/Sao_Paulo`.
 - Datas civis, como aplicação e vencimento, não possuem fuso horário e são
   apresentadas no mesmo dia de calendário informado pelo usuário.
 - O rendimento corresponde ao montante bruto menos o valor inicial.
-- IR e IOF incidem somente sobre o rendimento.
+- O prazo tributário usa dias corridos entre a data de aplicação e a data
+  efetiva de resgate ou vencimento. A data de aplicação não é contada e a data
+  final é contada.
+- O IOF incide somente sobre o rendimento positivo.
+- O IR incide somente sobre o rendimento positivo já reduzido pelo IOF, quando
+  houver.
 - O montante líquido corresponde ao montante bruto menos IR e IOF.
 
 ### Calendário de Dias Úteis
@@ -123,7 +133,8 @@ exata de composição ainda precisa ser definida.
 
 ### Imposto de Renda
 
-Aplicar automaticamente a alíquota regressiva conforme o prazo efetivo:
+Aplicar automaticamente a alíquota regressiva conforme o prazo efetivo em dias
+corridos:
 
 | Prazo efetivo     | Alíquota |
 | ----------------- | -------: |
@@ -132,11 +143,54 @@ Aplicar automaticamente a alíquota regressiva conforme o prazo efetivo:
 | 361 a 720 dias    |    17,5% |
 | acima de 720 dias |      15% |
 
+A base de cálculo é o rendimento positivo reduzido pelo IOF:
+
+```text
+base_do_IR = max(rendimento_bruto - IOF, 0)
+IR = base_do_IR * aliquota_do_IR
+```
+
+Referência: [art. 46 da Instrução Normativa RFB nº 1.585/2015](https://normas.receita.fazenda.gov.br/sijut2consulta/consulta/normas.fazenda.gov.br/sijut2consulta/link.action?idAto=67494&visao=original).
+
 ### IOF
 
-- Aplicar somente em resgates realizados antes de 30 dias.
-- Usar tabela regressiva sobre o rendimento.
-- A tabela diária exata ainda precisa ser definida.
+- Aplicar a tabela regressiva sobre o rendimento positivo quando o prazo
+  efetivo for inferior a 30 dias corridos.
+- No 30º dia e nos posteriores, o IOF é zero.
+
+| Dia corrido | Limite do rendimento | Dia corrido | Limite do rendimento |
+| ----------: | -------------------: | ----------: | -------------------: |
+|           1 |                  96% |          16 |                  46% |
+|           2 |                  93% |          17 |                  43% |
+|           3 |                  90% |          18 |                  40% |
+|           4 |                  86% |          19 |                  36% |
+|           5 |                  83% |          20 |                  33% |
+|           6 |                  80% |          21 |                  30% |
+|           7 |                  76% |          22 |                  26% |
+|           8 |                  73% |          23 |                  23% |
+|           9 |                  70% |          24 |                  20% |
+|          10 |                  66% |          25 |                  16% |
+|          11 |                  63% |          26 |                  13% |
+|          12 |                  60% |          27 |                  10% |
+|          13 |                  56% |          28 |                   6% |
+|          14 |                  53% |          29 |                   3% |
+|          15 |                  50% |          30 |                   0% |
+
+```text
+IOF = rendimento_bruto * percentual_do_IOF
+```
+
+Referência: [art. 32 e Anexo do Decreto nº 6.306/2007](https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2007/decreto/d6306compilado.htm).
+
+### Ordem de Aplicação dos Tributos
+
+1. Calcular o rendimento bruto até a data efetiva de resgate ou vencimento.
+2. Calcular e descontar o IOF, quando aplicável.
+3. Calcular o IR sobre o rendimento restante depois do IOF.
+
+Exemplo: para R$ 100 de rendimento bruto no 10º dia corrido, o IOF é R$ 66.
+O IR de 22,5% incide sobre os R$ 34 restantes e corresponde a R$ 7,65. O
+rendimento líquido é R$ 26,35.
 
 ### Liquidez e Resgate
 
@@ -197,10 +251,6 @@ validada antes da implementação.
 ## Pendências de Produto
 
 - Definir fórmula exata para CDB híbrido.
-- Definir tabela diária de IOF.
 - Validar regra de agregação para portfólios com vencimentos diferentes.
-- Definir se prazo tributário usa dias corridos enquanto capitalização usa dias
-  úteis.
-- Definir arredondamento e precisão monetária.
 - Definir significado e cálculo da rentabilidade média do portfólio.
 - Definir comportamento após vencimento e eventual resgate.

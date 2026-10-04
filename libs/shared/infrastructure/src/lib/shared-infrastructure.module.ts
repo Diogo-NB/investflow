@@ -1,9 +1,9 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AuthModule } from './auth/auth.module';
-import { ClockModule } from './clock/clock.module';
-import { OutboxModule } from './outbox/outbox.module';
-import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './authentication/auth.module';
+import { ClockModule } from './clocks/clock.module';
+import { OutboxModule } from './messaging/outbox/outbox.module';
+import { PrismaModule } from './persistence/prisma/prisma.module';
 
 @Global()
 @Module({

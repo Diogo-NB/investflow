@@ -9,6 +9,7 @@ import {
 import { InvestmentSimulatorInfrastructureModule } from '@investflow/investment-simulator-infrastructure';
 import { AppController } from './app.controller';
 import { AppHealth } from './app.health';
+import { HTTP_INTERCEPTOR_PROVIDERS } from './http-interceptors.providers';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AppHealth } from './app.health';
   controllers: [AppController],
   providers: [
     AppHealth,
+    ...HTTP_INTERCEPTOR_PROVIDERS,
     { provide: APP_FILTER, useClass: AppExceptionFilter },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],

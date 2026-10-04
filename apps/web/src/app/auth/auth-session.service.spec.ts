@@ -1,17 +1,9 @@
 import { DOCUMENT } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import Keycloak from 'keycloak-js';
-import { AuthSession, authenticatedIdentity } from './auth-session.service';
+import { AuthSession } from './auth-session.service';
 
 describe('AuthSession', () => {
-  it('chooses a safe authenticated identity', () => {
-    expect(authenticatedIdentity({ name: 'Maria Silva' })).toBe('Maria Silva');
-    expect(authenticatedIdentity({ preferred_username: 'maria' })).toBe(
-      'maria',
-    );
-    expect(authenticatedIdentity(undefined)).toBe('Usuário autenticado');
-  });
-
   it('logs out to the application origin', async () => {
     const keycloak = {
       tokenParsed: { preferred_username: 'investflow-dev' },

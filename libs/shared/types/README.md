@@ -1,6 +1,8 @@
 # shared-types
 
-This library was generated with [Nx](https://nx.dev).
+Cross-context compile-time types organized by reusable capability. For example,
+identity shapes live under `src/lib/authentication`. Keep this project free of
+runtime behavior and avoid a flat global type bucket as it grows.
 
 ## Building
 

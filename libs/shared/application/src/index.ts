@@ -1,2 +1,2 @@
-export * from './lib/handler.contract';
-export * from './lib/clock/clock.port';
+export * from './lib/clocks/clock.port';
+export * from './lib/handlers/handler.contract';

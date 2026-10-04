@@ -5,32 +5,30 @@ import Keycloak from 'keycloak-js';
 
 export type LogoutState = 'idle' | 'pending' | 'error';
 
-function stringClaim(
-  token: KeycloakTokenParsed | undefined,
-  claimName: string,
-): string | undefined {
-  const value: unknown = token?.[claimName];
-  return typeof value === 'string' && value.trim() ? value : undefined;
-}
-
-export function authenticatedIdentity(
-  token: KeycloakTokenParsed | undefined,
-): string {
-  return (
-    stringClaim(token, 'name') ??
-    stringClaim(token, 'preferred_username') ??
-    stringClaim(token, 'email') ??
-    'Usuário autenticado'
-  );
-}
-
 @Injectable({ providedIn: 'root' })
 export class AuthSession {
   private readonly keycloak = inject(Keycloak);
   private readonly document = inject(DOCUMENT);
 
-  readonly identity = authenticatedIdentity(this.keycloak.tokenParsed);
+  readonly identity = this.authenticatedIdentity(this.keycloak.tokenParsed);
   readonly logoutState = signal<LogoutState>('idle');
+
+  private stringClaim(
+    token: KeycloakTokenParsed | undefined,
+    claimName: string,
+  ): string | undefined {
+    const value: unknown = token?.[claimName];
+    return typeof value === 'string' && value.trim() ? value : undefined;
+  }
+
+  private authenticatedIdentity(token: KeycloakTokenParsed | undefined): string {
+    return (
+      this.stringClaim(token, 'name') ??
+      this.stringClaim(token, 'preferred_username') ??
+      this.stringClaim(token, 'email') ??
+      'Usuário autenticado'
+    );
+  }
 
   async logout(): Promise<void> {
     if (this.logoutState() === 'pending') {

@@ -35,10 +35,23 @@ Cross-layer changes can require more than one skill.
 - Shared libraries cannot depend on feature contexts.
 - Export every library's public API through `src/index.ts`; use workspace
   aliases across projects and relative imports within a project.
+- Organize bounded-context source feature-first in every layer. Use plural
+  feature roots such as `offers` and `issuers`, then apply layer-specific
+  structure below them: shallow domain models, application operation slices,
+  and infrastructure boundary folders such as `http` and `persistence`.
+- Organize shared projects capability-first by the same rule. Use cohesive
+  roots such as `dates`, `rates`, `authentication`, `http`, `messaging`, and
+  `persistence`; keep shared DDD primitives under `foundations`, and do not
+  recreate global type buckets such as `value-objects`, `services`,
+  `validators`, or `formatters`.
 - Domain and application code use `CalendarDate`, `CalendarDateRange`, and
   `UtcInstant` from `@investflow/shared-domain`, and obtain time through the
   shared `Clock` port. Native `Date` is restricted to infrastructure boundaries
   and must be converted immediately.
+- Do not add `createdAt` or `updatedAt` to aggregates and entities only for
+  technical auditing. Persistence timestamps remain an infrastructure concern;
+  temporal fields belong in the domain only when business rules, state
+  transitions, or calculations depend on them.
 - Frontend state is signal-first: use native Angular `signal()` for mutable UI
   state and `computed()` for derived state, including inside feature-scoped
   state services. Keep RxJS at asynchronous boundaries. Do not introduce NgRx
@@ -78,8 +91,20 @@ Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding,
 
 TypeScript uses Prettier with single quotes and the Nx flat ESLint configuration.
 Use kebab-case filenames, PascalCase classes, and camelCase methods and
-variables. Prefer guard clauses, accept `unknown` and narrow it explicitly, and
-do not use `any` unless unavoidable framework typing requires it. Keep changes
+variables. Prefer guard clauses. Use `unknown` for untrusted input and narrow it explicitly;
+use precise types for internal domain inputs. Do not use `any` unless unavoidable
+framework typing requires it.
+
+Value-object immutability relies on readonly state and controlled domain behavior.
+Do not add `Object.freeze` calls or tests that bypass TypeScript solely to verify
+runtime freezing.
+
+Domain factories must accept precise domain input types, including validated
+value objects, enums, and constrained literal unions. Do not widen them to `unknown`, add redundant `instanceof` checks,
+or return `Result` merely to check their TypeScript type or enum/union membership. Return the constructed
+object directly when no additional business invariant can fail. Use `Result` only
+for meaningful validation or business failures, and keep raw-input validation at
+the boundary or in the value object that owns that validation. Keep changes
 scoped and comment only non-obvious constraints, side effects, or workarounds.
 
 The workspace intentionally retains `baseUrl` because the Nx TypeScript executor requires it for workspace path aliases. Use the workspace TypeScript version configured in `.vscode/settings.json`; do not add `ignoreDeprecations`.
@@ -87,6 +112,11 @@ The workspace intentionally retains `baseUrl` because the Nx TypeScript executor
 ## Testing Guidelines
 
 Jest is configured per Nx project. Place focused unit tests beside source files using `*.spec.ts`. Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
+
+Do not add request-DTO unit suites that merely repeat built-in
+`class-validator` behavior. Test custom validators and decorators directly,
+controller orchestration separately, and command request-mapping in command
+tests.
 
 Frontend tests follow the state-first policy in `$investflow-angular`: test
 stores and component orchestration without rendering templates or asserting
