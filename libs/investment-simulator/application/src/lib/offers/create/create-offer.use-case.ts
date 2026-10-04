@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { Offer } from '@investflow/investment-simulator-domain';
 import { CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
@@ -9,6 +10,7 @@ export interface CreateOfferOutput {
   readonly id: string;
 }
 
+@Injectable()
 export class CreateOfferUseCase
   implements CommandHandler<CreateOfferCommand, CreateOfferOutput>
 {

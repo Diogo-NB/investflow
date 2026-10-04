@@ -1,8 +1,10 @@
+import { Injectable } from '@nestjs/common';
 import { CommandHandler, Clock } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import { OfferRepository } from '../offer.repository';
 import { DeleteOfferCommand } from './delete-offer.command';
 
+@Injectable()
 export class DeleteOfferUseCase
   implements CommandHandler<DeleteOfferCommand, void>
 {

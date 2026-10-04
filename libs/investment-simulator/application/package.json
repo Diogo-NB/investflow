@@ -9,6 +9,7 @@
     "@investflow/investment-simulator-domain": "*",
     "@investflow/shared-application": "*",
     "@investflow/shared-domain": "*",
+    "@nestjs/common": "^11.0.0",
     "tslib": "^2.3.0"
   }
 }
