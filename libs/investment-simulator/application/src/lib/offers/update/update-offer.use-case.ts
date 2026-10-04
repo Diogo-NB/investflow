@@ -15,16 +15,13 @@ export class UpdateOfferUseCase
     const offer = offerResult.value;
 
     if (command.maturityDate !== undefined) {
-      const result = offer.updateMaturityDate(command.maturityDate);
-      if (result.isErr()) return result;
+      offer.updateMaturityDate(command.maturityDate);
     }
     if (command.redemptionTerms !== undefined) {
-      const result = offer.updateRedemptionTerms(command.redemptionTerms);
-      if (result.isErr()) return result;
+      offer.updateRedemptionTerms(command.redemptionTerms);
     }
     if (command.remunerationTerms !== undefined) {
-      const result = offer.updateRemunerationTerms(command.remunerationTerms);
-      if (result.isErr()) return result;
+      offer.updateRemunerationTerms(command.remunerationTerms);
     }
 
     return this.offerRepository.save(offer);

@@ -24,8 +24,9 @@ holds a kind and a `Rate`; the domain interprets the rate according to the kind.
 This structural support does not expand the current MVP beyond CDB simulations.
 
 Technical creation and update timestamps remain in persistence. Offers do not
-validate future or business-day maturity dates at this stage, and deleted
-offers cannot be updated or restored.
+validate future or business-day maturity dates at this stage. Deletion does
+not restrict aggregate updates; command repositories exclude deleted offers
+from lookups and report them as not found.
 
 ## Building
 

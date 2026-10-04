@@ -147,7 +147,7 @@ describe('PrismaOfferRepository', () => {
   it('persists deletedAt and subsequently treats the offer as not found', async () => {
     const fixture = createFixture();
     const deletedAt = UtcInstant.ofIso('2026-09-27T12:00:00Z');
-    const deletedOffer = offer().softDelete(deletedAt);
+    const deletedOffer = offer().delete(deletedAt);
 
     expect((await fixture.repository.save(deletedOffer)).isOk()).toBe(true);
     expect(fixture.upsert).toHaveBeenCalledWith(

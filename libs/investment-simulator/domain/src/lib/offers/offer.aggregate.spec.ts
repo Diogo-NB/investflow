@@ -1,5 +1,4 @@
 import { CalendarDate, Rate, UtcInstant } from '@investflow/shared-domain';
-import { OfferDeletedError } from './offer-deleted.error';
 import { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
 import { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
 import { TitleType } from './title-type.enum';
@@ -83,11 +82,11 @@ describe('Offer', () => {
       Rate.of('95'),
     );
 
-    expect(offer.updateMaturityDate(NEW_MATURITY).isOk()).toBe(true);
-    expect(
-      offer.updateRedemptionTerms(RedemptionTerms.create('DAILY')).isOk(),
-    ).toBe(true);
-    expect(offer.updateRemunerationTerms(remuneration).isOk()).toBe(true);
+    expect(offer.updateMaturityDate(NEW_MATURITY)).toBe(offer);
+    expect(offer.updateRedemptionTerms(RedemptionTerms.create('DAILY'))).toBe(
+      offer,
+    );
+    expect(offer.updateRemunerationTerms(remuneration)).toBe(offer);
 
     expect(offer.maturityDate).toBe(NEW_MATURITY);
     expect(offer.redemptionTerms).toEqual(RedemptionTerms.create('DAILY'));
@@ -101,14 +100,14 @@ describe('Offer', () => {
     const redemption = offer.redemptionTerms;
     const remuneration = offer.remunerationTerms;
 
-    expect(offer.updateMaturityDate(MATURITY).value).toBe(offer);
+    expect(offer.updateMaturityDate(MATURITY)).toBe(offer);
     expect(
-      offer.updateRedemptionTerms(RedemptionTerms.create('AT_MATURITY')).value,
+      offer.updateRedemptionTerms(RedemptionTerms.create('AT_MATURITY')),
     ).toBe(offer);
     expect(
       offer.updateRemunerationTerms(
         RemunerationTerms.create('PREFIXED', Rate.of('12.0')),
-      ).value,
+      ),
     ).toBe(offer);
     expect(offer.redemptionTerms).toBe(redemption);
     expect(offer.remunerationTerms).toBe(remuneration);
@@ -136,15 +135,15 @@ describe('Offer', () => {
     const offer = createOffer();
     const later = UtcInstant.ofIso('2026-09-28T12:00:00Z');
 
-    expect(offer.softDelete(DELETED_AT)).toBe(offer);
-    offer.softDelete(later);
+    expect(offer.delete(DELETED_AT)).toBe(offer);
+    offer.delete(later);
 
     expect(offer.deletedAt).toBe(DELETED_AT);
   });
 
-  it('rejects every update after deletion', () => {
-    const offer = createOffer().softDelete(DELETED_AT);
-    const results = [
+  it('allows in-memory updates after deletion without restoring the offer', () => {
+    const offer = createOffer().delete(DELETED_AT);
+    const updatedOffers = [
       offer.updateMaturityDate(NEW_MATURITY),
       offer.updateRedemptionTerms(RedemptionTerms.create('DAILY')),
       offer.updateRemunerationTerms(
@@ -152,16 +151,14 @@ describe('Offer', () => {
       ),
     ];
 
-    for (const result of results) {
-      expect(result.isErr()).toBe(true);
-      expect(result.error).toBeInstanceOf(OfferDeletedError);
-      expect(result.error.code).toBe('OFFER_DELETED');
-      expect(result.error.kind).toBe('conflict');
+    for (const updatedOffer of updatedOffers) {
+      expect(updatedOffer).toBe(offer);
     }
-    expect(offer.maturityDate).toBe(MATURITY);
-    expect(offer.redemptionTerms).toEqual(
-      RedemptionTerms.create('AT_MATURITY'),
+    expect(offer.maturityDate).toBe(NEW_MATURITY);
+    expect(offer.redemptionTerms).toEqual(RedemptionTerms.create('DAILY'));
+    expect(offer.remunerationTerms).toEqual(
+      RemunerationTerms.create('IPCA_PLUS', Rate.of('7')),
     );
-    expect(offer.remunerationTerms.kind).toBe('PREFIXED');
+    expect(offer.deletedAt).toBe(DELETED_AT);
   });
 });

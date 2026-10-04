@@ -12,7 +12,7 @@ Consumers import its public API through
 
 The offer catalog exposes use cases to create, partially update, and soft
 delete offers. Creation verifies that the referenced issuer exists. Empty or
-identical updates are successful no-ops and do not persist the aggregate.
+identical updates preserve domain values and still persist the aggregate.
 
 Application behavior is organized as vertical slices under `offers/create`,
 `offers/update`, and `offers/delete`. Contracts and conversion helpers shared by

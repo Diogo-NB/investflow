@@ -15,7 +15,7 @@ export class DeleteOfferUseCase
     const offerResult = await this.offerRepository.findById(command.offerId);
     if (offerResult.isErr()) return offerResult;
 
-    const offer = offerResult.value.softDelete(this.clock.now());
+    const offer = offerResult.value.delete(this.clock.now());
     return this.offerRepository.save(offer);
   }
 }
