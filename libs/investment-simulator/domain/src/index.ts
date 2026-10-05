@@ -1,4 +1,10 @@
 export {};
+export * from './lib/index-curves/economic-index.enum';
+export * from './lib/index-curves/index-value-convention.enum';
+export * from './lib/index-curves/index-value.vo';
+export * from './lib/index-curves/index-curve-interval.vo';
+export * from './lib/index-curves/index-curve.error';
+export * from './lib/index-curves/index-curve.aggregate';
 export * from './lib/issuers/issuer.aggregate';
 export * from './lib/offers/offer.aggregate';
 export * from './lib/offers/terms/redemption/redemption-terms.vo';

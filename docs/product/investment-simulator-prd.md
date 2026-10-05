@@ -3,6 +3,9 @@
 PRD condensado para consulta sob demanda. Descreve produto e regras de negócio;
 não define arquitetura de software.
 
+O contexto de negócio, as decisões confirmadas e as pendências das curvas
+estão detalhados em [Curvas de Valores dos Índices](./index-value-curves.md).
+
 ## Visão
 
 Simulador educacional para planejar e comparar investimentos brasileiros de
@@ -49,6 +52,15 @@ Dados de entrada:
 - data de resgate antecipado, quando permitida.
 
 CDI e IPCA são informados manualmente e armazenados com data de referência.
+Esses valores compõem curvas selecionáveis, com intervalos explícitos,
+convenção única e conteúdo imutável. Alterações criam outra curva com outro
+identificador. Podem existir várias curvas para o
+mesmo índice. A falta de cobertura necessária impede o cálculo.
+
+No recorte atual das curvas, a execução calcula a trajetória bruta de todos
+os dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem
+somente no resumo do vencimento. A funcionalidade geral de resgate antecipado
+descrita neste PRD permanece fora desse recorte.
 
 ### Resultados
 
@@ -120,16 +132,28 @@ Converter a taxa anual para a periodicidade usada no cálculo.
 
 ### CDB Pós-Fixado por CDI
 
+Converter o CDI anual para a taxa diária equivalente e então aplicar o
+percentual contratado sobre essa taxa diária:
+
 ```text
-taxa_efetiva = CDI * percentual_do_CDI
+taxa_diaria_CDI = (1 + CDI_anual) ^ (1 / 252) - 1
+fator_diario_aplicacao = 1 + taxa_diaria_CDI * percentual_do_CDI
+saldo_bruto = saldo_bruto_anterior * fator_diario_aplicacao
 ```
 
-Aplicar a taxa efetiva usando juros compostos e a convenção de 252 dias úteis.
+As taxas e o percentual usam valores decimais: 12% equivale a 0,12 e 105% do
+CDI equivale a 1,05. Usar a taxa de referência de cada período e acumular os
+fatores diários. A conciliação entre a data da taxa e a data do saldo ainda
+precisa ser definida, conforme a documentação de curvas.
+
+Referência: [metodologia de cálculo acumulado do DI — B3](https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-de-segmentos-e-setoriais/di/metodologia-de-calcudo-acumulado-de-di/).
 
 ### CDB Híbrido
 
-Combinar a parcela fixa e a variação do IPCA informada pelo usuário. A fórmula
-exata de composição ainda precisa ser definida.
+Compor multiplicativamente o fator de atualização pelo IPCA e o fator da
+parcela fixa. O perfil contratual de atualização, incluindo aniversário,
+defasagem e proporcionalização, ainda precisa ser definido. O contexto de
+mercado e suas implicações estão na documentação de curvas.
 
 ### Imposto de Renda
 
@@ -250,7 +274,10 @@ validada antes da implementação.
 
 ## Pendências de Produto
 
-- Definir fórmula exata para CDB híbrido.
+- Definir o perfil contratual de atualização e a fórmula completa do CDB
+  híbrido, conforme a documentação de curvas.
+- Conciliar datas de referência das taxas e datas de apresentação dos saldos,
+  incluindo aplicação e vencimento em dias não úteis.
 - Validar regra de agregação para portfólios com vencimentos diferentes.
 - Definir significado e cálculo da rentabilidade média do portfólio.
 - Definir comportamento após vencimento e eventual resgate.

@@ -7,6 +7,7 @@ const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MILLISECONDS_PER_DAY = 86_400_000;
 const SUNDAY = 0;
 const SATURDAY = 6;
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
 export class InvalidCalendarDateError extends DomainError {
   constructor(reason: string, value?: string) {
@@ -20,6 +21,9 @@ export class InvalidCalendarDateError extends DomainError {
 export class CalendarDate extends ValueObject<CalendarDate> {
   private constructor(
     readonly value: string,
+    readonly year: number,
+    readonly month: number,
+    readonly day: number,
     private readonly epochDay: number,
   ) {
     super();
@@ -57,7 +61,13 @@ export class CalendarDate extends ValueObject<CalendarDate> {
     }
 
     return Result.ok(
-      new CalendarDate(value, utcDate.getTime() / MILLISECONDS_PER_DAY),
+      new CalendarDate(
+        value,
+        year,
+        month,
+        day,
+        utcDate.getTime() / MILLISECONDS_PER_DAY,
+      ),
     );
   }
 
@@ -81,6 +91,15 @@ export class CalendarDate extends ValueObject<CalendarDate> {
     value: UtcInstant,
   ): Result<CalendarDate, InvalidCalendarDateError> {
     return CalendarDate.fromUtcDate(value.date);
+  }
+
+  get daysInMonth(): number {
+    if (this.month === 2) {
+      const leapYear =
+        this.year % 4 === 0 && (this.year % 100 !== 0 || this.year % 400 === 0);
+      return leapYear ? 29 : 28;
+    }
+    return DAYS_IN_MONTH[this.month - 1];
   }
 
   override toString(): string {
@@ -138,6 +157,14 @@ export class CalendarDate extends ValueObject<CalendarDate> {
   isWeekend(): boolean {
     const dayOfWeek = this.toUtcDate().getUTCDay();
     return dayOfWeek === SUNDAY || dayOfWeek === SATURDAY;
+  }
+
+  isFirstDayOfMonth(): boolean {
+    return this.day === 1;
+  }
+
+  isLastDayOfMonth(): boolean {
+    return this.day === this.daysInMonth;
   }
 
   equals(other: CalendarDate): boolean {

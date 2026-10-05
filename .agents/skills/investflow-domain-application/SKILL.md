@@ -120,6 +120,13 @@ placement, public contracts, or project boundaries.
   external input, use cases, domain or application services, repository
   operations, and external integrations. Do not force `Result` onto trivial
   pure methods.
+- Prefer `Result.fromThrowable()` for synchronous operations that can throw
+  and `Result.fromPromise()` for asynchronous operations that can reject,
+  instead of repetitive `try/catch` blocks that only convert exceptions into
+  Results. Map exceptions to the appropriate typed `AppError`; chain business
+  validation with `andThen()` and return expected failures with `Result.err()`.
+  Keep throwing operations inside the helper callback: `map()` and `andThen()`
+  do not catch exceptions thrown by their callbacks.
 - A missing command-side aggregate is an error. Nullable values remain valid in
   read models when absence is data rather than a failed operation.
 

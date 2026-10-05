@@ -99,7 +99,7 @@ export class Offer extends AggregateRoot {
   }
 
   delete(at: UtcInstant): this {
-    if (this.props.deletedAt === null) this.props.deletedAt = at;
+    if (!this.props.deletedAt) this.props.deletedAt = at;
     return this;
   }
 }

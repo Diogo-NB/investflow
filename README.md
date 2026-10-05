@@ -4,6 +4,11 @@ NestJS and Angular Nx workspace for an investment-related, event-driven DDD
 application. The API and client-rendered web application are independent
 deployable hosts. The investment simulator is the first active bounded context.
 
+## Product Documentation
+
+- [Investment simulator PRD](docs/product/investment-simulator-prd.md)
+- [Index value curves: business context and decisions](docs/product/index-value-curves.md)
+
 ## Prerequisites
 
 - Node.js 22.x LTS
@@ -75,7 +80,7 @@ the shared Keycloak JWT guard unless marked with `@Public()`.
 | ------------------ | ------------------------------------------------------ |
 | `pnpm db:up`       | Start PostgreSQL and Keycloak with existing state      |
 | `pnpm db:down`     | Stop and remove both containers while preserving state |
-| `pnpm db:setup`    | Recreate both databases, migrate, and import the realm  |
+| `pnpm db:setup`    | Recreate both databases, migrate, and import the realm |
 | `pnpm start`       | Start local infrastructure, API, and web applications  |
 | `pnpm db:generate` | Regenerate the Prisma client                           |
 | `pnpm db:migrate`  | Create/apply migrations after schema changes           |

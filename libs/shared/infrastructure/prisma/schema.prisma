@@ -54,8 +54,38 @@ model InvestmentOffer {
   issuer           InvestmentIssuer           @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([issuerId])
-  @@index([deletedAt])
   @@map("investment_offer")
+}
+
+enum EconomicIndex {
+  CDI
+  SELIC
+  IPCA
+
+  @@map("economic_index")
+}
+
+model IndexCurve {
+  id          String               @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  index       EconomicIndex
+  deletedAt   DateTime?            @map("deleted_at") @db.Timestamptz(3)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  intervals   IndexCurveInterval[]
+
+  @@map("index_curve")
+}
+
+model IndexCurveInterval {
+  curveId   String     @map("curve_id") @db.Uuid
+  startDate DateTime   @map("start_date") @db.Date
+  endDate   DateTime   @map("end_date") @db.Date
+  value     Decimal    @db.Decimal(65, 30)
+  curve     IndexCurve @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([curveId, startDate])
+  @@map("index_curve_interval")
 }
 
 model OutboxEvent {

@@ -31,15 +31,13 @@ export class PrismaOfferRepository
           where: { id, deletedAt: null },
         });
 
-        return record === null ? null : OfferMapper.toDomain(record);
+        return record ? OfferMapper.toDomain(record) : null;
       },
       (error) => new RepositoryFindError('Offer', id, error),
     );
 
     return offerResult.andThen((offer) =>
-      offer === null
-        ? Result.err(new OfferNotFoundError(id))
-        : Result.ok(offer),
+      offer ? Result.ok(offer) : Result.err(new OfferNotFoundError(id)),
     );
   }
 

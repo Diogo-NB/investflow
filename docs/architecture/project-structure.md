@@ -280,12 +280,51 @@ Query handlers live in infrastructure and may use `PrismaService` directly.
 They should return read-oriented models or nullable data as appropriate and
 must not load aggregates just to render API responses.
 
+## Persistence Mappers
+
+Persistence mappers convert ORM records into domain objects and domain objects
+into persistence data. Keep ORM types and native `Date` values inside
+infrastructure.
+
+For optional repository records and mapped aggregates, prefer truthy
+conditionals with the present-value branch first. For example, use
+`return record ? OfferMapper.toDomain(record) : null;` when mapping a lookup.
+
+When a value-object conversion returns a `Result`, access `.value` directly
+at the mapping site. For example:
+
+```typescript
+CalendarDateRange.of(CalendarDate.fromUtcDate(record.startDate).value, CalendarDate.fromUtcDate(record.endDate).value);
+```
+
+Do not introduce helper functions or repeat `isErr()` / `throw result.error`
+checks solely to unwrap these conversions. Persisted values are expected to
+be valid. If a conversion fails, `.value` throws; the repository captures
+lookup and mapping together inside `Result.fromPromise` and translates the
+exception into `RepositoryFindError`.
+
 ## Results And Errors
 
 Expected business and application failures use `Result<T, E extends AppError>`.
 Use Result for meaningful failures from external input, use cases, domain and
 application services, repository operations, and external integrations. Do not
 force Result onto trivial pure methods.
+
+Prefer `Result.fromThrowable()` for synchronous operations that can throw and
+`Result.fromPromise()` for asynchronous operations that can reject, instead
+of repeating `try/catch` blocks that only convert exceptions into Results.
+Map exceptions to the appropriate typed `AppError`. For example:
+
+```typescript
+Result.fromThrowable(
+  () => new Decimal(value),
+  () => new InvalidIndexValueError('expected a decimal'),
+);
+```
+
+Chain business validation with `andThen()` and return expected failures with
+`Result.err()`. Keep throwing operations inside the helper callback;
+`map()` and `andThen()` do not catch exceptions thrown by their callbacks.
 
 Command-side repository ports return `Result` for aggregate lookup and
 persistence. A missing aggregate is an error in that contract. Read/query

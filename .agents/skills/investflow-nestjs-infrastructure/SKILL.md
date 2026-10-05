@@ -77,6 +77,16 @@ module composition, host responsibilities, or library boundaries.
 - Native `Date` may exist briefly at ORM, driver, framework, or `Intl`
   boundaries. Convert it immediately to or from the shared temporal types.
 
+### Mapper conversions
+
+In persistence mappers, unwrap Result-returning value-object conversions with
+inline `.value` access, such as
+`CalendarDate.fromUtcDate(record.startDate).value`. Do not introduce helper
+functions or repeat `isErr()` / `throw result.error` checks solely to unwrap
+these conversions. Persisted values are expected to be valid; failed
+conversions throw and are captured by the repository's `Result.fromPromise`
+around lookup and mapping.
+
 ### Repository lookup Results
 
 Prefer one `Result.fromPromise` around both the asynchronous lookup and its
@@ -85,20 +95,23 @@ callback, and use `andThen` afterward to convert `null` into the application
 not-found error. This catches database and mapper exceptions with the same
 repository error mapping while keeping expected absence separate.
 
+For optional repository records and mapped aggregates, prefer truthy
+conditionals with the present-value branch first, such as
+`record ? OfferMapper.toDomain(record) : null`, instead of explicit
+`=== null` checks.
+
 ```ts
 const offerResult = await Result.fromPromise(
   async () => {
     const record = await this.prisma.client.investmentOffer.findUnique({
       where: { id, deletedAt: null },
     });
-    return record === null ? null : OfferMapper.toDomain(record);
+    return record ? OfferMapper.toDomain(record) : null;
   },
   (error) => new RepositoryFindError('Offer', id, error),
 );
 
-return offerResult.andThen((offer) =>
-  offer === null ? Result.err(new OfferNotFoundError(id)) : Result.ok(offer),
-);
+return offerResult.andThen((offer) => (offer ? Result.ok(offer) : Result.err(new OfferNotFoundError(id))));
 ```
 
 The `fromPromise` callback returns a plain value; returning `Result.err` inside

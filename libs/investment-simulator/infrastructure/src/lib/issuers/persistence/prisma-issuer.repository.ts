@@ -31,15 +31,13 @@ export class PrismaIssuerRepository
           where: { id },
         });
 
-        return record === null ? null : IssuerMapper.toDomain(record);
+        return record ? IssuerMapper.toDomain(record) : null;
       },
       (error) => new RepositoryFindError('Issuer', id, error),
     );
 
     return issuerResult.andThen((issuer) =>
-      issuer === null
-        ? Result.err(new IssuerNotFoundError(id))
-        : Result.ok(issuer),
+      issuer ? Result.ok(issuer) : Result.err(new IssuerNotFoundError(id)),
     );
   }
 

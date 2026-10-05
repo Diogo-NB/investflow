@@ -2,6 +2,54 @@ import { CalendarDate, InvalidCalendarDateError } from './calendar-date.vo';
 import { UtcInstant } from './utc-instant.vo';
 
 describe('CalendarDate', () => {
+  it.each([
+    ['2024-02-01', true, false],
+    ['2024-02-28', false, false],
+    ['2024-02-29', false, true],
+    ['2026-02-28', false, true],
+    ['2026-04-30', false, true],
+    ['1900-02-28', false, true],
+    ['2000-02-28', false, false],
+    ['2000-02-29', false, true],
+    ['2100-02-28', false, true],
+    ['0004-02-29', false, true],
+    ['9999-12-31', false, true],
+    ['0001-01-01', true, false],
+  ] as const)('recognizes month boundaries for %s', (date, first, last) => {
+    const value = CalendarDate.of(date);
+    expect(value.isFirstDayOfMonth()).toBe(first);
+    expect(value.isLastDayOfMonth()).toBe(last);
+  });
+
+  it.each([
+    ['2026-01-02', 2026, 1, 2, 31],
+    ['2026-02-28', 2026, 2, 28, 28],
+    ['2024-02-29', 2024, 2, 29, 29],
+    ['2026-03-01', 2026, 3, 1, 31],
+    ['2026-04-01', 2026, 4, 1, 30],
+    ['2026-05-01', 2026, 5, 1, 31],
+    ['2026-06-01', 2026, 6, 1, 30],
+    ['2026-07-01', 2026, 7, 1, 31],
+    ['2026-08-01', 2026, 8, 1, 31],
+    ['2026-09-01', 2026, 9, 1, 30],
+    ['2026-10-01', 2026, 10, 1, 31],
+    ['2026-11-01', 2026, 11, 1, 30],
+    ['9999-12-31', 9999, 12, 31, 31],
+    ['0001-01-01', 1, 1, 1, 31],
+    ['1900-02-28', 1900, 2, 28, 28],
+    ['2000-02-29', 2000, 2, 29, 29],
+    ['2100-02-28', 2100, 2, 28, 28],
+  ] as const)(
+    'exposes calendar parts and month length for %s',
+    (value, year, month, day, daysInMonth) => {
+      const date = CalendarDate.of(value);
+      expect(date.year).toBe(year);
+      expect(date.month).toBe(month);
+      expect(date.day).toBe(day);
+      expect(date.daysInMonth).toBe(daysInMonth);
+    },
+  );
+
   describe('create', () => {
     it.each(['2026-1-02', '2026-01-2', '01-02-2026', 'not-a-date'])(
       'rejects malformed value %s',
@@ -14,12 +62,15 @@ describe('CalendarDate', () => {
       },
     );
 
-    it.each(['0000-01-01', '2026-02-29', '2026-04-31'])(
-      'rejects invalid calendar date %s',
-      (value) => {
-        expect(CalendarDate.create(value).isErr()).toBe(true);
-      },
-    );
+    it.each([
+      '0000-01-01',
+      '2026-02-29',
+      '2026-04-31',
+      '1900-02-29',
+      '2100-02-29',
+    ])('rejects invalid calendar date %s', (value) => {
+      expect(CalendarDate.create(value).isErr()).toBe(true);
+    });
 
     it('accepts leap days and years below 100', () => {
       expect(CalendarDate.of('2024-02-29').toString()).toBe('2024-02-29');
@@ -47,6 +98,9 @@ describe('CalendarDate', () => {
     );
 
     expect(result.value.toString()).toBe('2026-01-02');
+    expect(result.value.year).toBe(2026);
+    expect(result.value.month).toBe(1);
+    expect(result.value.day).toBe(2);
   });
 
   it('creates the UTC calendar date represented by a UTC instant', () => {
@@ -86,6 +140,20 @@ describe('CalendarDate', () => {
     expect(() => CalendarDate.of('2026-01-01').addDays(1.5)).toThrow(
       InvalidCalendarDateError,
     );
+  });
+
+  it('keeps calendar parts consistent when arithmetic crosses a leap month', () => {
+    const leapDay = CalendarDate.of('2024-02-28').addDays(1);
+    expect(leapDay.year).toBe(2024);
+    expect(leapDay.month).toBe(2);
+    expect(leapDay.day).toBe(29);
+    expect(leapDay.isLastDayOfMonth()).toBe(true);
+    const march = leapDay.addDays(1);
+    expect(march.year).toBe(2024);
+    expect(march.month).toBe(3);
+    expect(march.day).toBe(1);
+    expect(march.daysInMonth).toBe(31);
+    expect(march.isFirstDayOfMonth()).toBe(true);
   });
 
   it('compares dates and identifies weekends', () => {

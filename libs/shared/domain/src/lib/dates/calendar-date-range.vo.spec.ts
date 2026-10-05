@@ -17,19 +17,20 @@ describe('CalendarDateRange', () => {
     expect(result.value.lengthInDays()).toBe(30);
   });
 
-  it.each([
-    [end, start],
-    [start, start],
-  ])(
-    'rejects a range whose end is not after its start',
-    (rangeStart, rangeEnd) => {
-      const result = CalendarDateRange.create(rangeStart, rangeEnd);
+  it('rejects a reversed range', () => {
+    const result = CalendarDateRange.create(end, start);
+    expect(result.isErr()).toBe(true);
+    expect(result.error).toBeInstanceOf(InvalidCalendarDateRangeError);
+    expect(result.error.code).toBe('INVALID_CALENDAR_DATE_RANGE');
+  });
 
-      expect(result.isErr()).toBe(true);
-      expect(result.error).toBeInstanceOf(InvalidCalendarDateRangeError);
-      expect(result.error.code).toBe('INVALID_CALENDAR_DATE_RANGE');
-    },
-  );
+  it('accepts a single-day range without changing elapsed-day semantics', () => {
+    const range = CalendarDateRange.of(start, start);
+    expect(range.lengthInDays()).toBe(0);
+    expect(range.contains(start)).toBe(true);
+    expect(range.contains(start.addDays(1))).toBe(false);
+    expect(range.overlaps(CalendarDateRange.of(start, end))).toBe(true);
+  });
 
   it('contains both endpoints and dates between them', () => {
     const range = CalendarDateRange.of(start, end);

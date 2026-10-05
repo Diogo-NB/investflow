@@ -5,7 +5,7 @@ import { CalendarDate } from './calendar-date.vo';
 
 export class InvalidCalendarDateRangeError extends DomainError {
   constructor() {
-    super('CalendarDateRange end must be after start', {
+    super('CalendarDateRange end must be on or after start', {
       code: 'INVALID_CALENDAR_DATE_RANGE',
     });
   }
@@ -23,7 +23,7 @@ export class CalendarDateRange extends ValueObject<CalendarDateRange> {
     start: CalendarDate,
     end: CalendarDate,
   ): Result<CalendarDateRange, InvalidCalendarDateRangeError> {
-    if (!start.isBefore(end)) {
+    if (start.isAfter(end)) {
       return Result.err(new InvalidCalendarDateRangeError());
     }
 
