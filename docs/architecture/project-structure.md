@@ -30,7 +30,8 @@ apps/api
     └── future bounded-context modules
 
 apps/web
-└── lazy route -> libs/investment-simulator/web
+└── Keycloak authentication, shell, and welcome page
+    └── lazy offer routes -> libs/investment-simulator/web
 ```
 
 `apps/api` is the system composition root. It chooses the contexts deployed in
@@ -87,12 +88,13 @@ projects plus an optional browser presentation project:
 - `web`: Angular routes, feature components, browser API clients, and display
   types. Its public API exposes route definitions for a browser app to compose.
 
-`apps/web` is the browser composition root. It lazy-loads context-owned web
-projects and sends relative `/api` requests. The development server proxies
+`apps/web` is the browser composition root. It owns authentication, the shell,
+and a welcome page. Offer CRUD lives in the lazy-loaded
+`libs/investment-simulator/web` project and uses relative `/api` requests. The development server proxies
 those requests to `http://localhost:3000`; production hosting must route them
 to the independently deployed NestJS API.
 
-The component, state, HTTP, form, testing, and library-extraction conventions
+The component, state, HTTP, form, testing, and project-boundary conventions
 are defined in [Frontend Patterns](./frontend-patterns.md).
 
 Contexts do not import one another's internals directly. Cross-context
@@ -101,9 +103,21 @@ contracts. Internal aggregates and domain events are not shared wire
 contracts. Shared building blocks stay under `libs/shared`.
 
 Nx platform tags keep browser projects from importing server projects and keep
-server projects from importing browser projects. Existing domain, application,
-infrastructure, and shared projects are intentionally tagged
-`platform:server`; they are not platform-neutral contracts.
+server projects from importing browser projects. Domain, application,
+infrastructure, and shared backend projects remain tagged `platform:server`.
+InvestFlow has a single frontend app. Browser code stays in `apps/web` or its
+owning `libs/<context>/web` project. Local folders and relative imports support
+reuse within each project. Do not create reusable frontend libraries for types,
+UI, data access, state, or utilities; `libs/shared` remains backend-only.
+
+Pagination uses separate `PaginatedResult<Item>` interfaces with the same wire
+shape: readonly `items`, `total`, one-based `page`, and `pageSize`. Backend code
+imports from `@investflow/shared-types`; frontend code imports locally from
+`libs/investment-simulator/web/src/lib/pagination/paginated-result.type.ts`.
+Only the backend exports this interface through its public index; the frontend
+contract remains internal to its web project. Do not import
+one platform's contract into the other or introduce a cross-platform contract
+package. Feature-specific item models remain owned by their respective context.
 
 Repository-wide `pnpm build` and `pnpm check` intentionally include both
 applications. Backend-only build and delivery pipelines use targeted API tasks

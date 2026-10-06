@@ -20,10 +20,60 @@ live in `src/lib/offers/http`, while Prisma repositories and mappers live in
 
 ## Offer HTTP API
 
-Authenticated clients can create, partially update, and soft delete offers at
-`/api/investment-simulator/offers`. Creation returns the new identifier;
-updates and deletions return no response body. Offer queries are intentionally
-outside this command API.
+All routes below require the existing JWT guard. The catalog is shared by
+authenticated clients; there is no per-user offer ownership or new role model.
+
+| Method | Path under `/api/investment-simulator` | Response                           |
+| ------ | -------------------------------------- | ---------------------------------- |
+| GET    | `/offers`                              | `{ items, total, page, pageSize }` |
+| GET    | `/offers/:offerId`                     | Offer details                      |
+| GET    | `/issuers`                             | `{ id, name }[]`                   |
+| POST   | `/offers`                              | 201 `{ id }`                       |
+| PATCH  | `/offers/:offerId`                     | 204, no body                       |
+| DELETE | `/offers/:offerId`                     | 204, no body                       |
+
+List accepts `page` (default 1), `pageSize` (default 20, maximum 100), `q`
+(trimmed, case-insensitive issuer-name substring, maximum 100 characters), and
+`titleType` (CDB/LCI/LCA). Filters combine with AND. Page is bounded to 21474836
+to keep database offsets within the signed integer range for every allowed page
+size. Invalid query/UUID input returns 400. An out-of-range valid page returns an
+empty array and the matching total. Sort is maturity ascending, then ID ascending.
+Issuer sort is name ascending, then ID ascending, including issuers with no offers.
+
+The list handler and presenter use `PaginatedResult<Item>` imported from
+`@investflow/shared-types`. The frontend uses an independently declared
+`PaginatedResult<Item>` in its web project's local `src/lib/pagination` folder
+with the same wire shape and its own offer item type.
+
+List entries and details have this shape:
+
+```json
+{
+  "id": "offer UUID",
+  "titleType": "CDB",
+  "issuer": { "id": "issuer UUID", "name": "Banco Local" },
+  "maturityDate": "2028-12-31",
+  "redemptionTerms": { "kind": "DAILY" },
+  "remunerationTerms": { "kind": "CDI_PERCENTAGE", "rate": "1.1" }
+}
+```
+
+Dates are calendar strings, and rates are exact decimal fractions without
+scientific notation: `1.1` is 110% of CDI; `0.12` is 12% annually. No persistence
+timestamps/deletion fields or ORM values escape the presenter. Offer reads and
+counts exclude soft-deleted records; missing/deleted details return 404 with
+`OFFER_NOT_FOUND`. Infrastructure read failures return 500 with
+`OFFER_QUERY_FAILED` or `ISSUER_QUERY_FAILED` through the existing error envelope.
+
+Read handlers query Prisma directly and do not load aggregates or extend command
+repository ports. Their GET methods skip the global command transaction. Results
+are unwrapped by the existing global interceptor; no success envelope is added.
+
+Creation takes `titleType`, `issuerId`, `maturityDate`, `redemptionTerms`, and
+`remunerationTerms`, and requires an existing issuer. PATCH takes optional
+`maturityDate`, `redemptionTerms`, and `remunerationTerms`; it rejects changes to
+`titleType` and `issuerId`. DELETE retains the existing clock-driven soft deletion.
+No new business restrictions, schema migrations, or identity changes are required.
 
 ## Building
 

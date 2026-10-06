@@ -11,7 +11,10 @@ export function renderAuthenticationInitializationFailure(
   }
 
   failure.hidden = false;
-  failure.classList.replace('hidden', 'grid');
+  const loading = document.getElementById('authentication-loading');
+  if (loading) {
+    loading.hidden = true;
+  }
   failure.querySelector('button')?.addEventListener('click', reload, {
     once: true,
   });

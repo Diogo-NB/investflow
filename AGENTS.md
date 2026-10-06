@@ -22,7 +22,10 @@ Load the repository skill that matches the work:
 - `$investflow-angular` for routes, components, forms, browser API clients,
   state, styling, accessibility, and frontend tests.
 
-Cross-layer changes can require more than one skill.
+Cross-layer changes can require more than one skill. Repository Angular
+conventions take precedence over generic Angular skills: use Nx generators,
+retain installed package and toolchain versions unless an upgrade is explicitly
+requested, and follow the state-first frontend testing policy.
 
 ## Architecture Invariants
 
@@ -33,6 +36,11 @@ Cross-layer changes can require more than one skill.
 - Bounded contexts communicate through integration events or explicit
   contracts, never by importing one another's internals.
 - Shared libraries cannot depend on feature contexts.
+- InvestFlow has a single frontend app, `apps/web`. Keep browser code in that
+  app or the owning `libs/<context>/web` project. Reuse within those projects
+  uses local folders and relative imports; do not extract frontend types,
+  components, state, or utilities into reusable Nx libraries. Backend shared
+  libraries remain separate from frontend code.
 - Export every library's public API through `src/index.ts`; use workspace
   aliases across projects and relative imports within a project.
 - Organize bounded-context source feature-first in every layer. Use plural
@@ -60,9 +68,12 @@ Cross-layer changes can require more than one skill.
 - Frontend code defaults to stable, framework-native Angular APIs: standalone
   components, zoneless change detection, `OnPush`, `inject()`, signal component
   APIs, native template control flow, lazy feature routes, functional providers,
-  and typed reactive forms. Experimental Angular APIs require an explicit
-  adoption decision documented in `$investflow-angular` and the frontend
-  architecture guide.
+  and native signals. Signal Forms, `resource()`, and `httpResource()` are
+  explicitly approved experimental Angular 21 APIs; prefer Signal Forms for
+  new forms and `httpResource()` for reactive reads. Use HttpClient/RxJS for
+  commands and asynchronous workflows. The adoption, lifecycle, fallback, and
+  migration risks are documented in `$investflow-angular` and the frontend
+  architecture guide. Other experimental APIs require a separate decision.
 
 ## Build, Test, and Development Commands
 
@@ -81,7 +92,7 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 - `pnpm db:migrate`: create/apply local Prisma migrations after schema changes.
 - `pnpm start:api`: serve the API in development mode.
 - `pnpm build:api`: build the API into `dist/`.
-- `pnpm test`: run all Jest project tests.
+- `pnpm test`: run all project tests (Jest for backend, Angular-native Vitest for frontend).
 - `pnpm check`: lint, test, and build all Nx projects.
 - `pnpm db:generate`: regenerate the Prisma client.
 
@@ -111,7 +122,8 @@ The workspace intentionally retains `baseUrl` because the Nx TypeScript executor
 
 ## Testing Guidelines
 
-Jest is configured per Nx project. Place focused unit tests beside source files using `*.spec.ts`. Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
+Backend projects use Jest; frontend projects use Angular-native Vitest through Nx.
+Place focused unit tests beside source files using `*.spec.ts`. Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
 
 Do not add request-DTO unit suites that merely repeat built-in
 `class-validator` behavior. Test custom validators and decorators directly,

@@ -9,8 +9,6 @@
     "build": {
       "executor": "@angular/build:application",
       "outputs": ["{options.outputPath}"],
-      "dependsOn": ["^build"],
-      "inputs": ["production", "^production"],
       "options": {
         "outputPath": "dist/apps/web",
         "browser": "apps/web/src/main.ts",
@@ -21,7 +19,10 @@
             "input": "apps/web/public"
           }
         ],
-        "styles": ["apps/web/src/styles.css"]
+        "styles": [
+          "apps/web/src/styles.css",
+          "apps/web/src/material-theme.scss"
+        ]
       },
       "configurations": {
         "production": {

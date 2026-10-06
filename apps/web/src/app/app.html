@@ -1,51 +1,56 @@
-<header
-  class="mx-auto flex w-[min(calc(100%-clamp(3rem,10vw,8rem)),70rem)] items-center justify-between gap-6 border-b border-border pt-6 pb-4 max-[34rem]:items-start"
-  aria-label="InvestFlow"
+<a
+  class="absolute top-3 left-4 z-10 -translate-y-24 rounded-control bg-accent px-4 py-3 text-accent-fg focus:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+  href="#main-content"
+  >Ir para o conteúdo</a
 >
-  <a
-    class="rounded-small font-display text-xl font-bold tracking-[-0.015em] text-fg no-underline focus-visible:ring-3 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none"
-    routerLink="/"
-    aria-label="InvestFlow, página inicial"
-  >
-    Invest<span class="text-accent">Flow</span>
-  </a>
 
+<header class="border-b border-border bg-surface">
   <div
-    class="flex items-center gap-4 max-[34rem]:flex-col max-[34rem]:items-end max-[34rem]:gap-1"
+    class="mx-auto flex min-h-20 max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-4 sm:px-10"
   >
-    <p class="identity m-0 grid text-right">
-      <span
-        class="text-[0.6875rem] font-bold tracking-[0.08em] text-muted uppercase"
-        >Sessão ativa</span
-      >
-      <strong
-        class="max-w-[22ch] truncate text-sm text-fg max-[34rem]:max-w-[15ch]"
-        >{{ auth.identity }}</strong
-      >
-    </p>
-    <button
-      class="min-h-11 min-w-18 rounded-small focus-visible:ring-3 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none"
-      mat-button
-      type="button"
-      [disabled]="auth.logoutState() === 'pending'"
-      [attr.aria-describedby]="
-        auth.logoutState() === 'error' ? 'logout-error' : null
-      "
-      (click)="logout()"
+    <a
+      class="flex min-h-11 items-center gap-3 rounded-control text-lg font-semibold tracking-tight text-fg no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+      routerLink="/"
+      aria-label="InvestFlow, página inicial"
     >
-      {{ auth.logoutState() === 'pending' ? 'Saindo…' : 'Sair' }}
-    </button>
+      <span
+        class="flex size-8 items-center justify-center rounded-control bg-accent text-sm tracking-normal text-accent-fg"
+        aria-hidden="true"
+        >if</span
+      >
+      InvestFlow
+    </a>
+    <div class="flex min-w-0 items-center gap-3 sm:gap-6">
+      <p class="m-0 grid min-w-0 text-right text-sm">
+        <span class="text-muted">Sua conta</span>
+        <strong class="max-w-40 truncate font-medium text-fg sm:max-w-64"
+          >{{ auth.identity() }}</strong
+        >
+      </p>
+      <button
+        mat-button
+        class="min-h-11 min-w-20"
+        type="button"
+        [disabled]="auth.logoutState() === 'pending'"
+        [attr.aria-describedby]="auth.logoutState() === 'error' ? 'logout-error' : null"
+        (click)="logout()"
+      >
+        {{ auth.logoutState() === 'pending' ? 'Saindo…' : 'Sair' }}
+      </button>
+    </div>
   </div>
 </header>
 
-@if (auth.logoutState() === 'error') {
-<p
-  id="logout-error"
-  class="mx-auto mt-2 w-[min(calc(100%-clamp(3rem,10vw,8rem)),70rem)] text-right text-sm text-error"
-  role="alert"
+<main
+  #mainContent
+  id="main-content"
+  class="mx-auto w-full max-w-6xl flex-1 px-6 py-6 outline-none sm:px-10 sm:py-10"
+  tabindex="-1"
 >
-  Não foi possível sair. Tente novamente.
-</p>
-}
-
-<router-outlet></router-outlet>
+  @if (auth.logoutState() === 'error') {
+  <p id="logout-error" class="m-0 mb-8 text-sm text-error" role="alert">
+    Não foi possível sair. Tente novamente.
+  </p>
+  }
+  <router-outlet (activate)="focusMain()" />
+</main>

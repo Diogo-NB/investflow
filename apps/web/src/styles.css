@@ -1,44 +1,63 @@
 @import 'tailwindcss';
-@import '@angular/material/prebuilt-themes/azure-blue.css';
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans-latin-600-normal.woff2') format('woff2');
+}
 
 @theme {
   --color-*: initial;
   --radius-*: initial;
-  --font-display:
-    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  --font-body: Aptos, 'Trebuchet MS', sans-serif;
-  --text-sm: 0.8125rem;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.25rem;
   --text-xl: 1.5625rem;
-  --text-2xl: 1.953rem;
-  --text-3xl: 3.052rem;
+  --text-2xl: 1.953125rem;
+  --text-3xl: 2.44140625rem;
   --spacing: 0.25rem;
-  --radius-small: 0.25rem;
-  --radius-surface: 0.75rem;
-  --color-bg: oklch(0.975 0.012 238);
-  --color-surface: oklch(0.995 0.003 240);
-  --color-fg: oklch(0.24 0.035 248);
-  --color-muted: oklch(0.47 0.035 248);
-  --color-border: oklch(0.84 0.035 235);
-  --color-accent: oklch(0.48 0.14 245);
-  --color-accent-fg: oklch(0.99 0.002 240);
-  --color-success: oklch(0.43 0.11 155);
-  --color-warning: oklch(0.55 0.13 70);
-  --color-error: oklch(0.49 0.18 28);
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-:root {
-  color-scheme: light;
+  --radius-control: 0.25rem;
+  --radius-surface: 0.5rem;
+  --color-bg: oklch(0.9741 0.0034 145.55);
+  --color-surface: oklch(1 0 0);
+  --color-fg: oklch(0.2776 0.0162 176.59);
+  --color-muted: oklch(0.497 0.0194 162.17);
+  --color-border: oklch(0.9015 0.0118 162.02);
+  --color-accent: oklch(0.4567 0.0802 164.05);
+  --color-accent-fg: oklch(1 0 0);
+  --color-accent-soft: oklch(0.9527 0.0124 157);
+  --color-success: oklch(0.4567 0.0802 164.05);
+  --color-warning: oklch(0.5027 0.0968 77.98);
+  --color-error: oklch(0.4984 0.1543 27.96);
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+  }
   html,
   body {
     @apply min-h-full;
   }
-
   body {
     @apply m-0 bg-bg font-body text-fg;
   }

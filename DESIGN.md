@@ -1,200 +1,225 @@
 # DESIGN.md - InvestFlow Web
 
-## Context (from discovery)
+## Context
 
-- Artifact type: SaaS application.
-- Positioning: trustworthy consumer finance with a restrained technical edge.
-- Audience: people beginning an investment simulation. Primary action: confirm
-  that the simulator service is available.
-- Adjectives: calm, precise, trustworthy, direct.
-- Visual word translations: calm uses open space and low-chroma surfaces;
-  precise uses aligned rules and compact labels; trustworthy uses deep blue and
-  serif display type; direct keeps one state and one recovery action in view.
-- Aesthetic essence: calm, financial, exact.
-- Single-minded proposition: InvestFlow makes the next investment step feel
-  understandable and dependable.
-- References: financial ledgers for rules and hierarchy; Material 3 for familiar
-  controls. Avoid generic startup gradients and card grids.
-- Mode: light. Density: balanced.
-- Constraints: Angular Material's Azure Blue prebuilt theme, no external fonts,
-  no icon font, WCAG 2.2 AA, an authenticated application shell, and a single
-  API-connectivity screen.
+- Artifact: authenticated investment workspace with an offer catalog.
+- Primary outcome: enter through Keycloak, then create, consult, edit, and remove
+  offer terms without losing input or misunderstanding rates.
+- Positioning: approachable personal finance. Adjectives: precise, calm,
+  approachable. Aesthetic essence: clear, grounded, ready.
+- Approved direction: Minimal Product Workspace, light theme only, Tailwind v4
+  with custom-themed Angular Material and locally hosted IBM Plex Sans.
+- References: [Nord](https://nordhealth.design/) for restrained application
+  spacing and surface hierarchy; [IBM Plex](https://www.ibm.com/plex/) for
+  legible functional typography. Use their principles, not their components.
+- Constraints: Portuguese copy, WCAG 2.2 AA, no external font requests, no
+  decorative imagery, no fictitious charts/data/actions, no dark-mode toggle.
 
-## Aesthetic
+## Aesthetic and layout
 
-- Direction: Calm Ledger, an editorial and Swiss-influenced application shell.
-- Defining trait: text and horizontal rules carry hierarchy instead of a grid of
-  decorative cards.
-- Signature move: an asymmetric balance marker made from three ruled amounts
-  sits beside the live service state.
+The compact white header establishes the workspace on an off-white canvas.
+Identity and logout stay together; content is left-aligned on the same rail.
+One horizontal rule extends the small route label across available space.
+The signature is the lowercase green `if` brand square, aligned with the
+wordmark and the content rail. One offer navigation card follows the welcome copy. No nested surfaces or gradients.
+
+- Container: 72rem maximum, with 24px mobile and 40px larger-screen gutters.
+- Header: at least 80px; wraps naturally when wordmark and identity need room.
+- Main: 24px top spacing on mobile and 40px at the 640px breakpoint. The welcome
+  page adds 24px/40px internally to preserve its original generous spacing.
+- Welcome: 40px/56px between its route label and content, then 16px between
+  heading and supporting copy. Copy measure is at most 65ch.
+- Responsive: mobile-first; no fixed viewport-dependent content heights.
 
 ## Typography
 
-- Display: Iowan Old Style with Palatino and Georgia fallbacks. These are local
-  system faces with no network request.
-- Body: Aptos with Trebuchet MS and sans-serif fallbacks. These are local system
-  faces with no network request.
-- Scale: Major Third, ratio 1.25, base 16px. Display 49px/1.05, h1 39px/1.1,
-  h2 25px/1.2, body-large 20px/1.5, body 16px/1.6, small 13px/1.45.
-- Weights: 400, 600, 700. Measure: 62ch. Display tracking: -0.015em.
+IBM Plex Sans is used for display and body text. A single approved functional
+family suits this small application; weight and size establish hierarchy.
+Weights 400, 500, and 600 ship as local Latin WOFF2 assets, including Portuguese
+characters, with `font-display: swap`. Source: Fontsource's IBM Plex Sans 5.3.0
+asset distribution; license: Open Font License in `public/fonts/OFL.txt`.
+No font package is added to the workspace dependencies.
+
+Scale: Major Third, ratio 1.25, base 16px; the small label is a deliberate 14px
+utility step. Body line-height is 1.5 to 1.625; headings use 1.25.
+
+| Role                       | Size      | Weight     |
+| -------------------------- | --------- | ---------- |
+| Label                      | 14px      | 400 or 500 |
+| Body                       | 16px      | 400        |
+| Supporting copy / wordmark | 20px      | 400 / 600  |
+| Section heading            | 25px      | 600        |
+| Mobile welcome heading     | 31.25px   | 600        |
+| Desktop welcome heading    | 39.0625px | 600        |
 
 ## Color
 
-- Strategy: Azure blue is appropriate for financial trust and required by the
-  Material theme. A green success accent is reserved for verified state.
-- Distribution: 60 neutral / 30 blue brand / 10 semantic accent.
-- Palette:
-  - bg: `oklch(0.975 0.012 238)` | `#f2f8fc`
-  - surface: `oklch(0.995 0.003 240)` | `#fdfefe`
-  - fg: `oklch(0.24 0.035 248)` | `#172b3b`
-  - muted: `oklch(0.47 0.035 248)` | `#566b7c`
-  - border: `oklch(0.84 0.035 235)` | `#c2d5e1`
-  - accent: `oklch(0.48 0.14 245)` | `#1769a8`
-  - accent-fg: `oklch(0.99 0.002 240)` | `#fbfdff`
-  - success: `oklch(0.43 0.11 155)` | `#247547`
-  - warning: `oklch(0.55 0.13 70)` | `#99621b`
-  - error: `oklch(0.49 0.18 28)` | `#ae3f35`
+Neutrals carry most of the interface; muted green identifies the brand and
+interactive focus. State colors are paired with text. Palette values are authored
+in OKLCH; the hex equivalents document the intended sRGB colors.
 
-## Spacing, radius, shadow
+| Role              | OKLCH                  | Hex       |
+| ----------------- | ---------------------- | --------- |
+| Background        | `0.9741 0.0034 145.55` | `#f5f7f5` |
+| Surface           | `1 0 0`                | `#ffffff` |
+| Foreground        | `0.2776 0.0162 176.59` | `#202b28` |
+| Muted text        | `0.497 0.0194 162.17`  | `#59665f` |
+| Border            | `0.9015 0.0118 162.02` | `#d8e1dc` |
+| Accent / success  | `0.4567 0.0802 164.05` | `#22654b` |
+| Accent foreground | `1 0 0`                | `#ffffff` |
+| Accent container  | `0.9527 0.0124 157`    | `#e9f2ec` |
+| Warning           | `0.5027 0.0968 77.98`  | `#825c14` |
+| Error             | `0.4984 0.1543 27.96`  | `#a9342c` |
 
-- Spacing base: 8px. Scale: 4, 8, 12, 16, 24, 32, 48, 64, 96.
-- Radius: 4px for small elements and 12px for primary surfaces.
-- Shadow approach: defined edges only. Do not combine borders with diffuse
-  elevation shadows.
+## Spacing, surfaces, and controls
 
-## Layout and composition
+- Base spacing increment: 4px; favor 8px multiples for related regions.
+- Radius: 4px controls/brand mark; 8px primary surfaces.
+- Elevation: defined edges only. No diffuse shadows or nested cards.
+- Material density: 0. Product actions have at least 44px targets.
+- Logout: secondary text action; Material supplies hover/active feedback. Pending
+  logout disables the action and displays `Saindo…`; failure exposes a useful
+  Portuguese alert and allows retry.
+- Bootstrap: visible `Iniciando sua sessão…` status, then the authenticated shell
+  or a safe error and one reload action. The recovery action uses native HTML
+  because Angular has not bootstrapped.
+- Keyboard: skip link, wordmark link, logout/retry. Focus uses a 2px accent outline
+  with separation; the skip target is the main landmark.
+  The main landmark receives route/skip-link focus without a browser outline;
+  interactive controls keep their visible focus indicators.
+- Dropdowns use Material `mat-select` and `mat-option` for triggers and popups,
+  with 8px horizontal trigger padding inside the form-field inset. Focus is
+  shown by Material's outer field border, without an inner text outline.
+- Welcome entry: a single bordered link card, heading/copy on the left and a
+  textual navigation action on the right; wraps on mobile. Green hover/focus
+  feedback comes from existing tokens.
+- List: compact heading and primary creation action; issuer search/title filter
+  above one white result surface. Desktop table uses horizontal separators and
+  right-aligned tabular figures. Below 1024px, labeled offer rows replace it.
+- Detail: grouped definition list, exact terms, and a secondary identifier.
+  Edit is primary; delete is quiet until its confirmation dialog.
+- Editor: one white surface, three fieldsets separated by horizontal rules,
+  two-column fields above 640px and one column below. Labels remain visible;
+  validation appears after touch/submission and retains entered values.
+- Vencimento: Material calendar popup with Portuguese controls and a visible SVG
+  calendar toggle; typed dates use DD/MM/AAAA. The form/API retain YYYY-MM-DD
+  civil dates. Picker and input are disabled while saving.
+- Rates: show contracted percentages with kind-specific units and a textual
+  preview. Changing kind clears the rate to avoid carrying different units.
+- Dialogs: Material focus management and 8px token radius; cancel first.
+  Delete confirmation uses the existing error token for its primary action.
+- Pending operations disable repeat actions; loading, empty, filtered-empty,
+  failure/retry, missing-record, and success states include useful text.
 
-- Grid: asymmetric two-column editorial layout with 24px to 64px fluid gutters.
-- Spacing rhythm: 8px within labels, 24px within groups, 48px between regions.
-- Signature layout move: the narrow ruled balance marker occupies the secondary
-  column and collapses beneath the state on small screens.
-- Density: balanced. Scanning: F-pattern.
-- Responsive: mobile-first, with a content-driven breakpoint at 720px.
+## Motion, iconography, imagery, and dark mode
 
-## Components and states
-
-- Button hierarchy: one Material flat retry action. Hover and active feedback
-  come from Material; focus adds a 3px blue ring; loading disables repeat work.
-  The shell uses a secondary Material text action for `Sair`, positioned beside
-  the authenticated identity and disabled while logout is pending.
-- Inputs, tables, and overlays: not present in the initial screen.
-- Loading: short indeterminate spinner plus explicit text and a polite live
-  region. Success: label and returned message. Error: plain explanation and a
-  retry button in an assertive live region. Authentication initialization and
-  logout failures use concise Portuguese messages, never raw provider errors.
-- Focus ring: 3px `box-shadow` in the accent color with 2px separation.
-
-## Motion
-
-- Duration scale: 100ms, 150ms, 200ms, 300ms, 500ms.
-- Easing: enter `cubic-bezier(0.23, 1, 0.32, 1)`; movement
-  `cubic-bezier(0.77, 0, 0.175, 1)`.
-- Only direct-feedback transforms and state opacity may transition. The
-  indeterminate loading spinner is hidden when reduced motion is requested; its
-  text remains visible.
-
-## Iconography
-
-- No icon set is used. Status meaning is expressed with text and geometry.
-
-## Imagery and illustration
-
-- No imagery is needed. The balance marker is a CSS layout device, not an
-  illustration. Avoid stock finance imagery and abstract gradients.
-
-## Dark mode
-
-- Not in scope for the initial application.
+Only direct control feedback is needed. Material handles its ripple; reduced
+motion suppresses the ripple. There are no page-entry transitions, animated
+status indicators, icon fonts, illustration assets, or dark theme. Home navigation
+uses a text arrow rather than adding an icon set. The brand
+square is text and CSS, not an image.
 
 ## Accessibility
 
-- Contrast: palette targets WCAG AA. Focus: visible and unobscured.
-- Keyboard: the retry action is a native Material button. Target size: 44px.
-- Color independence: all states have explicit text. Reduced motion: supported.
-- Async status changes use live regions and preserve a stable layout.
-- The authenticated identity is text, truncated visually but available to
-  assistive technology. Logout remains a 44px keyboard-operable target and its
-  failure message uses `role="alert"`.
+Body and muted text, accent controls, and error messages must reach 4.5:1 against
+their backgrounds; large text requires 3:1. Border is a decorative separator,
+not the sole indicator of an interactive control. Preserve semantic landmarks,
+a single welcome heading, visible keyboard focus, a skip link, full identity
+text for assistive technology despite visual truncation, and live status/alerts.
+Validate reflow at 320px and 200% zoom. No meaning depends on color alone.
 
-## Tokens (source of truth)
+## Tokens
+
+These are the visual source of truth, projected into Tailwind's CSS theme.
 
 ```css
-:root {
-  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  --font-body: Aptos, 'Trebuchet MS', sans-serif;
-  --text-sm: 0.8125rem;
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.25rem;
   --text-xl: 1.5625rem;
-  --text-2xl: 1.953rem;
-  --text-3xl: 3.052rem;
+  --text-2xl: 1.953125rem;
+  --text-3xl: 2.44140625rem;
   --spacing: 0.25rem;
-  --radius-small: 0.25rem;
-  --radius-surface: 0.75rem;
-  --color-bg: oklch(0.975 0.012 238);
-  --color-surface: oklch(0.995 0.003 240);
-  --color-fg: oklch(0.24 0.035 248);
-  --color-muted: oklch(0.47 0.035 248);
-  --color-border: oklch(0.84 0.035 235);
-  --color-accent: oklch(0.48 0.14 245);
-  --color-accent-fg: oklch(0.99 0.002 240);
-  --color-success: oklch(0.43 0.11 155);
-  --color-warning: oklch(0.55 0.13 70);
-  --color-error: oklch(0.49 0.18 28);
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --radius-control: 0.25rem;
+  --radius-surface: 0.5rem;
+  --color-bg: oklch(0.9741 0.0034 145.55);
+  --color-surface: oklch(1 0 0);
+  --color-fg: oklch(0.2776 0.0162 176.59);
+  --color-muted: oklch(0.497 0.0194 162.17);
+  --color-border: oklch(0.9015 0.0118 162.02);
+  --color-accent: oklch(0.4567 0.0802 164.05);
+  --color-accent-fg: oklch(1 0 0);
+  --color-accent-soft: oklch(0.9527 0.0124 157);
+  --color-success: oklch(0.4567 0.0802 164.05);
+  --color-warning: oklch(0.5027 0.0968 77.98);
+  --color-error: oklch(0.4984 0.1543 27.96);
 }
 ```
 
-- Adapter: Tailwind CSS v4 `@theme` variables in
-  `apps/web/src/styles.css`, alongside the prebuilt Angular Material Azure Blue
-  theme. The project is Tailwind-first. Product code uses semantic utilities
-  such as `bg-surface`, `text-muted`, `border-border`, and `font-display`. Keep
-  raw palette values out of component templates. Component stylesheets are not
-  created by default.
+`apps/web/src/styles.css` owns these tokens, the Tailwind import, font faces, and
+reset. Templates and host metadata use semantic utilities such as `bg-surface`,
+`text-muted`, `text-accent`, and `rounded-control`; default Tailwind color/radius
+namespaces are cleared. No component stylesheets are needed.
 
-### Tailwind utility contract
+`apps/web/src/material-theme.scss` is the documented Sass exception for Material's
+`mat.theme`, theme overrides, button overrides, and datepicker integration. It references the CSS tokens
+for product colors/radii and uses the same IBM Plex typography. Load it after the
+Tailwind stylesheet. Sass does not own product layout or a separate palette.
 
-- Use semantic color utilities only: `bg-bg`, `bg-surface`, `text-fg`,
-  `text-muted`, `text-accent`, `border-border`, and the named state colors.
-  The adapter clears Tailwind's default color and radius namespaces so drift is
-  caught during builds instead of becoming a new local convention.
-- Use `font-body` for product UI and `font-display` for the wordmark, page
-  titles, and high-emphasis financial values. Do not introduce another font in
-  a feature.
-- Use the shared 4px Tailwind spacing increment, favoring the documented 8px
-  rhythm. Keep related content tight and separate regions generously.
-- Use `rounded-small` for controls and `rounded-surface` for primary surfaces.
-  Do not use arbitrary radii or Tailwind's default color palette.
-- Use utilities in templates and Angular `host` metadata. Add component CSS
-  only when Tailwind cannot express a third-party integration or complex
-  stateful selector clearly. Document that exception in the component.
+## Audit
 
-## Cards and surfaces
+2026-10-06, control refinements: the main landmark retains programmatic focus
+without the browser outline; interactive controls retain visible focus. All
+offer dropdowns have consistent inset padding. The Portuguese Material date
+picker passes calendar selection, manual/invalid entry, focus, pending disablement,
+and preservation after failed save. Dates round-trip through the widget and HTTP
+payload in America/Sao_Paulo and Pacific/Kiritimati. Browser checks cover existing
+edit dates, 320–1440px reflow, 200% zoom, and axe A/AA checks. The frontend suite
+now has 45 context and 30 app tests.
 
-- Primary surface: 1px defined border, 12px radius, no shadow, 32px to 48px
-  responsive padding. Do not nest cards.
+2026-10-06, offer CRUD: all workspace lint, test, and production build targets
+pass. There are 36 context frontend tests and 30 app authentication/routing tests;
+the infrastructure suite passes 61 tests with four existing integration tests
+skipped. The production initial bundle is 414.46 kB, below its 500 kB warning
+budget. API pruning excludes browser dependencies.
 
-## Slop audit
+Chromium checks pass at 320, 375, 768, and 1440 pixels and 200% zoom for the home,
+list, create, detail, edit, and delete-dialog layouts. Checks cover route focus,
+dialog keyboard/Escape behavior, reduced motion, filter history, stale pages,
+empty/failed issuer lookup, invalid input, unsaved-change confirmation, write
+failure/retry, exact rates, immutable identification, and missing/deleted records.
+Axe-core reports no WCAG A/AA violations across these screens and their checked
+error/confirmation states; this does not establish full WCAG conformance.
 
-- Date: 2026-09-27. Result: pass for source, lint, tests, development build, and
-  production build.
-- Notes: one surface, no gradients or stock imagery, one recovery action per
-  failure, explicit async states, visible focus, 44px controls,
-  keyboard-operable native actions, reduced-motion handling, and responsive
-  reflow are present. Tailwind utilities resolve exclusively through the
-  documented semantic tokens; the default Tailwind palette and radius scale do
-  not define the product. The authenticated identity and secondary logout
-  action extend the persistent top navigation without competing with the
-  simulator. A rendered screenshot audit was unavailable because this
-  environment has no local browser binary.
+CRUD browser checks use temporary mocked OIDC authorization/ID responses with a
+real Keycloak-issued access token and the real JWT-protected API. Creation,
+PATCH, reload/direct links, soft deletion, query validation, and bearer handling
+pass. Only temporary test offers were created/deleted; the existing active
+catalog and identity accounts were preserved. The real user-login limitation
+recorded below still applies.
+
+2026-10-06: source review, workspace checks, 29 frontend unit tests, and production
+compilation pass. Chromium checks pass at 320, 375, 768, and 1440 pixels, including
+200% zoom, keyboard navigation, visible focus, reduced motion, and local fonts.
+Automated axe-core WCAG A/AA checks report no violations on the welcome and
+authentication recovery views; this does not establish full WCAG conformance.
+Browser checks with temporary mocked OIDC responses pass for PKCE, welcome,
+reload, logout, initialization failure, and retry. Real Keycloak accepts the
+documented local credentials, then requires first-login profile and password
+setup. That account was left unchanged, so the real authenticated return remains
+unverified until setup is completed.
 
 ## Changelog
 
-- 2026-09-27: made Tailwind CSS v4 the frontend's first-choice styling model,
-  projected the Calm Ledger tokens into semantic utilities, migrated the app
-  shell, simulator, and authentication fallback, and removed their component
-  stylesheets.
-- 2026-09-13: extended the application shell with authenticated identity,
-  logout states, and safe authentication initialization recovery while keeping
-  the Calm Ledger hierarchy and token system.
-- 2026-09-12: established the initial browser application design system.
+- 2026-10-06: added the offer entry card and catalog CRUD layouts, form states,
+  responsive offer rows, exact percentage presentation, and confirmation dialogs.
+  Kept the approved workspace identity and dependency versions.
+
+- 2026-10-06: replaced Calm Ledger with the approved light workspace direction,
+  self-hosted IBM Plex Sans, green semantic tokens, themed Material, and an
+  auth-only welcome page. Removed the connectivity screen and decorative balance
+  marker. The installed toolchain remains unchanged.

@@ -32,23 +32,23 @@ interface SessionRefresher {
 }
 
 export function authenticationInitOptions(
-  applicationOrigin: string,
+  applicationUrl: string,
 ): KeycloakInitOptions {
   return {
     onLoad: 'login-required',
     flow: 'standard',
     pkceMethod: 'S256',
-    redirectUri: applicationOrigin,
+    redirectUri: applicationUrl,
   };
 }
 
 export async function initializeAuthentication(
   keycloak: KeycloakInitializer,
   sessionRefresher: SessionRefresher,
-  applicationOrigin: string,
+  applicationUrl: string,
 ): Promise<void> {
   const authenticated = await keycloak.init(
-    authenticationInitOptions(applicationOrigin),
+    authenticationInitOptions(applicationUrl),
   );
 
   if (!authenticated) {
@@ -58,12 +58,14 @@ export async function initializeAuthentication(
   sessionRefresher.start({
     sessionTimeout: AUTH_INACTIVITY_TIMEOUT_MS,
     onInactivityTimeout: 'logout',
-    logoutOptions: { redirectUri: applicationOrigin },
+    logoutOptions: { redirectUri: new URL(applicationUrl).origin },
   });
 }
 
 export function provideWebAuthentication() {
   return [
+    // The library's initializer catches init errors; our initializer must reject
+    // so an unavailable identity provider never opens the authenticated shell.
     provideKeycloak({
       config: environment.keycloak,
       providers: [AutoRefreshTokenService, UserActivityService],
@@ -77,7 +79,7 @@ export function provideWebAuthentication() {
       return initializeAuthentication(
         inject(Keycloak),
         inject(AutoRefreshTokenService),
-        document.location.origin,
+        `${document.location.origin}${document.location.pathname}${document.location.search}`,
       );
     }),
   ];

@@ -1,5 +1,6 @@
 import { DOCUMENT } from '@angular/common';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { KEYCLOAK_EVENT_SIGNAL } from 'keycloak-angular';
 import type { KeycloakTokenParsed } from 'keycloak-js';
 import Keycloak from 'keycloak-js';
 
@@ -9,9 +10,15 @@ export type LogoutState = 'idle' | 'pending' | 'error';
 export class AuthSession {
   private readonly keycloak = inject(Keycloak);
   private readonly document = inject(DOCUMENT);
+  private readonly keycloakEvent = inject(KEYCLOAK_EVENT_SIGNAL);
+  private readonly writableLogoutState = signal<LogoutState>('idle');
 
-  readonly identity = this.authenticatedIdentity(this.keycloak.tokenParsed);
-  readonly logoutState = signal<LogoutState>('idle');
+  readonly identity = computed(() => {
+    // Keycloak updates token claims outside Angular; its events invalidate this view.
+    this.keycloakEvent();
+    return this.authenticatedIdentity(this.keycloak.tokenParsed);
+  });
+  readonly logoutState = this.writableLogoutState.asReadonly();
 
   private stringClaim(
     token: KeycloakTokenParsed | undefined,
@@ -21,7 +28,9 @@ export class AuthSession {
     return typeof value === 'string' && value.trim() ? value : undefined;
   }
 
-  private authenticatedIdentity(token: KeycloakTokenParsed | undefined): string {
+  private authenticatedIdentity(
+    token: KeycloakTokenParsed | undefined,
+  ): string {
     return (
       this.stringClaim(token, 'name') ??
       this.stringClaim(token, 'preferred_username') ??
@@ -35,14 +44,14 @@ export class AuthSession {
       return;
     }
 
-    this.logoutState.set('pending');
+    this.writableLogoutState.set('pending');
 
     try {
       await this.keycloak.logout({
         redirectUri: this.document.location.origin,
       });
     } catch {
-      this.logoutState.set('error');
+      this.writableLogoutState.set('error');
     }
   }
 }

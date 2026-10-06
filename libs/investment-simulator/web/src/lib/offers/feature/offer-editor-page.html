@@ -1,0 +1,60 @@
+<nav aria-label="Navegação" class="mb-6 text-sm">
+  <a
+    routerLink="/"
+    class="inline-flex min-h-11 items-center text-muted underline underline-offset-4"
+    >Início</a
+  ><span aria-hidden="true" class="mx-3">/</span
+  ><a
+    routerLink="/ofertas"
+    [queryParams]="context()"
+    class="inline-flex min-h-11 items-center text-muted underline underline-offset-4"
+    >Ofertas</a
+  ><span aria-hidden="true" class="mx-3">/</span
+  ><span>{{ editing() ? 'Editar' : 'Nova oferta' }}</span>
+</nav>
+<div class="max-w-3xl">
+  <h1 class="m-0 text-2xl font-semibold tracking-tight">
+    {{ editing() ? 'Editar oferta' : 'Nova oferta' }}
+  </h1>
+  <p class="mt-2 mb-8 text-muted">
+    {{ editing() ? 'Atualize as condições contratadas deste título.' : 'Cadastre
+    as condições do título para consultar depois.' }}
+  </p>
+  @if (editing()) { @if (offerView(); as view) {@switch (view.status) {@case
+  ('loading') {
+  <p role="status" class="text-muted">Carregando oferta…</p>
+  }@case ('error') {
+  <p role="alert" class="text-error">{{ view.message }}</p>
+  @if (!view.missing) {<button mat-button type="button" (click)="retry()">
+    Tentar novamente</button
+  >}<a mat-button routerLink="/ofertas" [queryParams]="context()"
+    >Voltar às ofertas</a
+  >}@case ('ready') {<lib-offer-form
+    [offer]="view.value"
+    (saved)="saved($event)"
+    (canceled)="cancel()"
+  />}}} } @else { @if (issuerView(); as view) {@switch (view.status) {@case
+  ('loading') {
+  <p role="status" class="text-muted">Carregando emissores…</p>
+  }@case ('error') {
+  <p role="alert" class="text-error">{{ view.message }}</p>
+  <button mat-button type="button" (click)="retry()">Tentar novamente</button
+  >}@case ('ready') {@if (view.value.length) {<lib-offer-form
+    [issuers]="view.value"
+    (saved)="saved($event)"
+    (canceled)="cancel()"
+  />} @else {
+  <div class="rounded-surface border border-border bg-surface p-6">
+    <h2 class="mt-0 text-lg font-semibold">Nenhum emissor disponível</h2>
+    <p class="text-muted">
+      Para cadastrar uma oferta, é necessário ter um emissor cadastrado no
+      catálogo.
+    </p>
+    <button mat-button type="button" (click)="retry()">
+      Atualizar emissores</button
+    ><a mat-button routerLink="/ofertas" [queryParams]="context()"
+      >Voltar às ofertas</a
+    >
+  </div>
+  }}}} }
+</div>

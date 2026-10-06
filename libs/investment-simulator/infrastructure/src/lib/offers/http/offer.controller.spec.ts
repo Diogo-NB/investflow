@@ -9,9 +9,14 @@ import { CreateOfferRequest } from './requests/create-offer.request';
 import { OfferIdRequest } from './requests/offer-id.request';
 import { UpdateOfferRequest } from './requests/update-offer.request';
 import { OfferController } from './offer.controller';
+import { ListOffersQueryHandler } from '../queries/list-offers.query-handler';
+import { GetOfferQueryHandler } from '../queries/get-offer.query-handler';
+import { CalendarDate } from '@investflow/shared-domain';
+import { ListOffersRequest } from './requests/list-offers.request';
 
 jest.mock('@investflow/shared-infrastructure', () => ({
   IsCalendarDate: () => () => undefined,
+  SkipTransaction: () => () => undefined,
 }));
 
 const OFFER_ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
@@ -27,15 +32,53 @@ function createFixture() {
   const deleteOffer = {
     execute: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as DeleteOfferUseCase;
+  const offer = {
+    id: OFFER_ID,
+    titleType: TitleType.CDB,
+    issuer: { id: ISSUER_ID, name: 'Banco Local' },
+    maturityDate: CalendarDate.of('2028-12-31'),
+    redemptionTerms: { kind: 'DAILY' },
+    remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+  };
+  const listOffers = {
+    execute: jest
+      .fn()
+      .mockResolvedValue(
+        Result.ok({ items: [offer], total: 1, page: 1, pageSize: 20 }),
+      ),
+  } as unknown as ListOffersQueryHandler;
+  const getOffer = {
+    execute: jest.fn().mockResolvedValue(Result.ok(offer)),
+  } as unknown as GetOfferQueryHandler;
   return {
-    controller: new OfferController(createOffer, updateOffer, deleteOffer),
+    controller: new OfferController(
+      createOffer,
+      updateOffer,
+      deleteOffer,
+      listOffers,
+      getOffer,
+    ),
     createOffer,
     updateOffer,
     deleteOffer,
+    listOffers,
+    getOffer,
   };
 }
 
 describe('OfferController', () => {
+  it('delegates reads and presents calendar dates without an envelope', async () => {
+    const fixture = createFixture();
+    const query = new ListOffersRequest();
+    const page = await fixture.controller.list(query);
+    expect(fixture.listOffers.execute).toHaveBeenCalledWith(query);
+    expect(page.value.items[0].maturityDate).toBe('2028-12-31');
+    const details = await fixture.controller.get({ offerId: OFFER_ID });
+    expect(fixture.getOffer.execute).toHaveBeenCalledWith({
+      offerId: OFFER_ID,
+    });
+    expect(details.value.remunerationTerms.rate).toBe('1.1');
+  });
   it('returns failed results unchanged for the HTTP interceptor', async () => {
     const fixture = createFixture();
     const error = new AppError('Offer not found', {

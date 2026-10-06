@@ -1,29 +1,12 @@
-import { Routes } from '@angular/router';
 import { appRoutes } from './app.routes';
+import { Welcome } from './welcome/welcome';
 
 describe('appRoutes', () => {
-  it('redirects the root route to the investment simulator', () => {
-    expect(appRoutes[0]).toEqual({
-      path: '',
+  it('opens the welcome page at the root and redirects unmatched paths to it', () => {
+    expect(appRoutes.find(({ path }) => path === '')).toMatchObject({
       pathMatch: 'full',
-      redirectTo: 'investment-simulator',
+      component: Welcome,
     });
-  });
-
-  it('loads the investment simulator routes lazily', async () => {
-    const featureRoute = appRoutes.find(
-      ({ path }) => path === 'investment-simulator',
-    );
-    const loadChildren = featureRoute?.loadChildren;
-
-    expect(loadChildren).toBeTypeOf('function');
-
-    const loadedRoutes = await (loadChildren as () => Promise<Routes>)();
-    expect(loadedRoutes).toHaveLength(1);
-    expect(loadedRoutes[0]).toMatchObject({
-      path: '',
-      title: 'Simulador de investimentos | InvestFlow',
-    });
-    expect(loadedRoutes[0]?.component).toBeDefined();
+    expect(appRoutes.at(-1)).toEqual({ path: '**', redirectTo: '' });
   });
 });

@@ -1,16 +1,19 @@
 import { Routes } from '@angular/router';
+import { Welcome } from './welcome/welcome';
 
 export const appRoutes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'investment-simulator',
+    component: Welcome,
+    title: 'Início | InvestFlow',
   },
   {
-    path: 'investment-simulator',
+    path: 'ofertas',
     loadChildren: () =>
       import('@investflow/investment-simulator-web').then(
-        ({ investmentSimulatorRoutes }) => investmentSimulatorRoutes,
+        (m) => m.investmentSimulatorRoutes,
       ),
   },
+  { path: '**', redirectTo: '' },
 ];

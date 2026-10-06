@@ -16,7 +16,7 @@
     "build:api": "nx build api",
     "start:web": "nx serve web",
     "build:web": "nx build web",
-    "test:web": "nx test web",
+    "test:web": "nx run-many --targets=test --projects=web,investment-simulator-web",
     "db:generate": "nx run shared-infrastructure:prisma-generate",
     "db:migrate": "nx run shared-infrastructure:prisma-migrate-dev",
     "db:seed": "nx run shared-infrastructure:prisma-seed",

@@ -1,263 +1,249 @@
 # Frontend Patterns
 
-InvestFlow uses the smallest Angular architecture that keeps ownership,
-contracts, testing, and future extraction clear. The default is deliberately
-boring: a thin application shell and one browser library per bounded context.
-New layers and libraries must solve an observed problem.
+## Current app and ownership
 
-## Chosen baseline
+InvestFlow's Angular 21.2 frontend is a client-rendered authenticated application.
+Opening `/` requires Keycloak login and then shows a Portuguese welcome page,
+authenticated identity, and logout. Unmatched browser routes redirect to `/`.
+The welcome page links to offer CRUD under `/ofertas`; the bounded context owns
+its business requests and presentation.
 
 ```text
 apps/web
-  bootstrap, global providers, shell, top-level lazy routes
+  bootstrap, providers, authentication, shell, welcome, top-level routes
 
-libs/<context>/web
-  routes/    context route definitions
-  feature/   route pages and use-case orchestration
-  api/       HttpClient adapters
-  models/    browser transport and display types
-  ui/        optional presentational components
-  utils/     optional browser-only pure helpers
+libs/investment-simulator/web      lazy offer CRUD presentation
+  routes/                         context route composition
+  pagination/                     local generic pagination contract
+  <plural-feature>/               e.g. offers or simulations
+    feature/                      route pages and orchestration
+    api/                          browser API adapters
+    models/                       transport and display types
+    ui/ and utils/                only when useful
 ```
 
-This is a vertical slice by business context, not a horizontal repository-wide
-split into components, services, and models. A context's page, API client, and
-display types usually change together, so they start in one Nx project.
+Keep the app a thin composition root. A generic welcome page belongs there;
+business screens belong in one lazy-loaded web library per bounded context.
+Export composition contracts, normally routes, through `src/index.ts`. Use
+workspace aliases between projects and relative imports within a project.
+Browser libraries define their own HTTP types and never import server internals.
+InvestFlow has a single frontend app. Keep browser types, components, state,
+and utilities in the app or the owning context web project; reuse local code
+through folders and relative imports. Do not extract reusable frontend Nx
+libraries, including shared types, UI, data-access, state, or utility libraries.
+The existing context web projects organize the app's features and expose routes;
+they are not reusable frontend packages.
 
-`apps/web` remains a composition root. It may configure providers, layout, and
-routes, but business screens and their data access belong to the context web
-library. Each context library exposes only what the app must compose, normally
-its routes.
+The frontend `PaginatedResult<Item>` lives in
+`libs/investment-simulator/web/src/lib/pagination/paginated-result.type.ts` and
+is imported locally with `import type`. Keep it internal to the web project.
+The backend maintains its own pagination interface in `shared-types`. Their
+wire shapes match, but neither platform imports the other's contract. Keep
+feature-specific item models local and use the generic wrapper for page results.
 
-Application-wide authentication belongs in this composition root. The web app
-configures the Keycloak public client, initializes it before routing, owns the
-authenticated identity and logout controls in its outer shell, and applies the
-bearer-token interceptor. Feature libraries remain unaware of Keycloak and use
-relative API URLs.
+Use the installed Nx generators for apps and components. Repository conventions
+have precedence over generic Angular scaffolding instructions: do not create a
+separate Angular CLI workspace, install a global CLI, or upgrade dependencies
+implicitly. Keep Angular, Nx, Material, TypeScript, Node, and the lockfile versions.
+Components default to OnPush and no stylesheet; app generation defaults to zoneless.
+Preserve platform, scope, and project-type tags and ESLint dependency boundaries.
 
-## Modern Angular baseline
+## Angular and state
 
-The frontend favors stable Angular 21 capabilities over legacy patterns and
-third-party abstractions. As the application grows:
+Use standalone components, zoneless change detection, OnPush, `inject()`, strict
+templates, and functional providers, guards, interceptors, and resolvers. Import
+only the directives, pipes, and components used by a template. Use signal inputs,
+outputs, and queries; use `model()` only for intentional two-way editing.
 
-- keep components standalone and import only the directives, pipes, and
-  components they use; do not add feature NgModules or broad `CommonModule`
-  imports;
-- stay zoneless and use `ChangeDetectionStrategy.OnPush`; do not add `zone.js`
-  or depend on patched async APIs to refresh a view;
-- use `inject()` and functional provider, interceptor, guard, and resolver APIs
-  unless an instance has meaningful state or framework integration;
-- use `input()`, `output()`, and signal queries for component contracts; reserve
-  `model()` for a genuine two-way editing contract;
-- keep host bindings and listeners in decorator `host` metadata instead of
-  `@HostBinding` and `@HostListener`;
-- use native template control flow with an explicit `track` expression for
-  `@for`, and prefer direct class and style bindings over `NgClass` and
-  `NgStyle`;
-- lazy-load bounded-context routes and use `@defer` only for heavy,
-  non-critical content within an already loaded route;
-- use `NgOptimizedImage` for content images, declare intrinsic dimensions, and
-  prioritize only the likely largest-contentful-paint image;
-- use typed reactive forms until Signal Forms are deliberately adopted after
-  reaching an acceptable stability level;
-- dispose of observable work with `AsyncPipe`, `toSignal()`, or
-  `takeUntilDestroyed()` instead of hand-written subscription collections.
+Native `signal()` owns mutable UI state; keep writable signals private in state
+services and expose read-only signals. Use `computed()` for derivation and
+`linkedSignal()` for derived state that also accepts deliberate edits. Update
+values immutably. Represent mutually exclusive async states explicitly rather
+than with unrelated loading/data/error booleans.
 
-Prefer stable APIs on the project's installed Angular major. Developer-preview
-or experimental APIs are not forbidden, but their benefit, lifecycle impact,
-fallback, and migration risk must be recorded here before they become a
-frontend-wide default. In Angular 21 this includes Signal Forms, `resource()`,
-and `httpResource()`; Angular Aria is developer preview, so prefer stable
-Angular Material and CDK primitives for production interaction behavior.
+Start state in its narrowest owner: component-local signals, then a feature-scoped
+service when sibling or nested routes share it. Introduce a state library only
+for demonstrated coordination, normalized entities, undo/redo, or comparable
+workflow complexity. A route page can coordinate a small use case directly.
+Extract presentational components for reuse, independent interaction complexity,
+or substantially improved readability.
 
-## Component pattern
+Keep RxJS at asynchronous boundaries. Use `AsyncPipe`, `toSignal()`, or
+`takeUntilDestroyed()` to own subscriptions. Effects synchronize with external
+systems; they do not copy state between signals. Use `@if`, `@for`, and `@switch`,
+with explicit tracking in loops. Put host bindings in decorator `host` metadata.
+Lazy-load context routes. Defer only heavy, non-critical route content;
+keep primary content available immediately. Use `NgOptimizedImage` for content
+images with declared dimensions and appropriate LCP priority.
 
-A route page is allowed to be a smart component. It coordinates a use case,
-owns page-local state, calls a browser API service, and handles user actions.
-This avoids a facade, store, and container/presenter pair for every small
-screen.
+## Approved experimental APIs
 
-Extract a presentational component when at least one condition is true:
+Decision dated 2026-10-06: the user explicitly approved Angular 21 Signal Forms,
+`resource()`, and `httpResource()` while retaining the installed toolchain.
+These APIs remain experimental on this major; approval does not make them stable.
+Offer reads now use `httpResource()` and the create/edit form uses Signal Forms.
+These APIs serve real workflows; there are no demonstration-only requests. [Angular 21 roadmap](https://v21.angular.dev/roadmap).
 
-- it is used in more than one place;
-- it has independently meaningful interaction or accessibility behavior;
-- it is complex enough to test and understand on its own;
-- extraction makes the page materially easier to read.
+- Prefer Signal Forms for new forms. A signal owns the model; define field rules
+  through the form schema and handle pending, invalid, submitting, and server
+  failure states without losing user input.
+- Prefer `httpResource()` for reactive HTTP reads and `resource()` for appropriate
+  asynchronous loaders. Create resources in an Angular injection context; their
+  owner controls lifetime, and parameter changes/destruction cancel pending work.
+  Handle loading, empty, success, and failure states without reading a missing
+  value; use reload for retry and avoid parallel duplicate work.
+- Use HttpClient/RxJS for mutations, commands, and asynchronous event workflows.
+  Do not send writes from resource loaders or derived state.
 
-Component APIs use signal inputs and outputs where appropriate. Data flows down
-and user intent flows up. Components use standalone imports,
-`ChangeDetectionStrategy.OnPush`, `inject()`, and Angular's native template
-control flow.
+The benefit is native integration with signal state and explicit async lifecycle.
+Experimental signatures and semantics can change outside a major upgrade; review
+version-specific release notes before any approved dependency update. Keep form
+logic and data boundaries local so migration affects the owning feature. If a
+requirement is unsupported, typed reactive forms and a signal-backed HttpClient
+service with lifecycle-owned subscriptions remain fallback implementations.
+Document a frontend-wide fallback change before adopting it. Other experimental
+APIs, including preview interaction primitives, need their own adoption decision;
+Material/CDK remain the interaction baseline.
 
-## State pattern
+## Authentication and HTTP
 
-The frontend is signal-first. Native Angular signals are the default for
-synchronous UI state in components and feature-scoped state services:
+Application-wide authentication lives in the app. Feature libraries remain
+unaware of Keycloak and use relative `/api` URLs. The development proxy forwards
+those paths to `http://localhost:3000`; production hosting must route them to the
+API and serve the SPA entrypoint for browser routes.
 
-- use `signal()` for mutable source state and expose `asReadonly()` outside its
-  owner;
-- use `computed()` for derived state instead of copying values between signals;
-- use `linkedSignal()` only when state is derived from another signal but must
-  also support deliberate user edits, and update signal values immutably with
-  `set()` or `update()`;
-- use a discriminated union when loading, success, empty, and error states are
-  mutually exclusive;
-- keep RxJS at asynchronous boundaries such as `HttpClient`, router streams,
-  cancellation, and multi-event workflows.
+Use the existing `keycloak-angular` public client `investflow-web`, realm
+`investflow`, and Keycloak JS adapter. Authorization Code Flow uses PKCE S256 and
+`login-required`. No application roles or custom credential form are introduced.
+Tokens stay in memory; never persist access, refresh, or ID tokens in application
+storage or cookies. The bearer interceptor matches only `/api` and `/api/...`;
+absolute URLs, protocol-relative URLs, and lookalike prefixes receive no token.
 
-Signal-first does not mean that every feature needs NgRx SignalStore. A small
-service backed by native Angular signals is already a signal store in the
-architectural sense. Introduce `@ngrx/signals` only when demonstrated needs such
-as cross-feature coordination, normalized client entities, reusable store
-features, undo/redo, or a comparably complex workflow outweigh the additional
-dependency and abstraction.
+One explicit Angular initializer calls Keycloak and rejects errors or a false
+authenticated result before the shell can bootstrap. `provideKeycloak()` receives
+no `initOptions`: the installed library's built-in initializer catches errors,
+which would otherwise permit an unauthenticated shell. Start refresh tracking
+only after successful initialization. Login returns to the current pathname and
+query string, preserving direct offer links and filters across reloads. Fragments
+are excluded from the configured return URL. The bootstrap fallback shows a safe
+Portuguese error and a reload retry outside the Angular rendering lifecycle.
 
-Use the narrowest state owner:
+The installed refresh service checks activity when tokens expire: active users
+refresh, while users inactive for 30 minutes log out. This is an expiry-driven
+policy, not an independent timer firing exactly at 30 minutes. Logout redirects
+to the app origin; immediate-login initialization then applies again. A failed
+logout shows safe text and permits retry. Duplicate pending logout intent is
+ignored. Identity is derived from token claims and updates on Keycloak events.
 
-1. A plain local variable for non-reactive implementation details.
-2. A component signal for mutable view state.
-3. A computed signal for derived view state.
-4. A feature-scoped service only when sibling or nested routes must share state.
-5. A state-management library only after real cross-feature coordination,
-   normalized client entities, undo/redo, or similarly complex workflows exist.
-
-Represent exclusive states explicitly:
-
-```ts
-type LoadState<T> = { kind: 'loading' } | { kind: 'empty' } | { kind: 'success'; value: T } | { kind: 'error' };
-```
-
-Do not model the same lifecycle with unrelated `isLoading`, `data`, and `error`
-signals, because impossible combinations then become representable.
-
-Signals own synchronous UI state. RxJS remains appropriate at asynchronous
-boundaries such as `HttpClient`, route streams, cancellation, or workflows that
-combine multiple events over time. Subscribe or convert once near the feature
-that owns the result and tie subscriptions to the Angular lifecycle.
-
-Effects synchronize state with an external system such as storage, telemetry,
-or an imperative browser API. They are not a general state propagation tool.
-
-## HTTP and contracts
-
-Browser API services are small typed adapters around `HttpClient`. They use
-relative `/api` URLs so development uses the proxy and production can route the
-same paths to the API deployment.
-
-The application interceptor attaches an in-memory access token exclusively to
-URLs beginning with relative `/api`. Absolute and third-party requests never
-receive the token. Keycloak refreshes sessions for active users and ends the
-session after 30 minutes without browser activity. Browser code must not write
-access, refresh, or ID tokens to local storage, session storage, IndexedDB, or
-cookies managed by the application.
-
-The frontend owns its request and response types. It does not import NestJS
-DTOs, controller interfaces, server domain objects, or server libraries. This
-keeps the deployment boundary honest and lets the UI model only what it uses.
-
-Keep transport mapping in the API boundary when the wire shape differs from
-the display shape. Keep presentation state in the page, not in a stateless API
-service. Introduce a shared error model only when multiple screens can render
-meaningfully different recovery paths.
-
-Monetary amounts cross the API boundary as decimal strings. Keep the original
-value unchanged in client state and round only the rendered representation
-with locale-aware formatting. A value rounded for display must never be sent
-back or stored as a replacement for the calculated amount.
-
-## Forms and templates
-
-Use typed reactive forms for production forms. Angular 21 Signal Forms are
-experimental, so they are not the default. The same rule applies to
-`resource()` and `httpResource()`: they may be adopted intentionally after
-their maturity and the migration cost are reviewed, but ordinary features do
-not need them.
-
-Use `@if`, `@for`, and `@switch` instead of legacy structural directives in new
-templates. Use `@defer` only for heavy non-critical UI; route-level lazy loading
-already provides the main code-splitting boundary.
+Own browser transport types locally. Keep API adapters small and presentation
+state in its owner. Normalize errors only when the UI has distinct recovery paths;
+never render raw transport/provider errors. Monetary values cross the boundary as
+decimal strings; preserve their original precision and round only for display.
 
 ## Styling and accessibility
 
-Angular Material supplies interaction primitives. `DESIGN.md` supplies the
-product's visual rules and is the source of truth for the whole application.
-Tailwind CSS v4 projects those semantic tokens into utilities from
-`apps/web/src/styles.css`. Global theme, reset, and tokens belong to the web
-app; templates and Angular `host` metadata use the semantic utility contract
-documented in `DESIGN.md`. The frontend is Tailwind-first, so do not create a
-component stylesheet by default. Add one only when Tailwind cannot express a
-third-party integration or complex stateful selector clearly, and document the
-exception in the component.
+`DESIGN.md` is the visual source of truth. Tailwind v4 projects its semantic tokens
+through `apps/web/src/styles.css`. This file owns the reset, font faces, and
+Tailwind configuration. Product templates and host metadata use semantic utility
+classes; no default Tailwind colors or local arbitrary palette/radius values.
 
-Do not use Tailwind's default palette or arbitrary feature-level colors and
-radii. New visual roles are designed in `DESIGN.md` and added to the global
-`@theme` block before feature code consumes them. This keeps feature libraries
-visually consistent without introducing a separate shared UI Nx project.
+Zed's project settings in `.zed/settings.json` use `tailwindcss-intellisense-css`
+for CSS files in place of the default CSS language server. This recognizes
+Tailwind directives such as `@theme` and `@apply` while retaining standard CSS
+IntelliSense and diagnostics. See [Zed's Tailwind CSS configuration](https://zed.dev/docs/languages/tailwindcss).
 
-Do not wrap Material components solely to rename them. Create a shared UI
-component only when it adds stable InvestFlow behavior, semantics, or visual
-composition used by at least two contexts.
+`apps/web/src/material-theme.scss` is the global Sass exception required by the
+Material theming API. It supplies typography and density, projects the same color
+and radius tokens into Material, and defines integration focus/reduced-motion
+rules. Keep global stylesheet order as CSS tokens followed by the Material theme.
+Do not create component stylesheets unless an integration or complex selector
+requires one; document that exception. Do not wrap Material solely to rename it.
 
-Every async screen renders the states users can encounter and gives status
-changes appropriate live-region semantics. Use semantic HTML, accessible names,
-visible focus, keyboard operation, sufficient target sizes, and reduced-motion
-support. Error text must be useful and must not expose raw transport details.
+The approved design is light-only, with neutral surfaces, green accents, and
+locally hosted IBM Plex Sans. Its font files and Open Font License ship in public
+assets. There are no remote font requests, stock imagery, or icon-font dependency.
+Keep Portuguese copy, semantic landmarks, a skip link, visible focus, readable
+contrast, keyboard-operable actions, 44px targets, live status/error messages, and
+reduced-motion support. Color never communicates state alone.
 
-## Environments
+## Configuration
 
-The web app uses Angular's standard file-replacement pattern with two typed,
-committed configurations:
+Keep typed, committed `environment.ts` and `environment.production.ts`, using
+production file replacement. They contain only public Keycloak settings. The
+production URL is a placeholder until deployment supplies the real endpoint;
+configuration changes require a rebuild. Do not introduce runtime configuration
+loading without a concrete deployment need and a new architecture decision.
+Local realm provisioning and production identity infrastructure are separate.
+This frontend recreation requires no database reset or realm change.
 
-- `environment.ts` contains localhost settings for local development.
-- `environment.production.ts` contains the production Keycloak public-client
-  settings and replaces the development file in production builds.
+## Testing and project boundaries
 
-Environment files are compiled into the browser bundle and therefore cannot
-contain secrets. Update the production file when the deployment endpoint
-changes and rebuild the application. Do not add build-time file generation or
-runtime configuration loading unless the product needs more deployment
-environments or one immutable bundle deployed to multiple environments.
+Use Angular-native Vitest through Nx. Test state/service transitions, request
+coordination, authentication initialization and bearer boundaries. Component tests
+instantiate classes in an injection context and verify state exposure or intent
+delegation without rendering templates. Do not assert DOM structure, selectors,
+CSS classes, snapshots, or static copy. Pure helpers need no Angular environment.
 
-## Testing pattern
+Strict template compilation, lint, builds, and browser checks validate presentation.
+Before merging, run frontend lint, tests, development/production builds, the full
+workspace check, and the API prune target when changing workspace composition.
+Manually check local Keycloak login, reload, logout, failure/retry, keyboard focus,
+responsive reflow, and reduced motion. Add an E2E project only for a demonstrated
+critical product journey; the workspace includes none.
 
-Use Angular-native Vitest through Nx:
+Keep one web project per bounded context within the single frontend app.
+Organize repeated browser code within its owning project; repeated use does not
+justify a reusable frontend library. Changing this project rule requires an
+explicit architecture decision from the user.
 
-- Test feature stores and state services directly. Cover meaningful lifecycle
-  transitions such as loading, success, empty, error, retry, and overlapping
-  request protection when those states exist.
-- Keep route components thin. Component tests verify that the class exposes
-  store state and delegates user intent; instantiate the class in an injection
-  context instead of compiling or rendering its template.
-- Do not assert HTML structure, selectors, CSS classes, snapshots, or static
-  product copy. Templates and styling are validated by strict compilation,
-  linting, production builds, accessibility review, and manual browser checks.
-- Keep focused non-UI boundary tests where they protect HTTP contracts,
-  authentication security, route composition, or application bootstrap.
-- Test pure helpers without Angular's test environment.
+The baseline excludes NgRx, SSR, hydration, service workers, micro-frontends,
+OpenAPI generation, and a separate design-system library. Introducing one of these
+requires a concrete need and approval for the architecture change.
 
-Add browser end-to-end tests when the product has a critical multi-screen user
-journey worth protecting. Do not create an E2E project merely because an app
-exists.
+## Offer CRUD implementation
 
-## Extraction triggers
+`investment-simulator-web` is a buildable Angular library with Angular-native
+Vitest. Only its context routes are exported. The app lazy-loads them at
+`/ofertas`; list, details, and the reusable editor are lazy route components.
+Confirmation dialogs are loaded on demand. Native browser transport types stay
+under `offers/models`; server projects remain outside its dependency graph.
 
-Keep one context web library until a split has a clear payoff. Create another
-Nx project only when one of these pressures is present:
+Page-scoped signal services own list/resource coordination, detail deletion, and
+form state. `OfferForm` initializes one original snapshot when mounted; its
+state owns a private model and baseline. Do not reload an editor's source over
+unsaved input. Form fields bind through `[formField]` to Material inputs and `mat-select`.
+Material selects use their ControlValueAccessor bridge to Signal Forms;
+`mat-option` supplies popup interaction and keyboard behavior. Changing remuneration clears the rate, because its unit changed.
+`OfferMaturityDate` implements the Signal Forms control contract around Material's
+calendar. Its isolated typed FormControl is a widget adapter, not feature state:
+it reconciles the model into Material's date/input boundary, preserves partially
+typed text, and mirrors pending disablement. Strict DD/MM/AAAA parsing converts
+to YYYY-MM-DD. Local Date objects stay inside this boundary; never use UTC/ISO
+instant conversion for the picker. The model, comparisons, and HTTP payloads
+continue to use calendar strings.
+Submit validates/touches fields, focuses an invalid field, and prevents duplicate
+writes. Pending commands lock the form; explicit retries retain input. Writes
+are never automatically retried, since a lost response may hide a committed write.
 
-- a feature has independent ownership or release cadence;
-- code is consumed by a second context or application;
-- project-level dependency rules need to prohibit an import;
-- build and test isolation measurably improves affected work;
-- a large feature has a stable public boundary and changes independently.
+List filters are `q` (issuer name), `titleType`, and `page` URL parameters. A
+submitted search or changed type resets to page 1. These parameters are carried
+to detail/editor links and back to the list. The list fixes page size at 20.
+Obsolete resource reads are canceled. A stale page beyond the current last page
+is corrected through router navigation, not by copying signals with an effect.
 
-Folder size alone is not an extraction trigger. Prefer internal folders before
-additional projects. If a split becomes necessary, use a small vocabulary such
-as `web-feature`, `web-data-access`, `web-ui`, and `web-util`, and add matching
-Nx dependency constraints in the same change.
+Pure browser helpers shift decimal strings to convert percentages and fractions.
+They reject zero, invalid input, and values outside existing Decimal(65,30)
+storage. They never use Number for financial rates. Calendar validation and
+`dd/mm/aaaa` display do not construct local-time instants. PATCH includes only
+changed mutable fields; issuer/title are displayed as immutable information.
 
-## Explicit non-goals
+The functional editor deactivation guard confirms unsaved navigation; the native
+before-unload handler covers document exits. Dialogs manage focus. The app's
+router outlet focuses its main landmark on route activation. Save success clears
+the dirty baseline before redirecting to a fresh detail read. A failed detail
+read after save is a read failure, not permission to repeat the write.
 
-The baseline does not include NgRx, another store, SSR, hydration, service
-workers, micro-frontends, OpenAPI code generation, a separate design-system Nx
-library, or experimental Angular state and form APIs. Any of these can be added
-later when a concrete product or operational requirement justifies its cost.
+For unit tests of resources, flush HTTP and await Angular's pending tasks before
+asserting settled state. Rendered checks remain browser checks, not unit DOM
+assertions. Browser/API verification uses dedicated offers and does not reset
+local databases or modify Keycloak accounts.

@@ -13,4 +13,11 @@ describe('bootstrapWebApplication', () => {
     );
     expect(bootstrap).toHaveBeenCalledWith(App, appConfig);
   });
+
+  it('propagates initialization rejection to the bootstrap recovery handler', async () => {
+    const failure = new Error('initialization failed');
+    const bootstrap = vi.fn().mockRejectedValue(failure);
+
+    await expect(bootstrapWebApplication(bootstrap)).rejects.toBe(failure);
+  });
 });

@@ -12,9 +12,17 @@ import { PrismaIssuerRepository } from './issuers/persistence/prisma-issuer.repo
 import { OfferController } from './offers/http/offer.controller';
 import { PrismaOfferRepository } from './offers/persistence/prisma-offer.repository';
 import { PrismaIndexCurveRepository } from './index-curves/persistence/prisma-index-curve.repository';
+import { ListOffersQueryHandler } from './offers/queries/list-offers.query-handler';
+import { GetOfferQueryHandler } from './offers/queries/get-offer.query-handler';
+import { ListIssuersQueryHandler } from './issuers/queries/list-issuers.query-handler';
+import { IssuerController } from './issuers/http/issuer.controller';
 
 @Module({
-  controllers: [InvestmentSimulatorController, OfferController],
+  controllers: [
+    InvestmentSimulatorController,
+    OfferController,
+    IssuerController,
+  ],
   providers: [
     { provide: IndexCurveRepository, useClass: PrismaIndexCurveRepository },
     { provide: IssuerRepository, useClass: PrismaIssuerRepository },
@@ -22,6 +30,9 @@ import { PrismaIndexCurveRepository } from './index-curves/persistence/prisma-in
     CreateOfferUseCase,
     UpdateOfferUseCase,
     DeleteOfferUseCase,
+    ListOffersQueryHandler,
+    GetOfferQueryHandler,
+    ListIssuersQueryHandler,
   ],
 })
 export class InvestmentSimulatorInfrastructureModule {}

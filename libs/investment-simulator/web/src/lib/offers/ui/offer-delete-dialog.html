@@ -1,0 +1,33 @@
+<h2 mat-dialog-title>Excluir oferta?</h2>
+<mat-dialog-content
+  ><p>Esta oferta deixará de aparecer no catálogo.</p>
+  <p class="font-medium wrap-anywhere">
+    {{ data.offer.titleType }} · {{ data.offer.issuer.name }}
+  </p>
+  <p class="text-sm text-muted wrap-anywhere">
+    {{ remuneration(data.offer.remunerationTerms) }} · Vencimento {{
+    date(data.offer.maturityDate) }}
+  </p>
+  @if (data.state.operation(); as operation) {@if (operation.status === 'error')
+  {
+  <p role="alert" class="text-error">{{ operation.message }}</p>
+  }}</mat-dialog-content
+><mat-dialog-actions align="end"
+  ><button
+    mat-button
+    type="button"
+    [disabled]="data.state.operation().status === 'pending'"
+    (click)="ref.close()"
+  >
+    Cancelar</button
+  ><button
+    mat-flat-button
+    type="button"
+    class="offer-destructive"
+    [disabled]="data.state.operation().status === 'pending'"
+    (click)="remove()"
+  >
+    {{ data.state.operation().status === 'pending' ? 'Excluindo…' : 'Excluir
+    oferta' }}
+  </button></mat-dialog-actions
+>

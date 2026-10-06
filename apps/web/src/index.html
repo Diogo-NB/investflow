@@ -5,39 +5,46 @@
     <title>InvestFlow</title>
     <meta
       name="description"
-      content="Simule investimentos com clareza no InvestFlow."
+      content="Um espaço para suas próximas decisões de investimento."
     />
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link
+      rel="preload"
+      href="/fonts/ibm-plex-sans-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
   </head>
   <body>
     <app-root>
       <main
-        id="authentication-initialization-failure"
-        class="hidden min-h-screen content-center justify-items-start px-[clamp(1.5rem,8vw,6rem)] py-[clamp(3rem,10vw,8rem)]"
-        role="alert"
-        hidden
+        class="mx-auto grid min-h-screen max-w-6xl content-center gap-4 px-6 sm:px-10"
       >
-        <p
-          class="m-0 mb-4 text-sm font-bold tracking-[0.08em] text-accent uppercase"
+        <div id="authentication-loading" role="status">
+          <p class="m-0 text-xl font-semibold text-fg">InvestFlow</p>
+          <p class="mt-4 mb-0 text-muted">Iniciando sua sessão…</p>
+        </div>
+        <div id="authentication-initialization-failure" hidden role="alert">
+          <h1 class="m-0 text-2xl leading-tight font-semibold text-fg">
+            Não foi possível iniciar sua sessão.
+          </h1>
+          <p class="mt-4 mb-6 text-muted">
+            Verifique sua conexão e tente novamente.
+          </p>
+          <button
+            class="min-h-11 cursor-pointer rounded-control border-0 bg-accent px-5 py-3 text-base font-medium text-accent-fg hover:bg-fg focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
+            type="button"
+          >
+            Tentar novamente
+          </button>
+        </div>
+        <noscript
+          >Ative o JavaScript no seu navegador para acessar o
+          InvestFlow.</noscript
         >
-          Acesso seguro
-        </p>
-        <h1
-          class="m-0 max-w-[14ch] font-display text-[clamp(2.4rem,7vw,var(--text-3xl))] leading-[1.05] font-semibold tracking-[-0.015em]"
-        >
-          Não foi possível iniciar sua sessão.
-        </h1>
-        <p class="my-6 max-w-[42ch] text-lg leading-[1.55] text-muted">
-          Verifique sua conexão e tente novamente. Nenhum dado foi enviado.
-        </p>
-        <button
-          class="min-h-11 cursor-pointer rounded-small border-0 bg-accent px-6 font-bold text-accent-fg hover:bg-fg focus-visible:ring-3 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out active:scale-[0.97]"
-          type="button"
-        >
-          Tentar novamente
-        </button>
       </main>
     </app-root>
   </body>
