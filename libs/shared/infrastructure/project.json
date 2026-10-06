@@ -25,6 +25,11 @@
     "prisma-migrate-deploy": {
       "command": "pnpm prisma migrate deploy --config=libs/shared/infrastructure/prisma/prisma.config.ts"
     },
+    "prisma-seed": {
+      "cache": false,
+      "dependsOn": ["prisma-generate"],
+      "command": "pnpm prisma db seed --config=libs/shared/infrastructure/prisma/prisma.config.ts"
+    },
     "prisma-studio": {
       "command": "pnpm prisma studio --config=libs/shared/infrastructure/prisma/prisma.config.ts"
     }

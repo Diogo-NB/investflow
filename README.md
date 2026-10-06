@@ -24,7 +24,6 @@ nvm use
 corepack enable
 pnpm install
 pnpm db:setup
-pnpm db:generate
 ```
 
 The repository pins Node through `.nvmrc` and pnpm through `packageManager`.
@@ -76,18 +75,53 @@ the shared Keycloak JWT guard unless marked with `@Public()`.
 
 ## Infrastructure
 
-| Script             | What it does                                           |
-| ------------------ | ------------------------------------------------------ |
-| `pnpm db:up`       | Start PostgreSQL and Keycloak with existing state      |
-| `pnpm db:down`     | Stop and remove both containers while preserving state |
-| `pnpm db:setup`    | Recreate both databases, migrate, and import the realm |
-| `pnpm start`       | Start local infrastructure, API, and web applications  |
-| `pnpm db:generate` | Regenerate the Prisma client                           |
-| `pnpm db:migrate`  | Create/apply migrations after schema changes           |
+| Script             | What it does                                                         |
+| ------------------ | -------------------------------------------------------------------- |
+| `pnpm db:up`       | Start PostgreSQL and Keycloak with existing state                    |
+| `pnpm db:down`     | Stop and remove both containers while preserving state               |
+| `pnpm db:setup`    | Recreate databases, import realm, migrate, generate client, and seed |
+| `pnpm start`       | Start local infrastructure, API, and web applications                |
+| `pnpm db:generate` | Regenerate the Prisma client                                         |
+| `pnpm db:migrate`  | Create/apply migrations after schema changes                         |
+| `pnpm db:seed`     | Generate the Prisma client and restore local sample data             |
 
 `pnpm db:setup` is destructive: it deletes all local PostgreSQL and Keycloak
-state before rebuilding the development environment. Application seed data can
-be added to this command when a development dataset is defined.
+state before rebuilding the development environment. It applies committed
+migrations with `migrate deploy`; use `pnpm db:migrate` to author migrations.
+
+### Local Seed Data
+
+`pnpm db:setup` seeds fictional issuer **Banco Local** with four offers, all
+maturing on **2028-12-31**:
+
+| Title | Redemption  | Remuneration       |
+| ----- | ----------- | ------------------ |
+| CDB   | Daily       | 110% of CDI        |
+| CDB   | Daily       | 100% of SELIC      |
+| LCI   | At maturity | Fixed 12% annually |
+| LCA   | At maturity | IPCA + 6% annually |
+
+The **CDI Local**, **SELIC Local**, and **IPCA Local** curves each cover
+**2026-01-01 through 2028-12-31**, inclusive, with one constant interval.
+CDI and effective SELIC use **13.65% annually**, on a 252-day basis, as reported
+by [ANBIMA on 2026-10-05](https://www.anbima.com.br/informacoes/indicadores/).
+IPCA uses the latest published trailing annual rate available on that date:
+**4.22% for August 2026**, published on 2026-09-11
+([Ministry of Finance release](https://www.gov.br/fazenda/pt-br/central-de-conteudo/publicacoes/conjuntura-economica/inflacao/defeso-eleitoral-2026/informativo-ipca-ago2026.html/view)).
+Its constant monthly equivalent is `(1.0422)^(1/12) - 1`, stored as
+`0.003450427692416233215455407623` and repeated for every month in the range.
+These are hardcoded local simulation fixtures; seeding makes no market-data
+requests and does not update rates based on the current date.
+
+Run `pnpm db:seed` to restore sample data without resetting the databases.
+Prisma generates UUIDs when records are created. Reruns match the issuer by
+name, offers by issuer/title/redemption/remuneration, and curves by name/index.
+In one transaction, the seed restores rates, maturity dates, descriptions, and
+soft-deleted offers and curves, replacing intervals only for matching curves.
+Those matching fields identify the local fixtures; changing them causes a new
+fixture to be created on the next run. Other records are preserved.
+Keycloak users remain managed by the realm
+import. The runner lives under `tools/database`, with fixtures grouped by context.
 
 Domain events use their `context` field to select an SNS topic. Each bounded
 context registers its own topic during module initialization through the shared
