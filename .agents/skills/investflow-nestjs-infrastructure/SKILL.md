@@ -77,6 +77,33 @@ module composition, host responsibilities, or library boundaries.
 - Native `Date` may exist briefly at ORM, driver, framework, or `Intl`
   boundaries. Convert it immediately to or from the shared temporal types.
 
+### Query output contracts
+
+- Each query handler owns explicit input and output contracts in its
+  `*.query-handler.ts` file. Name outputs by operation, such as
+  `GetOfferOutput` and `ListOffersOutput`, with an `OfferListItem` for list
+  entries. These outputs are the read models; separate `*ReadModel` contracts
+  and files are not the default.
+- Keep Prisma selections and inferred record types local to the handler file.
+  Consumer contracts use plain data and do not expose ORM payload types,
+  generated ORM enums, native `Date`, Decimal objects, or domain value objects.
+  Serialize civil dates through `CalendarDate` to ISO strings and preserve
+  decimal precision with strings.
+- Map records with a private `toOutput()` method when conversion is needed.
+  Keep lookup and mapping inside `Result.fromPromise()` so database and
+  conversion failures share the query error mapping. Return selected records
+  directly when they already match the output contract; do not add an identity
+  mapper.
+- Let list and detail contracts evolve independently. Extract a feature-local
+  projection helper only when multiple queries deliberately share meaningful
+  mapping behavior; do not impose a universal entity read shape.
+- Controllers return query Results directly for the host's HTTP result
+  interceptor. Add a presenter only for a distinct transport representation,
+  such as version-specific fields, links, or localized formatting. Simple
+  date and decimal serialization belongs in query mapping.
+- Persistence mappers remain separate: they convert command-side aggregate
+  state to and from ORM records, not query outputs.
+
 ### Mapper conversions
 
 In persistence mappers, unwrap Result-returning value-object conversions with
@@ -136,9 +163,10 @@ type, such as `Result<Offer, OfferNotFoundError | RepositoryFindError>`.
 - Validate civil-date strings with the shared `@IsCalendarDate()` decorator;
   do not duplicate `YYYY-MM-DD` regular expressions or use `@IsDate()` for
   timezone-free calendar dates.
-- Controllers unwrap `Result` at the transport boundary and never return a raw
-  `Result`.
-- Presenters map application or read models into response shapes.
+- Controllers return `Result` for the host's HTTP result interceptor to unwrap
+  at the transport boundary; raw Results are never serialized as responses.
+- Presenters are optional adapters for meaningful transport-specific output
+  transformations, not a required step after a query handler.
 - Map `AppError.kind` centrally to HTTP status codes. Error responses contain
   `statusCode`, stable `code`, human-readable `message`, and `details`;
   successful responses do not use a generic envelope.

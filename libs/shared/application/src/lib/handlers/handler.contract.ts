@@ -1,17 +1,9 @@
-import { AppError, Result } from '@investflow/shared-domain';
+import { Result } from '@investflow/shared-domain';
 
-export interface UseCase<Input, Output, E extends AppError = AppError> {
-  execute(input: Input): Promise<Result<Output, E>>;
+export interface CommandHandler<Command, Output> {
+  execute(command: Command): Promise<Result<Output>>;
 }
 
-export type CommandHandler<
-  Command,
-  Output,
-  E extends AppError = AppError,
-> = UseCase<Command, Output, E>;
-
-export type QueryHandler<
-  Query,
-  Output,
-  E extends AppError = AppError,
-> = UseCase<Query, Output, E>;
+export interface QueryHandler<Query, Output> {
+  execute(query: Query): Promise<Result<Output>>;
+}

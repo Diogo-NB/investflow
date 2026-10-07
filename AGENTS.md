@@ -43,6 +43,14 @@ requested, and follow the state-first frontend testing policy.
   libraries remain separate from frontend code.
 - Export every library's public API through `src/index.ts`; use workspace
   aliases across projects and relative imports within a project.
+- Infrastructure query handlers query persistence directly without loading
+  aggregates and own their operation-specific input/output contracts. Keep
+  contracts, Prisma selections, and any private `toOutput()` mapping in the
+  handler file. Outputs are plain read data with ISO date strings and precise
+  decimal strings; do not expose ORM types or require separate read-model files
+  or presenters. Add a presenter only for a distinct transport representation.
+  Keep throwing query conversions inside `Result.fromPromise()`, and return
+  Results from controllers for the global HTTP interceptor to unwrap.
 - Organize bounded-context source feature-first in every layer. Use plural
   feature roots such as `offers` and `issuers`, then apply layer-specific
   structure below them: shallow domain models, application operation slices,

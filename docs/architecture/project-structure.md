@@ -81,7 +81,7 @@ projects plus an optional browser presentation project:
 
 - `domain`: aggregates, entities, value objects, domain services, events, and
   domain errors.
-- `application`: use cases, query handlers, application services, listeners,
+- `application`: use cases, application services, listeners,
   and abstract-class ports.
 - `infrastructure`: Nest modules, controllers, DTOs, Prisma repositories,
   query handlers, mappers, presenters, consumers, and logging adapters.
@@ -291,8 +291,42 @@ and map persistence errors to stable application errors instead of adding a
 pre-check service or repository existence method.
 
 Query handlers live in infrastructure and may use `PrismaService` directly.
-They should return read-oriented models or nullable data as appropriate and
+They should return read-oriented outputs or nullable data as appropriate and
 must not load aggregates just to render API responses.
+
+## Query Output Contracts
+
+Each query handler owns its input and output contracts in its
+`*.query-handler.ts` file. Use operation names such as `GetOfferQuery`,
+`GetOfferOutput`, `ListOffersQuery`, and `ListOffersOutput`; name a list entry
+`OfferListItem`. Keep the Prisma selection and its inferred record type local
+to that file. Define consumer contracts explicitly rather than exporting
+Prisma payload types or generated ORM enums.
+
+The query output is the read model. A separate `*ReadModel` interface, file,
+or intermediate representation is not required. Presentation reads return
+plain data: civil dates are ISO strings, precise decimal values are strings,
+and no native `Date`, Prisma Decimal, or domain value object escapes the
+handler. Convert ORM dates through the shared temporal types before
+serialization.
+
+When conversion is needed, use a private `toOutput()` method in the handler.
+Keep asynchronous lookup and synchronous mapping together inside
+`Result.fromPromise()` so conversion failures become query errors as well.
+When the selected fields already match the output contract, return them
+directly without adding an identity mapper.
+
+List and detail contracts evolve independently even when they initially have
+the same fields. A feature-local projection helper can be extracted when
+multiple queries deliberately share meaningful conversion behavior; avoid
+forcing all reads into one universal entity shape.
+
+Controllers return query Results directly; the host's global HTTP result
+interceptor unwraps them. Presenters are optional and belong under the HTTP
+boundary only when it needs a distinct representation, such as API-version
+fields, links, or localized formatting. Basic date and decimal serialization
+belongs in query mapping. Persistence mappers retain their separate
+command-side responsibility of converting aggregates to and from ORM records.
 
 ## Persistence Mappers
 

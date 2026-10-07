@@ -109,6 +109,12 @@ placement, public contracts, or project boundaries.
   failures to stable application errors.
 - Application services orchestrate application concerns and depend on ports,
   not concrete adapters.
+- Presentation queries live in infrastructure and own operation-specific plain
+  output contracts and record mapping in their handler files. Do not introduce
+  application read-model ports or load aggregates solely to render responses.
+  Use `$investflow-nestjs-infrastructure` for query outputs and optional
+  transport presenters; domain and application temporal APIs still use the
+  shared temporal value objects.
 
 ## Errors and results
 

@@ -8,7 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { InvestmentTitleType } from '@prisma/client';
+import { TitleType } from '@investflow/investment-simulator-domain';
 import { ListOffersQuery } from '../../queries/list-offers.query-handler';
 
 export class ListOffersRequest implements ListOffersQuery {
@@ -33,6 +33,6 @@ export class ListOffersRequest implements ListOffersQuery {
   q?: string;
 
   @IsOptional()
-  @IsEnum(InvestmentTitleType)
-  titleType?: InvestmentTitleType;
+  @IsEnum(TitleType)
+  titleType?: TitleType;
 }

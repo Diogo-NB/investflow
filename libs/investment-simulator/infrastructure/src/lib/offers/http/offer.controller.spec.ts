@@ -10,8 +10,10 @@ import { OfferIdRequest } from './requests/offer-id.request';
 import { UpdateOfferRequest } from './requests/update-offer.request';
 import { OfferController } from './offer.controller';
 import { ListOffersQueryHandler } from '../queries/list-offers.query-handler';
-import { GetOfferQueryHandler } from '../queries/get-offer.query-handler';
-import { CalendarDate } from '@investflow/shared-domain';
+import {
+  GetOfferOutput,
+  GetOfferQueryHandler,
+} from '../queries/get-offer.query-handler';
 import { ListOffersRequest } from './requests/list-offers.request';
 
 jest.mock('@investflow/shared-infrastructure', () => ({
@@ -32,23 +34,26 @@ function createFixture() {
   const deleteOffer = {
     execute: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as DeleteOfferUseCase;
-  const offer = {
+  const offer: GetOfferOutput = {
     id: OFFER_ID,
     titleType: TitleType.CDB,
     issuer: { id: ISSUER_ID, name: 'Banco Local' },
-    maturityDate: CalendarDate.of('2028-12-31'),
+    maturityDate: '2028-12-31',
     redemptionTerms: { kind: 'DAILY' },
     remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
   };
+  const listResult = Result.ok({
+    items: [offer],
+    total: 1,
+    page: 1,
+    pageSize: 20,
+  });
+  const getResult = Result.ok(offer);
   const listOffers = {
-    execute: jest
-      .fn()
-      .mockResolvedValue(
-        Result.ok({ items: [offer], total: 1, page: 1, pageSize: 20 }),
-      ),
+    execute: jest.fn().mockResolvedValue(listResult),
   } as unknown as ListOffersQueryHandler;
   const getOffer = {
-    execute: jest.fn().mockResolvedValue(Result.ok(offer)),
+    execute: jest.fn().mockResolvedValue(getResult),
   } as unknown as GetOfferQueryHandler;
   return {
     controller: new OfferController(
@@ -63,21 +68,23 @@ function createFixture() {
     deleteOffer,
     listOffers,
     getOffer,
+    listResult,
+    getResult,
   };
 }
 
 describe('OfferController', () => {
-  it('delegates reads and presents calendar dates without an envelope', async () => {
+  it('delegates reads and returns query results unchanged for the HTTP interceptor', async () => {
     const fixture = createFixture();
     const query = new ListOffersRequest();
     const page = await fixture.controller.list(query);
     expect(fixture.listOffers.execute).toHaveBeenCalledWith(query);
-    expect(page.value.items[0].maturityDate).toBe('2028-12-31');
+    expect(page).toBe(fixture.listResult);
     const details = await fixture.controller.get({ offerId: OFFER_ID });
     expect(fixture.getOffer.execute).toHaveBeenCalledWith({
       offerId: OFFER_ID,
     });
-    expect(details.value.remunerationTerms.rate).toBe('1.1');
+    expect(details).toBe(fixture.getResult);
   });
   it('returns failed results unchanged for the HTTP interceptor', async () => {
     const fixture = createFixture();

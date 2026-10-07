@@ -27,7 +27,6 @@ import { SkipTransaction } from '@investflow/shared-infrastructure';
 import { ListOffersQueryHandler } from '../queries/list-offers.query-handler';
 import { GetOfferQueryHandler } from '../queries/get-offer.query-handler';
 import { ListOffersRequest } from './requests/list-offers.request';
-import { OfferPresenter } from './offer.presenter';
 
 @Controller('investment-simulator/offers')
 export class OfferController {
@@ -41,14 +40,14 @@ export class OfferController {
 
   @Get()
   @SkipTransaction()
-  async list(@Query() query: ListOffersRequest) {
-    return (await this.listOffers.execute(query)).map(OfferPresenter.page);
+  list(@Query() query: ListOffersRequest) {
+    return this.listOffers.execute(query);
   }
 
   @Get(':offerId')
   @SkipTransaction()
-  async get(@Param() params: OfferIdRequest) {
-    return (await this.getOffer.execute(params)).map(OfferPresenter.present);
+  get(@Param() params: OfferIdRequest) {
+    return this.getOffer.execute(params);
   }
 
   @Post()

@@ -1,7 +1,7 @@
 # Investment Simulator Infrastructure
 
 NestJS adapters and context-local composition for the Investment Simulator
-bounded context. This project owns controllers, DTOs, presenters, query
+bounded context. This project owns controllers, DTOs, optional presenters, query
 handlers, Prisma repositories, mappers, listeners, and provider bindings.
 
 `InvestmentSimulatorInfrastructureModule` is the public composition module used
@@ -40,7 +40,7 @@ size. Invalid query/UUID input returns 400. An out-of-range valid page returns a
 empty array and the matching total. Sort is maturity ascending, then ID ascending.
 Issuer sort is name ascending, then ID ascending, including issuers with no offers.
 
-The list handler and presenter use `PaginatedResult<Item>` imported from
+The list handler's output uses `PaginatedResult<Item>` imported from
 `@investflow/shared-types`. The frontend uses an independently declared
 `PaginatedResult<Item>` in its web project's local `src/lib/pagination` folder
 with the same wire shape and its own offer item type.
@@ -60,7 +60,7 @@ List entries and details have this shape:
 
 Dates are calendar strings, and rates are exact decimal fractions without
 scientific notation: `1.1` is 110% of CDI; `0.12` is 12% annually. No persistence
-timestamps/deletion fields or ORM values escape the presenter. Offer reads and
+timestamps/deletion fields or ORM values escape the query handlers. Offer reads and
 counts exclude soft-deleted records; missing/deleted details return 404 with
 `OFFER_NOT_FOUND`. Infrastructure read failures return 500 with
 `OFFER_QUERY_FAILED` or `ISSUER_QUERY_FAILED` through the existing error envelope.
@@ -68,6 +68,15 @@ counts exclude soft-deleted records; missing/deleted details return 404 with
 Read handlers query Prisma directly and do not load aggregates or extend command
 repository ports. Their GET methods skip the global command transaction. Results
 are unwrapped by the existing global interceptor; no success envelope is added.
+
+Each handler owns its explicit output contract and any private `toOutput()`
+mapping in its query-handler file: `GetOfferOutput`,
+`ListOffersOutput`/`OfferListItem`, and `ListIssuersOutput`/`IssuerListItem`.
+Offer handlers serialize calendar dates and decimal rates while mapping records
+inside `Result.fromPromise()`. The issuer selection already matches its output
+and needs no mapper. Controllers return these Results directly. List and detail
+contracts can evolve independently; a presenter is only needed for a distinct
+transport representation. Command-side persistence mappers remain unchanged.
 
 Creation takes `titleType`, `issuerId`, `maturityDate`, `redemptionTerms`, and
 `remunerationTerms`, and requires an existing issuer. PATCH takes optional

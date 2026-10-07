@@ -3,10 +3,12 @@ import { QueryHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 
-export interface IssuerReadModel {
+export interface IssuerListItem {
   readonly id: string;
   readonly name: string;
 }
+
+export type ListIssuersOutput = IssuerListItem[];
 
 export class IssuerQueryError extends AppError {
   constructor(cause: unknown) {
@@ -20,11 +22,11 @@ export class IssuerQueryError extends AppError {
 
 @Injectable()
 export class ListIssuersQueryHandler
-  implements QueryHandler<void, IssuerReadModel[], IssuerQueryError>
+  implements QueryHandler<void, ListIssuersOutput>
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  execute(): Promise<Result<IssuerReadModel[], IssuerQueryError>> {
+  execute(): Promise<Result<ListIssuersOutput, IssuerQueryError>> {
     return Result.fromPromise(
       () =>
         this.prisma.client.investmentIssuer.findMany({

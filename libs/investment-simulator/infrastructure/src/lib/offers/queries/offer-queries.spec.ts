@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { ListOffersQueryHandler } from './list-offers.query-handler';
 import { GetOfferQueryHandler } from './get-offer.query-handler';
-import { OfferPresenter } from '../http/offer.presenter';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
@@ -55,7 +54,7 @@ describe('Offer reads', () => {
       }),
     );
     expect(f.count).toHaveBeenCalledWith({ where });
-    const page = OfferPresenter.page(result.value);
+    const page = result.value;
     expect(page).toMatchObject({ total: 21, page: 2, pageSize: 20 });
     expect(page.items[0]).toEqual({
       id: record.id,
@@ -88,9 +87,17 @@ describe('Offer reads', () => {
     expect(f.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: record.id, deletedAt: null } }),
     );
-    expect(result.value.remunerationTerms.rate).toBe(
-      '0.000000000000000000000000000001',
-    );
+    expect(result.value).toEqual({
+      id: record.id,
+      titleType: 'CDB',
+      issuer: record.issuer,
+      maturityDate: '2028-12-31',
+      redemptionTerms: { kind: 'DAILY' },
+      remunerationTerms: {
+        kind: 'CDI_PERCENTAGE',
+        rate: '0.000000000000000000000000000001',
+      },
+    });
   });
 
   it('treats absent and deleted records as OFFER_NOT_FOUND', async () => {
@@ -101,16 +108,26 @@ describe('Offer reads', () => {
     );
   });
 
-  it('maps database and date conversion failures into infrastructure errors', async () => {
+  it('maps database failures into infrastructure errors', async () => {
     const f = fixture();
     f.count.mockRejectedValue(new Error('database'));
     expect((await f.list.execute({ page: 1, pageSize: 20 })).error.code).toBe(
       'OFFER_QUERY_FAILED',
     );
-    f.findUnique.mockResolvedValue({
-      ...record,
-      maturityDate: new Date('invalid'),
-    });
+    f.findUnique.mockRejectedValue(new Error('database'));
+    expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
+      'OFFER_QUERY_FAILED',
+    );
+  });
+
+  it('captures date conversion failures inside both query results', async () => {
+    const f = fixture();
+    const invalidRecord = { ...record, maturityDate: new Date('invalid') };
+    f.findMany.mockResolvedValue([invalidRecord]);
+    f.findUnique.mockResolvedValue(invalidRecord);
+    expect((await f.list.execute({ page: 1, pageSize: 20 })).error.code).toBe(
+      'OFFER_QUERY_FAILED',
+    );
     expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
       'OFFER_QUERY_FAILED',
     );
