@@ -9,13 +9,17 @@ Nx. Status:
    startup, the shell, the welcome page, and top-level routes. Earlier
    frontend code and its dependencies were removed, and the browser offer CRUD
    with them.
-2. Next: recreate `investment-simulator-web` as an `@nx/react` library with
-   the offer list and details, and mount it under `/ofertas`.
-3. Then: the offer editor, confirmation dialogs, and the maturity date field.
+2. Done (reordered 2026-10-10, because running simulations is what users need
+   most): `investment-simulator-web` as an `@nx/react` library with the
+   simulation workspace under `/simulacoes` (see Simulation workspace
+   behavior). It brought TanStack Query, React Hook Form, Zod, Base UI, the
+   date field, and confirmation dialogs.
+3. Next: the offer list and details, then the offer editor, mounted under
+   `/ofertas` by the same route factory.
 4. Finally: full verification (see Testing and verification).
 
-Each step keeps `pnpm check` green. The API, database, and Keycloak realm
-don't change. Rebuild features from the recorded behavior (App shell and
+Each step keeps `pnpm check` green. The Keycloak realm doesn't change; API
+additions are recorded with the feature that needs them. Rebuild features from the recorded behavior (App shell and
 authentication behavior, Offer CRUD behavior) and design them as idiomatic
 React. Don't transliterate earlier implementations or their structure.
 
@@ -32,7 +36,7 @@ this policy.
 
 Install the latest stable release of each line below and commit the lockfile.
 Add a package together with its first consumer: TanStack Query, React Hook
-Form, Zod, Base UI, and react-day-picker arrive with the offer CRUD.
+Form, Zod, Base UI, and react-day-picker arrived with the simulation workspace.
 
 | Concern                | Package                                                                      | Line (current at decision)        |
 | ---------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
@@ -62,8 +66,8 @@ policy the compiler is deferred. Revisit when that integration is stable.
 InvestFlow's frontend is a client-rendered authenticated SPA. Opening `/`
 requires Keycloak login and then shows a Portuguese welcome page, the
 authenticated identity, and logout. Unmatched browser routes redirect to `/`.
-The welcome page links to each mounted context feature (none yet; the offer
-CRUD under `/ofertas` returns with its library). The bounded context owns its
+The welcome page and the header link to each mounted context feature
+(`/simulacoes`; the offer CRUD under `/ofertas` comes next). The bounded context owns its
 business requests and presentation.
 
 ```text
@@ -120,8 +124,9 @@ interface InvestmentSimulatorDeps {
 }
 ```
 
-The app passes its bearer-attaching `authorizedFetch` and mounts the result
-under `/ofertas` with route `lazy`. The library puts `deps` in its own internal
+The app passes its bearer-attaching `authorizedFetch` and spreads the result
+into its shell routes. The factory returns top-level paths (`simulacoes`, later
+`ofertas`), and each page module loads through route `lazy`. The library puts `deps` in its own internal
 context, which its API adapters read. Features never import Keycloak or app
 modules, and they use relative `/api` URLs.
 
@@ -185,8 +190,15 @@ TanStack Query owns server state. Create one `QueryClient` in the app.
   used for code splitting.
 - Don't fetch in `useEffect`.
 - Keep API adapters small: relative `/api` URLs, typed request and response
-  values, no presentation state. Normalize errors only when the UI has distinct
-  recovery paths. Never render raw transport or provider errors.
+  values, no presentation state. API error bodies carry a pt-BR `message`
+  written for the user: show `ApiError.userMessage` and do not keep copy per
+  error code. Use `code` and `details` only for behavior, such as which field to
+  focus or how to recover. Network and bodiless failures get a local generic
+  message. Never render raw transport or provider errors.
+- Complex screens read from screen-oriented queries (Backend for Frontend,
+  see `docs/architecture/project-structure.md`). The browser formats and
+  arranges what it receives and owns form validation and interaction, but it
+  doesn't re-implement domain rules to derive business facts.
 - Monetary values cross the boundary as decimal strings. Preserve their
   original precision and round only for display. Never use `Number` for
   financial rates.
@@ -259,6 +271,10 @@ design tokens, and Tailwind configuration. Components use semantic utility
 classes in `className`, never default Tailwind colors or local arbitrary
 palette or radius values. No CSS modules, CSS-in-JS, or component stylesheets
 unless a third-party integration requires one. Document any exception here.
+Exception: `styles.css` imports `react-day-picker/style.css` for the calendar
+grid and themes it through its `--rdp-*` variables with the design tokens.
+`styles.css` also declares `@source` for each context web library, because
+Tailwind does not scan outside the app by default.
 
 Base UI supplies interaction primitives: Dialog and AlertDialog, Select, Field,
 Popover, and Menu. They're unstyled and accessible by default, and we style
@@ -347,6 +363,83 @@ it.
   "Bem-vindo ao InvestFlow.", and the subtitle "Um espaço para suas próximas
   decisões de investimento.". Unexpected render errors show a safe message
   with a reload action inside the shell.
+
+## Simulation workspace behavior
+
+Built 2026-10-10. A simulation is identified by the API's `simulations`
+resource and its inputs live in its calculations ("cálculo"): the latest one is
+the current state, earlier ones are its history.
+
+- `/simulacoes` lists the user's simulations, 20 per page (`page` URL
+  parameter, corrected by navigation when stale). Each row shows the issuer and
+  whether the terms are custom or from a catalog offer, the remuneration, the
+  principal, the period, and the net value of the latest calculation, with a
+  textual "Desatualizado" tag when it predates the current methodology. Desktop uses a table; below
+  1024px, labeled rows. The whole row or card opens the simulation: one link
+  per entry, stretched over the table row on desktop.
+- `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
+  (stacked below 1024px). Inputs: principal, investment date, the CDB terms
+  (issuer, remuneration kind, rate in the kind's unit, maturity, liquidity),
+  and the index curve for indexed kinds. The curve list is filtered by index,
+  auto-selects a sole curve, shows its coverage, and warns when the period may
+  exceed it. Changing the kind clears the rate and the curve. Liquidity
+  defaults to "No vencimento".
+- The investment and maturity date pickers grey out weekends and holidays.
+  `BusinessDateField` (in the library's `business-calendar/` folder, for any
+  screen that needs business days) reads them per year from
+  `GET business-calendar/non-business-days?year=`; the browser holds no
+  holiday rules. Typed dates are not blocked; the calculation still rejects a
+  non-business day on its field.
+- Terms are typed freely. On a new simulation, a catalog offer can fill them
+  ("Preencher com uma oferta"); edits afterwards are flagged with "Restaurar
+  termos da oferta". No catalog entry is created by a simulation.
+- One "Calcular" action sends the full inputs and records a calculation
+  (`POST simulations` for a new simulation, `POST simulations/:id/calculations`
+  for a saved one). When nothing changed and the latest calculation is current,
+  it reads "Resultado atualizado" and is disabled. A rejected calculation saves
+  nothing: the form keeps its edits as unsaved changes and the reason appears
+  on the responsible field (principal, non-business day, curve coverage,
+  deleted curve, period) and in the results panel. A new simulation stays on
+  `/simulacoes/nova` until its first calculation succeeds, then opens its own
+  page.
+- A curve coverage rejection names the first gap the API reports ("A curva
+  não tem valores entre 02/01/2029 e 28/12/2029 e em mais 2 períodos"). The
+  domain groups consecutive missing rate references into ranges
+  (`missingRanges`); the browser only phrases them.
+- Results: the net value at maturity, then principal, gross balance, gross
+  earnings, IOF, income tax, total taxes and net value, with the dates,
+  business days, calculation instant in São Paulo time and the methodology
+  version. "Evolução do saldo" and "Histórico de cálculos" are disclosures; a
+  past calculation is selected with the `calculo` URL parameter.
+- "Evolução do saldo" lists one row per month (business days, the month's
+  earnings, accumulated earnings and the closing gross balance). Each month's
+  button (`aria-expanded`) reveals that month's business days beneath it.
+- Taxes: the IOF and income-tax rows name the applied rate ("IOF · isento pelo
+  prazo", "Imposto de renda · 22,5%"). "Como os tributos foram calculados"
+  (with an info icon) opens a short Base UI Dialog: the holding period, then
+  for IOF and income tax one sentence on the rule, the formula string the API
+  writes from the calculation's recorded values (shown as is), and the table with the applied row marked
+  "seu caso" (not by color alone). Rates and tables come from the API, which
+  takes them from the domain; the browser only finds the applied row by rate.
+- A saved simulation's header offers "Nova simulação" (a blank form at
+  `/simulacoes/nova`), "Duplicar" and "Excluir".
+- "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled as custom
+  terms. "Excluir" confirms in an AlertDialog. Unsaved edits are guarded by
+  `useBlocker` and `beforeunload`.
+- Rentabilidade (monthly, annualized, total) and "prazo restante" are not
+  shown yet; the API does not compute them.
+- "Desatualizado" on a calculation means the methodology changed since it was
+  computed; the results panel also flags unsaved form edits. Older
+  calculations are earlier versions, not stale ones.
+- Reads are screen-oriented (Backend for Frontend): `simulation-options`
+  (issuers, each remuneration kind with its index, curves and calculability,
+  and catalog offers flagged as calculable or not), `simulation-workspaces/:id`
+  (the simulation's origin and every calculation summary with its inputs and
+  business days, newest first), and
+  `simulation-calculations/:id/monthly-balances` (months with their days
+  nested), loaded for the selected calculation. The list uses `simulations`.
+  Writes are `simulations`, `simulations/:id/calculations`, and
+  `DELETE simulations/:id`.
 
 ## Offer CRUD behavior
 

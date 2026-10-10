@@ -1,9 +1,9 @@
-import { NotFoundError } from '@investflow/shared-domain';
+import { EAppErrorCode, NotFoundError } from '@investflow/shared-domain';
 
 export class OfferNotFoundError extends NotFoundError {
   constructor(offerId: string) {
-    super(`Offer ${offerId} was not found`, {
-      code: 'OFFER_NOT_FOUND',
+    super('Esta oferta não está mais disponível.', {
+      code: EAppErrorCode.OFFER_NOT_FOUND,
       metadata: { offerId },
     });
   }

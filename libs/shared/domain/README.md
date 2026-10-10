@@ -96,7 +96,7 @@ an index or reference type; use expressive fields such as `annualRate` and
 `indexRate` in the owning model.
 
 Create rates from decimal strings at persistence and transport boundaries.
-`parsePositiveDecimal` and `Rate` reject zero, negative, non-finite, and invalid
+`Rate` rejects zero, negative, non-finite, and invalid
 decimal values without converting through JavaScript `number`.
 
 ## Building

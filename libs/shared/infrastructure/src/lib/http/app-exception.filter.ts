@@ -7,6 +7,10 @@ import {
 } from '@nestjs/common';
 import { AppError } from '@investflow/shared-domain';
 
+// Server-side failures can describe internals; the log keeps the original.
+const SERVER_FAILURE_MESSAGE =
+  'Não foi possível concluir agora. Tente novamente.';
+
 @Catch(AppError)
 export class AppExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(AppExceptionFilter.name);
@@ -25,7 +29,10 @@ export class AppExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       code: exception.code,
-      message: exception.message,
+      message:
+        status >= HttpStatus.INTERNAL_SERVER_ERROR
+          ? SERVER_FAILURE_MESSAGE
+          : exception.message,
       details: exception.metadata ?? {},
     });
   }

@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     });
 
     console.log(
-      `Seeded Banco Local, ${offers.length} offers, and ${curves.length} index curves for 2026–2028.`,
+      `Seeded Banco Local, ${offers.length} offers, and ${curves.length} index curves for 2024–2028.`,
     );
   } finally {
     try {

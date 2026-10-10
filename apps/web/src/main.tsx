@@ -1,10 +1,12 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Keycloak from 'keycloak-js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
-import { appRoutes } from './app/app-routes';
+import { createAppRoutes } from './app/app-routes';
 import { AuthSessionContext } from './app/auth/auth-context';
+import { createAuthorizedFetch } from './app/auth/authorized-fetch';
 import { startAuthentication } from './app/auth/session';
 import { environment } from './environments/environment';
 import './styles.css';
@@ -23,14 +25,28 @@ function showStartupFailure() {
     ?.addEventListener('click', () => window.location.reload(), { once: true });
 }
 
-startAuthentication(new Keycloak(environment.keycloak), window.location)
+const keycloak = new Keycloak(environment.keycloak);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, refetchOnWindowFocus: false },
+    // A lost response may hide a committed write, so writes never retry.
+    mutations: { retry: 0 },
+  },
+});
+
+startAuthentication(keycloak, window.location)
   .then((session) => {
     // Created after init, which removes Keycloak's callback fragment from the URL.
-    const router = createBrowserRouter(appRoutes);
+    const router = createBrowserRouter(
+      createAppRoutes({ fetch: createAuthorizedFetch(keycloak) }),
+    );
     createRoot(root).render(
       <StrictMode>
         <AuthSessionContext value={session}>
-          <RouterProvider router={router} />
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
         </AuthSessionContext>
       </StrictMode>,
     );

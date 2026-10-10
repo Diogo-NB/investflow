@@ -1,0 +1,18 @@
+{
+  "name": "investment-simulator-web",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/investment-simulator/web/src",
+  "projectType": "library",
+  "tags": [
+    "scope:investment-simulator",
+    "platform:browser",
+    "type:web-feature"
+  ],
+  "targets": {
+    "typecheck": {
+      "options": {
+        "command": "tsc --noEmit -p tsconfig.lib.json && tsc --noEmit -p tsconfig.spec.json"
+      }
+    }
+  }
+}

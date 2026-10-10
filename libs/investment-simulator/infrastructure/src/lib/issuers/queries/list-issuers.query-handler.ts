@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { QueryHandler } from '@investflow/shared-application';
-import { AppError, Result } from '@investflow/shared-domain';
+import { AppError, EAppErrorCode, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 
 export interface IssuerListItem {
@@ -12,8 +12,8 @@ export type ListIssuersOutput = IssuerListItem[];
 
 export class IssuerQueryError extends AppError {
   constructor(cause: unknown) {
-    super('Failed to read issuers', {
-      code: 'ISSUER_QUERY_FAILED',
+    super('Não foi possível carregar os emissores.', {
+      code: EAppErrorCode.ISSUER_QUERY_FAILED,
       kind: 'infrastructure',
       cause,
     });

@@ -29,6 +29,7 @@ export { SqsConsumerBase } from './lib/messaging/sqs/sqs-consumer.base';
 export { OnEvent } from './lib/messaging/sqs/on-event.decorator';
 export { AppExceptionFilter } from './lib/http/app-exception.filter';
 export { HttpResultInterceptor } from './lib/http/http-result.interceptor';
+export { createRequestValidationPipe } from './lib/http/request-validation.pipe';
 export {
   IS_CALENDAR_DATE,
   IsCalendarDate,

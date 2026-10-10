@@ -1,5 +1,5 @@
 import {
-  EconomicIndex,
+  EEconomicIndex,
   IndexCurve,
   IndexCurveInterval,
   IndexValue,
@@ -8,6 +8,7 @@ import {
   AppError,
   CalendarDate,
   CalendarDateRange,
+  EAppErrorCode,
   UtcInstant,
 } from '@investflow/shared-domain';
 import {
@@ -25,7 +26,7 @@ export class IndexCurveMapper {
       id: record.id,
       name: record.name,
       description: record.description,
-      index: record.index as EconomicIndex,
+      index: record.index as EEconomicIndex,
       deletedAt: record.deletedAt
         ? UtcInstant.fromDate(record.deletedAt).value
         : null,
@@ -55,9 +56,9 @@ export class IndexCurveMapper {
           const value = interval.value.value;
           if (value.decimalPlaces() > 30 || value.abs().gte('1e35')) {
             throw new AppError(
-              'Index value cannot be stored without rounding',
+              'O valor do índice não pode ser armazenado sem arredondamento.',
               {
-                code: 'INDEX_CURVE_VALUE_NOT_REPRESENTABLE',
+                code: EAppErrorCode.INDEX_CURVE_VALUE_NOT_REPRESENTABLE,
                 kind: 'validation',
                 metadata: { curveId: curve.id, value: value.toString() },
               },

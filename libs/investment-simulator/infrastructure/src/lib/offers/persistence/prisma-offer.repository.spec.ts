@@ -1,10 +1,15 @@
 import {
   RemunerationTerms,
   Offer,
-  TitleType,
+  ETitleType,
   RedemptionTerms,
 } from '@investflow/investment-simulator-domain';
-import { CalendarDate, Rate, UtcInstant } from '@investflow/shared-domain';
+import {
+  CalendarDate,
+  EAppErrorCode,
+  Rate,
+  UtcInstant,
+} from '@investflow/shared-domain';
 import {
   PrismaService,
   RepositoryFindError,
@@ -47,7 +52,6 @@ function record(overrides: Partial<InvestmentOffer> = {}): InvestmentOffer {
     id: ID,
     titleType: InvestmentTitleType.CDB,
     issuerId: ISSUER_ID,
-    sourceOfferId: null,
     maturityDate: new Date('2030-05-20T00:00:00Z'),
     redemptionType: InvestmentRedemptionType.AT_MATURITY,
     remunerationType: InvestmentRemunerationType.PREFIXED,
@@ -63,9 +67,8 @@ function offer() {
   return Offer.reconstitute({
     deletedAt: null,
     id: ID,
-    titleType: TitleType.CDB,
+    titleType: ETitleType.CDB,
     issuerId: ISSUER_ID,
-    sourceOfferId: null,
     maturityDate: CalendarDate.of('2030-05-20'),
     redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
     remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('12')),
@@ -93,7 +96,7 @@ describe('PrismaOfferRepository', () => {
     const result = await fixture.repository.findById(ID);
 
     expect(result.isErr()).toBe(true);
-    expect(result.error.code).toBe('OFFER_NOT_FOUND');
+    expect(result.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
   });
 
   it('wraps Prisma and mapper read failures', async () => {
@@ -127,7 +130,6 @@ describe('PrismaOfferRepository', () => {
         id: ID,
         titleType: InvestmentTitleType.CDB,
         issuerId: ISSUER_ID,
-        sourceOfferId: null,
         maturityDate: new Date('2030-05-20T00:00:00.000Z'),
         redemptionType: InvestmentRedemptionType.AT_MATURITY,
         remunerationType: InvestmentRemunerationType.PREFIXED,
@@ -137,7 +139,6 @@ describe('PrismaOfferRepository', () => {
       update: {
         titleType: InvestmentTitleType.CDB,
         issuerId: ISSUER_ID,
-        sourceOfferId: null,
         maturityDate: new Date('2030-05-20T00:00:00.000Z'),
         redemptionType: InvestmentRedemptionType.AT_MATURITY,
         remunerationType: InvestmentRemunerationType.PREFIXED,
@@ -164,7 +165,7 @@ describe('PrismaOfferRepository', () => {
     fixture.findUnique.mockResolvedValue(null);
     const result = await fixture.repository.findById(ID);
     expect(result.isErr()).toBe(true);
-    expect(result.error.code).toBe('OFFER_NOT_FOUND');
+    expect(result.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
   });
 
   it('maps write failures to RepositorySaveError', async () => {

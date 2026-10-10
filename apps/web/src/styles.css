@@ -1,4 +1,9 @@
 @import 'tailwindcss';
+/* Third-party exception: the calendar's own layout styles, themed below. */
+@import 'react-day-picker/style.css';
+
+/* The context web library renders inside this app. */
+@source '../../../libs/investment-simulator/web/src';
 
 @font-face {
   font-family: 'IBM Plex Sans';
@@ -65,7 +70,9 @@
 
 @layer base {
   a:focus-visible,
-  button:focus-visible {
+  button:focus-visible,
+  summary:focus-visible,
+  [role='combobox']:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 3px;
   }
@@ -78,4 +85,15 @@
       animation-duration: 0s !important;
     }
   }
+}
+
+.rdp-root {
+  --rdp-accent-color: var(--color-accent);
+  --rdp-accent-background-color: var(--color-accent-soft);
+  --rdp-today-color: var(--color-accent);
+  --rdp-day-height: 2.75rem;
+  --rdp-day-width: 2.75rem;
+  --rdp-day_button-height: 2.625rem;
+  --rdp-day_button-width: 2.625rem;
+  font-family: var(--font-body);
 }

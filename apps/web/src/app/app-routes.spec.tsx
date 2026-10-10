@@ -1,15 +1,22 @@
 import { isValidElement } from 'react';
 import { Navigate, type RouteObject } from 'react-router';
-import { appRoutes } from './app-routes';
+import { createAppRoutes } from './app-routes';
 import { Welcome } from './welcome/welcome';
 
 function pageRoutes(): RouteObject[] {
-  return appRoutes[0]?.children?.[0]?.children ?? [];
+  const routes = createAppRoutes({ fetch: vi.fn() });
+  return routes[0]?.children?.[0]?.children ?? [];
 }
 
-describe('appRoutes', () => {
+describe('createAppRoutes', () => {
   it('opens the welcome page at the root', () => {
     expect(pageRoutes().find((route) => route.index)?.Component).toBe(Welcome);
+  });
+
+  it('mounts the investment simulator under /simulacoes', () => {
+    expect(pageRoutes().some((route) => route.path === 'simulacoes')).toBe(
+      true,
+    );
   });
 
   it('redirects unknown paths to the root', () => {

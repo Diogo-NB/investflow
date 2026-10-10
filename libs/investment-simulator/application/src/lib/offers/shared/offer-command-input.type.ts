@@ -1,6 +1,6 @@
 import {
   RemunerationTerms,
-  TitleType,
+  ETitleType,
 } from '@investflow/investment-simulator-domain';
 
 export type RedemptionTermsCommandInput = {
@@ -13,7 +13,7 @@ export interface RemunerationTermsCommandInput {
 }
 
 export interface CreateOfferCommandInput {
-  readonly titleType: TitleType;
+  readonly titleType: ETitleType;
   readonly issuerId: string;
   readonly maturityDate: string;
   readonly redemptionTerms: RedemptionTermsCommandInput;

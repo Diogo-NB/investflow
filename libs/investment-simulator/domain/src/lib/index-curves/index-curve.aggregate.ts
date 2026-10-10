@@ -5,20 +5,20 @@ import {
   Result,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { EconomicIndex } from './economic-index.enum';
+import { EEconomicIndex } from './economic-index.enum';
 import { IndexCurveInterval } from './index-curve-interval.vo';
 import {
   IndexCurveCoverageError,
   IndexCurveValueNotFoundError,
   InvalidIndexCurveError,
 } from './index-curve.error';
-import { IndexValueConvention } from './index-value-convention.enum';
+import { EIndexValueConvention } from './index-value-convention.enum';
 import { IndexValue } from './index-value.vo';
 
 interface IndexCurveProps {
   readonly name: string;
   readonly description: string | null;
-  readonly index: EconomicIndex;
+  readonly index: EEconomicIndex;
   readonly intervals: readonly IndexCurveInterval[];
   deletedAt: UtcInstant | null;
 }
@@ -77,14 +77,14 @@ export class IndexCurve extends AggregateRoot {
     return this.props.description;
   }
 
-  get index(): EconomicIndex {
+  get index(): EEconomicIndex {
     return this.props.index;
   }
 
-  get convention(): IndexValueConvention {
-    return this.props.index === EconomicIndex.IPCA
-      ? IndexValueConvention.MONTHLY_VARIATION
-      : IndexValueConvention.ANNUAL_EFFECTIVE_252;
+  get convention(): EIndexValueConvention {
+    return this.props.index === EEconomicIndex.IPCA
+      ? EIndexValueConvention.MONTHLY_VARIATION
+      : EIndexValueConvention.ANNUAL_EFFECTIVE_252;
   }
 
   get intervals(): readonly IndexCurveInterval[] {
@@ -114,11 +114,19 @@ export class IndexCurve extends AggregateRoot {
     references: readonly CalendarDate[],
   ): Result<IndexValue[], IndexCurveCoverageError> {
     const values: IndexValue[] = [];
-    const missing: CalendarDate[] = [];
+    const missing: { start: CalendarDate; end: CalendarDate }[] = [];
+    let previousMissing = false;
     for (const reference of references) {
       const interval = this.findInterval(reference);
-      if (interval) values.push(interval.value);
-      else missing.push(reference);
+      if (interval) {
+        values.push(interval.value);
+      } else if (previousMissing) {
+        // Adjacent requested references that are both missing form one gap.
+        missing[missing.length - 1].end = reference;
+      } else {
+        missing.push({ start: reference, end: reference });
+      }
+      previousMissing = !interval;
     }
     return missing.length
       ? Result.err(new IndexCurveCoverageError(this.id, missing))
@@ -128,12 +136,12 @@ export class IndexCurve extends AggregateRoot {
   private validate(): Result<this, InvalidIndexCurveError> {
     const name = this.props.name;
     if (!name.length) {
-      return Result.err(new InvalidIndexCurveError('name must not be empty'));
+      return Result.err(new InvalidIndexCurveError('Informe o nome da curva.'));
     }
-    const monthly = this.convention === IndexValueConvention.MONTHLY_VARIATION;
+    const monthly = this.convention === EIndexValueConvention.MONTHLY_VARIATION;
     if (this.props.intervals.length === 0) {
       return Result.err(
-        new InvalidIndexCurveError('at least one interval is required'),
+        new InvalidIndexCurveError('Informe ao menos um intervalo.'),
       );
     }
     const intervals = this.props.intervals;
@@ -141,7 +149,7 @@ export class IndexCurve extends AggregateRoot {
       const interval = intervals[i];
       if (!monthly && interval.value.value.lessThan(0)) {
         return Result.err(
-          new InvalidIndexCurveError('interest rates must be nonnegative'),
+          new InvalidIndexCurveError('As taxas não podem ser negativas.'),
         );
       }
       if (
@@ -151,13 +159,13 @@ export class IndexCurve extends AggregateRoot {
       ) {
         return Result.err(
           new InvalidIndexCurveError(
-            'monthly intervals must span complete months',
+            'Intervalos mensais devem cobrir meses completos.',
           ),
         );
       }
       if (i > 0 && intervals[i - 1].range.overlaps(interval.range)) {
         return Result.err(
-          new InvalidIndexCurveError('intervals must not overlap', {
+          new InvalidIndexCurveError('Os intervalos não podem se sobrepor.', {
             start: interval.range.start.toIsoString(),
           }),
         );

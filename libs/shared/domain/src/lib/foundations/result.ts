@@ -68,6 +68,10 @@ export class Result<T, E extends AppError = AppError> {
     return state.value;
   }
 
+  get valueOrNull(): T | null {
+    return this.unwrapOr(null);
+  }
+
   get error(): E {
     const state = this.state;
     if (state.status === 'ok') {
@@ -98,7 +102,7 @@ export class Result<T, E extends AppError = AppError> {
     return matcher.err(state.error);
   }
 
-  unwrapOr(fallback: T): T {
+  unwrapOr<F = T>(fallback: F): T | F {
     const state = this.state;
     if (state.status === 'ok') return state.value;
     return fallback;

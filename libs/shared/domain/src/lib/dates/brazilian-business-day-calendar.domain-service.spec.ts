@@ -55,4 +55,21 @@ describe('BrazilianBusinessDayCalendar', () => {
 
     expect(calendar.countBusinessDays(range)).toBe(1);
   });
+
+  it('lists weekends and holidays of a range, endpoints included', () => {
+    const days = calendar.nonBusinessDaysIn(
+      CalendarDateRange.of(
+        CalendarDate.of('2026-02-14'),
+        CalendarDate.of('2026-02-22'),
+      ),
+    );
+    expect(days.map((date) => date.toIsoString())).toEqual([
+      '2026-02-14',
+      '2026-02-15',
+      '2026-02-16',
+      '2026-02-17',
+      '2026-02-21',
+      '2026-02-22',
+    ]);
+  });
 });

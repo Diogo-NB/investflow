@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import { InvalidUtcInstantError, UtcInstant } from './utc-instant.vo';
 
 describe('UtcInstant', () => {
@@ -25,7 +26,7 @@ describe('UtcInstant', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result.error).toBeInstanceOf(InvalidUtcInstantError);
-    expect(result.error.code).toBe('INVALID_UTC_INSTANT');
+    expect(result.error.code).toBe(EAppErrorCode.INVALID_UTC_INSTANT);
   });
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, 1.5])(

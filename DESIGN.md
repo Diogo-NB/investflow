@@ -104,10 +104,26 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
   two-column fields above 640px and one column below. Labels remain visible;
   validation appears after touch/submission and retains entered values.
 - Vencimento: calendar popup (react-day-picker in a Base UI Popover) with Portuguese controls and a visible SVG
-  calendar toggle; typed dates use DD/MM/AAAA. The form/API retain YYYY-MM-DD
+  calendar toggle; typed dates use DD/MM/AAAA. Business-date pickers show
+  weekends and holidays disabled with react-day-picker's reduced opacity. The form/API retain YYYY-MM-DD
   civil dates. Picker and input are disabled while saving.
 - Rates: show contracted percentages with kind-specific units and a textual
   preview. Changing kind clears the rate to avoid carrying different units.
+- Simulation list: compact heading and primary "Nova simulação"; one white
+  result surface with the net value at maturity right-aligned in tabular
+  figures and a textual "Desatualizado" tag in the warning token.
+- Simulation workspace: an inputs surface (about 26rem, sticky on desktop)
+  beside the results; fieldsets "Investimento", "Termos do CDB" and "Índice"
+  separated by rules, with "Calcular" last. Results lead with the net value,
+  then a definition list of amounts; the balance evolution (month rows that
+  expand to their business days on a background-colored band) and the
+  calculation history are native disclosures. Rejections use the error token and also
+  mark the responsible field; staleness uses the warning token with text.
+- Tax explanation: a short scrollable Dialog (max 36rem) opened by a quiet
+  text action with an inline SVG info icon under the result amounts. One
+  section per tax separated by rules: a one-line rule, the filled-in formula
+  in a background-colored block with tabular figures, and the table with the
+  applied row in the accent container plus a "seu caso" label.
 - Dialogs: Base UI Dialog/AlertDialog focus management and 8px token radius; cancel first.
   Delete confirmation uses the existing error token for its primary action.
 - Pending operations disable repeat actions; loading, empty, filtered-empty,

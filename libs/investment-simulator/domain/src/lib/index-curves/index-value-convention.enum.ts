@@ -1,4 +1,4 @@
-export enum IndexValueConvention {
+export enum EIndexValueConvention {
   ANNUAL_EFFECTIVE_252 = 'ANNUAL_EFFECTIVE_252',
   MONTHLY_VARIATION = 'MONTHLY_VARIATION',
 }

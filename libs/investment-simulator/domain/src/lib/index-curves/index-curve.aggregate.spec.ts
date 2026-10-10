@@ -1,13 +1,14 @@
 import {
   CalendarDate,
   CalendarDateRange,
+  EAppErrorCode,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { EconomicIndex } from './economic-index.enum';
+import { EEconomicIndex } from './economic-index.enum';
 import { IndexCurveInterval } from './index-curve-interval.vo';
 import { CreateIndexCurveProps, IndexCurve } from './index-curve.aggregate';
 import { InvalidIndexCurveError } from './index-curve.error';
-import { IndexValueConvention } from './index-value-convention.enum';
+import { EIndexValueConvention } from './index-value-convention.enum';
 import { IndexValue } from './index-value.vo';
 
 function interval(start: string, end: string, value = '0.12') {
@@ -23,7 +24,7 @@ function props(
   return {
     name: ' CDI base ',
     description: ' Cenário base ',
-    index: EconomicIndex.CDI,
+    index: EEconomicIndex.CDI,
     intervals: [interval('2026-10-01', '2026-10-31')],
     ...overrides,
   };
@@ -62,9 +63,9 @@ describe('IndexCurve', () => {
   });
 
   it.each([
-    [EconomicIndex.CDI, IndexValueConvention.ANNUAL_EFFECTIVE_252],
-    [EconomicIndex.SELIC, IndexValueConvention.ANNUAL_EFFECTIVE_252],
-    [EconomicIndex.IPCA, IndexValueConvention.MONTHLY_VARIATION],
+    [EEconomicIndex.CDI, EIndexValueConvention.ANNUAL_EFFECTIVE_252],
+    [EEconomicIndex.SELIC, EIndexValueConvention.ANNUAL_EFFECTIVE_252],
+    [EEconomicIndex.IPCA, EIndexValueConvention.MONTHLY_VARIATION],
   ])(
     'derives the convention for %s on creation and reconstitution',
     (index, convention) => {
@@ -90,9 +91,9 @@ describe('IndexCurve', () => {
     expect(first.name).toBe('CDI base');
     expect(first.description).toBe('Cenário base');
     expect(second.description).toBeNull();
-    expect(first.index).toBe(EconomicIndex.CDI);
+    expect(first.index).toBe(EEconomicIndex.CDI);
     expect(first.deletedAt).toBeNull();
-    expect(first.convention).toBe(IndexValueConvention.ANNUAL_EFFECTIVE_252);
+    expect(first.convention).toBe(EIndexValueConvention.ANNUAL_EFFECTIVE_252);
     expect(first.getDomainEvents()).toEqual([]);
   });
 
@@ -135,13 +136,13 @@ describe('IndexCurve', () => {
       ).value;
       const result = curve.valueAt(CalendarDate.of(reference));
       expect(result.isErr()).toBe(true);
-      expect(result.error.code).toBe('INDEX_CURVE_VALUE_NOT_FOUND');
+      expect(result.error.code).toBe(EAppErrorCode.INDEX_CURVE_VALUE_NOT_FOUND);
       expect(result.error.metadata).toEqual({ curveId: curve.id, reference });
     },
   );
 
   it('accepts a point interval with explicit zero for CDI and SELIC', () => {
-    for (const index of [EconomicIndex.CDI, EconomicIndex.SELIC]) {
+    for (const index of [EEconomicIndex.CDI, EEconomicIndex.SELIC]) {
       const curve = IndexCurve.create(
         props({
           index,
@@ -159,7 +160,7 @@ describe('IndexCurve', () => {
     { intervals: [] },
     { intervals: [interval('2026-10-01', '2026-10-31', '-0.01')] },
     {
-      index: EconomicIndex.SELIC,
+      index: EEconomicIndex.SELIC,
       intervals: [interval('2026-10-01', '2026-10-31', '-0.01')],
     },
     {
@@ -184,13 +185,13 @@ describe('IndexCurve', () => {
     const result = IndexCurve.create(props(overrides));
     expect(result.isErr()).toBe(true);
     expect(result.error).toBeInstanceOf(InvalidIndexCurveError);
-    expect(result.error.code).toBe('INVALID_INDEX_CURVE');
+    expect(result.error.code).toBe(EAppErrorCode.INVALID_INDEX_CURVE);
   });
 
   it('resolves monthly inflation, deflation and repeated monthly values', () => {
     const curve = IndexCurve.create(
       props({
-        index: EconomicIndex.IPCA,
+        index: EEconomicIndex.IPCA,
         intervals: [
           interval('2024-02-01', '2024-02-29', '-0.004'),
           interval('2024-03-01', '2024-04-30', '0.003'),
@@ -216,7 +217,7 @@ describe('IndexCurve', () => {
     expect(
       IndexCurve.create(
         props({
-          index: EconomicIndex.IPCA,
+          index: EEconomicIndex.IPCA,
           intervals: [interval(start, end)],
         }),
       ).isErr(),
@@ -243,11 +244,42 @@ describe('IndexCurve', () => {
     const missing = curve.valuesAt(
       dates('2026-10-02', '2026-10-03', '2026-10-06'),
     );
-    expect(missing.error.code).toBe('INDEX_CURVE_COVERAGE_MISSING');
-    expect(missing.error.metadata?.['missingReferences']).toEqual([
-      '2026-10-03',
-      '2026-10-06',
+    expect(missing.error.code).toBe(EAppErrorCode.INDEX_CURVE_COVERAGE_MISSING);
+    // Adjacent in the request, so one gap from the first to the last.
+    expect(missing.error.metadata?.['missingRanges']).toEqual([
+      { start: '2026-10-03', end: '2026-10-06' },
     ]);
+  });
+
+  it('groups consecutive missing references into ranges', () => {
+    const curve = IndexCurve.create(
+      props({
+        intervals: [
+          interval('2026-10-05', '2026-10-06', '0.10'),
+          interval('2026-10-09', '2026-10-09', '0.11'),
+        ],
+      }),
+    ).value;
+    const references = [
+      '2026-10-01',
+      '2026-10-02',
+      '2026-10-05',
+      '2026-10-06',
+      '2026-10-07',
+      '2026-10-08',
+      '2026-10-09',
+      '2026-10-13',
+    ].map((iso) => CalendarDate.of(iso));
+
+    const error = curve.valuesAt(references).error;
+    expect(error.metadata?.['missingRanges']).toEqual([
+      { start: '2026-10-01', end: '2026-10-02' },
+      { start: '2026-10-07', end: '2026-10-08' },
+      { start: '2026-10-13', end: '2026-10-13' },
+    ]);
+    expect(error.message).toBe(
+      'A curva não tem valores entre 01/10/2026 e 02/10/2026 e em mais 2 períodos.',
+    );
   });
 
   it('reconstitutes persisted state directly and preserves its identity', () => {

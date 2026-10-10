@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import { DomainError } from '../foundations/domain.error';
 import { Result } from '../foundations/result';
 import { ValueObject } from '../foundations/value-object.base';
@@ -11,8 +12,8 @@ const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
 export class InvalidCalendarDateError extends DomainError {
   constructor(reason: string, value?: string) {
-    super(`Invalid calendar date: ${reason}`, {
-      code: 'INVALID_CALENDAR_DATE',
+    super(reason, {
+      code: EAppErrorCode.INVALID_CALENDAR_DATE,
       metadata: value === undefined ? { reason } : { reason, value },
     });
   }
@@ -33,7 +34,10 @@ export class CalendarDate extends ValueObject<CalendarDate> {
     const match = CALENDAR_DATE_PATTERN.exec(value);
     if (!match) {
       return Result.err(
-        new InvalidCalendarDateError('expected YYYY-MM-DD', value),
+        new InvalidCalendarDateError(
+          'Data inválida. Use o formato AAAA-MM-DD.',
+          value,
+        ),
       );
     }
 
@@ -43,7 +47,7 @@ export class CalendarDate extends ValueObject<CalendarDate> {
     if (year < 1) {
       return Result.err(
         new InvalidCalendarDateError(
-          'year must be between 0001 and 9999',
+          'O ano deve estar entre 0001 e 9999.',
           value,
         ),
       );
@@ -56,7 +60,10 @@ export class CalendarDate extends ValueObject<CalendarDate> {
       utcDate.getUTCDate() !== day
     ) {
       return Result.err(
-        new InvalidCalendarDateError('invalid calendar day', value),
+        new InvalidCalendarDateError(
+          'Esta data não existe no calendário.',
+          value,
+        ),
       );
     }
 
@@ -81,7 +88,7 @@ export class CalendarDate extends ValueObject<CalendarDate> {
     value: Date,
   ): Result<CalendarDate, InvalidCalendarDateError> {
     if (Number.isNaN(value.getTime())) {
-      return Result.err(new InvalidCalendarDateError('invalid native Date'));
+      return Result.err(new InvalidCalendarDateError('Data inválida.'));
     }
 
     return CalendarDate.create(formatUtcDate(value));
@@ -124,7 +131,9 @@ export class CalendarDate extends ValueObject<CalendarDate> {
 
   addDays(days: number): CalendarDate {
     if (!Number.isInteger(days)) {
-      throw new InvalidCalendarDateError('day offset must be an integer');
+      throw new InvalidCalendarDateError(
+        'O deslocamento de dias deve ser um número inteiro.',
+      );
     }
 
     const result = CalendarDate.fromUtcDate(

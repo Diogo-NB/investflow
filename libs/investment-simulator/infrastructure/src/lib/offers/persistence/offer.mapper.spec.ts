@@ -1,7 +1,7 @@
 import {
   RemunerationTerms,
   Offer,
-  TitleType,
+  ETitleType,
   RedemptionTerms,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Rate, UtcInstant } from '@investflow/shared-domain';
@@ -24,7 +24,6 @@ function persistenceRecord(
     id: ID,
     titleType: InvestmentTitleType.CDB,
     issuerId: ISSUER_ID,
-    sourceOfferId: null,
     maturityDate: new Date('2030-05-20T00:00:00.000Z'),
     redemptionType: InvestmentRedemptionType.AT_MATURITY,
     remunerationType: InvestmentRemunerationType.PREFIXED,
@@ -38,9 +37,9 @@ function persistenceRecord(
 
 describe('OfferMapper', () => {
   it.each([
-    [InvestmentTitleType.CDB, TitleType.CDB],
-    [InvestmentTitleType.LCI, TitleType.LCI],
-    [InvestmentTitleType.LCA, TitleType.LCA],
+    [InvestmentTitleType.CDB, ETitleType.CDB],
+    [InvestmentTitleType.LCI, ETitleType.LCI],
+    [InvestmentTitleType.LCA, ETitleType.LCA],
   ] as const)('round trips title type %s', (persisted, domain) => {
     const offer = OfferMapper.toDomain(
       persistenceRecord({ titleType: persisted }),
@@ -98,7 +97,7 @@ describe('OfferMapper', () => {
   it('maps a domain offer without converting its rate through number', () => {
     const offer = Offer.reconstitute({
       id: ID,
-      titleType: TitleType.CDB,
+      titleType: ETitleType.CDB,
       issuerId: ISSUER_ID,
       maturityDate: CalendarDate.of('2030-05-20'),
       redemptionTerms: RedemptionTerms.create('DAILY'),

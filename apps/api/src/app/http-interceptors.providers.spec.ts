@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExternalContextCreator } from '@nestjs/core/helpers/external-context-creator';
-import { AppError, Result } from '@investflow/shared-domain';
+import { AppError, EAppErrorCode, Result } from '@investflow/shared-domain';
 import {
   PrismaService,
   SkipTransaction,
@@ -87,7 +87,7 @@ describe('API global HTTP interceptors', () => {
 
   it('rolls back failed results before forwarding the original error', async () => {
     const error = new AppError('Offer not found', {
-      code: 'OFFER_NOT_FOUND',
+      code: EAppErrorCode.OFFER_NOT_FOUND,
       kind: 'not-found',
     });
     fixture.response = Result.err(error);
@@ -106,7 +106,7 @@ describe('API global HTTP interceptors', () => {
 
   it('forwards failed results even when the transaction is skipped', async () => {
     const error = new AppError('Invalid input', {
-      code: 'INVALID_INPUT',
+      code: EAppErrorCode.INVESTMENT_PERIOD_INVALID,
       kind: 'validation',
     });
     fixture.response = Result.err(error);

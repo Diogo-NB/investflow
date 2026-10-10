@@ -33,7 +33,8 @@ enum InvestmentRemunerationType {
 model InvestmentIssuer {
   id        String            @id @default(uuid()) @db.Uuid
   name      String
-  offers    InvestmentOffer[]
+  offers       InvestmentOffer[]
+  calculations SimulationCalculation[]
   createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -44,8 +45,6 @@ model InvestmentOffer {
   id               String                     @id @default(uuid()) @db.Uuid
   titleType        InvestmentTitleType        @map("title_type")
   issuerId         String                     @map("issuer_id") @db.Uuid
-  // Non-null for immutable snapshots captured by applications.
-  sourceOfferId    String?                    @map("source_offer_id") @db.Uuid
   maturityDate     DateTime                   @map("maturity_date") @db.Date
   redemptionType   InvestmentRedemptionType   @map("redemption_type")
   remunerationType InvestmentRemunerationType @map("remuneration_type")
@@ -54,70 +53,73 @@ model InvestmentOffer {
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
   issuer           InvestmentIssuer           @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  sourceOffer      InvestmentOffer?           @relation("OfferSnapshots", fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  snapshots        InvestmentOffer[]          @relation("OfferSnapshots")
-  applications     InvestmentApplication[]
-  simulationRuns   SimulationRun[]
+  simulations      Simulation[]
 
   @@index([issuerId])
-  @@index([sourceOfferId])
   @@map("investment_offer")
 }
 
-model InvestmentApplication {
-  id              String          @id @default(uuid()) @db.Uuid
-  ownerId         String          @map("owner_id")
-  offerSnapshotId String          @map("offer_snapshot_id") @db.Uuid
-  indexCurveId    String?         @map("index_curve_id") @db.Uuid
-  principal       Decimal         @db.Decimal(65, 30)
-  investmentDate  DateTime        @map("investment_date") @db.Date
-  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(3)
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  offerSnapshot   InvestmentOffer @relation(fields: [offerSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  indexCurve      IndexCurve?     @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  simulationRuns  SimulationRun[]
+model Simulation {
+  id            String                  @id @db.Uuid
+  ownerId       String                  @map("owner_id")
+  // The catalog offer the first inputs were filled from; null for typed terms.
+  sourceOfferId String?                 @map("source_offer_id") @db.Uuid
+  deletedAt     DateTime?               @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sourceOffer   InvestmentOffer?        @relation(fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  calculations  SimulationCalculation[]
 
   @@index([ownerId])
-  @@map("investment_application")
+  @@map("simulation")
 }
 
 // Append-only record of one calculation with the inputs that produced it.
-model SimulationRun {
-  id                 String                 @id @db.Uuid
-  ownerId            String                 @map("owner_id")
-  applicationId      String                 @map("application_id") @db.Uuid
-  offerSnapshotId    String                 @map("offer_snapshot_id") @db.Uuid
-  indexCurveId       String?                @map("index_curve_id") @db.Uuid
-  principal          Decimal                @db.Decimal(65, 30)
-  investmentDate     DateTime               @map("investment_date") @db.Date
-  methodologyVersion String                 @map("methodology_version")
-  calculatedAt       DateTime               @map("calculated_at") @db.Timestamptz(3)
-  grossBalance       Decimal                @map("gross_balance") @db.Decimal(65, 30)
-  grossEarnings      Decimal                @map("gross_earnings") @db.Decimal(65, 30)
-  iof                Decimal                @db.Decimal(65, 30)
-  incomeTax          Decimal                @map("income_tax") @db.Decimal(65, 30)
-  totalTaxes         Decimal                @map("total_taxes") @db.Decimal(65, 30)
-  netBalance         Decimal                @map("net_balance") @db.Decimal(65, 30)
-  application        InvestmentApplication  @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  offerSnapshot      InvestmentOffer        @relation(fields: [offerSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  indexCurve         IndexCurve?            @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  balances           SimulationRunBalance[]
+model SimulationCalculation {
+  id                        String                         @id @db.Uuid
+  simulationId              String                         @map("simulation_id") @db.Uuid
+  titleType                 InvestmentTitleType            @map("title_type")
+  issuerId                  String                         @map("issuer_id") @db.Uuid
+  maturityDate              DateTime                       @map("maturity_date") @db.Date
+  redemptionType            InvestmentRedemptionType       @map("redemption_type")
+  remunerationType          InvestmentRemunerationType     @map("remuneration_type")
+  rateValue                 Decimal                        @map("rate_value") @db.Decimal(65, 30)
+  indexCurveId              String?                        @map("index_curve_id") @db.Uuid
+  principal                 Decimal                        @db.Decimal(65, 30)
+  investmentDate            DateTime                       @map("investment_date") @db.Date
+  methodologyVersion        String                         @map("methodology_version")
+  calculatedAt              DateTime                       @map("calculated_at") @db.Timestamptz(3)
+  grossBalance              Decimal                        @map("gross_balance") @db.Decimal(65, 30)
+  grossEarnings             Decimal                        @map("gross_earnings") @db.Decimal(65, 30)
+  iof                       Decimal                        @db.Decimal(65, 30)
+  incomeTax                 Decimal                        @map("income_tax") @db.Decimal(65, 30)
+  totalTaxes                Decimal                        @map("total_taxes") @db.Decimal(65, 30)
+  netBalance                Decimal                        @map("net_balance") @db.Decimal(65, 30)
+  // What IOF and income tax were derived from; iof_rate is null when exempt.
+  holdingPeriodCalendarDays Int                            @map("holding_period_calendar_days")
+  taxableEarnings           Decimal                        @map("taxable_earnings") @db.Decimal(65, 30)
+  incomeTaxBase             Decimal                        @map("income_tax_base") @db.Decimal(65, 30)
+  iofRate                   Decimal?                       @map("iof_rate") @db.Decimal(65, 30)
+  incomeTaxRate             Decimal                        @map("income_tax_rate") @db.Decimal(65, 30)
+  simulation                Simulation                     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  issuer                    InvestmentIssuer               @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  indexCurve                IndexCurve?                    @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  balances                  SimulationCalculationBalance[]
 
-  @@index([applicationId, calculatedAt(sort: Desc)])
-  @@map("simulation_run")
+  @@index([simulationId, calculatedAt(sort: Desc)])
+  @@map("simulation_calculation")
 }
 
-model SimulationRunBalance {
-  runId                    String        @map("run_id") @db.Uuid
-  date                     DateTime      @db.Date
-  grossBalance             Decimal       @map("gross_balance") @db.Decimal(65, 30)
-  dailyGrossEarnings       Decimal       @map("daily_gross_earnings") @db.Decimal(65, 30)
-  accumulatedGrossEarnings Decimal       @map("accumulated_gross_earnings") @db.Decimal(65, 30)
-  run                      SimulationRun @relation(fields: [runId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+model SimulationCalculationBalance {
+  calculationId            String                @map("calculation_id") @db.Uuid
+  date                     DateTime              @db.Date
+  grossBalance             Decimal               @map("gross_balance") @db.Decimal(65, 30)
+  dailyGrossEarnings       Decimal               @map("daily_gross_earnings") @db.Decimal(65, 30)
+  accumulatedGrossEarnings Decimal               @map("accumulated_gross_earnings") @db.Decimal(65, 30)
+  calculation              SimulationCalculation @relation(fields: [calculationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
-  @@id([runId, date])
-  @@map("simulation_run_balance")
+  @@id([calculationId, date])
+  @@map("simulation_calculation_balance")
 }
 
 enum EconomicIndex {
@@ -136,8 +138,7 @@ model IndexCurve {
   deletedAt      DateTime?               @map("deleted_at") @db.Timestamptz(3)
   createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
   intervals      IndexCurveInterval[]
-  applications   InvestmentApplication[]
-  simulationRuns SimulationRun[]
+  calculations   SimulationCalculation[]
 
   @@map("index_curve")
 }

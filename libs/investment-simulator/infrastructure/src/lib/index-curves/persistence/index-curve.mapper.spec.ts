@@ -1,11 +1,15 @@
 import {
-  EconomicIndex,
+  EEconomicIndex,
   IndexCurve,
   IndexCurveInterval,
   IndexValue,
-  IndexValueConvention,
+  EIndexValueConvention,
 } from '@investflow/investment-simulator-domain';
-import { CalendarDate, CalendarDateRange } from '@investflow/shared-domain';
+import {
+  CalendarDate,
+  CalendarDateRange,
+  EAppErrorCode,
+} from '@investflow/shared-domain';
 import { EconomicIndex as DbIndex, Prisma } from '@prisma/client';
 import { IndexCurveMapper, IndexCurveRecord } from './index-curve.mapper';
 
@@ -36,7 +40,7 @@ function curve(value: string): IndexCurve {
     id: ID,
     name: 'CDI base',
     description: null,
-    index: EconomicIndex.CDI,
+    index: EEconomicIndex.CDI,
     deletedAt: null,
     intervals: [
       IndexCurveInterval.create(
@@ -102,7 +106,7 @@ describe('IndexCurveMapper', () => {
     });
     original.intervals[0].value = new Prisma.Decimal('-0.004');
     const result = IndexCurveMapper.toDomain(original);
-    expect(result.convention).toBe(IndexValueConvention.MONTHLY_VARIATION);
+    expect(result.convention).toBe(EIndexValueConvention.MONTHLY_VARIATION);
     expect(IndexCurveMapper.toPersistence(result)).toMatchObject({
       index: DbIndex.IPCA,
       intervals: { create: [{ value: '-0.004' }] },
@@ -113,7 +117,9 @@ describe('IndexCurveMapper', () => {
     'rejects unrepresentable value %s instead of rounding',
     (value) =>
       expect(() => IndexCurveMapper.toPersistence(curve(value))).toThrow(
-        'without rounding',
+        expect.objectContaining({
+          code: EAppErrorCode.INDEX_CURVE_VALUE_NOT_REPRESENTABLE,
+        }),
       ),
   );
 

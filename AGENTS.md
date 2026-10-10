@@ -60,6 +60,14 @@ frontend testing policy.
   or presenters. Add a presenter only for a distinct transport representation.
   Keep throwing query conversions inside `Result.fromPromise()`, and return
   Results from controllers for the global HTTP interceptor to unwrap.
+- Complex screens read through screen-oriented queries (Backend for Frontend,
+  decision 2026-10-10): design those query outputs for the screen's usage and
+  compute business facts on the server, without backend-driven layout,
+  render-ready UI structures, or presentation formatting. See
+  `docs/architecture/project-structure.md`.
+- Consciously postponed work is listed under "Deferred Work" in
+  `docs/architecture/project-structure.md`; check it before touching an area
+  it names, and remove an item when it ships.
 - Organize bounded-context source feature-first in every layer. Use plural
   feature roots such as `offers` and `issuers`, then apply layer-specific
   structure below them: shallow domain models, application operation slices,
@@ -77,9 +85,9 @@ frontend testing policy.
   technical auditing. Persistence timestamps remain an infrastructure concern;
   temporal fields belong in the domain only when business rules, state
   transitions, or calculations depend on them.
-- The frontend is React 19 + Vite 8 (decision 2026-10-10). The browser offer
-  CRUD is not rebuilt yet; follow the status sequence in
-  `docs/architecture/frontend-patterns.md`. Rebuild features from the recorded
+- The frontend is React 19 + Vite 8 (decision 2026-10-10). The simulation
+  workspace under `/simulacoes` is built; the browser offer CRUD is not rebuilt
+  yet. Follow the status sequence in `docs/architecture/frontend-patterns.md`. Rebuild features from the recorded
   behavior and design them as idiomatic React; never transliterate earlier
   implementations.
 - Frontend code uses modern, stable, mainstream React: function components,
@@ -120,9 +128,26 @@ Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding,
 
 TypeScript uses Prettier with single quotes and the Nx flat ESLint configuration.
 Use kebab-case filenames, PascalCase classes, and camelCase methods and
-variables. Prefer guard clauses. Use `unknown` for untrusted input and narrow it explicitly;
-use precise types for internal domain inputs. Do not use `any` unless unavoidable
-framework typing requires it.
+variables. Prefix every enum name with `E` (`ETitleType`, `EAppErrorCode`).
+Prefer guard clauses. Use `unknown` for untrusted input and narrow it
+explicitly; use precise types for internal domain inputs. Do not use `any`
+unless unavoidable framework typing requires it.
+
+Do not put small functions in dedicated files to share them between services,
+use cases, handlers, or components. Behavior lives with its owner: a private
+method or a local function in the file that uses it, a method or static on the
+aggregate, value object, or domain service that owns the rule, or a method on a
+port when several services need the same capability (create a port when none
+fits). One-line logic stays inline at each call site, and `Result` helpers such
+as `valueOrNull` cover optional lookups. A standalone shared function file is
+acceptable only for a true utility: it computes no business rule, is domain
+agnostic, and receives no port or other application dependency, such as
+`libs/investment-simulator/web/src/lib/decimals/format-decimal.ts`.
+
+`AppError` messages are user-facing, concise pt-BR that clients show as is.
+The stable `code` is the contract for behavior and tests. Every code is a member
+of the single `EAppErrorCode` enum in `@investflow/shared-domain`. 5xx responses
+replace the message with a generic one.
 
 Value-object immutability relies on readonly state and controlled domain behavior.
 Do not add `Object.freeze` calls or tests that bypass TypeScript solely to verify
@@ -134,7 +159,14 @@ or return `Result` merely to check their TypeScript type or enum/union membershi
 object directly when no additional business invariant can fail. Use `Result` only
 for meaningful validation or business failures, and keep raw-input validation at
 the boundary or in the value object that owns that validation. Keep changes
-scoped and comment only non-obvious constraints, side effects, or workarounds.
+scoped.
+
+Comment only what the code cannot say: a non-obvious constraint, side effect,
+workaround, ordering or format guarantee, or why an apparently simpler option
+is wrong. Do not write comments that restate a name or signature, summarize what
+a function, component, hook, type, or field does, give example outputs of a
+formatter, label a section, or cite decisions and dates. Doc comments
+(`/** */`) follow the same rule; most declarations need none.
 
 The workspace intentionally retains `baseUrl` because the Nx TypeScript executor requires it for workspace path aliases. Use the workspace TypeScript version configured in `.vscode/settings.json`; do not add `ignoreDeprecations`.
 

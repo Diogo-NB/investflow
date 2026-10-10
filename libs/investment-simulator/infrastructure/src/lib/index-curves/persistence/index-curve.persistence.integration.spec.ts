@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import {
-  EconomicIndex,
+  EEconomicIndex,
   IndexCurve,
   IndexCurveInterval,
   IndexValue,
@@ -8,6 +8,7 @@ import {
 import {
   CalendarDate,
   CalendarDateRange,
+  EAppErrorCode,
   generateUuid,
   UtcInstant,
 } from '@investflow/shared-domain';
@@ -44,7 +45,7 @@ integration('Index curve PostgreSQL persistence', () => {
     }
   });
 
-  it.each([EconomicIndex.CDI, EconomicIndex.SELIC])(
+  it.each([EEconomicIndex.CDI, EEconomicIndex.SELIC])(
     'round trips %s and saves repeatedly without changing the original content',
     async (index) => {
       const value = '0.123456789012345678901234567891';
@@ -97,10 +98,10 @@ integration('Index curve PostgreSQL persistence', () => {
       expect((await repository.save(curve)).isOk()).toBe(true);
       expect((await repository.save(curve)).isOk()).toBe(true);
       const absent = await repository.findById(curve.id);
-      expect(absent.error.code).toBe('INDEX_CURVE_NOT_FOUND');
+      expect(absent.error.code).toBe(EAppErrorCode.INDEX_CURVE_NOT_FOUND);
       expect((await repository.save(modified)).isOk()).toBe(true);
       expect((await repository.findById(curve.id)).error.code).toBe(
-        'INDEX_CURVE_NOT_FOUND',
+        EAppErrorCode.INDEX_CURVE_NOT_FOUND,
       );
       const preserved = await prisma.client.indexCurve.findUniqueOrThrow({
         where: { id: curve.id },
@@ -117,7 +118,7 @@ integration('Index curve PostgreSQL persistence', () => {
   it('round trips monthly deflation', async () => {
     const curve = IndexCurve.create({
       name: 'Integration IPCA',
-      index: EconomicIndex.IPCA,
+      index: EEconomicIndex.IPCA,
       intervals: [
         IndexCurveInterval.create(
           CalendarDateRange.of(

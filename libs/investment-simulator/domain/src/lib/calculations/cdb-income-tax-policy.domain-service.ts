@@ -1,18 +1,30 @@
 import { Rate } from '@investflow/shared-domain';
 
-const HOLDING_PERIOD_BRACKETS = [
-  { upToCalendarDays: 180, rate: Rate.of('0.225') },
-  { upToCalendarDays: 360, rate: Rate.of('0.20') },
-  { upToCalendarDays: 720, rate: Rate.of('0.175') },
-] as const;
+export interface IncomeTaxBracket {
+  // Inclusive bounds in calendar days; null for the open last bracket.
+  readonly fromCalendarDays: number;
+  readonly upToCalendarDays: number | null;
+  readonly rate: Rate;
+}
 
-const LONG_TERM_RATE = Rate.of('0.15');
+// Instrução Normativa RFB nº 1.585/2015, art. 46: regressive rates by the
+// calendar days the investment was held.
+export const CDB_INCOME_TAX_BRACKETS: readonly IncomeTaxBracket[] = [
+  { fromCalendarDays: 1, upToCalendarDays: 180, rate: Rate.of('0.225') },
+  { fromCalendarDays: 181, upToCalendarDays: 360, rate: Rate.of('0.20') },
+  { fromCalendarDays: 361, upToCalendarDays: 720, rate: Rate.of('0.175') },
+  { fromCalendarDays: 721, upToCalendarDays: null, rate: Rate.of('0.15') },
+];
 
 export class CdbIncomeTaxPolicy {
   rateForHoldingPeriod(calendarDays: number): Rate {
-    const bracket = HOLDING_PERIOD_BRACKETS.find(
-      ({ upToCalendarDays }) => calendarDays <= upToCalendarDays,
+    const bracket = CDB_INCOME_TAX_BRACKETS.find(
+      ({ upToCalendarDays }) =>
+        upToCalendarDays === null || calendarDays <= upToCalendarDays,
     );
-    return bracket?.rate ?? LONG_TERM_RATE;
+    // The last bracket is open, so one always matches.
+    return (
+      bracket ?? CDB_INCOME_TAX_BRACKETS[CDB_INCOME_TAX_BRACKETS.length - 1]
+    ).rate;
   }
 }

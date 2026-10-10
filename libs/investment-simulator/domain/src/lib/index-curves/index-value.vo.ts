@@ -1,9 +1,14 @@
-import { DomainError, Result, ValueObject } from '@investflow/shared-domain';
+import {
+  DomainError,
+  EAppErrorCode,
+  Result,
+  ValueObject,
+} from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
 
 export class InvalidIndexValueError extends DomainError {
   constructor(reason: string) {
-    super(`Invalid index value: ${reason}`, { code: 'INVALID_INDEX_VALUE' });
+    super(reason, { code: EAppErrorCode.INVALID_INDEX_VALUE });
   }
 }
 
@@ -17,12 +22,12 @@ export class IndexValue extends ValueObject<IndexValue> {
   ): Result<IndexValue, InvalidIndexValueError> {
     const decimal = Result.fromThrowable(
       () => new Decimal(value),
-      () => new InvalidIndexValueError('expected a decimal'),
+      () => new InvalidIndexValueError('Informe um valor numérico.'),
     );
     if (decimal.isErr()) return decimal;
     if (!decimal.value.isFinite() || decimal.value.lessThanOrEqualTo(-1)) {
       return Result.err(
-        new InvalidIndexValueError('value must be finite and greater than -1'),
+        new InvalidIndexValueError('O valor deve ser finito e maior que -1.'),
       );
     }
     return Result.ok(new IndexValue(decimal.value));

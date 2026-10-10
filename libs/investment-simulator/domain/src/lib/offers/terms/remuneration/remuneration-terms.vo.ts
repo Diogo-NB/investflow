@@ -1,5 +1,5 @@
 import { Rate, ValueObject } from '@investflow/shared-domain';
-import { EconomicIndex } from '../../../index-curves/economic-index.enum';
+import { EEconomicIndex } from '../../../index-curves/economic-index.enum';
 
 export type RemunerationKind =
   | 'PREFIXED'
@@ -17,7 +17,7 @@ abstract class RemunerationTermsBase extends ValueObject<RemunerationTerms> {
   // The single contracted rate, whose meaning depends on the kind.
   abstract readonly contractRate: Rate;
   // Index whose curve the remuneration needs, or null when it needs none.
-  abstract readonly requiredIndex: EconomicIndex | null;
+  abstract readonly requiredIndex: EEconomicIndex | null;
 
   equals(other: RemunerationTerms): boolean {
     return (
@@ -58,10 +58,10 @@ export class IndexPercentageRemuneration extends RemunerationTermsBase {
     return new IndexPercentageRemuneration(kind, percentage);
   }
 
-  get requiredIndex(): EconomicIndex.CDI | EconomicIndex.SELIC {
+  get requiredIndex(): EEconomicIndex.CDI | EEconomicIndex.SELIC {
     return this.kind === 'CDI_PERCENTAGE'
-      ? EconomicIndex.CDI
-      : EconomicIndex.SELIC;
+      ? EEconomicIndex.CDI
+      : EEconomicIndex.SELIC;
   }
 
   get contractRate(): Rate {
@@ -71,7 +71,7 @@ export class IndexPercentageRemuneration extends RemunerationTermsBase {
 
 export class IpcaPlusRemuneration extends RemunerationTermsBase {
   readonly kind = 'IPCA_PLUS';
-  readonly requiredIndex = EconomicIndex.IPCA;
+  readonly requiredIndex = EEconomicIndex.IPCA;
 
   private constructor(readonly annualSpread: Rate) {
     super();
@@ -97,6 +97,19 @@ export const RemunerationTerms = {
         return IndexPercentageRemuneration.create(kind, rate);
       case 'IPCA_PLUS':
         return IpcaPlusRemuneration.create(rate);
+    }
+  },
+
+  requiredIndex(kind: RemunerationKind): EEconomicIndex | null {
+    switch (kind) {
+      case 'PREFIXED':
+        return null;
+      case 'CDI_PERCENTAGE':
+        return EEconomicIndex.CDI;
+      case 'SELIC_PERCENTAGE':
+        return EEconomicIndex.SELIC;
+      case 'IPCA_PLUS':
+        return EEconomicIndex.IPCA;
     }
   },
 };

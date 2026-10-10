@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '@investflow/shared-domain';
 import { IndexValue, InvalidIndexValueError } from './index-value.vo';
 
 describe('IndexValue', () => {
@@ -16,7 +17,7 @@ describe('IndexValue', () => {
       const result = IndexValue.create(value);
       expect(result.isErr()).toBe(true);
       expect(result.error).toBeInstanceOf(InvalidIndexValueError);
-      expect(result.error.code).toBe('INVALID_INDEX_VALUE');
+      expect(result.error.code).toBe(EAppErrorCode.INVALID_INDEX_VALUE);
     },
   );
 

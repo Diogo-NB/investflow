@@ -269,13 +269,9 @@ exclusão lógica altera apenas o estado de disponibilidade da curva.
 A reprodução completa também depende da hipótese de aplicação, das condições
 da oferta, do calendário e das regras de cálculo utilizados. Preservar a curva
 é necessário, mas não suficiente para preservar todos esses elementos. Por
-isso, cada execução registrada fixa a curva, o snapshot da oferta, o valor
-inicial, a data de aplicação e a versão da metodologia, além dos resultados
-calculados.
-
-Neste contexto, a oferta é referenciada por um único identificador assumido
-imutável. A solução de armazenamento de suas condições fica delegada a outro
-escopo; esta especificação não introduz cópias de ofertas.
+isso, cada cálculo registrado fixa a curva, uma cópia dos termos da oferta, o
+valor inicial, a data de aplicação e a versão da metodologia, além dos
+resultados calculados.
 
 ### Exclusão Lógica
 

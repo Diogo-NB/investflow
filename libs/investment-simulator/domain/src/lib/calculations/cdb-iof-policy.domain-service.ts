@@ -1,7 +1,16 @@
 import { Money, Rate } from '@investflow/shared-domain';
 
-const IOF_EXEMPTION_HOLDING_DAYS = 30;
-const DAILY_EARNINGS_TAX_RATES: readonly Rate[] = [
+// Decreto nº 6.306/2007, art. 32 and Anexo: a regressive share of the earnings
+// per calendar day held; from the 30th day on, no IOF is due.
+export const CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS = 30;
+
+export interface IofDailyRate {
+  readonly calendarDay: number;
+  readonly rate: Rate;
+}
+
+/** IOF share of the earnings for each calendar day held, days 1 to 29. */
+export const CDB_IOF_DAILY_RATES: readonly IofDailyRate[] = [
   '0.96',
   '0.93',
   '0.90',
@@ -31,17 +40,19 @@ const DAILY_EARNINGS_TAX_RATES: readonly Rate[] = [
   '0.10',
   '0.06',
   '0.03',
-].map((rate) => Rate.of(rate));
+].map((rate, index) => ({ calendarDay: index + 1, rate: Rate.of(rate) }));
 
 export class CdbIofPolicy {
+  /** The share of the earnings due, or null once the holding is exempt. */
+  rateForHoldingPeriod(holdingPeriodCalendarDays: number): Rate | null {
+    return holdingPeriodCalendarDays >= CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS
+      ? null
+      : CDB_IOF_DAILY_RATES[holdingPeriodCalendarDays - 1].rate;
+  }
+
   taxOnEarnings(earnings: Money, holdingPeriodCalendarDays: number): Money {
-    if (
-      !earnings.isPositive() ||
-      holdingPeriodCalendarDays >= IOF_EXEMPTION_HOLDING_DAYS
-    ) {
-      return Money.zero(earnings.currency);
-    }
-    const rate = DAILY_EARNINGS_TAX_RATES[holdingPeriodCalendarDays - 1];
+    const rate = this.rateForHoldingPeriod(holdingPeriodCalendarDays);
+    if (!rate || !earnings.isPositive()) return Money.zero(earnings.currency);
     return earnings.times(rate.value);
   }
 }

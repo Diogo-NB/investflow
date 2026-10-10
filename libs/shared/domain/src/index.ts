@@ -1,4 +1,5 @@
 export * from './lib/foundations/aggregate-root.base';
+export * from './lib/foundations/app-error-code.enum';
 export * from './lib/foundations/app.error';
 export * from './lib/foundations/domain.error';
 export * from './lib/foundations/domain-event.contract';
@@ -13,5 +14,4 @@ export * from './lib/dates/calendar-date-range.vo';
 export * from './lib/dates/utc-instant.vo';
 export * from './lib/investments/investment-type.enum';
 export * from './lib/money/money.vo';
-export * from './lib/rates/positive-decimal';
 export * from './lib/rates/rate.vo';

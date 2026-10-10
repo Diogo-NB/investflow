@@ -3,8 +3,8 @@ import {
   DeleteOfferUseCase,
   UpdateOfferUseCase,
 } from '@investflow/investment-simulator-application';
-import { TitleType } from '@investflow/investment-simulator-domain';
-import { AppError, Result } from '@investflow/shared-domain';
+import { ETitleType } from '@investflow/investment-simulator-domain';
+import { AppError, EAppErrorCode, Result } from '@investflow/shared-domain';
 import { CreateOfferRequest } from './requests/create-offer.request';
 import { OfferIdRequest } from './requests/offer-id.request';
 import { UpdateOfferRequest } from './requests/update-offer.request';
@@ -36,7 +36,7 @@ function createFixture() {
   } as unknown as DeleteOfferUseCase;
   const offer: GetOfferOutput = {
     id: OFFER_ID,
-    titleType: TitleType.CDB,
+    titleType: ETitleType.CDB,
     issuer: { id: ISSUER_ID, name: 'Banco Local' },
     maturityDate: '2028-12-31',
     redemptionTerms: { kind: 'DAILY' },
@@ -89,7 +89,7 @@ describe('OfferController', () => {
   it('returns failed results unchanged for the HTTP interceptor', async () => {
     const fixture = createFixture();
     const error = new AppError('Offer not found', {
-      code: 'OFFER_NOT_FOUND',
+      code: EAppErrorCode.OFFER_NOT_FOUND,
       kind: 'not-found',
     });
     const result = Result.err<void>(error);
@@ -103,7 +103,7 @@ describe('OfferController', () => {
   it('creates an offer and preserves the decimal rate as a string', async () => {
     const fixture = createFixture();
     const request = Object.assign(new CreateOfferRequest(), {
-      titleType: TitleType.LCI,
+      titleType: ETitleType.LCI,
       issuerId: ISSUER_ID,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'DAILY' as const },
@@ -135,7 +135,7 @@ describe('OfferController', () => {
   ] as const)('maps %s remuneration', async (kind, rate) => {
     const fixture = createFixture();
     const request = Object.assign(new CreateOfferRequest(), {
-      titleType: TitleType.CDB,
+      titleType: ETitleType.CDB,
       issuerId: ISSUER_ID,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'AT_MATURITY' as const },

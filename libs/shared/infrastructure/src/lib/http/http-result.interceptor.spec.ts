@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
-import { AppError, Result } from '@investflow/shared-domain';
+import { AppError, EAppErrorCode, Result } from '@investflow/shared-domain';
 import { firstValueFrom, of, throwError } from 'rxjs';
 import { HttpResultInterceptor } from './http-result.interceptor';
 
@@ -23,7 +23,7 @@ describe('HttpResultInterceptor', () => {
 
   it('throws the original AppError for the exception filter', async () => {
     const error = new AppError('Offer not found', {
-      code: 'OFFER_NOT_FOUND',
+      code: EAppErrorCode.OFFER_NOT_FOUND,
       kind: 'not-found',
     });
 

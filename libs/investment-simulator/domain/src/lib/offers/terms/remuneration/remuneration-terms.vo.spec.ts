@@ -1,5 +1,5 @@
 import { Rate } from '@investflow/shared-domain';
-import { EconomicIndex } from '../../../index-curves/economic-index.enum';
+import { EEconomicIndex } from '../../../index-curves/economic-index.enum';
 import {
   IndexPercentageRemuneration,
   IpcaPlusRemuneration,
@@ -58,10 +58,15 @@ describe('RemunerationTerms variants', () => {
     expect(prefixed.requiredIndex).toBeNull();
     expect(cdi).toBeInstanceOf(IndexPercentageRemuneration);
     expect((cdi as IndexPercentageRemuneration).percentage).toBe(rate);
-    expect(cdi.requiredIndex).toBe(EconomicIndex.CDI);
-    expect(selic.requiredIndex).toBe(EconomicIndex.SELIC);
+    expect(cdi.requiredIndex).toBe(EEconomicIndex.CDI);
+    expect(selic.requiredIndex).toBe(EEconomicIndex.SELIC);
     expect(ipca).toBeInstanceOf(IpcaPlusRemuneration);
     expect((ipca as IpcaPlusRemuneration).annualSpread).toBe(rate);
-    expect(ipca.requiredIndex).toBe(EconomicIndex.IPCA);
+    expect(ipca.requiredIndex).toBe(EEconomicIndex.IPCA);
+    for (const terms of [prefixed, cdi, selic, ipca]) {
+      expect(RemunerationTerms.requiredIndex(terms.kind)).toBe(
+        terms.requiredIndex,
+      );
+    }
   });
 });

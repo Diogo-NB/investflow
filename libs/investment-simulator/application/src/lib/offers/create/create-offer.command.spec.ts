@@ -1,4 +1,4 @@
-import { TitleType } from '@investflow/investment-simulator-domain';
+import { ETitleType } from '@investflow/investment-simulator-domain';
 import {
   InvalidCalendarDateError,
   InvalidRateError,
@@ -15,7 +15,7 @@ describe('CreateOfferCommand', () => {
     { kind: 'IPCA_PLUS' as const, rate: '7.5' },
   ])('creates $kind terms from a request', (remunerationTerms) => {
     const command = CreateOfferCommand.fromRequest({
-      titleType: TitleType.CDB,
+      titleType: ETitleType.CDB,
       issuerId: ISSUER_ID,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'AT_MATURITY' },
@@ -32,7 +32,7 @@ describe('CreateOfferCommand', () => {
 
   it('preserves decimal precision', () => {
     const command = CreateOfferCommand.fromRequest({
-      titleType: TitleType.LCI,
+      titleType: ETitleType.LCI,
       issuerId: ISSUER_ID,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'DAILY' },
@@ -51,7 +51,7 @@ describe('CreateOfferCommand', () => {
   it('rejects invalid dates and rates', () => {
     expect(() =>
       CreateOfferCommand.fromRequest({
-        titleType: TitleType.LCA,
+        titleType: ETitleType.LCA,
         issuerId: ISSUER_ID,
         maturityDate: 'not-a-date',
         redemptionTerms: { kind: 'DAILY' },
@@ -61,7 +61,7 @@ describe('CreateOfferCommand', () => {
 
     expect(() =>
       CreateOfferCommand.fromRequest({
-        titleType: TitleType.LCA,
+        titleType: ETitleType.LCA,
         issuerId: ISSUER_ID,
         maturityDate: '2030-05-20',
         redemptionTerms: { kind: 'DAILY' },

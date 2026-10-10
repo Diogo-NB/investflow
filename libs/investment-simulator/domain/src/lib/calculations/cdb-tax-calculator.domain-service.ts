@@ -1,11 +1,13 @@
 import { Money } from '@investflow/shared-domain';
 import { CdbIncomeTaxPolicy } from './cdb-income-tax-policy.domain-service';
 import { CdbIofPolicy } from './cdb-iof-policy.domain-service';
+import type { TaxationBasis } from './investment-calculation.type';
 
 export interface CdbTaxes {
   readonly iof: Money;
   readonly incomeTax: Money;
   readonly totalTaxes: Money;
+  readonly basis: TaxationBasis;
 }
 
 export class CdbTaxCalculator {
@@ -24,7 +26,19 @@ export class CdbTaxCalculator {
     const incomeTaxRate = this.incomeTaxPolicy.rateForHoldingPeriod(
       holdingPeriodCalendarDays,
     );
-    const incomeTax = taxableEarnings.subtract(iof).times(incomeTaxRate.value);
-    return { iof, incomeTax, totalTaxes: iof.add(incomeTax) };
+    const incomeTaxBase = taxableEarnings.subtract(iof);
+    const incomeTax = incomeTaxBase.times(incomeTaxRate.value);
+    return {
+      iof,
+      incomeTax,
+      totalTaxes: iof.add(incomeTax),
+      basis: {
+        holdingPeriodCalendarDays,
+        taxableEarnings,
+        incomeTaxBase,
+        iofRate: this.iofPolicy.rateForHoldingPeriod(holdingPeriodCalendarDays),
+        incomeTaxRate,
+      },
+    };
   }
 }

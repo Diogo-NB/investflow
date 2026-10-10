@@ -9,6 +9,11 @@ export class BusinessDayCalendar {
       .filter((date) => this.isBusinessDay(date)).length;
   }
 
+  // Both endpoints included.
+  nonBusinessDaysIn(range: CalendarDateRange): CalendarDate[] {
+    return range.datesBetween.filter((date) => !this.isBusinessDay(date));
+  }
+
   isBusinessDay(date: CalendarDate): boolean {
     return !date.isWeekend();
   }
