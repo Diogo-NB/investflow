@@ -6,7 +6,6 @@ import {
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import { ApplicationRepository } from '../../applications/application.repository';
-import { findOwnedApplication } from '../../applications/shared/find-owned-application';
 import { findOptionalIndexCurve } from '../../index-curves/find-optional-index-curve';
 import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
 import { OfferRepository } from '../../offers/offer.repository';
@@ -36,8 +35,7 @@ export class RecordSimulationRunUseCase
   async execute(
     command: RecordSimulationRunCommand,
   ): Promise<Result<RecordSimulationRunOutput, AppError>> {
-    const application = await findOwnedApplication(
-      this.applicationRepository,
+    const application = await this.applicationRepository.findById(
       command.applicationId,
       command.ownerId,
     );

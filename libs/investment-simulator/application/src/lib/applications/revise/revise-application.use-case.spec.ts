@@ -76,12 +76,18 @@ describe('ReviseApplicationUseCase', () => {
     expect(application.offerSnapshotId).toBe(replacement.id);
   });
 
-  it("reports another owner's application as not found", async () => {
+  it("looks up the requester's application and stops when it is missing", async () => {
     const { repos, useCase } = setup();
+    const error = new ApplicationNotFoundError('application-id');
+    repos.applications.findById.mockResolvedValue(Result.err(error));
 
     const result = await useCase.execute(command('someone-else'));
 
-    expect(result.error).toBeInstanceOf(ApplicationNotFoundError);
+    expect(repos.applications.findById).toHaveBeenCalledWith(
+      'application-id',
+      'someone-else',
+    );
+    expect(result.error).toBe(error);
     expect(repos.applications.save).not.toHaveBeenCalled();
   });
 });

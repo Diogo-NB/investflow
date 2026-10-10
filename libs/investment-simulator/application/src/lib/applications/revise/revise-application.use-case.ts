@@ -5,7 +5,6 @@ import { findOptionalIndexCurve } from '../../index-curves/find-optional-index-c
 import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
 import { OfferRepository } from '../../offers/offer.repository';
 import { ApplicationRepository } from '../application.repository';
-import { findOwnedApplication } from '../shared/find-owned-application';
 import { ReviseApplicationCommand } from './revise-application.command';
 
 @Injectable()
@@ -23,8 +22,7 @@ export class ReviseApplicationUseCase
     command: ReviseApplicationCommand,
   ): Promise<Result<void, AppError>> {
     const { investment } = command;
-    const application = await findOwnedApplication(
-      this.applicationRepository,
+    const application = await this.applicationRepository.findById(
       command.applicationId,
       command.ownerId,
     );

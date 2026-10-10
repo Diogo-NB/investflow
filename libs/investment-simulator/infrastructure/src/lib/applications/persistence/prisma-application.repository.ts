@@ -24,6 +24,7 @@ export class PrismaApplicationRepository
 
   async findById(
     id: string,
+    ownerId: string,
   ): Promise<
     Result<Application, ApplicationNotFoundError | RepositoryFindError>
   > {
@@ -31,7 +32,7 @@ export class PrismaApplicationRepository
       async () => {
         const record =
           await this.prisma.client.investmentApplication.findUnique({
-            where: { id, deletedAt: null },
+            where: { id, ownerId, deletedAt: null },
           });
         return record ? ApplicationMapper.toDomain(record) : null;
       },

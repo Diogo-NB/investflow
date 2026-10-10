@@ -151,12 +151,15 @@ integration('Application PostgreSQL persistence', () => {
     }).value;
     expect((await applications.save(application)).isOk()).toBe(true);
 
-    const loaded = (await applications.findById(application.id)).value;
+    const loaded = (await applications.findById(application.id, ownerId)).value;
     expect(loaded.ownerId).toBe(ownerId);
     expect(loaded.offerSnapshotId).toBe(snapshot.id);
     expect(loaded.indexCurveId).toBe(curve.id);
     expect(loaded.principal.amount.toFixed()).toBe(principal);
     expect(loaded.investmentDate.toIsoString()).toBe('2026-01-02');
+    expect(
+      (await applications.findById(application.id, 'someone-else')).error.code,
+    ).toBe('APPLICATION_NOT_FOUND');
 
     const { snapshot: prefixed } = await savedSnapshot('PREFIXED');
     expect(
@@ -170,7 +173,8 @@ integration('Application PostgreSQL persistence', () => {
         .isOk(),
     ).toBe(true);
     expect((await applications.save(loaded)).isOk()).toBe(true);
-    const revised = (await applications.findById(application.id)).value;
+    const revised = (await applications.findById(application.id, ownerId))
+      .value;
     expect(revised.offerSnapshotId).toBe(prefixed.id);
     expect(revised.indexCurveId).toBeNull();
     expect(revised.principal.amount.toFixed()).toBe('2500');
@@ -179,9 +183,9 @@ integration('Application PostgreSQL persistence', () => {
     expect((await applications.save(revised.delete(deletedAt))).isOk()).toBe(
       true,
     );
-    expect((await applications.findById(application.id)).error.code).toBe(
-      'APPLICATION_NOT_FOUND',
-    );
+    expect(
+      (await applications.findById(application.id, ownerId)).error.code,
+    ).toBe('APPLICATION_NOT_FOUND');
     const row = await prisma.client.investmentApplication.findUniqueOrThrow({
       where: { id: application.id },
     });

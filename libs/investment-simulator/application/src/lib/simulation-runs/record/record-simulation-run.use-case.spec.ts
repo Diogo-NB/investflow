@@ -52,7 +52,7 @@ function setup(owned = ownedApplication()) {
     new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
     clock,
   );
-  return { ...owned, curves, runs, useCase };
+  return { ...owned, applications, curves, runs, useCase };
 }
 
 function command(ownerId = OWNER_ID) {
@@ -131,12 +131,18 @@ describe('RecordSimulationRunUseCase', () => {
     expect(runs.save).not.toHaveBeenCalled();
   });
 
-  it("reports another owner's application as not found", async () => {
-    const { runs, useCase } = setup();
+  it("looks up the requester's application and stops when it is missing", async () => {
+    const { applications, runs, useCase } = setup();
+    const error = new ApplicationNotFoundError('application-id');
+    applications.findById.mockResolvedValue(Result.err(error));
 
     const result = await useCase.execute(command('someone-else'));
 
-    expect(result.error).toBeInstanceOf(ApplicationNotFoundError);
+    expect(applications.findById).toHaveBeenCalledWith(
+      'application-id',
+      'someone-else',
+    );
+    expect(result.error).toBe(error);
     expect(runs.save).not.toHaveBeenCalled();
   });
 });
