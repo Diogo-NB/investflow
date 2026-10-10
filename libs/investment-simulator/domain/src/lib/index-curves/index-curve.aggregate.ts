@@ -8,6 +8,7 @@ import {
 import { EconomicIndex } from './economic-index.enum';
 import { IndexCurveInterval } from './index-curve-interval.vo';
 import {
+  IndexCurveCoverageError,
   IndexCurveValueNotFoundError,
   InvalidIndexCurveError,
 } from './index-curve.error';
@@ -106,6 +107,22 @@ export class IndexCurve extends AggregateRoot {
     return interval === undefined
       ? Result.err(new IndexCurveValueNotFoundError(this.id, reference))
       : Result.ok(interval.value);
+  }
+
+  // Resolves all references or reports every uncovered one, never a partial list.
+  valuesAt(
+    references: readonly CalendarDate[],
+  ): Result<IndexValue[], IndexCurveCoverageError> {
+    const values: IndexValue[] = [];
+    const missing: CalendarDate[] = [];
+    for (const reference of references) {
+      const interval = this.findInterval(reference);
+      if (interval) values.push(interval.value);
+      else missing.push(reference);
+    }
+    return missing.length
+      ? Result.err(new IndexCurveCoverageError(this.id, missing))
+      : Result.ok(values);
   }
 
   private validate(): Result<this, InvalidIndexCurveError> {

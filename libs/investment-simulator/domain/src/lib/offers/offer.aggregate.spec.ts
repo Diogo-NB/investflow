@@ -54,7 +54,9 @@ describe('Offer', () => {
     expect(snapshot.maturityDate).toBe(MATURITY);
     expect(snapshot.redemptionTerms.kind).toBe('AT_MATURITY');
     expect(snapshot.remunerationTerms.kind).toBe('PREFIXED');
-    expect(snapshot.remunerationTerms.rate.equals(Rate.of('12'))).toBe(true);
+    expect(snapshot.remunerationTerms.contractRate.equals(Rate.of('12'))).toBe(
+      true,
+    );
     expect(snapshot.deletedAt).toBeNull();
     expect(snapshot.createSnapshot().isOk()).toBe(true);
   });

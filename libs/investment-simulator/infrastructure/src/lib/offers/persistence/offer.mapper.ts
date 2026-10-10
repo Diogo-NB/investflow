@@ -49,7 +49,7 @@ export class OfferMapper {
       maturityDate: offer.maturityDate.toUtcDate(),
       redemptionType: offer.redemptionTerms.kind,
       remunerationType: offer.remunerationTerms.kind,
-      rateValue: offer.remunerationTerms.rate.value.toString(),
+      rateValue: offer.remunerationTerms.contractRate.value.toString(),
       deletedAt: offer.deletedAt?.date ?? null,
     };
   }

@@ -70,7 +70,7 @@ describe('OfferMapper', () => {
       const terms = offer.remunerationTerms;
 
       expect(terms.kind).toBe(remunerationType);
-      expect(terms.rate.value.toString()).toBe(
+      expect(terms.contractRate.value.toString()).toBe(
         '12.345678901234567890123456789',
       );
       expect(OfferMapper.toPersistence(offer)).toMatchObject({

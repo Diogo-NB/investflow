@@ -223,6 +223,33 @@ describe('IndexCurve', () => {
     ).toBe(true);
   });
 
+  it('resolves many references in order or reports every uncovered one', () => {
+    const curve = IndexCurve.create(
+      props({
+        intervals: [
+          interval('2026-10-01', '2026-10-02', '0.10'),
+          interval('2026-10-05', '2026-10-05', '0.11'),
+        ],
+      }),
+    ).value;
+    const dates = (...isos: string[]) =>
+      isos.map((iso) => CalendarDate.of(iso));
+
+    expect(
+      curve
+        .valuesAt(dates('2026-10-02', '2026-10-05', '2026-10-01'))
+        .value.map((value) => value.value.toString()),
+    ).toEqual(['0.1', '0.11', '0.1']);
+    const missing = curve.valuesAt(
+      dates('2026-10-02', '2026-10-03', '2026-10-06'),
+    );
+    expect(missing.error.code).toBe('INDEX_CURVE_COVERAGE_MISSING');
+    expect(missing.error.metadata?.['missingReferences']).toEqual([
+      '2026-10-03',
+      '2026-10-06',
+    ]);
+  });
+
   it('reconstitutes persisted state directly and preserves its identity', () => {
     const original = IndexCurve.create(props()).value;
     const curve = IndexCurve.reconstitute({

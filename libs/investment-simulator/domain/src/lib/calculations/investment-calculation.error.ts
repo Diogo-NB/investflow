@@ -1,9 +1,10 @@
-import { AppErrorMetadata, DomainError } from '@investflow/shared-domain';
+import {
+  AppErrorMetadata,
+  CalendarDate,
+  DomainError,
+} from '@investflow/shared-domain';
 
 export type InvestmentCalculationErrorCode =
-  | 'INVESTMENT_APPLICATION_UNAVAILABLE'
-  | 'INVESTMENT_OFFER_SNAPSHOT_MISMATCH'
-  | 'INVESTMENT_OFFER_UNAVAILABLE'
   | 'INVESTMENT_TITLE_UNSUPPORTED'
   | 'INVESTMENT_REMUNERATION_UNSUPPORTED'
   | 'INVESTMENT_PERIOD_INVALID'
@@ -28,5 +29,25 @@ export class InvestmentCalculationError extends DomainError {
       metadata,
       cause,
     });
+  }
+
+  static notBusinessDay(
+    field: 'investmentDate' | 'maturityDate',
+    date: CalendarDate,
+  ): InvestmentCalculationError {
+    return new InvestmentCalculationError(
+      'INVESTMENT_DATE_NOT_BUSINESS_DAY',
+      'investment and maturity dates must be business days',
+      { field, date: date.toIsoString() },
+    );
+  }
+
+  static failed(cause: unknown): InvestmentCalculationError {
+    return new InvestmentCalculationError(
+      'INVESTMENT_CALCULATION_FAILED',
+      'the accrual could not be calculated',
+      undefined,
+      cause,
+    );
   }
 }
