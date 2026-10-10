@@ -122,6 +122,19 @@ use calendar days and IOF before income tax, without reducing daily gross
 balances. Calculations preserve decimal.js default precision without business
 rounding. This does not reproduce B3-specific truncation and rounding.
 
+## Simulation runs
+
+`SimulationRun` is an immutable, append-only record of one successful
+calculation of an `Application`. `SimulationRun.record()` freezes the
+application's inputs at calculation time (offer snapshot ID, index-curve ID,
+principal, and investment date), the calculation's `methodologyVersion`, the
+`calculatedAt` instant supplied by the caller's clock, the maturity summary, and
+every daily balance. Snapshots and curves are immutable, so those inputs fully
+determine the scenario. Runs have no mutators and no deletion; revising an
+application leaves its runs untouched, and read models derive whether a run is
+outdated by comparing its inputs and methodology with the application's current
+state and `METHODOLOGY_VERSION`.
+
 ## Building
 
 Run `pnpm nx build investment-simulator-domain` to build the library.

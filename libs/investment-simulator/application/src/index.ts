@@ -21,3 +21,7 @@ export * from './lib/applications/delete/delete-application.use-case';
 export * from './lib/applications/revise/revise-application.command';
 export * from './lib/applications/revise/revise-application.use-case';
 export * from './lib/applications/shared/application-command-input.type';
+export * from './lib/simulation-runs/simulation-run.repository';
+export * from './lib/simulation-runs/simulation-run-not-found.error';
+export * from './lib/simulation-runs/record/record-simulation-run.command';
+export * from './lib/simulation-runs/record/record-simulation-run.use-case';

@@ -57,6 +57,7 @@ model InvestmentOffer {
   sourceOffer      InvestmentOffer?           @relation("OfferSnapshots", fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   snapshots        InvestmentOffer[]          @relation("OfferSnapshots")
   applications     InvestmentApplication[]
+  simulationRuns   SimulationRun[]
 
   @@index([issuerId])
   @@index([sourceOfferId])
@@ -75,9 +76,48 @@ model InvestmentApplication {
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   offerSnapshot   InvestmentOffer @relation(fields: [offerSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   indexCurve      IndexCurve?     @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  simulationRuns  SimulationRun[]
 
   @@index([ownerId])
   @@map("investment_application")
+}
+
+// Append-only record of one calculation with the inputs that produced it.
+model SimulationRun {
+  id                 String                 @id @db.Uuid
+  ownerId            String                 @map("owner_id")
+  applicationId      String                 @map("application_id") @db.Uuid
+  offerSnapshotId    String                 @map("offer_snapshot_id") @db.Uuid
+  indexCurveId       String?                @map("index_curve_id") @db.Uuid
+  principal          Decimal                @db.Decimal(65, 30)
+  investmentDate     DateTime               @map("investment_date") @db.Date
+  methodologyVersion String                 @map("methodology_version")
+  calculatedAt       DateTime               @map("calculated_at") @db.Timestamptz(3)
+  grossBalance       Decimal                @map("gross_balance") @db.Decimal(65, 30)
+  grossEarnings      Decimal                @map("gross_earnings") @db.Decimal(65, 30)
+  iof                Decimal                @db.Decimal(65, 30)
+  incomeTax          Decimal                @map("income_tax") @db.Decimal(65, 30)
+  totalTaxes         Decimal                @map("total_taxes") @db.Decimal(65, 30)
+  netBalance         Decimal                @map("net_balance") @db.Decimal(65, 30)
+  application        InvestmentApplication  @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  offerSnapshot      InvestmentOffer        @relation(fields: [offerSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  indexCurve         IndexCurve?            @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  balances           SimulationRunBalance[]
+
+  @@index([applicationId, calculatedAt(sort: Desc)])
+  @@map("simulation_run")
+}
+
+model SimulationRunBalance {
+  runId                    String        @map("run_id") @db.Uuid
+  date                     DateTime      @db.Date
+  grossBalance             Decimal       @map("gross_balance") @db.Decimal(65, 30)
+  dailyGrossEarnings       Decimal       @map("daily_gross_earnings") @db.Decimal(65, 30)
+  accumulatedGrossEarnings Decimal       @map("accumulated_gross_earnings") @db.Decimal(65, 30)
+  run                      SimulationRun @relation(fields: [runId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([runId, date])
+  @@map("simulation_run_balance")
 }
 
 enum EconomicIndex {
@@ -89,14 +129,15 @@ enum EconomicIndex {
 }
 
 model IndexCurve {
-  id          String               @id @default(uuid()) @db.Uuid
-  name        String
-  description String?
-  index       EconomicIndex
-  deletedAt   DateTime?            @map("deleted_at") @db.Timestamptz(3)
-  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
-  intervals    IndexCurveInterval[]
-  applications InvestmentApplication[]
+  id             String                  @id @default(uuid()) @db.Uuid
+  name           String
+  description    String?
+  index          EconomicIndex
+  deletedAt      DateTime?               @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  intervals      IndexCurveInterval[]
+  applications   InvestmentApplication[]
+  simulationRuns SimulationRun[]
 
   @@map("index_curve")
 }

@@ -20,3 +20,4 @@ export * from './lib/calculations/cdb-iof-policy.domain-service';
 export * from './lib/offers/terms/redemption/redemption-terms.vo';
 export * from './lib/offers/terms/remuneration/remuneration-terms.vo';
 export * from './lib/offers/title-type.enum';
+export * from './lib/simulation-runs/simulation-run.aggregate';

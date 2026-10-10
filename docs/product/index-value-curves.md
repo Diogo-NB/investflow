@@ -268,7 +268,10 @@ exclusão lógica altera apenas o estado de disponibilidade da curva.
 
 A reprodução completa também depende da hipótese de aplicação, das condições
 da oferta, do calendário e das regras de cálculo utilizados. Preservar a curva
-é necessário, mas não suficiente para preservar todos esses elementos.
+é necessário, mas não suficiente para preservar todos esses elementos. Por
+isso, cada execução registrada fixa a curva, o snapshot da oferta, o valor
+inicial, a data de aplicação e a versão da metodologia, além dos resultados
+calculados.
 
 Neste contexto, a oferta é referenciada por um único identificador assumido
 imutável. A solução de armazenamento de suas condições fica delegada a outro
@@ -281,11 +284,11 @@ Ela registra o instante da primeira exclusão. Repetir a exclusão não altera
 esse instante, o identificador, as premissas ou os intervalos.
 
 Curvas excluídas deixam de ser encontradas na consulta normal por identidade
-e não devem ser oferecidas para novas seleções. A exclusão preserva o conteúdo
-armazenado para permitir a reprodução de simulações que já utilizavam a curva.
-O fluxo específico de acesso a curvas excluídas para reprodução será definido
-ao implementar a execução das simulações. Restauração e exclusão física não
-fazem parte desta etapa.
+e não podem ser vinculadas a aplicações nem usadas em novas execuções, mesmo
+por aplicações que já as tinham vinculado. A exclusão preserva o conteúdo
+armazenado: execuções registradas antes da exclusão continuam consultáveis com
+seus resultados originais. Restauração e exclusão física não fazem parte desta
+etapa.
 
 ## Histórico e Projeções
 
