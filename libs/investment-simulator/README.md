@@ -1,6 +1,6 @@
 # Investment Simulator Bounded Context
 
-`investment-simulator` is one bounded context composed from four Nx library
+`investment-simulator` is one bounded context composed from Nx library
 projects:
 
 - `domain` owns investment simulation rules, aggregates, value objects, and
@@ -9,8 +9,9 @@ projects:
   does not select a deployment host.
 - `infrastructure` exposes Nest controllers and query handlers and implements
   persistence and integration adapters.
-- `web` owns lazy Angular offer routes, state, forms, and browser API clients.
-  It exports route composition only and never imports backend projects.
+- `web` (being rebuilt as an `@nx/react` library; not present yet) owns the
+  lazy React offer routes, feature hooks, forms, and browser API clients. It
+  exports route composition only and never imports backend projects.
 
 The libraries are not independently deployed. `apps/api` currently imports the
 public infrastructure module and deploys this context with every other active

@@ -1,6 +1,6 @@
 # InvestFlow
 
-NestJS and Angular Nx workspace for an investment-related, event-driven DDD
+NestJS and React Nx workspace for an investment-related, event-driven DDD
 application. The API and client-rendered web application are independent
 deployable hosts. The investment simulator is the first active backend bounded
 context. The authenticated web app includes a welcome page and offer management
@@ -56,10 +56,10 @@ production. Successful login opens the Portuguese welcome page with your identit
 and a logout action. Authentication initialization failures show a retry action.
 The existing realm supports these screens; no database reset is needed.
 
-Angular uses two committed, typed environment files: `environment.ts` for
-local development and `environment.production.ts` for production. Update the
-production file with the deployed Keycloak public URL before releasing, then
-build with Angular's production configuration:
+The web app uses two committed, typed environment files: one for local
+development and one for production. Update the production file with the
+deployed Keycloak public URL before releasing, then build with the production
+configuration:
 
 ```sh
 pnpm nx build web --configuration=production
@@ -155,14 +155,14 @@ Result/error handling, and class design conventions are documented in
 
 ## Frontend
 
-The recreated web app keeps Angular 21.2 and the installed Nx, TypeScript, Node,
-and package versions. It uses standalone zoneless components, OnPush, native
-signals, Tailwind v4, custom-themed Angular Material, and locally hosted IBM
-Plex Sans with its included Open Font License.
+The web app is a React 19 + Vite 8 SPA (`apps/web`) using React Router (Data
+mode), Tailwind v4, `keycloak-js`, and Vitest, with locally hosted IBM Plex
+Sans and its included Open Font License. TanStack Query, React Hook Form with
+Zod, and Base UI arrive with the offer catalog rebuild.
 
-- [Frontend architecture and approved experimental APIs](docs/architecture/frontend-patterns.md)
+- [Frontend architecture, stack versions, and status](docs/architecture/frontend-patterns.md)
 - [Visual rules and tokens](DESIGN.md)
-- [Repository Angular skill](.agents/skills/investflow-angular/SKILL.md)
+- [Repository React skill](.agents/skills/investflow-react/SKILL.md)
 
 ```sh
 pnpm nx run web:lint
@@ -171,34 +171,15 @@ pnpm nx build web --configuration=development
 pnpm build:web
 ```
 
-Unit tests exercise auth, offer state and HTTP boundaries, precise rate conversion,
-form orchestration, routing, and bootstrap without rendering templates.
-`pnpm test:web` includes the app and `investment-simulator-web` library. Verify
-login and the offer CRUD in a browser, including failures, unsaved changes,
-keyboard focus, and responsive layouts. No permanent browser E2E project is included.
+Unit tests exercise Keycloak startup, the session refresh and inactivity policy,
+identity, logout, and routing without asserting rendered markup. Verify login,
+logout, startup failure and retry, keyboard focus, and responsive layouts in a
+browser. No permanent browser E2E project is included.
 
 ### Offer management
 
-The home page's **Ofertas** card opens `/ofertas`. Search by issuer name, filter
-CDB/LCI/LCA, and browse 20 offers per page. Filter state lives in the URL and is
-preserved when opening and returning from details or editing.
-
-- `/ofertas/nova`: choose an existing issuer and enter title, maturity,
-  redemption, remuneration, and percentage.
-- `/ofertas/:offerId`: view terms and confirm deletion.
-- `/ofertas/:offerId/editar`: update maturity, redemption, or remuneration;
-  issuer and title type remain immutable.
-
-Percentages use user-facing units: `110` for 110% of CDI, `12` for 12% per year,
-and `6` for IPCA + 6% per year. The browser converts these exactly into decimal
-fractions (`1.1`, `0.12`, and `0.06`) without floating-point rounding. Rates stay
-strings across HTTP and dates stay calendar strings without timezone offsets.
-The catalog is shared by authenticated users; deletion is soft deletion.
-
-The feature requires an existing issuer. If the catalog has no issuer, creation
-explains the prerequisite; this task does not add issuer management. An existing
-local setup does not need reseeding. `pnpm db:seed` restores sample fixtures when
-intentionally requested and can restore previously deleted seed offers.
-
-See the [offer HTTP contract](libs/investment-simulator/infrastructure/README.md)
-and [browser feature ownership](libs/investment-simulator/web/README.md).
+The browser offer catalog is being rebuilt as a React library, so the web app
+currently shows only the welcome page. The offer API is unchanged; see the
+[offer HTTP contract](libs/investment-simulator/infrastructure/README.md). The
+screens to rebuild are specified in
+[Offer CRUD behavior](docs/architecture/frontend-patterns.md#offer-crud-behavior).

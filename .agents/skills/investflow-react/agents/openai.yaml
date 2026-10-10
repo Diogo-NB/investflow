@@ -1,0 +1,7 @@
+interface:
+  display_name: "InvestFlow React"
+  short_description: "Build InvestFlow's lean React + Vite frontend"
+  default_prompt: "Use $investflow-react to implement this frontend change with the repository's established patterns."
+
+policy:
+  allow_implicit_invocation: true

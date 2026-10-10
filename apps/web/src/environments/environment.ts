@@ -1,10 +1,8 @@
-import { WebEnvironment } from './environment.type';
+import { developmentEnvironment } from './environment.development';
+import { productionEnvironment } from './environment.production';
 
-export const environment: WebEnvironment = {
-  production: false,
-  keycloak: {
-    url: 'http://localhost:8080',
-    realm: 'investflow',
-    clientId: 'investflow-web',
-  },
-};
+// Vite replaces the mode at build time, so each bundle keeps only one configuration.
+export const environment =
+  import.meta.env.MODE === 'production'
+    ? productionEnvironment
+    : developmentEnvironment;

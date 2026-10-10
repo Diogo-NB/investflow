@@ -8,7 +8,9 @@
 - Positioning: approachable personal finance. Adjectives: precise, calm,
   approachable. Aesthetic essence: clear, grounded, ready.
 - Approved direction: Minimal Product Workspace, light theme only, Tailwind v4
-  with custom-themed Angular Material and locally hosted IBM Plex Sans.
+  with Base UI interaction primitives and locally hosted IBM Plex Sans, built
+  with React + Vite. The offer catalog screens are being rebuilt (2026-10-10);
+  audit entries before that date record the visual outcome they must reproduce.
 - References: [Nord](https://nordhealth.design/) for restrained application
   spacing and surface hierarchy; [IBM Plex](https://www.ibm.com/plex/) for
   legible functional typography. Use their principles, not their components.
@@ -76,20 +78,20 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
 - Base spacing increment: 4px; favor 8px multiples for related regions.
 - Radius: 4px controls/brand mark; 8px primary surfaces.
 - Elevation: defined edges only. No diffuse shadows or nested cards.
-- Material density: 0. Product actions have at least 44px targets.
-- Logout: secondary text action; Material supplies hover/active feedback. Pending
+- Default control density. Product actions have at least 44px targets.
+- Logout: secondary text action with token-based hover/active feedback. Pending
   logout disables the action and displays `Saindo…`; failure exposes a useful
   Portuguese alert and allows retry.
 - Bootstrap: visible `Iniciando sua sessão…` status, then the authenticated shell
   or a safe error and one reload action. The recovery action uses native HTML
-  because Angular has not bootstrapped.
+  because the UI framework has not rendered.
 - Keyboard: skip link, wordmark link, logout/retry. Focus uses a 2px accent outline
   with separation; the skip target is the main landmark.
   The main landmark receives route/skip-link focus without a browser outline;
   interactive controls keep their visible focus indicators.
-- Dropdowns use Material `mat-select` and `mat-option` for triggers and popups,
-  with 8px horizontal trigger padding inside the form-field inset. Focus is
-  shown by Material's outer field border, without an inner text outline.
+- Dropdowns use the Base UI Select for triggers and popups, with 8px
+  horizontal trigger padding inside the field inset. Focus is shown by the
+  outer field border, without an inner text outline.
 - Welcome entry: a single bordered link card, heading/copy on the left and a
   textual navigation action on the right; wraps on mobile. Green hover/focus
   feedback comes from existing tokens.
@@ -101,20 +103,20 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
 - Editor: one white surface, three fieldsets separated by horizontal rules,
   two-column fields above 640px and one column below. Labels remain visible;
   validation appears after touch/submission and retains entered values.
-- Vencimento: Material calendar popup with Portuguese controls and a visible SVG
+- Vencimento: calendar popup (react-day-picker in a Base UI Popover) with Portuguese controls and a visible SVG
   calendar toggle; typed dates use DD/MM/AAAA. The form/API retain YYYY-MM-DD
   civil dates. Picker and input are disabled while saving.
 - Rates: show contracted percentages with kind-specific units and a textual
   preview. Changing kind clears the rate to avoid carrying different units.
-- Dialogs: Material focus management and 8px token radius; cancel first.
+- Dialogs: Base UI Dialog/AlertDialog focus management and 8px token radius; cancel first.
   Delete confirmation uses the existing error token for its primary action.
 - Pending operations disable repeat actions; loading, empty, filtered-empty,
   failure/retry, missing-record, and success states include useful text.
 
 ## Motion, iconography, imagery, and dark mode
 
-Only direct control feedback is needed. Material handles its ripple; reduced
-motion suppresses the ripple. There are no page-entry transitions, animated
+Only direct control feedback is needed, with no ripple effects; reduced motion
+suppresses control transitions. There are no page-entry transitions, animated
 status indicators, icon fonts, illustration assets, or dark theme. Home navigation
 uses a text arrow rather than adding an icon set. The brand
 square is text and CSS, not an image.
@@ -165,16 +167,15 @@ reset. Templates and host metadata use semantic utilities such as `bg-surface`,
 `text-muted`, `text-accent`, and `rounded-control`; default Tailwind color/radius
 namespaces are cleared. No component stylesheets are needed.
 
-`apps/web/src/material-theme.scss` is the documented Sass exception for Material's
-`mat.theme`, theme overrides, button overrides, and datepicker integration. It references the CSS tokens
-for product colors/radii and uses the same IBM Plex typography. Load it after the
-Tailwind stylesheet. Sass does not own product layout or a separate palette.
+Base UI primitives are unstyled and use the same semantic utilities, so no
+theme bridge or component stylesheet is needed. `styles.css` also owns the
+global `:focus-visible` outline and the reduced-motion reset.
 
 ## Audit
 
 2026-10-06, control refinements: the main landmark retains programmatic focus
 without the browser outline; interactive controls retain visible focus. All
-offer dropdowns have consistent inset padding. The Portuguese Material date
+offer dropdowns have consistent inset padding. The Portuguese date
 picker passes calendar selection, manual/invalid entry, focus, pending disablement,
 and preservation after failed save. Dates round-trip through the widget and HTTP
 payload in America/Sao_Paulo and Pacific/Kiritimati. Browser checks cover existing
@@ -215,11 +216,16 @@ unverified until setup is completed.
 
 ## Changelog
 
+- 2026-10-10: rebuilt the shell and welcome page in React + Vite and moved
+  interaction primitives to Base UI. The welcome page has no feature cards until
+  the offer catalog is rebuilt. Tokens, typography, layouts, and states are
+  unchanged.
+
 - 2026-10-06: added the offer entry card and catalog CRUD layouts, form states,
   responsive offer rows, exact percentage presentation, and confirmation dialogs.
   Kept the approved workspace identity and dependency versions.
 
 - 2026-10-06: replaced Calm Ledger with the approved light workspace direction,
-  self-hosted IBM Plex Sans, green semantic tokens, themed Material, and an
+  self-hosted IBM Plex Sans, green semantic tokens, themed interaction components, and an
   auth-only welcome page. Removed the connectivity screen and decorative balance
   marker. The installed toolchain remains unchanged.

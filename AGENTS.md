@@ -19,13 +19,22 @@ Load the repository skill that matches the work:
   query handlers, Nest modules, dependency injection, and host composition.
 - `$investflow-eventing` for domain events, the transactional outbox, SNS/SQS,
   consumers, retries, and idempotency.
-- `$investflow-angular` for routes, components, forms, browser API clients,
-  state, styling, accessibility, and frontend tests.
+- `$investflow-react` for routes, components, hooks, forms, browser API
+  clients, state, styling, accessibility, and frontend tests.
 
-Cross-layer changes can require more than one skill. Repository Angular
-conventions take precedence over generic Angular skills: use Nx generators,
-retain installed package and toolchain versions unless an upgrade is explicitly
-requested, and follow the state-first frontend testing policy.
+Vendored frontend skills (tracked in `skills-lock.json`) supplement
+`$investflow-react`:
+
+- `$react-router` for routing (this app uses Data mode).
+- `$vercel-composition-patterns` for component API design.
+- `$vercel-react-best-practices` for performance work and reviews.
+
+Cross-layer changes can require more than one skill. Repository conventions in
+`$investflow-react` and `docs/architecture/frontend-patterns.md` take precedence
+over vendored skills: this is a client-only SPA (ignore server, RSC, and
+Next.js rules), use Nx generators, retain installed package and toolchain
+versions unless an upgrade is explicitly requested, and follow the state-first
+frontend testing policy.
 
 ## Architecture Invariants
 
@@ -68,20 +77,21 @@ requested, and follow the state-first frontend testing policy.
   technical auditing. Persistence timestamps remain an infrastructure concern;
   temporal fields belong in the domain only when business rules, state
   transitions, or calculations depend on them.
-- Frontend state is signal-first: use native Angular `signal()` for mutable UI
-  state and `computed()` for derived state, including inside feature-scoped
-  state services. Keep RxJS at asynchronous boundaries. Do not introduce NgRx
-  SignalStore or another state library without demonstrated coordination or
-  workflow complexity that native signals do not handle clearly.
-- Frontend code defaults to stable, framework-native Angular APIs: standalone
-  components, zoneless change detection, `OnPush`, `inject()`, signal component
-  APIs, native template control flow, lazy feature routes, functional providers,
-  and native signals. Signal Forms, `resource()`, and `httpResource()` are
-  explicitly approved experimental Angular 21 APIs; prefer Signal Forms for
-  new forms and `httpResource()` for reactive reads. Use HttpClient/RxJS for
-  commands and asynchronous workflows. The adoption, lifecycle, fallback, and
-  migration risks are documented in `$investflow-angular` and the frontend
-  architecture guide. Other experimental APIs require a separate decision.
+- The frontend is React 19 + Vite 8 (decision 2026-10-10). The browser offer
+  CRUD is not rebuilt yet; follow the status sequence in
+  `docs/architecture/frontend-patterns.md`. Rebuild features from the recorded
+  behavior and design them as idiomatic React; never transliterate earlier
+  implementations.
+- Frontend code uses modern, stable, mainstream React: function components,
+  hooks, React Router Data mode with lazy routes, TanStack Query for server
+  state, React Hook Form with Zod for forms, and Base UI with Tailwind v4 for
+  interaction primitives. Experimental, canary, `unstable_*`, RSC, and pre-1.0
+  or niche dependencies require a separate dated decision in the frontend guide.
+- Frontend state starts in its narrowest owner (`useState`/`useReducer`, then a
+  feature hook, then lifted state or a feature context) and is derived during
+  render. Effects only synchronize with external systems. Do not introduce
+  Redux, Zustand, or another state library without demonstrated coordination
+  or workflow complexity.
 
 ## Build, Test, and Development Commands
 
@@ -100,8 +110,8 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 - `pnpm db:migrate`: create/apply local Prisma migrations after schema changes.
 - `pnpm start:api`: serve the API in development mode.
 - `pnpm build:api`: build the API into `dist/`.
-- `pnpm test`: run all project tests (Jest for backend, Angular-native Vitest for frontend).
-- `pnpm check`: lint, test, and build all Nx projects.
+- `pnpm test`: run all project tests (Jest for backend, Vitest for frontend).
+- `pnpm check`: lint, test, typecheck, and build all Nx projects.
 - `pnpm db:generate`: regenerate the Prisma client.
 
 Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding, use Nx generators and preserve existing project tags.
@@ -130,17 +140,17 @@ The workspace intentionally retains `baseUrl` because the Nx TypeScript executor
 
 ## Testing Guidelines
 
-Backend projects use Jest; frontend projects use Angular-native Vitest through Nx.
-Place focused unit tests beside source files using `*.spec.ts`. Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
+Backend projects use Jest; frontend projects use Vitest through Nx.
+Place focused unit tests beside source files using `*.spec.ts` (`*.spec.tsx` when a test needs JSX). Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
 
 Do not add request-DTO unit suites that merely repeat built-in
 `class-validator` behavior. Test custom validators and decorators directly,
 controller orchestration separately, and command request-mapping in command
 tests.
 
-Frontend tests follow the state-first policy in `$investflow-angular`: test
-stores and component orchestration without rendering templates or asserting
-HTML/UI details.
+Frontend tests follow the state-first policy in `$investflow-react`: test
+feature hooks (with `renderHook`), API adapters, and pure helpers without
+asserting DOM structure or UI details.
 
 ## Commit & Pull Request Guidelines
 

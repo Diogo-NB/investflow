@@ -31,7 +31,7 @@ apps/api
 
 apps/web
 └── Keycloak authentication, shell, and welcome page
-    └── lazy offer routes -> libs/investment-simulator/web
+    └── lazy context routes (offer routes being rebuilt in libs/investment-simulator/web)
 ```
 
 `apps/api` is the system composition root. It chooses the contexts deployed in
@@ -85,12 +85,13 @@ projects plus an optional browser presentation project:
   and abstract-class ports.
 - `infrastructure`: Nest modules, controllers, DTOs, Prisma repositories,
   query handlers, mappers, presenters, consumers, and logging adapters.
-- `web`: Angular routes, feature components, browser API clients, and display
+- `web`: React routes, feature components and hooks, browser API clients, and display
   types. Its public API exposes route definitions for a browser app to compose.
 
 `apps/web` is the browser composition root. It owns authentication, the shell,
-and a welcome page. Offer CRUD lives in the lazy-loaded
-`libs/investment-simulator/web` project and uses relative `/api` requests. The development server proxies
+and a welcome page. Offer CRUD belongs in the lazy-loaded
+`libs/investment-simulator/web` project, which is being rebuilt, and uses
+relative `/api` requests. The development server proxies
 those requests to `http://localhost:3000`; production hosting must route them
 to the independently deployed NestJS API.
 
@@ -121,7 +122,7 @@ package. Feature-specific item models remain owned by their respective context.
 
 Repository-wide `pnpm build` and `pnpm check` intentionally include both
 applications. Backend-only build and delivery pipelines use targeted API tasks
-such as `pnpm build:api` or `pnpm nx run api:prune` so Angular dependencies are
+such as `pnpm build:api` or `pnpm nx run api:prune` so browser dependencies are
 not pulled into the API artifact.
 
 ## Folder Taxonomy

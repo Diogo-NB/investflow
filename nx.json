@@ -41,6 +41,27 @@
       "options": {
         "targetName": "test"
       }
+    },
+    {
+      "plugin": "@nx/vite/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "serveTargetName": "serve",
+        "devTargetName": "dev",
+        "previewTargetName": "preview",
+        "serveStaticTargetName": "serve-static",
+        "typecheckTargetName": "typecheck",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "options": {
+        "testTargetName": "test",
+        "ciTargetName": "test-ci",
+        "testMode": "watch"
+      }
     }
   ],
   "targetDefaults": {
@@ -53,41 +74,26 @@
       "cache": true,
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]
-    },
-    "@angular/build:application": {
-      "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": ["production", "^production"]
-    },
-    "@angular/build:unit-test": {
-      "cache": true,
-      "inputs": ["default", "^production"]
-    },
-    "@nx/angular:ng-packagr-lite": {
-      "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": ["production", "^production"]
-    },
-    "@nx/angular:unit-test": {
-      "cache": true,
-      "inputs": ["default", "^production"]
     }
   },
   "generators": {
-    "@nx/angular:application": {
-      "e2eTestRunner": "none",
-      "linter": "eslint",
-      "style": "css",
-      "unitTestRunner": "vitest-angular",
-      "zoneless": true
-    },
-    "@nx/angular:library": {
-      "linter": "eslint",
-      "unitTestRunner": "vitest-angular"
-    },
-    "@nx/angular:component": {
-      "style": "none",
-      "changeDetection": "OnPush"
+    "@nx/react": {
+      "application": {
+        "bundler": "vite",
+        "linter": "eslint",
+        "style": "none",
+        "unitTestRunner": "vitest",
+        "e2eTestRunner": "none"
+      },
+      "library": {
+        "bundler": "none",
+        "linter": "eslint",
+        "style": "none",
+        "unitTestRunner": "vitest"
+      },
+      "component": {
+        "style": "none"
+      }
     }
   }
 }

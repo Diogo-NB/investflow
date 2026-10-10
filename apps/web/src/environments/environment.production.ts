@@ -1,7 +1,6 @@
-import { WebEnvironment } from './environment.type';
+import type { WebEnvironment } from './environment.type';
 
-export const environment: WebEnvironment = {
-  production: true,
+export const productionEnvironment: WebEnvironment = {
   keycloak: {
     url: 'https://login.example.com',
     realm: 'investflow',

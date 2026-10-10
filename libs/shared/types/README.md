@@ -3,8 +3,9 @@
 Cross-context compile-time types organized by reusable capability. For example,
 identity shapes live under `src/lib/authentication` and pagination contracts under
 `src/lib/pagination`. This server-only project is available to backend code.
-The frontend defines its own pagination interface inside
-`libs/investment-simulator/web/src/lib/pagination` and uses relative imports.
+The frontend defines its own pagination interface inside its web project
+(`libs/investment-simulator/web/src/lib/pagination` once rebuilt) and uses
+relative imports.
 Keep this project free of runtime behavior, framework/Node dependencies, and
 feature-context imports; export types through `src/index.ts`.
 
