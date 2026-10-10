@@ -1,6 +1,7 @@
 import {
   AggregateRoot,
   CalendarDate,
+  DomainError,
   generateUuid,
   Money,
   Result,
@@ -123,12 +124,7 @@ export class Application extends AggregateRoot {
   toScenario(
     offerSnapshot: Offer,
     indexCurve: IndexCurve | null,
-  ): Result<
-    InvestmentScenario,
-    | ApplicationDeletedError
-    | InvalidApplicationError
-    | InvestmentCalculationError
-  > {
+  ): Result<InvestmentScenario, DomainError> {
     if (this.props.deletedAt) {
       return Result.err(new ApplicationDeletedError(this.id));
     }
