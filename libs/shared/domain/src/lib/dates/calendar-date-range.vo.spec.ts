@@ -48,22 +48,23 @@ describe('CalendarDateRange', () => {
     expect(range.overlaps(other)).toBe(true);
   });
 
-  it('visits every day in order including both endpoints', () => {
-    const visited: string[] = [];
-    CalendarDateRange.of(
+  it('lists every day in order including both endpoints', () => {
+    const dates = CalendarDateRange.of(
       CalendarDate.of('2024-02-28'),
       CalendarDate.of('2024-03-01'),
-    ).forEachDayIn((date) => visited.push(date.toIsoString()));
+    ).datesBetween();
 
-    expect(visited).toEqual(['2024-02-28', '2024-02-29', '2024-03-01']);
+    expect(dates.map((date) => date.toIsoString())).toEqual([
+      '2024-02-28',
+      '2024-02-29',
+      '2024-03-01',
+    ]);
   });
 
-  it('visits the single day of a one-day range', () => {
+  it('lists the single day of a one-day range', () => {
     const day = CalendarDate.of('2026-01-02');
-    const visited: CalendarDate[] = [];
-    CalendarDateRange.of(day, day).forEachDayIn((date) => visited.push(date));
 
-    expect(visited).toEqual([day]);
+    expect(CalendarDateRange.of(day, day).datesBetween()).toEqual([day]);
   });
 
   it('requires an explicit date when checking expiration', () => {
