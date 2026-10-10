@@ -12,6 +12,8 @@ export class InvalidCalendarDateRangeError extends DomainError {
 }
 
 export class CalendarDateRange extends ValueObject<CalendarDateRange> {
+  private dates?: readonly CalendarDate[];
+
   private constructor(
     readonly start: CalendarDate,
     readonly end: CalendarDate,
@@ -48,17 +50,21 @@ export class CalendarDateRange extends ValueObject<CalendarDateRange> {
     return !this.start.isAfter(other.end) && !other.start.isAfter(this.end);
   }
 
-  // Every calendar day in order, both endpoints included.
-  datesBetween(): CalendarDate[] {
-    const dates: CalendarDate[] = [];
-    for (
-      let date = this.start;
-      !date.isAfter(this.end);
-      date = date.addDays(1)
-    ) {
-      dates.push(date);
+  // Every calendar day in order, both endpoints included. Computed on first
+  // access and reused; readonly so callers cannot alter the shared list.
+  get datesBetween(): readonly CalendarDate[] {
+    if (!this.dates) {
+      const dates: CalendarDate[] = [];
+      for (
+        let date = this.start;
+        !date.isAfter(this.end);
+        date = date.addDays(1)
+      ) {
+        dates.push(date);
+      }
+      this.dates = dates;
     }
-    return dates;
+    return this.dates;
   }
 
   isExpired(at: CalendarDate): boolean {

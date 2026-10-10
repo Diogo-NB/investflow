@@ -52,7 +52,7 @@ describe('CalendarDateRange', () => {
     const dates = CalendarDateRange.of(
       CalendarDate.of('2024-02-28'),
       CalendarDate.of('2024-03-01'),
-    ).datesBetween();
+    ).datesBetween;
 
     expect(dates.map((date) => date.toIsoString())).toEqual([
       '2024-02-28',
@@ -64,7 +64,16 @@ describe('CalendarDateRange', () => {
   it('lists the single day of a one-day range', () => {
     const day = CalendarDate.of('2026-01-02');
 
-    expect(CalendarDateRange.of(day, day).datesBetween()).toEqual([day]);
+    expect(CalendarDateRange.of(day, day).datesBetween).toEqual([day]);
+  });
+
+  it('computes the dates once and reuses them', () => {
+    const range = CalendarDateRange.of(
+      CalendarDate.of('2026-01-01'),
+      CalendarDate.of('2026-01-31'),
+    );
+
+    expect(range.datesBetween).toBe(range.datesBetween);
   });
 
   it('requires an explicit date when checking expiration', () => {

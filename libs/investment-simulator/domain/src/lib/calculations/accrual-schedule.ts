@@ -35,9 +35,10 @@ export function accrualPeriodsBetween(
 
   // Each business day closes the period opened by the previous one; the
   // investment date only opens the first period.
-  const businessDays = CalendarDateRange.of(investmentDate, maturityDate)
-    .datesBetween()
-    .filter((date) => calendar.isBusinessDay(date));
+  const businessDays = CalendarDateRange.of(
+    investmentDate,
+    maturityDate,
+  ).datesBetween.filter((date) => calendar.isBusinessDay(date));
   return Result.ok(
     businessDays.slice(1).map((balanceDate, index) => ({
       rateReferenceDate: businessDays[index],
