@@ -1,6 +1,6 @@
 import { Rate, ValueObject } from '@investflow/shared-domain';
 
-type RemunerationKind =
+export type RemunerationKind =
   | 'PREFIXED'
   | 'IPCA_PLUS'
   | 'CDI_PERCENTAGE'

@@ -102,6 +102,36 @@ describe('Money', () => {
       expect(() => brl.add(usd)).toThrow(MoneyCurrencyMismatchError);
       expect(() => brl.subtract(usd)).toThrow(MoneyCurrencyMismatchError);
     });
+
+    it('multiplies by a decimal factor while preserving currency and precision', () => {
+      const money = Money.of('100.123456789', 'USD');
+      const factor = new Decimal('1.0001');
+      const result = money.times(factor);
+
+      expect(result.amount.toString()).toBe('100.1334691346789');
+      expect(result.currency).toBe('USD');
+      expect(money.amount.toString()).toBe('100.123456789');
+      expect(factor.toString()).toBe('1.0001');
+    });
+
+    it.each([
+      ['0', '0'],
+      ['1', '10'],
+      ['-2', '-20'],
+    ])('multiplies by %s to produce %s', (factor, expected) => {
+      const result = Money.of('10', 'EUR').times(new Decimal(factor));
+      expect(result.amount.toString()).toBe(expected);
+      expect(result.currency).toBe('EUR');
+    });
+
+    it.each(['NaN', 'Infinity'])(
+      'rejects a non-finite product with factor %s',
+      (factor) => {
+        expect(() => Money.of(10).times(new Decimal(factor))).toThrow(
+          InvalidMoneyError,
+        );
+      },
+    );
   });
 
   describe('comparison', () => {

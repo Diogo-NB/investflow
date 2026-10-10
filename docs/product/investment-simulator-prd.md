@@ -46,12 +46,12 @@ Dados de entrada:
 - valor inicial;
 - data de aplicação;
 - data de vencimento ou prazo;
-- tipo: prefixado, pós-fixado por CDI ou híbrido por IPCA;
-- taxa fixa, percentual do CDI e/ou IPCA, conforme o tipo;
+- tipo: prefixado, pós-fixado por CDI ou SELIC efetiva, ou híbrido por IPCA;
+- taxa fixa, percentual do CDI ou SELIC e/ou IPCA, conforme o tipo;
 - liquidez diária ou somente no vencimento;
 - data de resgate antecipado, quando permitida.
 
-CDI e IPCA são informados manualmente e armazenados com data de referência.
+CDI, SELIC efetiva e IPCA são informados manualmente e armazenados com data de referência.
 Esses valores compõem curvas selecionáveis, com intervalos explícitos,
 convenção única e conteúdo imutável. Alterações criam outra curva com outro
 identificador. Podem existir várias curvas para o
@@ -61,6 +61,10 @@ No recorte atual das curvas, a execução calcula a trajetória bruta de todos
 os dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem
 somente no resumo do vencimento. A funcionalidade geral de resgate antecipado
 descrita neste PRD permanece fora desse recorte.
+
+O calculador inicial suporta CDB prefixado, percentual do CDI e percentual da
+SELIC efetiva. IPCA permanece previsto no produto, mas seu cálculo fica adiado
+até a definição do perfil contratual.
 
 ### Resultados
 
@@ -117,6 +121,8 @@ PDF/CSV ficam fora do escopo.
   derivados anualmente da data da Páscoa pelo computus gregoriano documentado
   no domínio compartilhado.
 - A contagem exclui a data inicial e inclui a data final.
+- A execução exige aplicação e vencimento em dias úteis, sem ajuste automático.
+  A hipótese pode ser cadastrada com outras datas, mas não pode ser calculada.
 - Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
   extraordinárias de calendário ficam fora do MVP.
 
@@ -143,10 +149,25 @@ saldo_bruto = saldo_bruto_anterior * fator_diario_aplicacao
 
 As taxas e o percentual usam valores decimais: 12% equivale a 0,12 e 105% do
 CDI equivale a 1,05. Usar a taxa de referência de cada período e acumular os
-fatores diários. A conciliação entre a data da taxa e a data do saldo ainda
-precisa ser definida, conforme a documentação de curvas.
+fatores diários. A taxa da data inicial de cada intervalo útil remunera até
+o próximo dia útil; o saldo é apresentado nessa data final. As referências
+incluem a aplicação e excluem o vencimento.
 
 Referência: [metodologia de cálculo acumulado do DI — B3](https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-de-segmentos-e-setoriais/di/metodologia-de-calcudo-acumulado-de-di/).
+
+### CDB Pós-Fixado por SELIC Efetiva
+
+Usar a curva de SELIC efetiva em taxa anual base 252, convertendo a taxa anual
+para a equivalente diária antes de aplicar o percentual contratado:
+
+```text
+taxa_diaria_SELIC = (1 + SELIC_anual) ^ (1 / 252) - 1
+fator_diario_aplicacao = 1 + taxa_diaria_SELIC * percentual_da_SELIC
+saldo_bruto = saldo_bruto_anterior * fator_diario_aplicacao
+```
+
+Usar a mesma convenção de datas do CDI. A remuneração exige uma curva de SELIC;
+uma curva de CDI não pode substituí-la. Não há conversão implícita da meta SELIC.
 
 ### CDB Híbrido
 
@@ -276,8 +297,6 @@ validada antes da implementação.
 
 - Definir o perfil contratual de atualização e a fórmula completa do CDB
   híbrido, conforme a documentação de curvas.
-- Conciliar datas de referência das taxas e datas de apresentação dos saldos,
-  incluindo aplicação e vencimento em dias não úteis.
 - Validar regra de agregação para portfólios com vencimentos diferentes.
 - Definir significado e cálculo da rentabilidade média do portfólio.
 - Definir comportamento após vencimento e eventual resgate.

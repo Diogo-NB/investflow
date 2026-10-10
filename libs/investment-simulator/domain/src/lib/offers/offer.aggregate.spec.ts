@@ -3,6 +3,10 @@ import { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
 import { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
 import { TitleType } from './title-type.enum';
 import { Offer } from './offer.aggregate';
+import {
+  ImmutableOfferSnapshotError,
+  InvalidOfferSnapshotError,
+} from './offer.error';
 
 const MATURITY = CalendarDate.of('2030-01-02');
 const NEW_MATURITY = CalendarDate.of('2031-02-03');
@@ -19,6 +23,129 @@ function createOffer() {
 }
 
 describe('Offer', () => {
+  it('creates catalog offers without snapshot provenance', () => {
+    const offer = createOffer();
+    expect(offer.sourceOfferId).toBeNull();
+    expect(offer.isSnapshot).toBe(false);
+  });
+
+  it('captures conditions in independently identified snapshots', () => {
+    const offer = createOffer();
+    const snapshot = offer.createSnapshot().value;
+    const another = offer.createSnapshot().value;
+
+    expect(new Set([offer.id, snapshot.id, another.id]).size).toBe(3);
+    expect(snapshot.sourceOfferId).toBe(offer.id);
+    expect(snapshot.isSnapshot).toBe(true);
+    expect(snapshot.titleType).toBe(offer.titleType);
+    expect(snapshot.issuerId).toBe(offer.issuerId);
+    expect(snapshot.maturityDate).toBe(offer.maturityDate);
+    expect(snapshot.redemptionTerms).toBe(offer.redemptionTerms);
+    expect(snapshot.remunerationTerms).toBe(offer.remunerationTerms);
+    expect(snapshot.deletedAt).toBeNull();
+
+    offer.updateMaturityDate(NEW_MATURITY);
+    offer.updateRedemptionTerms(RedemptionTerms.create('DAILY'));
+    offer.updateRemunerationTerms(
+      RemunerationTerms.create('CDI_PERCENTAGE', Rate.of('1.1')),
+    );
+    offer.delete(DELETED_AT);
+
+    expect(snapshot.maturityDate).toBe(MATURITY);
+    expect(snapshot.redemptionTerms.kind).toBe('AT_MATURITY');
+    expect(snapshot.remunerationTerms.kind).toBe('PREFIXED');
+    expect(snapshot.remunerationTerms.rate.equals(Rate.of('12'))).toBe(true);
+    expect(snapshot.deletedAt).toBeNull();
+    expect(snapshot.createSnapshot().isOk()).toBe(true);
+  });
+
+  it('creates replacement snapshots while preserving original provenance', () => {
+    const offer = createOffer();
+    const snapshot = offer.createSnapshot().value;
+    const remunerationTerms = RemunerationTerms.create(
+      'CDI_PERCENTAGE',
+      Rate.of('1.1'),
+    );
+    const redemptionTerms = RedemptionTerms.create('DAILY');
+    const replacement = snapshot.createSnapshot({
+      maturityDate: NEW_MATURITY,
+      remunerationTerms,
+      redemptionTerms,
+    }).value;
+
+    expect(replacement.id).not.toBe(snapshot.id);
+    expect(replacement.sourceOfferId).toBe(offer.id);
+    expect(replacement.titleType).toBe(snapshot.titleType);
+    expect(replacement.issuerId).toBe(snapshot.issuerId);
+    expect(replacement.maturityDate).toBe(NEW_MATURITY);
+    expect(replacement.remunerationTerms).toBe(remunerationTerms);
+    expect(replacement.redemptionTerms).toBe(redemptionTerms);
+    expect(snapshot.maturityDate).toBe(MATURITY);
+    expect(snapshot.redemptionTerms.kind).toBe('AT_MATURITY');
+    expect(snapshot.remunerationTerms.kind).toBe('PREFIXED');
+  });
+
+  it('applies partial overrides when capturing a catalog offer', () => {
+    const offer = createOffer();
+    const snapshot = offer.createSnapshot({
+      maturityDate: NEW_MATURITY,
+    }).value;
+    expect(snapshot.maturityDate).toBe(NEW_MATURITY);
+    expect(snapshot.redemptionTerms).toBe(offer.redemptionTerms);
+    expect(snapshot.remunerationTerms).toBe(offer.remunerationTerms);
+    expect(offer.maturityDate).toBe(MATURITY);
+  });
+
+  it('rejects snapshot creation from a deleted catalog offer', () => {
+    const offer = createOffer().delete(DELETED_AT);
+    const result = offer.createSnapshot();
+    expect(result.isErr()).toBe(true);
+    expect(result.error).toBeInstanceOf(InvalidOfferSnapshotError);
+  });
+
+  it('reconstitutes snapshot identity and provenance', () => {
+    const original = createOffer().createSnapshot().value;
+    const snapshot = Offer.reconstitute({
+      id: original.id,
+      sourceOfferId: original.sourceOfferId,
+      titleType: original.titleType,
+      issuerId: original.issuerId,
+      maturityDate: original.maturityDate,
+      redemptionTerms: original.redemptionTerms,
+      remunerationTerms: original.remunerationTerms,
+      deletedAt: null,
+    });
+    expect(snapshot.id).toBe(original.id);
+    expect(snapshot.sourceOfferId).toBe(original.sourceOfferId);
+    expect(snapshot.isSnapshot).toBe(true);
+    expect(() => snapshot.delete(DELETED_AT)).toThrow(
+      ImmutableOfferSnapshotError,
+    );
+  });
+
+  it('rejects every snapshot mutation, including identical updates', () => {
+    const snapshot = createOffer().createSnapshot().value;
+    const mutations = [
+      () => snapshot.updateMaturityDate(NEW_MATURITY),
+      () => snapshot.updateMaturityDate(snapshot.maturityDate),
+      () => snapshot.updateRedemptionTerms(RedemptionTerms.create('DAILY')),
+      () => snapshot.updateRedemptionTerms(snapshot.redemptionTerms),
+      () =>
+        snapshot.updateRemunerationTerms(
+          RemunerationTerms.create('CDI_PERCENTAGE', Rate.of('1.1')),
+        ),
+      () => snapshot.updateRemunerationTerms(snapshot.remunerationTerms),
+      () => snapshot.delete(DELETED_AT),
+    ];
+    for (const mutate of mutations) {
+      expect(mutate).toThrow(ImmutableOfferSnapshotError);
+    }
+    expect(snapshot.maturityDate).toBe(MATURITY);
+    expect(snapshot.redemptionTerms.kind).toBe('AT_MATURITY');
+    expect(snapshot.remunerationTerms.kind).toBe('PREFIXED');
+    expect(snapshot.deletedAt).toBeNull();
+  });
+
   it('assigns a new identity to each offer', () => {
     expect(createOffer().id).not.toBe(createOffer().id);
   });
@@ -73,6 +200,8 @@ describe('Offer', () => {
 
     expect(offer.id).toBe('offer-id');
     expect(offer.deletedAt).toBe(DELETED_AT);
+    expect(offer.sourceOfferId).toBeNull();
+    expect(offer.isSnapshot).toBe(false);
   });
 
   it('updates each mutable condition independently', () => {

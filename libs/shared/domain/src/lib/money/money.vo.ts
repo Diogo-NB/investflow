@@ -104,6 +104,10 @@ export class Money extends ValueObject<Money> {
     return Money.of(this.amountValue.minus(other.amountValue), this.currency);
   }
 
+  times(factor: Decimal): Money {
+    return Money.of(this.amountValue.times(factor), this.currency);
+  }
+
   isZero(): boolean {
     return this.amountValue.isZero();
   }

@@ -330,10 +330,15 @@ define contagem excluindo a data inicial e incluindo a final. É necessário
 conciliar a data de referência da taxa com a data do saldo apresentado.
 [Metodologia de cálculo acumulado do DI — B3](https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-de-segmentos-e-setoriais/di/metodologia-de-calcudo-acumulado-de-di/).
 
-A proposta é tratar a taxa de um dia útil como a remuneração até o próximo
-dia útil e apresentar o saldo correspondente na data final desse período.
-Essa proposta ainda exige formalização, incluindo datas de aplicação ou
-vencimento que não sejam úteis.
+A regra confirmada trata a taxa de um dia útil como a remuneração até o próximo
+dia útil e apresenta o saldo correspondente na data final desse período.
+A aplicação e o vencimento devem ser úteis para executar o cálculo; não há
+ajuste automático. Hipóteses com datas não úteis podem ser cadastradas, mas
+o calculador retorna um erro explícito.
+
+O cálculo de percentual da SELIC efetiva usa a mesma convenção temporal e a
+mesma aplicação do percentual sobre a taxa diária equivalente. Exige uma curva
+de SELIC efetiva em taxa anual base 252, sem substituição por CDI ou meta SELIC.
 
 Para taxas variáveis, manter a quantidade de dias não garante o mesmo
 resultado se as datas das taxas utilizadas forem deslocadas. A regra de
@@ -402,9 +407,9 @@ O rendimento diário é a diferença entre saldos brutos consecutivos. O
 rendimento bruto acumulado é o montante bruto menos o principal. O resumo
 líquido não altera retroativamente a trajetória de capitalização.
 
-Se o vencimento ocorrer em dia não útil, o tratamento da data de liquidação
-e a posição final precisa ser fechado com a convenção temporal pendente. Não
-se deve deduzir essa regra a partir da última taxa disponível na curva.
+O vencimento deve ocorrer em dia útil. A última linha diária apresenta o saldo
+bruto no vencimento, enquanto o resumo desconta os tributos. A taxa do vencimento
+não é necessária, pois o último intervalo usa a taxa do dia útil anterior.
 
 ## Fluxo de Negócio da Execução
 
@@ -441,15 +446,12 @@ precisam preservar o significado da trajetória que o usuário pretende criar.
 
 ## Pendências de Produto
 
-| Pendência                   | O que precisa ser decidido                                                                                     |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Verificação de cobertura    | Refinar o contrato e a estratégia de verificação das referências exigidas pela execução.                       |
-| Perfil contratual do IPCA   | Definir atualização, aniversário, defasagem, proporcionalização e tratamento das extremidades do investimento. |
-| Convenção temporal de juros | Conciliar a data da taxa, a data do saldo e a contagem atual do PRD.                                           |
-| Datas não úteis             | Definir tratamento da aplicação, do vencimento e de eventual ajuste de liquidação.                             |
-| Reprodução após exclusão    | Definir o acesso às curvas excluídas por simulações que já utilizavam suas premissas preservadas.              |
-| Histórico e projeções       | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários.      |
-| Escolha e reprodução        | Definir o fluxo de seleção e a vinculação da curva imutável à hipótese e à execução.                           |
+| Pendência                 | O que precisa ser decidido                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Perfil contratual do IPCA | Definir atualização, aniversário, defasagem, proporcionalização e tratamento das extremidades do investimento. |
+| Reprodução após exclusão  | Definir o acesso às curvas excluídas por simulações que já utilizavam suas premissas preservadas.              |
+| Histórico e projeções     | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários.      |
+| Escolha e reprodução      | Definir o fluxo de seleção e a vinculação da curva imutável à hipótese e à execução.                           |
 
 A decisão de impedir cálculo sem cobertura não é reaberta por essas
 pendências. Interpolação, prolongamento e substituição automática de curvas

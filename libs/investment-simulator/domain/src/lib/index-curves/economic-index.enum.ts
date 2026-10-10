@@ -1,5 +1,1 @@
-export enum EconomicIndex {
-  CDI = 'CDI',
-  SELIC = 'SELIC',
-  IPCA = 'IPCA',
-}
+export { InvestmentType as EconomicIndex } from '@investflow/shared-domain';
