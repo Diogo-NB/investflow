@@ -1,12 +1,20 @@
 import { Module } from '@nestjs/common';
 import {
+  ApplicationRepository,
+  CreateApplicationUseCase,
   CreateOfferUseCase,
+  DeleteApplicationUseCase,
   DeleteOfferUseCase,
   IndexCurveRepository,
   IssuerRepository,
   OfferRepository,
+  ReviseApplicationUseCase,
   UpdateOfferUseCase,
 } from '@investflow/investment-simulator-application';
+import { ApplicationController } from './applications/http/application.controller';
+import { PrismaApplicationRepository } from './applications/persistence/prisma-application.repository';
+import { GetApplicationQueryHandler } from './applications/queries/get-application.query-handler';
+import { ListApplicationsQueryHandler } from './applications/queries/list-applications.query-handler';
 import { InvestmentSimulatorController } from './investment-simulator.controller';
 import { PrismaIssuerRepository } from './issuers/persistence/prisma-issuer.repository';
 import { OfferController } from './offers/http/offer.controller';
@@ -22,6 +30,7 @@ import { IssuerController } from './issuers/http/issuer.controller';
     InvestmentSimulatorController,
     OfferController,
     IssuerController,
+    ApplicationController,
   ],
   providers: [
     { provide: IndexCurveRepository, useClass: PrismaIndexCurveRepository },
@@ -33,6 +42,12 @@ import { IssuerController } from './issuers/http/issuer.controller';
     ListOffersQueryHandler,
     GetOfferQueryHandler,
     ListIssuersQueryHandler,
+    { provide: ApplicationRepository, useClass: PrismaApplicationRepository },
+    CreateApplicationUseCase,
+    ReviseApplicationUseCase,
+    DeleteApplicationUseCase,
+    ListApplicationsQueryHandler,
+    GetApplicationQueryHandler,
   ],
 })
 export class InvestmentSimulatorInfrastructureModule {}

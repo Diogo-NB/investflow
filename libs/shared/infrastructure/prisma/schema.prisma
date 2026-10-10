@@ -44,6 +44,8 @@ model InvestmentOffer {
   id               String                     @id @default(uuid()) @db.Uuid
   titleType        InvestmentTitleType        @map("title_type")
   issuerId         String                     @map("issuer_id") @db.Uuid
+  // Non-null for immutable snapshots captured by applications.
+  sourceOfferId    String?                    @map("source_offer_id") @db.Uuid
   maturityDate     DateTime                   @map("maturity_date") @db.Date
   redemptionType   InvestmentRedemptionType   @map("redemption_type")
   remunerationType InvestmentRemunerationType @map("remuneration_type")
@@ -52,9 +54,30 @@ model InvestmentOffer {
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
   issuer           InvestmentIssuer           @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sourceOffer      InvestmentOffer?           @relation("OfferSnapshots", fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  snapshots        InvestmentOffer[]          @relation("OfferSnapshots")
+  applications     InvestmentApplication[]
 
   @@index([issuerId])
+  @@index([sourceOfferId])
   @@map("investment_offer")
+}
+
+model InvestmentApplication {
+  id              String          @id @default(uuid()) @db.Uuid
+  ownerId         String          @map("owner_id")
+  offerSnapshotId String          @map("offer_snapshot_id") @db.Uuid
+  indexCurveId    String?         @map("index_curve_id") @db.Uuid
+  principal       Decimal         @db.Decimal(65, 30)
+  investmentDate  DateTime        @map("investment_date") @db.Date
+  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(3)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  offerSnapshot   InvestmentOffer @relation(fields: [offerSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  indexCurve      IndexCurve?     @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([ownerId])
+  @@map("investment_application")
 }
 
 enum EconomicIndex {
@@ -72,7 +95,8 @@ model IndexCurve {
   index       EconomicIndex
   deletedAt   DateTime?            @map("deleted_at") @db.Timestamptz(3)
   createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
-  intervals   IndexCurveInterval[]
+  intervals    IndexCurveInterval[]
+  applications InvestmentApplication[]
 
   @@map("index_curve")
 }

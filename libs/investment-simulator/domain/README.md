@@ -51,17 +51,21 @@ redemption, or remuneration overrides. Replacements retain the original catalog
 provenance and leave previous snapshots intact.
 
 `Application` is a saved investment hypothesis with an owner, snapshot reference,
-principal, investment date, and optional soft deletion. Creation and revision
-receive a snapshot `Offer` but store only its ID. Principal must be positive BRL,
-and the investment date must precede snapshot maturity. Past dates, weekends,
-and holidays are accepted without calendar adjustment. Revisions validate the
-complete proposed investment state before applying changes. Deleted applications
-cannot be revised; repeated deletion preserves the first deletion instant.
+optional index-curve reference, principal, investment date, and optional soft
+deletion. Creation and revision receive the snapshot `Offer` and the chosen
+`IndexCurve` but store only their IDs. Principal must be positive BRL, and the
+proposed investment must form a valid `InvestmentScenario`: the investment date
+precedes snapshot maturity, and a curve is linked exactly when the remuneration
+requires one, matches its index, and is not deleted. Past dates, weekends, and
+holidays are accepted without calendar adjustment; only calculation enforces
+business days. Revisions validate the complete proposed investment state before
+applying changes. Deleted applications cannot be revised; repeated deletion
+preserves the first deletion instant.
 
-This initial model is domain-only. Persistence does not yet store snapshot
-provenance or applications. Portfolios and execution history are outside this
-slice. Snapshots must not be saved through the existing offer
-repository until persistence support is added.
+`Application.toScenario()` rebuilds the calculable scenario from the loaded
+snapshot and curve, rejecting deleted applications, foreign references, and
+curves deleted after linking. Snapshots share the offer table and are excluded
+from catalog queries and catalog commands.
 
 ## Investment calculation domain service
 
@@ -73,7 +77,9 @@ know aggregates, persistence, or clocks.
 
 ```typescript
 const calculator = new InvestmentCalculator(new BrazilianBusinessDayCalendar());
-const result = InvestmentScenario.create(props).andThen((scenario) => calculator.calculate(scenario));
+const scenario = InvestmentScenario.create(props);
+if (scenario.isErr()) return scenario;
+const result = calculator.calculate(scenario.value);
 ```
 
 `InvestmentScenario.create()` validates everything that does not depend on the

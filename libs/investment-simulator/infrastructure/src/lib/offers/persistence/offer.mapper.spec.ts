@@ -24,6 +24,7 @@ function persistenceRecord(
     id: ID,
     titleType: InvestmentTitleType.CDB,
     issuerId: ISSUER_ID,
+    sourceOfferId: null,
     maturityDate: new Date('2030-05-20T00:00:00.000Z'),
     redemptionType: InvestmentRedemptionType.AT_MATURITY,
     remunerationType: InvestmentRemunerationType.PREFIXED,

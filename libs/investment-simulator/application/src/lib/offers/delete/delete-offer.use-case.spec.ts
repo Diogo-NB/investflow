@@ -76,4 +76,17 @@ describe('DeleteOfferUseCase', () => {
 
     expect(result.error).toBe(error);
   });
+
+  it('treats an application snapshot as not found', async () => {
+    const fixture = createFixture();
+    const snapshot = fixture.offer.createSnapshot().value;
+    jest
+      .mocked(fixture.repository.findById)
+      .mockResolvedValue(Result.ok(snapshot));
+
+    const result = await fixture.useCase.execute({ offerId: snapshot.id });
+
+    expect(result.error).toBeInstanceOf(OfferNotFoundError);
+    expect(fixture.repository.save).not.toHaveBeenCalled();
+  });
 });
