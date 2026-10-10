@@ -48,6 +48,17 @@ export class CalendarDateRange extends ValueObject<CalendarDateRange> {
     return !this.start.isAfter(other.end) && !other.start.isAfter(this.end);
   }
 
+  // Visits every calendar day in order, both endpoints included.
+  forEachDayIn(callback: (date: CalendarDate) => void): void {
+    for (
+      let date = this.start;
+      !date.isAfter(this.end);
+      date = date.addDays(1)
+    ) {
+      callback(date);
+    }
+  }
+
   isExpired(at: CalendarDate): boolean {
     return at.isAfter(this.end);
   }

@@ -1,6 +1,7 @@
 import {
   BusinessDayCalendar,
   CalendarDate,
+  CalendarDateRange,
   Result,
 } from '@investflow/shared-domain';
 import { InvestmentCalculationError } from './investment-calculation.error';
@@ -32,16 +33,16 @@ export function accrualPeriodsBetween(
     );
   }
 
+  // Each business day closes the period opened by the previous one; the
+  // investment date only opens the first period.
   const periods: AccrualPeriod[] = [];
-  let rateReferenceDate = investmentDate;
-  for (
-    let date = investmentDate.addDays(1);
-    !date.isAfter(maturityDate);
-    date = date.addDays(1)
-  ) {
-    if (!calendar.isBusinessDay(date)) continue;
-    periods.push({ rateReferenceDate, balanceDate: date });
+  let rateReferenceDate: CalendarDate | null = null;
+  CalendarDateRange.of(investmentDate, maturityDate).forEachDayIn((date) => {
+    if (!calendar.isBusinessDay(date)) return;
+    if (rateReferenceDate) {
+      periods.push({ rateReferenceDate, balanceDate: date });
+    }
     rateReferenceDate = date;
-  }
+  });
   return Result.ok(periods);
 }
