@@ -2,15 +2,12 @@ import { CalendarDateRange } from './calendar-date-range.vo';
 import { CalendarDate } from './calendar-date.vo';
 
 export class BusinessDayCalendar {
+  // Excludes the start date and includes the end date.
   countBusinessDays(range: CalendarDateRange): number {
-    let current = range.start.addDays(1);
     let count = 0;
-
-    while (!current.isAfter(range.end)) {
-      if (this.isBusinessDay(current)) count += 1;
-      current = current.addDays(1);
-    }
-
+    range.forEachDayIn((date) => {
+      if (!date.equals(range.start) && this.isBusinessDay(date)) count += 1;
+    });
     return count;
   }
 
