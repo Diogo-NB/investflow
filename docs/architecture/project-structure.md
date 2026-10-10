@@ -371,9 +371,12 @@ Result.fromThrowable(
 );
 ```
 
-Chain business validation with `andThen()` and return expected failures with
-`Result.err()`. Keep throwing operations inside the helper callback;
-`map()` and `andThen()` do not catch exceptions thrown by their callbacks.
+`Result` deliberately has no `andThen()`. Sequence dependent steps with guard
+clauses: `if (result.isErr()) return result;`, then continue with
+`result.value`, and return expected failures with `Result.err()`. Use `map()`
+and `mapError()` only for single, non-failing transformations. Keep throwing
+operations inside the helper callback; `map()` does not catch exceptions
+thrown by its callback.
 
 Command-side repository ports return `Result` for aggregate lookup and
 persistence. A missing aggregate is an error in that contract. Read/query

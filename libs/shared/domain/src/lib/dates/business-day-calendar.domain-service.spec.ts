@@ -23,6 +23,12 @@ describe('BusinessDayCalendar', () => {
     expect(calendar.countBusinessDays(range)).toBe(1);
   });
 
+  it('excludes the start date, so a one-day range counts nothing', () => {
+    const day = CalendarDate.of('2026-01-05');
+
+    expect(calendar.countBusinessDays(CalendarDateRange.of(day, day))).toBe(0);
+  });
+
   it('identifies weekdays and weekends', () => {
     expect(calendar.isBusinessDay(CalendarDate.of('2026-01-05'))).toBe(true);
     expect(calendar.isBusinessDay(CalendarDate.of('2026-01-10'))).toBe(false);

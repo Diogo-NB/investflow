@@ -108,4 +108,17 @@ describe('UpdateOfferUseCase', () => {
 
     expect(saveResult.error).toBe(saveError);
   });
+
+  it('treats an application snapshot as not found', async () => {
+    const snapshot = offer().createSnapshot().value;
+    const fixture = createFixture(snapshot);
+
+    const result = await fixture.useCase.execute({
+      offerId: snapshot.id,
+      maturityDate: CalendarDate.of('2031-01-01'),
+    });
+
+    expect(result.error).toBeInstanceOf(OfferNotFoundError);
+    expect(fixture.repository.save).not.toHaveBeenCalled();
+  });
 });

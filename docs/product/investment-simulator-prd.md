@@ -66,6 +66,23 @@ O calculador inicial suporta CDB prefixado, percentual do CDI e percentual da
 SELIC efetiva. IPCA permanece previsto no produto, mas seu cálculo fica adiado
 até a definição do perfil contratual.
 
+### Execuções de Simulação
+
+- A aplicação registra a curva escolhida quando a remuneração é indexada; a
+  curva deve ser do mesmo índice da remuneração e não pode estar excluída.
+- O cálculo é executado por comando explícito do usuário. Cada execução bem
+  sucedida é registrada como um registro imutável e somente acrescentado,
+  contendo as entradas usadas (snapshot da oferta, curva, valor inicial e data
+  de aplicação), a versão da metodologia, o instante do cálculo, o resumo no
+  vencimento e a trajetória diária bruta.
+- Falhas de cálculo são devolvidas ao usuário e não são registradas.
+- Editar a aplicação não altera execuções anteriores. Uma execução é
+  apresentada como desatualizada quando as entradas atuais da aplicação ou a
+  metodologia vigente diferem das registradas.
+- A versão da metodologia muda sempre que fórmulas, convenções ou o calendário
+  alterarem os valores calculados.
+- Execuções de aplicações excluídas deixam de ser consultáveis.
+
 ### Resultados
 
 Por simulação:
@@ -254,7 +271,7 @@ validada antes da implementação.
 
 ## Requisitos Não Funcionais
 
-- Persistir portfólios, simulações e índices com data de referência.
+- Persistir portfólios, simulações, execuções e índices com data de referência.
 - Manter histórico suficiente para reproduzir simulações.
 - Autenticar por token.
 - Registrar alterações de parâmetros e execuções de simulações para auditoria.

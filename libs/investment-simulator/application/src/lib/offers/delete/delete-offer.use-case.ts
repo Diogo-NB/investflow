@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CommandHandler, Clock } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
+import { OfferNotFoundError } from '../offer-not-found.error';
 import { OfferRepository } from '../offer.repository';
 import { DeleteOfferCommand } from './delete-offer.command';
 
@@ -16,6 +17,10 @@ export class DeleteOfferUseCase
   async execute(command: DeleteOfferCommand): Promise<Result<void, AppError>> {
     const offerResult = await this.offerRepository.findById(command.offerId);
     if (offerResult.isErr()) return offerResult;
+    // Snapshots share the table but are not part of the catalog.
+    if (offerResult.value.isSnapshot) {
+      return Result.err(new OfferNotFoundError(command.offerId));
+    }
 
     const offer = offerResult.value.delete(this.clock.now());
     return this.offerRepository.save(offer);

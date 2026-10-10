@@ -25,7 +25,7 @@ describe('CreateOfferCommand', () => {
     expect(command.maturityDate.toIsoString()).toBe('2030-05-20');
     expect(command.redemptionTerms.kind).toBe('AT_MATURITY');
     expect(command.remunerationTerms.kind).toBe(remunerationTerms.kind);
-    expect(command.remunerationTerms.rate.value.toString()).toBe(
+    expect(command.remunerationTerms.contractRate.value.toString()).toBe(
       remunerationTerms.rate,
     );
   });
@@ -43,7 +43,7 @@ describe('CreateOfferCommand', () => {
     });
 
     expect(command.remunerationTerms.kind).toBe('CDI_PERCENTAGE');
-    expect(command.remunerationTerms.rate.value.toString()).toBe(
+    expect(command.remunerationTerms.contractRate.value.toString()).toBe(
       '105.12345678901234567890123456789',
     );
   });

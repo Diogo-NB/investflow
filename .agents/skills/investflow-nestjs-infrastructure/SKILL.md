@@ -118,7 +118,7 @@ around lookup and mapping.
 
 Prefer one `Result.fromPromise` around both the asynchronous lookup and its
 synchronous domain mapping. Return the mapped aggregate or `null` from that
-callback, and use `andThen` afterward to convert `null` into the application
+callback, then guard on the error and convert `null` into the application
 not-found error. This catches database and mapper exceptions with the same
 repository error mapping while keeping expected absence separate.
 
@@ -138,14 +138,15 @@ const offerResult = await Result.fromPromise(
   (error) => new RepositoryFindError('Offer', id, error),
 );
 
-return offerResult.andThen((offer) => (offer ? Result.ok(offer) : Result.err(new OfferNotFoundError(id))));
+if (offerResult.isErr()) return offerResult;
+return offerResult.value ? Result.ok(offerResult.value) : Result.err(new OfferNotFoundError(id));
 ```
 
 The `fromPromise` callback returns a plain value; returning `Result.err` inside
 it produces a successful outer Result containing an error Result.
-Keep throwing mappers inside `fromPromise`: `map` and `andThen` do not catch
-callback exceptions. Prefer the concrete error union in the method's return
-type, such as `Result<Offer, OfferNotFoundError | RepositoryFindError>`.
+Keep throwing mappers inside `fromPromise`: `map` does not catch callback
+exceptions, and `Result` has no `andThen`. Prefer the concrete error union in
+the method's return type, such as `Result<Offer, OfferNotFoundError | RepositoryFindError>`.
 
 ## Transport boundaries
 

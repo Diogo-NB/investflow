@@ -18,6 +18,8 @@ export interface InvestmentMaturitySummary {
 }
 
 export interface InvestmentCalculation {
+  // Identifies the calendar and formulas that produced the figures.
+  readonly methodologyVersion: string;
   readonly dailyBalances: readonly DailyInvestmentBalance[];
   readonly maturitySummary: InvestmentMaturitySummary;
 }

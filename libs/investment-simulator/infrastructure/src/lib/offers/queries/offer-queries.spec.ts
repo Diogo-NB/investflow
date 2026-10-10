@@ -41,6 +41,7 @@ describe('Offer reads', () => {
       titleType: 'CDB',
     });
     const where = {
+      sourceOfferId: null,
       deletedAt: null,
       titleType: 'CDB',
       issuer: { name: { contains: 'local', mode: 'insensitive' } },
@@ -85,7 +86,9 @@ describe('Offer reads', () => {
     });
     const result = await f.get.execute({ offerId: record.id });
     expect(f.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: record.id, deletedAt: null } }),
+      expect.objectContaining({
+        where: { id: record.id, sourceOfferId: null, deletedAt: null },
+      }),
     );
     expect(result.value).toEqual({
       id: record.id,

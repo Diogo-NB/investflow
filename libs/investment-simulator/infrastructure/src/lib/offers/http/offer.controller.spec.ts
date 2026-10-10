@@ -122,7 +122,7 @@ describe('OfferController', () => {
     expect(command.maturityDate.toIsoString()).toBe('2030-05-20');
     expect(command.redemptionTerms.kind).toBe('DAILY');
     expect(command.remunerationTerms.kind).toBe('CDI_PERCENTAGE');
-    expect(command.remunerationTerms.rate.value.toString()).toBe(
+    expect(command.remunerationTerms.contractRate.value.toString()).toBe(
       '105.12345678901234567890123456789',
     );
   });
@@ -146,7 +146,7 @@ describe('OfferController', () => {
 
     const command = jest.mocked(fixture.createOffer.execute).mock.calls[0][0];
     expect(command.remunerationTerms.kind).toBe(kind);
-    expect(command.remunerationTerms.rate.value.toString()).toBe(rate);
+    expect(command.remunerationTerms.contractRate.value.toString()).toBe(rate);
   });
 
   it('maps a partial update and returns the use-case result', async () => {
