@@ -9,7 +9,7 @@ browser presentation uses an optional `web` project. Cross-context building
 blocks belong in `libs/shared`. Infrastructure and identity setup live under
 `infra/`.
 
-## Codex Skills
+## Agent Skills
 
 Load the repository skill that matches the work:
 
