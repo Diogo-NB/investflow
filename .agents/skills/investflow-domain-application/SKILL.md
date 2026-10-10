@@ -129,10 +129,12 @@ placement, public contracts, or project boundaries.
 - Prefer `Result.fromThrowable()` for synchronous operations that can throw
   and `Result.fromPromise()` for asynchronous operations that can reject,
   instead of repetitive `try/catch` blocks that only convert exceptions into
-  Results. Map exceptions to the appropriate typed `AppError`; chain business
-  validation with `andThen()` and return expected failures with `Result.err()`.
-  Keep throwing operations inside the helper callback: `map()` and `andThen()`
-  do not catch exceptions thrown by their callbacks.
+  Results. Map exceptions to the appropriate typed `AppError`.
+- `Result` has no `andThen()`. Sequence dependent steps with guard clauses
+  (`if (result.isErr()) return result;`, then use `result.value`) and return
+  expected failures with `Result.err()`. Use `map()` and `mapError()` only for
+  single, non-failing transformations. Keep throwing operations inside the
+  helper callback: `map()` does not catch exceptions thrown by its callback.
 - A missing command-side aggregate is an error. Nullable values remain valid in
   read models when absence is data rather than a failed operation.
 

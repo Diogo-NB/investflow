@@ -39,14 +39,6 @@ describe('Result', () => {
     expect(result.error.message).toBe('Mapped failure');
   });
 
-  it('chains successful values', () => {
-    const result = Result.ok<number, TestError>(2).andThen((value) =>
-      Result.ok<string, TestError>(String(value)),
-    );
-
-    expect(result.value).toBe('2');
-  });
-
   it('matches both states', () => {
     const result = Result.ok<number, TestError>(2).match({
       ok: (value) => value * 2,

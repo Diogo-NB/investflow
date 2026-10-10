@@ -36,9 +36,10 @@ export class PrismaIssuerRepository
       (error) => new RepositoryFindError('Issuer', id, error),
     );
 
-    return issuerResult.andThen((issuer) =>
-      issuer ? Result.ok(issuer) : Result.err(new IssuerNotFoundError(id)),
-    );
+    if (issuerResult.isErr()) return issuerResult;
+    return issuerResult.value
+      ? Result.ok(issuerResult.value)
+      : Result.err(new IssuerNotFoundError(id));
   }
 
   protected async persistAggregate(
