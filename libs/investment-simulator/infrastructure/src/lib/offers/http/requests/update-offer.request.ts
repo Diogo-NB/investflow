@@ -1,9 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsEmpty,
-  IsOptional,
-  ValidateNested,
-} from 'class-validator';
+import { IsEmpty, IsOptional, ValidateNested } from 'class-validator';
 import { UpdateOfferCommandInput } from '@investflow/investment-simulator-application';
 import { IsCalendarDate } from '@investflow/shared-infrastructure';
 import {

@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import { DomainError } from '../foundations/domain.error';
 import { Result } from '../foundations/result';
 import { ValueObject } from '../foundations/value-object.base';
@@ -5,8 +6,8 @@ import { CalendarDate } from './calendar-date.vo';
 
 export class InvalidCalendarDateRangeError extends DomainError {
   constructor() {
-    super('CalendarDateRange end must be on or after start', {
-      code: 'INVALID_CALENDAR_DATE_RANGE',
+    super('A data final deve ser igual ou posterior à data inicial.', {
+      code: EAppErrorCode.INVALID_CALENDAR_DATE_RANGE,
     });
   }
 }

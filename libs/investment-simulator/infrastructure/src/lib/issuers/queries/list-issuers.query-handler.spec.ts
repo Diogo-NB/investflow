@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { ListIssuersQueryHandler } from './list-issuers.query-handler';
 import { IssuerController } from '../http/issuer.controller';
@@ -20,5 +21,7 @@ it('lists issuer lookup fields in a stable order without requiring offers', asyn
   findMany.mockResolvedValue([]);
   expect((await handler.execute()).value).toEqual([]);
   findMany.mockRejectedValue(new Error('database'));
-  expect((await handler.execute()).error.code).toBe('ISSUER_QUERY_FAILED');
+  expect((await handler.execute()).error.code).toBe(
+    EAppErrorCode.ISSUER_QUERY_FAILED,
+  );
 });

@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import { CalendarDate } from './calendar-date.vo';
 import {
   CalendarDateRange,
@@ -21,7 +22,7 @@ describe('CalendarDateRange', () => {
     const result = CalendarDateRange.create(end, start);
     expect(result.isErr()).toBe(true);
     expect(result.error).toBeInstanceOf(InvalidCalendarDateRangeError);
-    expect(result.error.code).toBe('INVALID_CALENDAR_DATE_RANGE');
+    expect(result.error.code).toBe(EAppErrorCode.INVALID_CALENDAR_DATE_RANGE);
   });
 
   it('accepts a single-day range without changing elapsed-day semantics', () => {

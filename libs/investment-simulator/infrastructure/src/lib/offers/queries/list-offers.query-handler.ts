@@ -57,7 +57,6 @@ export class ListOffersQueryHandler
     return Result.fromPromise(
       async () => {
         const where: Prisma.InvestmentOfferWhereInput = {
-          sourceOfferId: null,
           deletedAt: null,
           ...(query.titleType ? { titleType: query.titleType } : {}),
           ...(query.q

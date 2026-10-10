@@ -8,7 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { TitleType } from '@investflow/investment-simulator-domain';
+import { ETitleType } from '@investflow/investment-simulator-domain';
 import { ListOffersQuery } from '../../queries/list-offers.query-handler';
 
 export class ListOffersRequest implements ListOffersQuery {
@@ -33,6 +33,6 @@ export class ListOffersRequest implements ListOffersQuery {
   q?: string;
 
   @IsOptional()
-  @IsEnum(TitleType)
-  titleType?: TitleType;
+  @IsEnum(ETitleType)
+  titleType?: ETitleType;
 }

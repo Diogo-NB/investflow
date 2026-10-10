@@ -1,4 +1,4 @@
-import { AggregateRoot } from '@investflow/shared-domain';
+import { AggregateRoot, EAppErrorCode } from '@investflow/shared-domain';
 import { RepositoryFindError, RepositorySaveError } from './repository.error';
 
 class TestAggregate extends AggregateRoot {
@@ -13,7 +13,7 @@ describe('repository errors', () => {
   it('describes a save failure', () => {
     const error = new RepositorySaveError(new TestAggregate(), cause);
 
-    expect(error.code).toBe('REPOSITORY_SAVE_FAILED');
+    expect(error.code).toBe(EAppErrorCode.REPOSITORY_SAVE_FAILED);
     expect(error.kind).toBe('infrastructure');
     expect(error.metadata).toEqual({
       aggregateId: 'aggregate-id',
@@ -25,7 +25,7 @@ describe('repository errors', () => {
   it('describes a find failure', () => {
     const error = new RepositoryFindError('Offer', 'offer-id', cause);
 
-    expect(error.code).toBe('REPOSITORY_FIND_FAILED');
+    expect(error.code).toBe(EAppErrorCode.REPOSITORY_FIND_FAILED);
     expect(error.kind).toBe('infrastructure');
     expect(error.metadata).toEqual({
       aggregateType: 'Offer',

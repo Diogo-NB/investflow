@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import { CalendarDate, InvalidCalendarDateError } from './calendar-date.vo';
 import { UtcInstant } from './utc-instant.vo';
 
@@ -58,7 +59,7 @@ describe('CalendarDate', () => {
 
         expect(result.isErr()).toBe(true);
         expect(result.error).toBeInstanceOf(InvalidCalendarDateError);
-        expect(result.error.code).toBe('INVALID_CALENDAR_DATE');
+        expect(result.error.code).toBe(EAppErrorCode.INVALID_CALENDAR_DATE);
       },
     );
 

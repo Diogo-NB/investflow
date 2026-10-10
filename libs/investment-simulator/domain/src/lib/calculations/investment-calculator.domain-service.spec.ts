@@ -2,10 +2,11 @@ import {
   BrazilianBusinessDayCalendar,
   CalendarDate,
   CalendarDateRange,
+  EAppErrorCode,
   Money,
   Rate,
 } from '@investflow/shared-domain';
-import { EconomicIndex } from '../index-curves/economic-index.enum';
+import { EEconomicIndex } from '../index-curves/economic-index.enum';
 import { IndexCurve } from '../index-curves/index-curve.aggregate';
 import { IndexCurveInterval } from '../index-curves/index-curve-interval.vo';
 import { IndexValue } from '../index-curves/index-value.vo';
@@ -13,7 +14,7 @@ import {
   RemunerationKind,
   RemunerationTerms,
 } from '../offers/terms/remuneration/remuneration-terms.vo';
-import { TitleType } from '../offers/title-type.enum';
+import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentCalculationError } from './investment-calculation.error';
 import {
   InvestmentCalculator,
@@ -30,7 +31,7 @@ function scenario(
     rate?: string;
     start?: string;
     end?: string;
-    titleType?: TitleType;
+    titleType?: ETitleType;
     principal?: string;
     indexCurve?: IndexCurve | null;
   } = {},
@@ -39,7 +40,7 @@ function scenario(
     principal: Money.of(options.principal ?? '1000'),
     investmentDate: CalendarDate.of(options.start ?? '2026-01-02'),
     maturityDate: CalendarDate.of(options.end ?? '2026-01-06'),
-    titleType: options.titleType ?? TitleType.CDB,
+    titleType: options.titleType ?? ETitleType.CDB,
     remuneration: RemunerationTerms.create(
       options.kind ?? 'PREFIXED',
       Rate.of(options.rate ?? '0.12'),
@@ -49,7 +50,7 @@ function scenario(
 }
 
 function curve(
-  index: EconomicIndex,
+  index: EEconomicIndex,
   intervals: readonly [string, string, string][] = [
     ['2026-01-02', '2026-01-05', '0.12'],
   ],
@@ -144,7 +145,7 @@ describe('InvestmentCalculator domain service', () => {
   });
 
   it('skips Good Friday and the weekend without adding accrual periods', () => {
-    const indexCurve = curve(EconomicIndex.CDI, [
+    const indexCurve = curve(EEconomicIndex.CDI, [
       ['2026-04-02', '2026-04-02', '0.12'],
     ]);
     const result = calculator.calculate(
@@ -171,8 +172,8 @@ describe('InvestmentCalculator domain service', () => {
   });
 
   describe.each([
-    ['CDI_PERCENTAGE', EconomicIndex.CDI],
-    ['SELIC_PERCENTAGE', EconomicIndex.SELIC],
+    ['CDI_PERCENTAGE', EEconomicIndex.CDI],
+    ['SELIC_PERCENTAGE', EEconomicIndex.SELIC],
   ] as const)('%s', (kind, index) => {
     it.each(['0.5', '1', '1.05', '2'])(
       'applies %s of the daily index rate',
@@ -235,10 +236,12 @@ describe('InvestmentCalculator domain service', () => {
       );
       expect(result.isErr()).toBe(true);
       expect(result.error).toBeInstanceOf(InvestmentCalculationError);
-      expect(result.error.code).toBe('INVESTMENT_CURVE_COVERAGE_MISSING');
-      expect(result.error.metadata?.['missingReferences']).toEqual([
-        '2026-01-02',
-        '2026-01-05',
+      expect(result.error.code).toBe(
+        EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
+      );
+      // 2026-01-02 and 2026-01-05 are consecutive business-day references.
+      expect(result.error.metadata?.['missingRanges']).toEqual([
+        { start: '2026-01-02', end: '2026-01-05' },
       ]);
     });
 
@@ -250,8 +253,8 @@ describe('InvestmentCalculator domain service', () => {
           indexCurve: curve(index, [['2026-01-02', '2026-01-02', '0.12']]),
         }),
       );
-      expect(result.error.metadata?.['missingReferences']).toEqual([
-        '2026-01-05',
+      expect(result.error.metadata?.['missingRanges']).toEqual([
+        { start: '2026-01-05', end: '2026-01-05' },
       ]);
     });
   });
@@ -259,26 +262,26 @@ describe('InvestmentCalculator domain service', () => {
   it('rejects non-business investment or maturity dates', () => {
     expect(
       calculator.calculate(scenario({ start: '2026-01-03' })).error.code,
-    ).toBe('INVESTMENT_DATE_NOT_BUSINESS_DAY');
+    ).toBe(EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY);
   });
 
-  it.each([TitleType.LCI, TitleType.LCA])(
+  it.each([ETitleType.LCI, ETitleType.LCA])(
     'rejects unsupported title %s',
     (titleType) => {
       expect(calculator.calculate(scenario({ titleType })).error.code).toBe(
-        'INVESTMENT_TITLE_UNSUPPORTED',
+        EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED,
       );
     },
   );
 
   it('returns an explicit error for deferred IPCA', () => {
-    const indexCurve = curve(EconomicIndex.IPCA, [
+    const indexCurve = curve(EEconomicIndex.IPCA, [
       ['2026-01-01', '2026-01-31', '0.01'],
     ]);
     expect(
       calculator.calculate(scenario({ kind: 'IPCA_PLUS', indexCurve })).error
         .code,
-    ).toBe('INVESTMENT_REMUNERATION_UNSUPPORTED');
+    ).toBe(EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED);
   });
 
   it('preserves fractional principal precision', () => {
@@ -287,7 +290,7 @@ describe('InvestmentCalculator domain service', () => {
         kind: 'SELIC_PERCENTAGE',
         rate: '1',
         principal: '1000.123456789123456',
-        indexCurve: curve(EconomicIndex.SELIC, [
+        indexCurve: curve(EEconomicIndex.SELIC, [
           ['2026-01-02', '2026-01-05', '0'],
         ]),
       }),
@@ -302,7 +305,62 @@ describe('InvestmentCalculator domain service', () => {
       scenario({ rate: '1e1000', principal: '1e9000000000000000' }),
     );
     expect(result.isErr()).toBe(true);
-    expect(result.error.code).toBe('INVESTMENT_CALCULATION_FAILED');
+    expect(result.error.code).toBe(EAppErrorCode.INVESTMENT_CALCULATION_FAILED);
     expect(result.error.kind).toBe('unexpected');
+  });
+
+  describe('accrual periods', () => {
+    const balanceDates = (start: string, end: string) =>
+      calculator
+        .calculate(scenario({ start, end }))
+        .value.dailyBalances.map(({ date }) => date.toIsoString());
+
+    it('chains business days across Carnival holidays', () => {
+      expect(balanceDates('2026-02-13', '2026-02-19')).toEqual([
+        '2026-02-18',
+        '2026-02-19',
+      ]);
+    });
+
+    it('crosses the year boundary without accruing on New Year', () => {
+      expect(balanceDates('2025-12-31', '2026-01-02')).toEqual(['2026-01-02']);
+    });
+
+    it.each([
+      ['2026-01-03', '2026-01-06', 'investmentDate'],
+      ['2026-01-02', '2026-01-04', 'maturityDate'],
+      ['2026-04-03', '2026-04-06', 'investmentDate'],
+      ['2026-04-02', '2026-04-03', 'maturityDate'],
+    ])('rejects non-business dates %s to %s', (start, end, field) => {
+      const error = calculator.calculate(scenario({ start, end })).error;
+      expect(error.code).toBe(EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY);
+      expect(error.metadata?.['field']).toBe(field);
+    });
+  });
+
+  describe('unsupportedReason', () => {
+    it.each(['PREFIXED', 'CDI_PERCENTAGE', 'SELIC_PERCENTAGE'] as const)(
+      'supports CDB %s',
+      (kind) => {
+        expect(
+          InvestmentCalculator.unsupportedReason(ETitleType.CDB, kind),
+        ).toBeNull();
+      },
+    );
+
+    it('rejects other titles before their remuneration', () => {
+      expect(
+        InvestmentCalculator.unsupportedReason(ETitleType.LCI, 'IPCA_PLUS'),
+      ).toBe(EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED);
+      expect(
+        InvestmentCalculator.unsupportedReason(ETitleType.LCA, 'PREFIXED'),
+      ).toBe(EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED);
+    });
+
+    it('defers IPCA+ remuneration', () => {
+      expect(
+        InvestmentCalculator.unsupportedReason(ETitleType.CDB, 'IPCA_PLUS'),
+      ).toBe(EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED);
+    });
   });
 });

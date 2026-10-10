@@ -93,7 +93,7 @@ placement, public contracts, or project boundaries.
 - Organize application behavior as feature-first vertical slices. Co-locate an
   operation's command, use case, and focused tests under
   `<feature>/<operation>`. Keep only genuinely cross-operation contracts and
-  helpers under `<feature>/shared`, and keep feature-wide ports and stable
+  types under `<feature>/shared`, and keep feature-wide ports and stable
   errors at the feature root. Do not use a generic `commands/<feature>` folder
   as a container for mixed application roles.
 - Commands are immutable classes with `fromRequest()` factories. The factory
@@ -109,6 +109,13 @@ placement, public contracts, or project boundaries.
   failures to stable application errors.
 - Application services orchestrate application concerns and depend on ports,
   not concrete adapters.
+- Never extract small functions into dedicated files to share them between use
+  cases (see "Coding Conventions" in `AGENTS.md`). A rule belongs to its
+  aggregate, value object, or domain service; a capability several services
+  need belongs on a port; a type that several commands build owns its factory
+  as a static method (`ApplicationInvestment.fromRequest`). Inline one-line
+  lookups, such as `id ? repository.findById(id) : Result.ok(null)` read with
+  `valueOrNull`.
 - Presentation queries live in infrastructure and own operation-specific plain
   output contracts and record mapping in their handler files. Do not introduce
   application read-model ports or load aggregates solely to render responses.
@@ -121,7 +128,14 @@ placement, public contracts, or project boundaries.
 - Expected domain and application failures use `AppError` or a subtype;
   domain-specific failures extend `DomainError`.
 - Keep error codes stable. `AppError` carries a code, message, kind, optional
-  metadata, and optional cause.
+  metadata, and optional cause. The code is required and comes from the single
+  `EAppErrorCode` enum in `@investflow/shared-domain`; add new codes there,
+  under their owner's group, and never pass string literals.
+- `AppError.message` is the user-facing explanation, in concise pt-BR. Clients
+  show it as is. Keep it safe (no ids, class names, or internals), say what is
+  wrong without naming screens or buttons, and write dates as DD/MM/AAAA
+  (`CalendarDate.toPtBrString()`). The `code` is the contract that code branches
+  on, and specs assert codes and metadata rather than message text.
 - Return `Result<T, E extends AppError>` for meaningful expected failures from
   external input, use cases, domain or application services, repository
   operations, and external integrations. Do not force `Result` onto trivial

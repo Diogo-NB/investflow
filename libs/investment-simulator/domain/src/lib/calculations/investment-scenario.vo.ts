@@ -1,20 +1,21 @@
 import {
   CalendarDate,
   DomainError,
+  EAppErrorCode,
   Money,
   Result,
   ValueObject,
 } from '@investflow/shared-domain';
 import { IndexCurve } from '../index-curves/index-curve.aggregate';
 import { RemunerationTerms } from '../offers/terms/remuneration/remuneration-terms.vo';
-import { TitleType } from '../offers/title-type.enum';
+import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentCalculationError } from './investment-calculation.error';
 
 export interface InvestmentScenarioProps {
   readonly principal: Money;
   readonly investmentDate: CalendarDate;
   readonly maturityDate: CalendarDate;
-  readonly titleType: TitleType;
+  readonly titleType: ETitleType;
   readonly remuneration: RemunerationTerms;
   readonly indexCurve: IndexCurve | null;
 }
@@ -28,11 +29,28 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
   static create(
     props: InvestmentScenarioProps,
   ): Result<InvestmentScenario, InvestmentCalculationError> {
+    if (!props.principal.isPositive()) {
+      return Result.err(
+        new InvestmentCalculationError(
+          EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID,
+          'O valor aplicado deve ser maior que zero.',
+        ),
+      );
+    }
+    if (props.principal.currency !== 'BRL') {
+      return Result.err(
+        new InvestmentCalculationError(
+          EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID,
+          'O valor aplicado deve estar em reais (BRL).',
+          { currency: props.principal.currency },
+        ),
+      );
+    }
     if (!props.investmentDate.isBefore(props.maturityDate)) {
       return Result.err(
         new InvestmentCalculationError(
-          'INVESTMENT_PERIOD_INVALID',
-          'investment date must precede maturity',
+          EAppErrorCode.INVESTMENT_PERIOD_INVALID,
+          'O vencimento deve ser depois da data da aplicação.',
           {
             investmentDate: props.investmentDate.toIsoString(),
             maturityDate: props.maturityDate.toIsoString(),
@@ -57,7 +75,7 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
     return this.props.maturityDate;
   }
 
-  get titleType(): TitleType {
+  get titleType(): ETitleType {
     return this.props.titleType;
   }
 
@@ -78,8 +96,8 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
   requireIndexCurve(): IndexCurve {
     const curve = this.props.indexCurve;
     if (!curve) {
-      throw new DomainError('Indexed scenario has no index curve', {
-        code: 'INVESTMENT_SCENARIO_INVARIANT',
+      throw new DomainError('A remuneração indexada está sem curva.', {
+        code: EAppErrorCode.INVESTMENT_SCENARIO_INVARIANT,
         kind: 'unexpected',
       });
     }
@@ -104,16 +122,16 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
     const curve = props.indexCurve;
     if (requiredIndex && !curve) {
       return new InvestmentCalculationError(
-        'INVESTMENT_CURVE_REQUIRED',
-        'the remuneration requires an index curve',
+        EAppErrorCode.INVESTMENT_CURVE_REQUIRED,
+        'Escolha a curva do índice.',
         { index: requiredIndex },
       );
     }
     if (!curve) return null;
     if (curve.index !== requiredIndex) {
       return new InvestmentCalculationError(
-        'INVESTMENT_CURVE_INCOMPATIBLE',
-        'the curve index does not match the remuneration',
+        EAppErrorCode.INVESTMENT_CURVE_INCOMPATIBLE,
+        'A curva escolhida não é do índice desta remuneração.',
         {
           curveId: curve.id,
           expectedIndex: requiredIndex,
@@ -123,8 +141,8 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
     }
     if (curve.deletedAt) {
       return new InvestmentCalculationError(
-        'INVESTMENT_CURVE_UNAVAILABLE',
-        'the curve is deleted',
+        EAppErrorCode.INVESTMENT_CURVE_UNAVAILABLE,
+        'Esta curva foi excluída. Escolha outra curva.',
         { curveId: curve.id },
       );
     }

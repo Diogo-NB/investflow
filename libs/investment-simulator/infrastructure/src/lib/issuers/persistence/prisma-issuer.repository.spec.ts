@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '@investflow/shared-domain';
 import { Issuer } from '@investflow/investment-simulator-domain';
 import {
   PrismaService,
@@ -56,7 +57,7 @@ describe('PrismaIssuerRepository', () => {
     const result = await fixture.repository.findById(record.id);
 
     expect(result.isErr()).toBe(true);
-    expect(result.error.code).toBe('ISSUER_NOT_FOUND');
+    expect(result.error.code).toBe(EAppErrorCode.ISSUER_NOT_FOUND);
   });
 
   it('wraps unexpected read failures', async () => {

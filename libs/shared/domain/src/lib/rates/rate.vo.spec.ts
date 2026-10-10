@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import Decimal from 'decimal.js';
 import { InvalidRateError, Rate } from './rate.vo';
 
@@ -25,7 +26,7 @@ describe('Rate', () => {
 
       expect(result.isErr()).toBe(true);
       expect(result.error).toBeInstanceOf(InvalidRateError);
-      expect(result.error.code).toBe('INVALID_RATE');
+      expect(result.error.code).toBe(EAppErrorCode.INVALID_RATE);
     },
   );
 

@@ -9,11 +9,11 @@ Consumers import its public API through
 `@investflow/investment-simulator-domain`.
 
 Source is organized by plural business feature. Cohesive domain types stay
-shallow within `src/lib/offers`, `src/lib/issuers`, `src/lib/applications`,
+shallow within `src/lib/offers`, `src/lib/issuers`, `src/lib/simulations`,
 and `src/lib/calculations` instead of being split across global aggregate,
-value-object, and error folders. Applications own saved investment hypotheses;
-calculations own the calculation scenario, the calculator domain service,
-taxes, and calculation results.
+value-object, and error folders. Simulations own the user's simulations and
+their recorded calculations; calculations own the calculation scenario, the
+calculator domain service, taxes, and calculation results.
 
 ## Offer catalog
 
@@ -30,42 +30,29 @@ is a discriminated union whose variants name their rate by meaning:
 builds the variant from the persisted or transported kind and rate.
 This structural support does not expand the current MVP beyond CDB simulations.
 
-Index curves expose the domain name `EconomicIndex` as an alias of the shared
-`InvestmentType` enum, reusing its CDI, SELIC, and IPCA definitions.
+Index curves expose the domain name `EEconomicIndex` as an alias of the shared
+`EInvestmentType` enum, reusing its CDI, SELIC, and IPCA definitions.
 
 Technical creation and update timestamps remain in persistence. Offers do not
 validate future or business-day maturity dates at this stage. Deletion does
 not restrict catalog aggregate updates; command repositories exclude deleted offers
 from lookups and report them as not found.
 
-## Offer snapshots and applications
+## Simulation inputs
 
-`Offer.createSnapshot()` captures an offer under a new identity. Snapshots reuse
-the offer model and its terms value objects, and retain the original catalog
-offer ID in `sourceOfferId`. A non-null source identifies a snapshot. Snapshots
-reject updates and deletion with `ImmutableOfferSnapshotError`; catalog changes
-do not alter captured conditions. Deleted catalog offers cannot create snapshots.
+`InvestmentTerms` holds the contractual terms a simulation uses (title type,
+issuer ID, maturity, redemption, and remuneration) by value, independent of the
+offer catalog. Filling the terms from a catalog offer copies them, so later
+catalog edits or deletions never change a simulation.
 
-Scenario experiments create replacement snapshots with optional maturity,
-redemption, or remuneration overrides. Replacements retain the original catalog
-provenance and leave previous snapshots intact.
-
-`Application` is a saved investment hypothesis with an owner, snapshot reference,
-optional index-curve reference, principal, investment date, and optional soft
-deletion. Creation and revision receive the snapshot `Offer` and the chosen
-`IndexCurve` but store only their IDs. Principal must be positive BRL, and the
-proposed investment must form a valid `InvestmentScenario`: the investment date
-precedes snapshot maturity, and a curve is linked exactly when the remuneration
-requires one, matches its index, and is not deleted. Past dates, weekends, and
-holidays are accepted without calendar adjustment; only calculation enforces
-business days. Revisions validate the complete proposed investment state before
-applying changes. Deleted applications cannot be revised; repeated deletion
-preserves the first deletion instant.
-
-`Application.toScenario()` rebuilds the calculable scenario from the loaded
-snapshot and curve, rejecting deleted applications, foreign references, and
-curves deleted after linking. Snapshots share the offer table and are excluded
-from catalog queries and catalog commands.
+`SimulationInputs` combines the terms with the principal, the investment date,
+and the chosen index-curve ID (null for fixed rates). `toScenario()` builds the
+calculable `InvestmentScenario` from the loaded curve and returns the scenario
+rule the inputs break: principal positive BRL, investment before maturity, and a
+curve exactly when the remuneration requires one, of its index and not deleted.
+Passing a curve other than the referenced one is an invariant breach. Past
+dates, weekends, and holidays pass the scenario; only calculation enforces
+business days.
 
 ## Investment calculation domain service
 
@@ -87,14 +74,16 @@ calendar: the investment date precedes maturity, and a curve is present exactly
 when the remuneration requires one, matches its index, and is not deleted. The
 calculator then runs a linear pipeline:
 
-1. `accrualPeriodsBetween()` requires business investment and maturity dates
-   and pairs consecutive business days into `AccrualPeriod` values.
-2. `resolveAccrualRates()` switches exhaustively over the remuneration kind and
-   prices every period as a percentage of an annual effective rate (base 252):
-   a fixed rate at 100%, or the curve value at the contracted percentage.
+1. Accrual periods: the investment and maturity dates must be business days,
+   and consecutive business days pair into periods.
+2. Accrual rates: an exhaustive switch over the remuneration kind prices every
+   period as a percentage of an annual effective rate (base 252): a fixed rate
+   at 100%, or the curve value at the contracted percentage.
    `IndexCurve.valuesAt()` reports every uncovered reference at once; gaps are
-   never filled. IPCA-plus returns an explicit unsupported error.
-3. Daily balances compound `dailyAccrualFactor()`, cached per rate.
+   never filled. IPCA-plus returns an explicit unsupported error, and
+   `InvestmentCalculator.unsupportedReason()` tells screens which terms cannot
+   be priced yet.
+3. Daily balances compound the daily accrual factor, cached per rate.
 4. `CdbTaxCalculator` derives the maturity summary.
 
 Only steps 1 and 2 return expected failures. Steps 3 and 4 are plain
@@ -122,18 +111,25 @@ use calendar days and IOF before income tax, without reducing daily gross
 balances. Calculations preserve decimal.js default precision without business
 rounding. This does not reproduce B3-specific truncation and rounding.
 
-## Simulation runs
+## Simulations and calculations
 
-`SimulationRun` is an immutable, append-only record of one successful
-calculation of an `Application`. `SimulationRun.record()` freezes the
-application's inputs at calculation time (offer snapshot ID, index-curve ID,
-principal, and investment date), the calculation's `methodologyVersion`, the
-`calculatedAt` instant supplied by the caller's clock, the maturity summary, and
-every daily balance. Snapshots and curves are immutable, so those inputs fully
-determine the scenario. Runs have no mutators and no deletion; revising an
-application leaves its runs untouched, and read models derive whether a run is
-outdated by comparing its inputs and methodology with the application's current
-state and `METHODOLOGY_VERSION`.
+`Simulation` is an identity: its owner, the catalog offer its first inputs were
+filled from (null for typed terms), and optional soft deletion that keeps the
+first instant. It holds no inputs.
+
+`SimulationCalculation` is an immutable, append-only record of one successful
+calculation of a simulation. `SimulationCalculation.record()` keeps the
+`SimulationInputs` by value, the whole `InvestmentCalculation` (methodology
+version, maturity summary, taxation basis, and every daily balance), and the
+`calculatedAt` instant supplied by the caller's clock. It rejects deleted
+simulations. Index curves are immutable, so the inputs fully reproduce the
+result under the recorded methodology.
+
+A simulation's current state is its latest calculation; earlier ones are its
+history. A simulation exists only once a first calculation succeeds, and
+failed calculations are never recorded. `SimulationCalculation.isOutdated()`
+takes a plain methodology version so read models can flag calculations made
+under a methodology other than `METHODOLOGY_VERSION`.
 
 ## Building
 

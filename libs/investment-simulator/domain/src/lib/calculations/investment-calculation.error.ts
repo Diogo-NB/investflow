@@ -2,18 +2,24 @@ import {
   AppErrorMetadata,
   CalendarDate,
   DomainError,
+  EAppErrorCode,
 } from '@investflow/shared-domain';
 
+export type UnsupportedCalculationCode =
+  | EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED
+  | EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED;
+
 export type InvestmentCalculationErrorCode =
-  | 'INVESTMENT_TITLE_UNSUPPORTED'
-  | 'INVESTMENT_REMUNERATION_UNSUPPORTED'
-  | 'INVESTMENT_PERIOD_INVALID'
-  | 'INVESTMENT_DATE_NOT_BUSINESS_DAY'
-  | 'INVESTMENT_CURVE_REQUIRED'
-  | 'INVESTMENT_CURVE_UNAVAILABLE'
-  | 'INVESTMENT_CURVE_INCOMPATIBLE'
-  | 'INVESTMENT_CURVE_COVERAGE_MISSING'
-  | 'INVESTMENT_CALCULATION_FAILED';
+  | EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED
+  | EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED
+  | EAppErrorCode.INVESTMENT_PERIOD_INVALID
+  | EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID
+  | EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY
+  | EAppErrorCode.INVESTMENT_CURVE_REQUIRED
+  | EAppErrorCode.INVESTMENT_CURVE_UNAVAILABLE
+  | EAppErrorCode.INVESTMENT_CURVE_INCOMPATIBLE
+  | EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING
+  | EAppErrorCode.INVESTMENT_CALCULATION_FAILED;
 
 export class InvestmentCalculationError extends DomainError {
   constructor(
@@ -22,10 +28,12 @@ export class InvestmentCalculationError extends DomainError {
     metadata?: AppErrorMetadata,
     cause?: unknown,
   ) {
-    super(`Cannot calculate investment: ${reason}`, {
+    super(reason, {
       code,
       kind:
-        code === 'INVESTMENT_CALCULATION_FAILED' ? 'unexpected' : 'validation',
+        code === EAppErrorCode.INVESTMENT_CALCULATION_FAILED
+          ? 'unexpected'
+          : 'validation',
       metadata,
       cause,
     });
@@ -36,16 +44,29 @@ export class InvestmentCalculationError extends DomainError {
     date: CalendarDate,
   ): InvestmentCalculationError {
     return new InvestmentCalculationError(
-      'INVESTMENT_DATE_NOT_BUSINESS_DAY',
-      'investment and maturity dates must be business days',
+      EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY,
+      `${date.toPtBrString()} não é dia útil.`,
       { field, date: date.toIsoString() },
+    );
+  }
+
+  static unsupported(
+    code: UnsupportedCalculationCode,
+    metadata: AppErrorMetadata,
+  ): InvestmentCalculationError {
+    return new InvestmentCalculationError(
+      code,
+      code === EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED
+        ? 'Por enquanto, só é possível calcular CDBs.'
+        : 'O cálculo de IPCA+ ainda não está disponível.',
+      metadata,
     );
   }
 
   static failed(cause: unknown): InvestmentCalculationError {
     return new InvestmentCalculationError(
-      'INVESTMENT_CALCULATION_FAILED',
-      'the accrual could not be calculated',
+      EAppErrorCode.INVESTMENT_CALCULATION_FAILED,
+      'Não foi possível calcular o rendimento.',
       undefined,
       cause,
     );

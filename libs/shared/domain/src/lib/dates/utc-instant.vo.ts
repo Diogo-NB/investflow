@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import { DomainError } from '../foundations/domain.error';
 import { Result } from '../foundations/result';
 import { ValueObject } from '../foundations/value-object.base';
@@ -8,8 +9,8 @@ const ISO_INSTANT_WITH_OFFSET_PATTERN =
 
 export class InvalidUtcInstantError extends DomainError {
   constructor(reason: string, value?: string | number) {
-    super(`Invalid UTC instant: ${reason}`, {
-      code: 'INVALID_UTC_INSTANT',
+    super(reason, {
+      code: EAppErrorCode.INVALID_UTC_INSTANT,
       metadata: value === undefined ? { reason } : { reason, value },
     });
   }
@@ -25,7 +26,7 @@ export class UtcInstant extends ValueObject<UtcInstant> {
     if (!match) {
       return Result.err(
         new InvalidUtcInstantError(
-          'expected an ISO timestamp with Z or an explicit offset',
+          'Data e hora inválidas. Use o formato ISO com fuso horário.',
           value,
         ),
       );
@@ -34,7 +35,7 @@ export class UtcInstant extends ValueObject<UtcInstant> {
     const calendarDateResult = CalendarDate.create(match[1]);
     if (calendarDateResult.isErr()) {
       return Result.err(
-        new InvalidUtcInstantError('invalid calendar date', value),
+        new InvalidUtcInstantError('Data e hora inválidas.', value),
       );
     }
 
@@ -50,9 +51,7 @@ export class UtcInstant extends ValueObject<UtcInstant> {
   static fromDate(value: Date): Result<UtcInstant, InvalidUtcInstantError> {
     const epochMilliseconds = value.getTime();
     if (Number.isNaN(epochMilliseconds)) {
-      return Result.err(
-        new InvalidUtcInstantError('expected a valid Date instance'),
-      );
+      return Result.err(new InvalidUtcInstantError('Data e hora inválidas.'));
     }
 
     return Result.ok(new UtcInstant(new Date(epochMilliseconds)));
@@ -63,7 +62,7 @@ export class UtcInstant extends ValueObject<UtcInstant> {
   ): Result<UtcInstant, InvalidUtcInstantError> {
     if (!Number.isInteger(value) || Number.isNaN(new Date(value).getTime())) {
       return Result.err(
-        new InvalidUtcInstantError('expected valid epoch milliseconds', value),
+        new InvalidUtcInstantError('Data e hora inválidas.', value),
       );
     }
 

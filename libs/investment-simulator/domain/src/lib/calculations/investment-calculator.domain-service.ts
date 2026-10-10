@@ -1,11 +1,19 @@
-import { BusinessDayCalendar, Money, Result } from '@investflow/shared-domain';
+import {
+  BusinessDayCalendar,
+  CalendarDate,
+  CalendarDateRange,
+  EAppErrorCode,
+  Money,
+  Result,
+} from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
-import { TitleType } from '../offers/title-type.enum';
-import { AccrualRate, resolveAccrualRates } from './accrual-rates';
-import { accrualPeriodsBetween } from './accrual-schedule';
-import { dailyAccrualFactor } from './annual-effective-252';
+import type { RemunerationKind } from '../offers/terms/remuneration/remuneration-terms.vo';
+import { ETitleType } from '../offers/title-type.enum';
 import { CdbTaxCalculator } from './cdb-tax-calculator.domain-service';
-import { InvestmentCalculationError } from './investment-calculation.error';
+import {
+  InvestmentCalculationError,
+  UnsupportedCalculationCode,
+} from './investment-calculation.error';
 import {
   DailyInvestmentBalance,
   InvestmentCalculation,
@@ -16,37 +24,146 @@ import { InvestmentScenario } from './investment-scenario.vo';
 // figures, so recorded runs keep identifying what produced them.
 export const METHODOLOGY_VERSION = 'cdb-252-v1';
 
+const BUSINESS_DAYS_PER_YEAR = 252;
+const FULL_RATE = new Decimal(1);
+
+// The rate of one business day remunerates until the next business day, where
+// the resulting balance is presented.
+interface AccrualPeriod {
+  readonly rateReferenceDate: CalendarDate;
+  readonly balanceDate: CalendarDate;
+}
+
+// A period priced as a percentage of an annual effective rate (base 252).
+// A fixed rate is earned in full; an index rate in the contracted percentage.
+interface AccrualRate extends AccrualPeriod {
+  readonly annualRate: Decimal;
+  readonly percentage: Decimal;
+}
+
 export class InvestmentCalculator {
   private readonly cdbTaxes = new CdbTaxCalculator();
 
   constructor(private readonly calendar: BusinessDayCalendar) {}
 
+  static unsupportedReason(
+    titleType: ETitleType,
+    remunerationKind: RemunerationKind,
+  ): UnsupportedCalculationCode | null {
+    if (titleType !== ETitleType.CDB) {
+      return EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED;
+    }
+    // The IPCA contractual profile is not defined yet.
+    if (remunerationKind === 'IPCA_PLUS') {
+      return EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED;
+    }
+    return null;
+  }
+
   calculate(
     scenario: InvestmentScenario,
   ): Result<InvestmentCalculation, InvestmentCalculationError> {
-    if (scenario.titleType !== TitleType.CDB) {
+    const unsupported = InvestmentCalculator.unsupportedReason(
+      scenario.titleType,
+      scenario.remuneration.kind,
+    );
+    if (unsupported) {
       return Result.err(
-        new InvestmentCalculationError(
-          'INVESTMENT_TITLE_UNSUPPORTED',
-          'only CDB titles are supported',
-          { titleType: scenario.titleType },
-        ),
+        InvestmentCalculationError.unsupported(unsupported, {
+          titleType: scenario.titleType,
+          remunerationKind: scenario.remuneration.kind,
+        }),
       );
     }
-    const periods = accrualPeriodsBetween(
-      this.calendar,
-      scenario.investmentDate,
-      scenario.maturityDate,
-    );
-    if (periods.isErr()) return Result.err(periods.error);
-    const rates = resolveAccrualRates(scenario, periods.value);
-    if (rates.isErr()) return Result.err(rates.error);
+    const periods = this.accrualPeriods(scenario);
+    if (periods.isErr()) return periods;
+    const rates = this.accrualRates(scenario, periods.value);
+    if (rates.isErr()) return rates;
 
     // Inputs are validated; only numeric overflow can fail from here on.
     return Result.fromThrowable(
       () => this.compute(scenario, rates.value),
       InvestmentCalculationError.failed,
     );
+  }
+
+  // InvestmentScenario guarantees the investment date precedes maturity.
+  private accrualPeriods({
+    investmentDate,
+    maturityDate,
+  }: InvestmentScenario): Result<AccrualPeriod[], InvestmentCalculationError> {
+    if (!this.calendar.isBusinessDay(investmentDate)) {
+      return Result.err(
+        InvestmentCalculationError.notBusinessDay(
+          'investmentDate',
+          investmentDate,
+        ),
+      );
+    }
+    if (!this.calendar.isBusinessDay(maturityDate)) {
+      return Result.err(
+        InvestmentCalculationError.notBusinessDay('maturityDate', maturityDate),
+      );
+    }
+
+    // Each business day closes the period opened by the previous one; the
+    // investment date only opens the first period.
+    const businessDays = CalendarDateRange.of(
+      investmentDate,
+      maturityDate,
+    ).datesBetween.filter(this.calendar.isBusinessDay);
+
+    return Result.ok(
+      businessDays.slice(1).map((balanceDate, index) => ({
+        rateReferenceDate: businessDays[index],
+        balanceDate,
+      })),
+    );
+  }
+
+  private accrualRates(
+    scenario: InvestmentScenario,
+    periods: readonly AccrualPeriod[],
+  ): Result<AccrualRate[], InvestmentCalculationError> {
+    const remuneration = scenario.remuneration;
+    switch (remuneration.kind) {
+      case 'PREFIXED':
+        return Result.ok(
+          periods.map((period) => ({
+            ...period,
+            annualRate: remuneration.annualRate.value,
+            percentage: FULL_RATE,
+          })),
+        );
+      case 'CDI_PERCENTAGE':
+      case 'SELIC_PERCENTAGE':
+        return scenario
+          .requireIndexCurve()
+          .valuesAt(periods.map((period) => period.rateReferenceDate))
+          .map((values) =>
+            periods.map((period, index) => ({
+              ...period,
+              annualRate: values[index].value,
+              percentage: remuneration.percentage.value,
+            })),
+          )
+          .mapError(
+            (error) =>
+              new InvestmentCalculationError(
+                EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
+                error.message,
+                error.metadata,
+              ),
+          );
+      case 'IPCA_PLUS':
+        // calculate() rejects it earlier through unsupportedReason().
+        return Result.err(
+          InvestmentCalculationError.unsupported(
+            EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED,
+            { remunerationKind: remuneration.kind },
+          ),
+        );
+    }
   }
 
   private compute(
@@ -57,7 +174,7 @@ export class InvestmentCalculator {
     const dailyBalances = this.accrue(principal, rates);
     const grossBalance = dailyBalances[dailyBalances.length - 1].grossBalance;
     const grossEarnings = grossBalance.subtract(principal);
-    const taxes = this.cdbTaxes.calculate(
+    const { basis, ...taxes } = this.cdbTaxes.calculate(
       grossEarnings,
       scenario.holdingPeriodCalendarDays,
     );
@@ -71,6 +188,7 @@ export class InvestmentCalculator {
         ...taxes,
         netBalance: grossBalance.subtract(taxes.totalTaxes),
       },
+      taxation: basis,
     };
   }
 
@@ -85,7 +203,7 @@ export class InvestmentCalculator {
       const key = `${annualRate}|${percentage}`;
       let factor = factors.get(key);
       if (!factor) {
-        factor = dailyAccrualFactor(annualRate, percentage);
+        factor = this.dailyAccrualFactor(annualRate, percentage);
         factors.set(key, factor);
       }
       const grossBalance = previousBalance.times(factor);
@@ -98,5 +216,18 @@ export class InvestmentCalculator {
       previousBalance = grossBalance;
       return balance;
     });
+  }
+
+  // Converts an annual effective rate (base 252) to its daily equivalent and
+  // earns the contracted percentage of it: 1 + ((1 + annual)^(1/252) - 1) * pct.
+  private dailyAccrualFactor(
+    annualRate: Decimal,
+    percentage: Decimal,
+  ): Decimal {
+    const dailyRate = annualRate
+      .plus(1)
+      .pow(new Decimal(1).div(BUSINESS_DAYS_PER_YEAR))
+      .minus(1);
+    return dailyRate.times(percentage).plus(1);
   }
 }

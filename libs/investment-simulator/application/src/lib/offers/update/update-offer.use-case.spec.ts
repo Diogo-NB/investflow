@@ -1,7 +1,7 @@
 import {
   RemunerationTerms,
   Offer,
-  TitleType,
+  ETitleType,
   RedemptionTerms,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Rate, Result } from '@investflow/shared-domain';
@@ -15,7 +15,7 @@ function offer() {
   return Offer.reconstitute({
     deletedAt: null,
     id: OFFER_ID,
-    titleType: TitleType.CDB,
+    titleType: ETitleType.CDB,
     issuerId: '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e',
     maturityDate: CalendarDate.of('2030-05-20'),
     redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
@@ -107,18 +107,5 @@ describe('UpdateOfferUseCase', () => {
     });
 
     expect(saveResult.error).toBe(saveError);
-  });
-
-  it('treats an application snapshot as not found', async () => {
-    const snapshot = offer().createSnapshot().value;
-    const fixture = createFixture(snapshot);
-
-    const result = await fixture.useCase.execute({
-      offerId: snapshot.id,
-      maturityDate: CalendarDate.of('2031-01-01'),
-    });
-
-    expect(result.error).toBeInstanceOf(OfferNotFoundError);
-    expect(fixture.repository.save).not.toHaveBeenCalled();
   });
 });

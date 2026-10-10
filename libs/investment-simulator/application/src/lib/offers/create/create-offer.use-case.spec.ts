@@ -1,7 +1,7 @@
 import {
   RemunerationTerms,
   Issuer,
-  TitleType,
+  ETitleType,
   RedemptionTerms,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Rate, Result } from '@investflow/shared-domain';
@@ -38,7 +38,7 @@ describe('CreateOfferUseCase', () => {
     const fixture = createFixture();
 
     const result = await fixture.useCase.execute({
-      titleType: TitleType.LCI,
+      titleType: ETitleType.LCI,
       issuerId: ISSUER_ID,
       maturityDate: CalendarDate.of('2030-05-20'),
       redemptionTerms: RedemptionTerms.create('DAILY'),
@@ -64,7 +64,7 @@ describe('CreateOfferUseCase', () => {
       .mockResolvedValue(Result.err(error));
 
     const result = await fixture.useCase.execute({
-      titleType: TitleType.CDB,
+      titleType: ETitleType.CDB,
       issuerId: ISSUER_ID,
       maturityDate: CalendarDate.of('2030-05-20'),
       redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
@@ -83,7 +83,7 @@ describe('CreateOfferUseCase', () => {
       .mockResolvedValue(Result.err(error));
 
     const result = await fixture.useCase.execute({
-      titleType: TitleType.LCA,
+      titleType: ETitleType.LCA,
       issuerId: ISSUER_ID,
       maturityDate: CalendarDate.of('2030-05-20'),
       redemptionTerms: RedemptionTerms.create('AT_MATURITY'),

@@ -1,28 +1,31 @@
 import { Module } from '@nestjs/common';
 import {
-  ApplicationRepository,
-  CreateApplicationUseCase,
+  CalculateSimulationUseCase,
   CreateOfferUseCase,
-  DeleteApplicationUseCase,
   DeleteOfferUseCase,
+  DeleteSimulationUseCase,
   IndexCurveRepository,
   IssuerRepository,
   OfferRepository,
-  RecordSimulationRunUseCase,
-  ReviseApplicationUseCase,
-  SimulationRunRepository,
+  SimulationCalculationRepository,
+  SimulationRepository,
   UpdateOfferUseCase,
 } from '@investflow/investment-simulator-application';
 import { InvestmentCalculator } from '@investflow/investment-simulator-domain';
-import { BrazilianBusinessDayCalendar } from '@investflow/shared-domain';
-import { ApplicationController } from './applications/http/application.controller';
-import { PrismaApplicationRepository } from './applications/persistence/prisma-application.repository';
-import { GetApplicationQueryHandler } from './applications/queries/get-application.query-handler';
-import { ListApplicationsQueryHandler } from './applications/queries/list-applications.query-handler';
-import { SimulationRunController } from './simulation-runs/http/simulation-run.controller';
-import { PrismaSimulationRunRepository } from './simulation-runs/persistence/prisma-simulation-run.repository';
-import { GetSimulationRunQueryHandler } from './simulation-runs/queries/get-simulation-run.query-handler';
-import { ListApplicationRunsQueryHandler } from './simulation-runs/queries/list-application-runs.query-handler';
+import {
+  BrazilianBusinessDayCalendar,
+  BusinessDayCalendar,
+} from '@investflow/shared-domain';
+import { BusinessCalendarController } from './business-calendar/http/business-calendar.controller';
+import { ListNonBusinessDaysQueryHandler } from './business-calendar/queries/list-non-business-days.query-handler';
+import { SimulationController } from './simulations/http/simulation.controller';
+import { PrismaSimulationCalculationRepository } from './simulations/persistence/prisma-simulation-calculation.repository';
+import { PrismaSimulationRepository } from './simulations/persistence/prisma-simulation.repository';
+import { ListCalculationMonthlyBalancesQueryHandler } from './simulations/queries/list-calculation-monthly-balances.query-handler';
+import { ListSimulationsQueryHandler } from './simulations/queries/list-simulations.query-handler';
+import { SimulationWorkspaceController } from './simulation-workspaces/http/simulation-workspace.controller';
+import { GetSimulationOptionsQueryHandler } from './simulation-workspaces/queries/get-simulation-options.query-handler';
+import { GetSimulationWorkspaceQueryHandler } from './simulation-workspaces/queries/get-simulation-workspace.query-handler';
 import { InvestmentSimulatorController } from './investment-simulator.controller';
 import { PrismaIssuerRepository } from './issuers/persistence/prisma-issuer.repository';
 import { OfferController } from './offers/http/offer.controller';
@@ -38,8 +41,9 @@ import { IssuerController } from './issuers/http/issuer.controller';
     InvestmentSimulatorController,
     OfferController,
     IssuerController,
-    ApplicationController,
-    SimulationRunController,
+    SimulationController,
+    SimulationWorkspaceController,
+    BusinessCalendarController,
   ],
   providers: [
     { provide: IndexCurveRepository, useClass: PrismaIndexCurveRepository },
@@ -51,24 +55,25 @@ import { IssuerController } from './issuers/http/issuer.controller';
     ListOffersQueryHandler,
     GetOfferQueryHandler,
     ListIssuersQueryHandler,
-    { provide: ApplicationRepository, useClass: PrismaApplicationRepository },
-    CreateApplicationUseCase,
-    ReviseApplicationUseCase,
-    DeleteApplicationUseCase,
-    ListApplicationsQueryHandler,
-    GetApplicationQueryHandler,
+    { provide: BusinessDayCalendar, useClass: BrazilianBusinessDayCalendar },
     {
       provide: InvestmentCalculator,
-      useFactory: () =>
-        new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+      useFactory: (calendar: BusinessDayCalendar) =>
+        new InvestmentCalculator(calendar),
+      inject: [BusinessDayCalendar],
     },
+    ListNonBusinessDaysQueryHandler,
+    { provide: SimulationRepository, useClass: PrismaSimulationRepository },
     {
-      provide: SimulationRunRepository,
-      useClass: PrismaSimulationRunRepository,
+      provide: SimulationCalculationRepository,
+      useClass: PrismaSimulationCalculationRepository,
     },
-    RecordSimulationRunUseCase,
-    ListApplicationRunsQueryHandler,
-    GetSimulationRunQueryHandler,
+    CalculateSimulationUseCase,
+    DeleteSimulationUseCase,
+    ListSimulationsQueryHandler,
+    ListCalculationMonthlyBalancesQueryHandler,
+    GetSimulationOptionsQueryHandler,
+    GetSimulationWorkspaceQueryHandler,
   ],
 })
 export class InvestmentSimulatorInfrastructureModule {}

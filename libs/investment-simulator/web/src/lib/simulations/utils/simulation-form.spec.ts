@@ -1,0 +1,173 @@
+import {
+  cdiCurve as cdi,
+  options,
+  remunerations,
+  selicOffer,
+  workspace,
+} from '../../testing/simulator-fixtures';
+import type { RemunerationOption } from '../models/simulation.types';
+import {
+  blankSimulationValues,
+  coverageGap,
+  defaultCurveId,
+  differsFromOffer,
+  offerTermValues,
+  simulationFormSchema,
+  simulationValues,
+  toSimulationInput,
+  type SimulationFormValues,
+} from './simulation-form';
+
+const offer = {
+  ...selicOffer,
+  issuer: { id: 'issuer', name: 'Banco Local' },
+  redemptionTerms: { kind: 'DAILY' as const },
+  remunerationTerms: { kind: 'CDI_PERCENTAGE' as const, rate: '1.10' },
+};
+
+const valid: SimulationFormValues = {
+  offerId: '',
+  principal: '10.000,50',
+  investmentDate: '2026-01-02',
+  issuerId: 'issuer',
+  remunerationKind: 'CDI_PERCENTAGE',
+  rate: '110',
+  maturityDate: '2026-03-02',
+  redemptionKind: 'DAILY',
+  indexCurveId: 'cdi',
+};
+
+function errors(values: SimulationFormValues) {
+  const result = simulationFormSchema(remunerations).safeParse(values);
+  return result.success
+    ? {}
+    : Object.fromEntries(
+        result.error.issues.map((issue) => [issue.path[0], issue.message]),
+      );
+}
+
+describe('simulation form', () => {
+  it('accepts complete terms and builds the exact API payload', () => {
+    expect(errors(valid)).toEqual({});
+    expect(toSimulationInput(valid)).toEqual({
+      principal: '10000.5',
+      investmentDate: '2026-01-02',
+      indexCurveId: 'cdi',
+      issuerId: 'issuer',
+      maturityDate: '2026-03-02',
+      redemptionTerms: { kind: 'DAILY' },
+      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+    });
+  });
+
+  it('sends the catalog offer and no curve for a fixed rate', () => {
+    // The form clears the curve whenever the kind changes.
+    const input = toSimulationInput({
+      ...valid,
+      offerId: 'offer',
+      remunerationKind: 'PREFIXED',
+      rate: '12,5',
+      indexCurveId: '',
+    });
+    expect(input.offerId).toBe('offer');
+    expect(input.indexCurveId).toBeNull();
+    expect(input.remunerationTerms).toEqual({
+      kind: 'PREFIXED',
+      rate: '0.125',
+    });
+  });
+
+  it('explains every invalid input in Portuguese', () => {
+    expect(
+      errors({
+        ...valid,
+        principal: '0',
+        rate: 'abc',
+        issuerId: '',
+        investmentDate: '31/02/2026',
+        maturityDate: '',
+        indexCurveId: '',
+      }),
+    ).toEqual({
+      principal: 'O valor aplicado deve ser maior que zero.',
+      rate: 'Use apenas números, como 10.000,50.',
+      issuerId: 'Escolha o emissor.',
+      investmentDate: 'Informe uma data válida no formato DD/MM/AAAA.',
+      maturityDate: 'Informe a data.',
+      indexCurveId: 'Escolha a curva do índice.',
+    });
+    expect(errors({ ...valid, maturityDate: '2026-01-02' })).toEqual({
+      maturityDate: 'O vencimento deve ser depois da data da aplicação.',
+    });
+    expect(errors({ ...valid, rate: `1,${'1'.repeat(29)}` })).toEqual({
+      rate: 'Taxa com casas decimais demais.',
+    });
+  });
+
+  it('starts blank simulations with today, a sole issuer and a sole curve', () => {
+    expect(blankSimulationValues('2026-10-10', options)).toMatchObject({
+      investmentDate: '2026-10-10',
+      issuerId: 'issuer',
+      remunerationKind: 'CDI_PERCENTAGE',
+      redemptionKind: 'AT_MATURITY',
+      indexCurveId: 'cdi',
+    });
+    const twoCurves: RemunerationOption[] = [
+      { ...remunerations[1], curves: [cdi, { ...cdi, id: 'cdi-2' }] },
+    ];
+    expect(defaultCurveId('CDI_PERCENTAGE', twoCurves)).toBe('');
+    expect(defaultCurveId('PREFIXED', remunerations)).toBe('');
+  });
+
+  it('edits saved simulations in the units the user typed', () => {
+    expect(
+      simulationValues({
+        ...workspace.calculations[0].inputs,
+        principal: '10000.5',
+      }),
+    ).toEqual({ ...valid, principal: '10000,5', rate: '105' });
+  });
+
+  it('fills terms from an offer and tracks later edits', () => {
+    const filled = {
+      ...valid,
+      ...offerTermValues(offer, { indexCurveId: '' }, remunerations),
+    };
+    expect(filled).toMatchObject({
+      issuerId: 'issuer',
+      rate: '110',
+      maturityDate: '2028-12-29',
+      indexCurveId: 'cdi',
+    });
+    expect(differsFromOffer(filled, offer)).toBe(false);
+    expect(differsFromOffer({ ...filled, rate: '115' }, offer)).toBe(true);
+    expect(
+      offerTermValues(offer, { indexCurveId: 'selic' }, remunerations)
+        .indexCurveId,
+    ).toBe('cdi');
+  });
+
+  it('warns when the curve does not span the rate references', () => {
+    expect(
+      coverageGap(
+        { investmentDate: '2026-01-02', maturityDate: '2029-01-01' },
+        cdi,
+      ),
+    ).toBeNull();
+    expect(
+      coverageGap(
+        { investmentDate: '2026-01-02', maturityDate: '2029-01-03' },
+        cdi,
+      ),
+    ).toEqual(cdi.coverage);
+    expect(
+      coverageGap(
+        { investmentDate: '2025-12-31', maturityDate: '2026-06-01' },
+        cdi,
+      ),
+    ).toEqual(cdi.coverage);
+    expect(
+      coverageGap({ investmentDate: '', maturityDate: '' }, cdi),
+    ).toBeNull();
+  });
+});

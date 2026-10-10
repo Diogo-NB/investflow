@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '../foundations/app-error-code.enum';
 import Decimal from 'decimal.js';
 import { DomainError } from '../foundations/domain.error';
 import { Result } from '../foundations/result';
@@ -13,8 +14,8 @@ export interface SerializedMoney {
 
 export class InvalidMoneyError extends DomainError {
   constructor(reason: string, input?: unknown) {
-    super(`Invalid money: ${reason}`, {
-      code: 'INVALID_MONEY',
+    super(reason, {
+      code: EAppErrorCode.INVALID_MONEY,
       metadata: input === undefined ? { reason } : { reason, input },
     });
   }
@@ -23,9 +24,9 @@ export class InvalidMoneyError extends DomainError {
 export class MoneyCurrencyMismatchError extends DomainError {
   constructor(leftCurrency: string, rightCurrency: string) {
     super(
-      `Cannot operate on money with different currencies: ${leftCurrency} and ${rightCurrency}`,
+      `Não é possível operar valores em moedas diferentes (${leftCurrency} e ${rightCurrency}).`,
       {
-        code: 'MONEY_CURRENCY_MISMATCH',
+        code: EAppErrorCode.MONEY_CURRENCY_MISMATCH,
         metadata: { leftCurrency, rightCurrency },
       },
     );
@@ -47,7 +48,7 @@ export class Money extends ValueObject<Money> {
     if (!CURRENCY_CODE_PATTERN.test(currency)) {
       return Result.err(
         new InvalidMoneyError(
-          'currency must use a three-letter uppercase code',
+          'A moeda deve usar um código de três letras maiúsculas.',
           currency,
         ),
       );
@@ -59,7 +60,7 @@ export class Money extends ValueObject<Money> {
     } catch {
       return Result.err(
         new InvalidMoneyError(
-          'amount must be a valid decimal value',
+          'Informe um valor numérico válido.',
           serializeInvalidAmount(amount),
         ),
       );
@@ -68,7 +69,7 @@ export class Money extends ValueObject<Money> {
     if (!decimal.isFinite()) {
       return Result.err(
         new InvalidMoneyError(
-          'amount must be finite',
+          'Informe um valor finito.',
           serializeInvalidAmount(amount),
         ),
       );

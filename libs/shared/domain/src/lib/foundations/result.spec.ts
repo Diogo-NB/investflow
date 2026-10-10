@@ -1,9 +1,13 @@
+import { EAppErrorCode } from './app-error-code.enum';
 import { AppError } from './app.error';
 import { Result } from './result';
 
 class TestError extends AppError {
   constructor(message = 'Test failure') {
-    super(message, { code: 'TEST_FAILURE', kind: 'unexpected' });
+    super(message, {
+      code: EAppErrorCode.INVESTMENT_CALCULATION_FAILED,
+      kind: 'unexpected',
+    });
   }
 }
 
@@ -52,6 +56,13 @@ describe('Result', () => {
     const result = Result.err<number, TestError>(new TestError()).unwrapOr(7);
 
     expect(result).toBe(7);
+  });
+
+  it('reads the value or null', () => {
+    expect(Result.ok<number, TestError>(42).valueOrNull).toBe(42);
+    expect(Result.err<number, TestError>(new TestError()).valueOrNull).toBe(
+      null,
+    );
   });
 
   it('converts thrown errors', () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Link, Outlet, useLocation } from 'react-router';
+import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { useIdentity, useLogout } from './auth/auth-context';
 
 export function Shell() {
@@ -37,6 +37,15 @@ export function Shell() {
             </span>
             InvestFlow
           </Link>
+
+          <nav aria-label="Principal" className="mr-auto">
+            <NavLink
+              to="/simulacoes"
+              className="flex min-h-11 items-center rounded-control px-3 font-medium text-muted no-underline hover:bg-accent-soft hover:text-fg aria-[current=page]:text-accent"
+            >
+              Simulações
+            </NavLink>
+          </nav>
 
           <div className="flex min-w-0 items-center gap-3 sm:gap-6">
             <p className="m-0 grid min-w-0 text-right text-sm">

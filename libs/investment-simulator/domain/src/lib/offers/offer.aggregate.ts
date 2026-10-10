@@ -2,37 +2,24 @@ import {
   AggregateRoot,
   CalendarDate,
   generateUuid,
-  Result,
   UtcInstant,
 } from '@investflow/shared-domain';
 import type { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
 import type { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
-import { TitleType } from './title-type.enum';
-import {
-  ImmutableOfferSnapshotError,
-  InvalidOfferSnapshotError,
-} from './offer.error';
+import { ETitleType } from './title-type.enum';
 
 interface OfferProps {
-  readonly titleType: TitleType;
+  readonly titleType: ETitleType;
   readonly issuerId: string;
-  readonly sourceOfferId: string | null;
   maturityDate: CalendarDate;
   redemptionTerms: RedemptionTerms;
   remunerationTerms: RemunerationTerms;
   deletedAt: UtcInstant | null;
 }
 
-export type CreateOfferProps = Omit<OfferProps, 'deletedAt' | 'sourceOfferId'>;
+export type CreateOfferProps = Omit<OfferProps, 'deletedAt'>;
 
-export type OfferSnapshotOverrides = Partial<
-  Pick<OfferProps, 'maturityDate' | 'redemptionTerms' | 'remunerationTerms'>
->;
-
-export type ReconstituteOfferProps = Omit<OfferProps, 'sourceOfferId'> & {
-  readonly id: string;
-  readonly sourceOfferId?: string | null;
-};
+export type ReconstituteOfferProps = OfferProps & { readonly id: string };
 
 export class Offer extends AggregateRoot {
   private constructor(
@@ -46,7 +33,6 @@ export class Offer extends AggregateRoot {
     return new Offer(generateUuid(), {
       titleType: props.titleType,
       issuerId: props.issuerId,
-      sourceOfferId: null,
       maturityDate: props.maturityDate,
       redemptionTerms: props.redemptionTerms,
       remunerationTerms: props.remunerationTerms,
@@ -58,7 +44,6 @@ export class Offer extends AggregateRoot {
     return new Offer(props.id, {
       titleType: props.titleType,
       issuerId: props.issuerId,
-      sourceOfferId: props.sourceOfferId ?? null,
       maturityDate: props.maturityDate,
       redemptionTerms: props.redemptionTerms,
       remunerationTerms: props.remunerationTerms,
@@ -66,7 +51,7 @@ export class Offer extends AggregateRoot {
     });
   }
 
-  get titleType(): TitleType {
+  get titleType(): ETitleType {
     return this.props.titleType;
   }
 
@@ -76,36 +61,6 @@ export class Offer extends AggregateRoot {
 
   get maturityDate(): CalendarDate {
     return this.props.maturityDate;
-  }
-
-  get sourceOfferId(): string | null {
-    return this.props.sourceOfferId;
-  }
-
-  get isSnapshot(): boolean {
-    return this.props.sourceOfferId !== null;
-  }
-
-  createSnapshot(
-    overrides: OfferSnapshotOverrides = {},
-  ): Result<Offer, InvalidOfferSnapshotError> {
-    if (this.props.deletedAt) {
-      return Result.err(new InvalidOfferSnapshotError(this.id));
-    }
-
-    return Result.ok(
-      new Offer(generateUuid(), {
-        titleType: this.props.titleType,
-        issuerId: this.props.issuerId,
-        sourceOfferId: this.props.sourceOfferId ?? this.id,
-        maturityDate: overrides.maturityDate ?? this.props.maturityDate,
-        redemptionTerms:
-          overrides.redemptionTerms ?? this.props.redemptionTerms,
-        remunerationTerms:
-          overrides.remunerationTerms ?? this.props.remunerationTerms,
-        deletedAt: null,
-      }),
-    );
   }
 
   get redemptionTerms(): RedemptionTerms {
@@ -121,7 +76,6 @@ export class Offer extends AggregateRoot {
   }
 
   updateMaturityDate(maturityDate: CalendarDate): this {
-    this.ensureMutable();
     if (!this.props.maturityDate.equals(maturityDate)) {
       this.props.maturityDate = maturityDate;
     }
@@ -129,7 +83,6 @@ export class Offer extends AggregateRoot {
   }
 
   updateRedemptionTerms(redemptionTerms: RedemptionTerms): this {
-    this.ensureMutable();
     if (!this.props.redemptionTerms.equals(redemptionTerms)) {
       this.props.redemptionTerms = redemptionTerms;
     }
@@ -137,7 +90,6 @@ export class Offer extends AggregateRoot {
   }
 
   updateRemunerationTerms(remunerationTerms: RemunerationTerms): this {
-    this.ensureMutable();
     if (!this.props.remunerationTerms.equals(remunerationTerms)) {
       this.props.remunerationTerms = remunerationTerms;
     }
@@ -145,12 +97,7 @@ export class Offer extends AggregateRoot {
   }
 
   delete(at: UtcInstant): this {
-    this.ensureMutable();
     if (!this.props.deletedAt) this.props.deletedAt = at;
     return this;
-  }
-
-  private ensureMutable(): void {
-    if (this.isSnapshot) throw new ImmutableOfferSnapshotError(this.id);
   }
 }

@@ -1,4 +1,4 @@
-export enum InvestmentType {
+export enum EInvestmentType {
   SELIC = 'SELIC',
   CDI = 'CDI',
   IPCA = 'IPCA',

@@ -1,5 +1,5 @@
 import {
-  EconomicIndex,
+  EEconomicIndex,
   IndexCurve,
   IndexCurveInterval,
   IndexValue,
@@ -7,6 +7,7 @@ import {
 import {
   CalendarDate,
   CalendarDateRange,
+  EAppErrorCode,
   UtcInstant,
 } from '@investflow/shared-domain';
 import {
@@ -63,7 +64,7 @@ function curve(value = '0.12'): IndexCurve {
     id: ID,
     name: 'CDI base',
     description: null,
-    index: EconomicIndex.CDI,
+    index: EEconomicIndex.CDI,
     deletedAt: null,
     intervals: [
       IndexCurveInterval.create(
@@ -95,7 +96,7 @@ describe('PrismaIndexCurveRepository', () => {
     test.findUnique.mockResolvedValue(null);
     const result = await test.repository.findById(ID);
     expect(result.isErr()).toBe(true);
-    expect(result.error.code).toBe('INDEX_CURVE_NOT_FOUND');
+    expect(result.error.code).toBe(EAppErrorCode.INDEX_CURVE_NOT_FOUND);
     expect(result.error.kind).toBe('not-found');
     expect(result.error.metadata).toEqual({ curveId: ID });
   });
@@ -155,7 +156,7 @@ describe('PrismaIndexCurveRepository', () => {
     expect(test.createMany).not.toHaveBeenCalled();
     test.findUnique.mockResolvedValue(null);
     const result = await test.repository.findById(ID);
-    expect(result.error.code).toBe('INDEX_CURVE_NOT_FOUND');
+    expect(result.error.code).toBe(EAppErrorCode.INDEX_CURVE_NOT_FOUND);
   });
 
   it('wraps deletion write errors', async () => {

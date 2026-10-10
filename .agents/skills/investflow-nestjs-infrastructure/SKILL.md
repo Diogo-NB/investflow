@@ -103,6 +103,11 @@ module composition, host responsibilities, or library boundaries.
   date and decimal serialization belongs in query mapping.
 - Persistence mappers remain separate: they convert command-side aggregate
   state to and from ORM records, not query outputs.
+- Complex screens follow the Backend for Frontend decision in
+  `docs/architecture/project-structure.md`: shape the query output for the
+  screen's usage, compose what it always needs together, and compute business
+  facts (eligibility, status, counts, derived dates) on the server. Never
+  return layout, UI component structures, labels, or formatted values.
 
 ### Mapper conversions
 
@@ -169,8 +174,11 @@ the method's return type, such as `Result<Offer, OfferNotFoundError | Repository
 - Presenters are optional adapters for meaningful transport-specific output
   transformations, not a required step after a query handler.
 - Map `AppError.kind` centrally to HTTP status codes. Error responses contain
-  `statusCode`, stable `code`, human-readable `message`, and `details`;
-  successful responses do not use a generic envelope.
+  `statusCode`, stable `code`, the user-facing pt-BR `message`, and `details`;
+  successful responses do not use a generic envelope. `AppExceptionFilter`
+  replaces the message of 5xx kinds with a generic one and logs the original.
+  Request validation (`createRequestValidationPipe`) answers 400
+  `REQUEST_INVALID` in the same envelope, listing `details.fields`.
 - Keep Keycloak roles as generic strings. Introduce domain-specific roles only
   when a domain requirement needs them.
 

@@ -1,3 +1,4 @@
+import { EAppErrorCode } from '@investflow/shared-domain';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { ListOffersQueryHandler } from './list-offers.query-handler';
@@ -41,7 +42,6 @@ describe('Offer reads', () => {
       titleType: 'CDB',
     });
     const where = {
-      sourceOfferId: null,
       deletedAt: null,
       titleType: 'CDB',
       issuer: { name: { contains: 'local', mode: 'insensitive' } },
@@ -87,7 +87,7 @@ describe('Offer reads', () => {
     const result = await f.get.execute({ offerId: record.id });
     expect(f.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: record.id, sourceOfferId: null, deletedAt: null },
+        where: { id: record.id, deletedAt: null },
       }),
     );
     expect(result.value).toEqual({
@@ -107,7 +107,7 @@ describe('Offer reads', () => {
     const f = fixture();
     f.findUnique.mockResolvedValue(null);
     expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
-      'OFFER_NOT_FOUND',
+      EAppErrorCode.OFFER_NOT_FOUND,
     );
   });
 
@@ -115,11 +115,11 @@ describe('Offer reads', () => {
     const f = fixture();
     f.count.mockRejectedValue(new Error('database'));
     expect((await f.list.execute({ page: 1, pageSize: 20 })).error.code).toBe(
-      'OFFER_QUERY_FAILED',
+      EAppErrorCode.OFFER_QUERY_FAILED,
     );
     f.findUnique.mockRejectedValue(new Error('database'));
     expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
-      'OFFER_QUERY_FAILED',
+      EAppErrorCode.OFFER_QUERY_FAILED,
     );
   });
 
@@ -129,10 +129,10 @@ describe('Offer reads', () => {
     f.findMany.mockResolvedValue([invalidRecord]);
     f.findUnique.mockResolvedValue(invalidRecord);
     expect((await f.list.execute({ page: 1, pageSize: 20 })).error.code).toBe(
-      'OFFER_QUERY_FAILED',
+      EAppErrorCode.OFFER_QUERY_FAILED,
     );
     expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
-      'OFFER_QUERY_FAILED',
+      EAppErrorCode.OFFER_QUERY_FAILED,
     );
   });
 });

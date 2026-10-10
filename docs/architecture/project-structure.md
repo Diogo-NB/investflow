@@ -329,6 +329,44 @@ fields, links, or localized formatting. Basic date and decimal serialization
 belongs in query mapping. Persistence mappers retain their separate
 command-side responsibility of converting aggregates to and from ORM records.
 
+## Screen-Oriented Queries (Backend For Frontend)
+
+Decision dated 2026-10-10: complex screens, such as the simulation workspace,
+read through queries designed for that screen. The bounded context's own
+infrastructure serves them; there is no separate BFF service or layer.
+
+In practice:
+
+- Design the query handler from the screen's usage. Start from what the screen
+  shows and decides, then shape the output contract for it: name it after the
+  usage, include only the fields the screen uses, and compose related data the
+  screen always needs together into one read instead of several round trips.
+- Compute business facts on the server, where the rules live: eligibility
+  ("can be calculated"), status flags ("outdated"), counts, and derived dates
+  or periods. The browser must not re-implement domain rules to obtain values
+  the screen displays or acts on.
+- Keep outputs plain data under the usual contract rules: ISO dates, exact
+  decimal strings, stable codes, and enums.
+- This applies to reads. Commands and use cases stay shaped by the domain.
+  Generic lookups (for example, the issuer list) remain fine when a screen
+  uses them as they are; add a screen query when the screen needs shaping or
+  composition.
+
+What it does not mean:
+
+- No backend-driven layout or UI schemas. The backend does not decide sections,
+  ordering on the page, components, or visibility of UI elements.
+- No render-ready generic structures (such as `{ type: 'card', fields: [...] }`)
+  and no frontend components from the backend.
+- No presentation formatting or copy: currency and date formatting, labels,
+  messages, and translations stay in the frontend, which formats the exact
+  values it receives.
+
+Exception (2026-10-10): a calculation's tax explanation formulas (such as
+"R$ 217,38 × 22,5% = R$ 48,91") are written out by the query projection from
+the values the domain recorded, so the screen shows them as they are. The
+projection only formats; the domain decides every value and the tax rules.
+
 ## Persistence Mappers
 
 Persistence mappers convert ORM records into domain objects and domain objects
@@ -448,3 +486,51 @@ Domain events are immutable versioned classes with `eventType`, `version`,
 Each library exports its public API from `src/index.ts`. Cross-project imports
 use public aliases such as `@investflow/shared-domain`. Relative imports are
 used only inside the same Nx project.
+
+## Deferred Work
+
+Work that was consciously postponed but must still be implemented. Each item
+says why it was deferred, what exists today, and what "done" means. Remove an
+item when it ships.
+
+### Cache non-business-day reads (deferred 2026-10-10)
+
+`GET /investment-simulator/business-calendar/non-business-days?year=` computes
+a year's weekends and holidays on every request.
+
+- **Today:** the browser keeps each year for the session (TanStack Query,
+  `staleTime: Infinity`). The API recomputes the year on each call and sends no
+  cache headers, so every new session, tab, or user repeats the work and the
+  request.
+- **Why deferred:** the computation is small (one pass over 365 days) and
+  correctness came first.
+- **Done means:**
+  - The API serves a year from a server-side cache (computed once per process,
+    or kept in a shared cache when several instances run).
+  - Responses carry HTTP caching headers. They are bearer-authenticated, so
+    use `Cache-Control: private` with a long `max-age` plus an `ETag`, so
+    browsers revalidate cheaply.
+  - The cache key includes a version of the calendar rules. A change to the
+    holiday rules (a new national holiday, an ANBIMA calendar change) must
+    invalidate cached years instead of serving stale dates.
+  - Tests cover cache hits, the headers, and invalidation on a rules version
+    change.
+
+### Shared compute-once helper for in-call caches (deferred 2026-10-10)
+
+`InvestmentCalculator` caches daily accrual factors per rate in a local `Map`
+during one `calculate()` call, with an inline get-or-compute-and-store block.
+More calculators and curve conversions are expected to need the same pattern.
+
+- **Today:** the block is written inline in `investment-calculator.domain-service.ts`
+  (`accrue()`); it is the only use.
+- **Why deferred:** one call site does not justify a shared utility yet.
+- **Done means:**
+  - `@investflow/shared-domain` exports a `getOrInsertComputed(map, key,
+    compute)` function in a capability folder (such as `collections/`),
+    shaped like the TC39 `Map.prototype.getOrInsertComputed` proposal so it
+    can be replaced by the native method once Node ships it.
+  - The caller keeps owning the map, its lifetime (one calculation, never a
+    long-lived service), and the key (`Decimal` values are keyed by string).
+  - No `memoize(fn)` wrapper that hides where the cache lives.
+  - The calculator and the new call sites use it, with a focused spec.

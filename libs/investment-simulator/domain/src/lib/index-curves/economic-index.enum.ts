@@ -1,1 +1,1 @@
-export { InvestmentType as EconomicIndex } from '@investflow/shared-domain';
+export { EInvestmentType as EEconomicIndex } from '@investflow/shared-domain';

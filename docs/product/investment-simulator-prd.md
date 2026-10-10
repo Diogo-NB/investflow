@@ -66,22 +66,39 @@ O calculador inicial suporta CDB prefixado, percentual do CDI e percentual da
 SELIC efetiva. IPCA permanece previsto no produto, mas seu cálculo fica adiado
 até a definição do perfil contratual.
 
-### Execuções de Simulação
+Os termos de uma simulação podem ser digitados livremente (CDB) ou
+preenchidos a partir de uma oferta do catálogo e então ajustados. Em ambos os
+casos cada cálculo guarda uma cópia dos termos; termos digitados não criam
+ofertas no catálogo, e alterar ou excluir a oferta não muda as simulações. A
+simulação registra a oferta de origem quando foi preenchida a partir de uma.
 
-- A aplicação registra a curva escolhida quando a remuneração é indexada; a
-  curva deve ser do mesmo índice da remuneração e não pode estar excluída.
-- O cálculo é executado por comando explícito do usuário. Cada execução bem
-  sucedida é registrada como um registro imutável e somente acrescentado,
-  contendo as entradas usadas (snapshot da oferta, curva, valor inicial e data
-  de aplicação), a versão da metodologia, o instante do cálculo, o resumo no
-  vencimento e a trajetória diária bruta.
-- Falhas de cálculo são devolvidas ao usuário e não são registradas.
-- Editar a aplicação não altera execuções anteriores. Uma execução é
-  apresentada como desatualizada quando as entradas atuais da aplicação ou a
-  metodologia vigente diferem das registradas.
+### Cálculos de Simulação
+
+- O cálculo é executado por comando explícito do usuário ("Calcular"), que
+  envia as entradas e calcula em um único passo. Não há salvamento separado.
+- Uma simulação passa a existir com seu primeiro cálculo bem sucedido. Cada
+  cálculo bem sucedido é registrado como um registro imutável e somente
+  acrescentado, contendo as entradas usadas (termos, curva, valor inicial e
+  data de aplicação), a versão da metodologia, o instante do cálculo, o resumo
+  no vencimento, a base dos tributos (prazo em dias corridos, rendimento
+  tributável, alíquota do IOF ou isenção, base e alíquota do IR) e a
+  trajetória diária bruta.
+- As entradas atuais de uma simulação são as do seu cálculo mais recente; os
+  anteriores formam o histórico da simulação.
+- A curva escolhida é registrada quando a remuneração é indexada; ela deve ser
+  do mesmo índice da remuneração e não pode estar excluída.
+- A tela de resultado mostra a alíquota aplicada ao lado de cada tributo e, sob
+  demanda, explica o cálculo de forma breve: a regra de cada tributo, a conta
+  com os valores do cálculo e as tabelas de IOF e IR com a faixa aplicada
+  destacada.
+- Falhas de cálculo são devolvidas ao usuário e nada é registrado: nem o
+  cálculo nem as entradas rejeitadas. O usuário corrige as entradas e calcula
+  novamente.
+- Um cálculo é apresentado como desatualizado quando a metodologia vigente
+  difere da registrada.
 - A versão da metodologia muda sempre que fórmulas, convenções ou o calendário
   alterarem os valores calculados.
-- Execuções de aplicações excluídas deixam de ser consultáveis.
+- Cálculos de simulações excluídas deixam de ser consultáveis.
 
 ### Resultados
 

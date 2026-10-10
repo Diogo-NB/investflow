@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+
 export function Welcome() {
   return (
     <section aria-labelledby="welcome-title" className="pt-6 sm:pt-10">
@@ -18,6 +20,21 @@ export function Welcome() {
           Um espaço para suas próximas decisões de investimento.
         </p>
       </div>
+
+      <Link
+        to="/simulacoes"
+        className="group mt-10 flex flex-wrap items-center justify-between gap-4 rounded-surface border border-border bg-surface p-6 text-fg no-underline hover:border-accent sm:mt-14"
+      >
+        <span className="grid gap-1">
+          <span className="text-lg font-semibold">Simulações de CDB</span>
+          <span className="text-muted">
+            Calcule o resultado líquido no vencimento e compare cenários.
+          </span>
+        </span>
+        <span className="font-medium text-accent group-hover:underline">
+          Abrir simulações →
+        </span>
+      </Link>
     </section>
   );
 }

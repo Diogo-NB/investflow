@@ -1,14 +1,14 @@
 import {
   RedemptionTerms,
   RemunerationTerms,
-  TitleType,
+  ETitleType,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Rate } from '@investflow/shared-domain';
 import { CreateOfferCommandInput } from '../shared/offer-command-input.type';
 
 export class CreateOfferCommand {
   private constructor(
-    readonly titleType: TitleType,
+    readonly titleType: ETitleType,
     readonly issuerId: string,
     readonly maturityDate: CalendarDate,
     readonly redemptionTerms: RedemptionTerms,

@@ -1,4 +1,9 @@
 import { Money } from '@investflow/shared-domain';
+import { CDB_INCOME_TAX_BRACKETS } from './cdb-income-tax-policy.domain-service';
+import {
+  CDB_IOF_DAILY_RATES,
+  CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS,
+} from './cdb-iof-policy.domain-service';
 import { CdbTaxCalculator } from './cdb-tax-calculator.domain-service';
 
 const calculator = new CdbTaxCalculator();
@@ -18,6 +23,33 @@ describe('CdbTaxCalculator domain service', () => {
       expect(calculate(days).iof.amount.toString()).toBe(String(percentage));
     },
   );
+
+  it('records the basis the taxes were derived from', () => {
+    const { basis } = calculate(10);
+    expect(basis.holdingPeriodCalendarDays).toBe(10);
+    expect(basis.taxableEarnings.amount.toString()).toBe('100');
+    expect(basis.incomeTaxBase.amount.toString()).toBe('34');
+    expect(basis.iofRate?.value.toString()).toBe('0.66');
+    expect(basis.incomeTaxRate.value.toString()).toBe('0.225');
+
+    const exempt = calculate(400, '-5').basis;
+    expect(exempt.iofRate).toBeNull();
+    expect(exempt.taxableEarnings.isZero()).toBe(true);
+    expect(exempt.incomeTaxRate.value.toString()).toBe('0.175');
+  });
+
+  it('publishes contiguous income tax brackets ending in an open one', () => {
+    CDB_INCOME_TAX_BRACKETS.forEach((bracket, index) => {
+      const previous = CDB_INCOME_TAX_BRACKETS[index - 1];
+      expect(bracket.fromCalendarDays).toBe(
+        previous ? (previous.upToCalendarDays ?? 0) + 1 : 1,
+      );
+    });
+    expect(CDB_INCOME_TAX_BRACKETS.at(-1)?.upToCalendarDays).toBeNull();
+    expect(CDB_IOF_DAILY_RATES).toHaveLength(
+      CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS - 1,
+    );
+  });
 
   it('applies IOF before IR using the PRD ten-day example', () => {
     const result = calculate(10);
