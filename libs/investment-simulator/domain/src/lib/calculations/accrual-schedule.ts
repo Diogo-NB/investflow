@@ -38,7 +38,8 @@ export function accrualPeriodsBetween(
   const businessDays = CalendarDateRange.of(
     investmentDate,
     maturityDate,
-  ).datesBetween.filter((date) => calendar.isBusinessDay(date));
+  ).datesBetween.filter(calendar.isBusinessDay);
+
   return Result.ok(
     businessDays.slice(1).map((balanceDate, index) => ({
       rateReferenceDate: businessDays[index],
