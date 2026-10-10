@@ -37,9 +37,10 @@ export class PrismaIndexCurveRepository
       },
       (error) => new RepositoryFindError('IndexCurve', id, error),
     );
-    return result.andThen((curve) =>
-      curve ? Result.ok(curve) : Result.err(new IndexCurveNotFoundError(id)),
-    );
+    if (result.isErr()) return result;
+    return result.value
+      ? Result.ok(result.value)
+      : Result.err(new IndexCurveNotFoundError(id));
   }
 
   protected async persistAggregate(

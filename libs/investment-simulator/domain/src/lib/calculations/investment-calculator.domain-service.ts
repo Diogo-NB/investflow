@@ -1,196 +1,102 @@
-import {
-  BusinessDayCalendar,
-  CalendarDate,
-  Money,
-  Result,
-} from '@investflow/shared-domain';
-import { IndexCurve } from '../index-curves/index-curve.aggregate';
-import { Offer } from '../offers/offer.aggregate';
+import { BusinessDayCalendar, Money, Result } from '@investflow/shared-domain';
+import Decimal from 'decimal.js';
 import { TitleType } from '../offers/title-type.enum';
-import { Application } from '../applications/application.aggregate';
-import { BusinessDayAccrualSchedule } from './business-day-accrual-schedule.domain-service';
+import { AccrualRate, resolveAccrualRates } from './accrual-rates';
+import { accrualPeriodsBetween } from './accrual-schedule';
+import { dailyAccrualFactor } from './annual-effective-252';
 import { CdbTaxCalculator } from './cdb-tax-calculator.domain-service';
 import { InvestmentCalculationError } from './investment-calculation.error';
 import {
   DailyInvestmentBalance,
   InvestmentCalculation,
 } from './investment-calculation.type';
-import {
-  DailyAccrual,
-  PreparedDailyAccrual,
-  RemunerationStrategy,
-} from './remuneration-strategy.contract';
+import { InvestmentScenario } from './investment-scenario.vo';
 
-export interface CalculateInvestmentInput {
-  readonly application: Application;
-  readonly offerSnapshot: Offer;
-  readonly indexCurve?: IndexCurve;
-}
+// Bump whenever formulas, conventions or the business-day calendar change the
+// figures, so recorded runs keep identifying what produced them.
+export const METHODOLOGY_VERSION = 'cdb-252-v1';
 
 export class InvestmentCalculator {
-  private readonly strategies: readonly RemunerationStrategy[];
-  private readonly accrualSchedule: BusinessDayAccrualSchedule;
-  private readonly taxes = new CdbTaxCalculator();
+  private readonly cdbTaxes = new CdbTaxCalculator();
 
-  constructor(
-    calendar: BusinessDayCalendar,
-    strategies: readonly RemunerationStrategy[],
-  ) {
-    this.strategies = [...strategies];
-    this.accrualSchedule = new BusinessDayAccrualSchedule(calendar);
-  }
+  constructor(private readonly calendar: BusinessDayCalendar) {}
 
   calculate(
-    input: CalculateInvestmentInput,
+    scenario: InvestmentScenario,
   ): Result<InvestmentCalculation, InvestmentCalculationError> {
-    const validation = this.validateInput(input);
-    if (validation.isErr()) return Result.err(validation.error);
-
-    const { application, offerSnapshot } = input;
-    if (offerSnapshot.titleType !== TitleType.CDB) {
+    if (scenario.titleType !== TitleType.CDB) {
       return Result.err(
         new InvestmentCalculationError(
           'INVESTMENT_TITLE_UNSUPPORTED',
           'only CDB titles are supported',
-          { titleType: offerSnapshot.titleType },
+          { titleType: scenario.titleType },
         ),
       );
     }
-    const strategy = this.strategies.find(
-      (candidate) => candidate.kind === offerSnapshot.remunerationTerms.kind,
+    const periods = accrualPeriodsBetween(
+      this.calendar,
+      scenario.investmentDate,
+      scenario.maturityDate,
     );
-    if (!strategy) {
-      return Result.err(
-        new InvestmentCalculationError(
-          'INVESTMENT_REMUNERATION_UNSUPPORTED',
-          'no strategy supports the remuneration',
-          { remunerationKind: offerSnapshot.remunerationTerms.kind },
-        ),
-      );
-    }
-    return this.accrualSchedule
-      .create(application.investmentDate, offerSnapshot.maturityDate)
-      .andThen((businessDates) =>
-        strategy.prepare({
-          terms: offerSnapshot.remunerationTerms,
-          accruals: this.createDailyAccruals(businessDates),
-          indexCurve: input.indexCurve,
-        }),
-      )
-      .andThen((preparedAccruals) =>
-        Result.fromThrowable(
-          () => {
-            const dailyBalances = this.accumulate(
-              application.principal,
-              preparedAccruals,
-            );
-            const grossBalance =
-              dailyBalances[dailyBalances.length - 1].grossBalance;
-            const grossEarnings = grossBalance.subtract(application.principal);
-            return { dailyBalances, grossBalance, grossEarnings };
-          },
-          (cause) => this.calculationFailed(cause),
-        ),
-      )
-      .andThen(({ dailyBalances, grossBalance, grossEarnings }) =>
-        this.taxes
-          .calculate({
-            grossEarnings,
-            investmentDate: application.investmentDate,
-            maturityDate: offerSnapshot.maturityDate,
-          })
-          .andThen((taxes) =>
-            Result.fromThrowable(
-              () => ({
-                dailyBalances,
-                maturitySummary: {
-                  principal: application.principal,
-                  grossBalance,
-                  grossEarnings,
-                  ...taxes,
-                  netBalance: grossBalance.subtract(taxes.totalTaxes),
-                },
-              }),
-              (cause) => this.calculationFailed(cause),
-            ),
-          ),
-      );
+    if (periods.isErr()) return Result.err(periods.error);
+    const rates = resolveAccrualRates(scenario, periods.value);
+    if (rates.isErr()) return Result.err(rates.error);
+
+    // Inputs are validated; only numeric overflow can fail from here on.
+    return Result.fromThrowable(
+      () => this.compute(scenario, rates.value),
+      InvestmentCalculationError.failed,
+    );
   }
 
-  private validateInput(
-    input: CalculateInvestmentInput,
-  ): Result<void, InvestmentCalculationError> {
-    const { application, offerSnapshot } = input;
-    if (application.deletedAt) {
-      return Result.err(
-        new InvestmentCalculationError(
-          'INVESTMENT_APPLICATION_UNAVAILABLE',
-          'the application is deleted',
-          { applicationId: application.id },
-        ),
-      );
-    }
-    if (
-      !offerSnapshot.isSnapshot ||
-      offerSnapshot.id !== application.offerSnapshotId
-    ) {
-      return Result.err(
-        new InvestmentCalculationError(
-          'INVESTMENT_OFFER_SNAPSHOT_MISMATCH',
-          'the offer must be the application snapshot',
-          {
-            expectedOfferId: application.offerSnapshotId,
-            actualOfferId: offerSnapshot.id,
-          },
-        ),
-      );
-    }
-    if (offerSnapshot.deletedAt) {
-      return Result.err(
-        new InvestmentCalculationError(
-          'INVESTMENT_OFFER_UNAVAILABLE',
-          'the offer snapshot is deleted',
-          { offerId: offerSnapshot.id },
-        ),
-      );
-    }
-    return Result.ok(undefined);
+  private compute(
+    scenario: InvestmentScenario,
+    rates: readonly AccrualRate[],
+  ): InvestmentCalculation {
+    const principal = scenario.principal;
+    const dailyBalances = this.accrue(principal, rates);
+    const grossBalance = dailyBalances[dailyBalances.length - 1].grossBalance;
+    const grossEarnings = grossBalance.subtract(principal);
+    const taxes = this.cdbTaxes.calculate(
+      grossEarnings,
+      scenario.holdingPeriodCalendarDays,
+    );
+    return {
+      methodologyVersion: METHODOLOGY_VERSION,
+      dailyBalances,
+      maturitySummary: {
+        principal,
+        grossBalance,
+        grossEarnings,
+        ...taxes,
+        netBalance: grossBalance.subtract(taxes.totalTaxes),
+      },
+    };
   }
 
-  private createDailyAccruals(
-    businessDates: readonly CalendarDate[],
-  ): DailyAccrual[] {
-    return businessDates.slice(1).map((balanceDate, index) => ({
-      rateReferenceDate: businessDates[index],
-      balanceDate,
-    }));
-  }
-
-  private accumulate(
+  private accrue(
     principal: Money,
-    preparedAccruals: readonly PreparedDailyAccrual[],
+    rates: readonly AccrualRate[],
   ): DailyInvestmentBalance[] {
+    // Curves repeat rates across many days; the fractional power is costly.
+    const factors = new Map<string, Decimal>();
     let previousBalance = principal;
-    return preparedAccruals.map(({ balanceDate, factor }) => {
+    return rates.map(({ balanceDate, annualRate, percentage }) => {
+      const key = `${annualRate}|${percentage}`;
+      let factor = factors.get(key);
+      if (!factor) {
+        factor = dailyAccrualFactor(annualRate, percentage);
+        factors.set(key, factor);
+      }
       const grossBalance = previousBalance.times(factor);
-      const dailyGrossEarnings = grossBalance.subtract(previousBalance);
-      previousBalance = grossBalance;
-
-      return {
+      const balance = {
         date: balanceDate,
         grossBalance,
-        dailyGrossEarnings,
+        dailyGrossEarnings: grossBalance.subtract(previousBalance),
         accumulatedGrossEarnings: grossBalance.subtract(principal),
       };
+      previousBalance = grossBalance;
+      return balance;
     });
-  }
-
-  private calculationFailed(cause: unknown): InvestmentCalculationError {
-    return new InvestmentCalculationError(
-      'INVESTMENT_CALCULATION_FAILED',
-      'accrual could not be calculated',
-      undefined,
-      cause,
-    );
   }
 }

@@ -89,14 +89,6 @@ export class Result<T, E extends AppError = AppError> {
     return Result.err<T, F>(mapper(state.error));
   }
 
-  andThen<U, F extends AppError>(
-    mapper: (value: T) => Result<U, F>,
-  ): Result<U, E | F> {
-    const state = this.state;
-    if (state.status === 'ok') return mapper(state.value);
-    return Result.err<U, E | F>(state.error);
-  }
-
   match<R>(matcher: {
     readonly ok: (value: T) => R;
     readonly err: (error: E) => R;

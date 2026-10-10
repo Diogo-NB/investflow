@@ -12,8 +12,8 @@ Source is organized by plural business feature. Cohesive domain types stay
 shallow within `src/lib/offers`, `src/lib/issuers`, `src/lib/applications`,
 and `src/lib/calculations` instead of being split across global aggregate,
 value-object, and error folders. Applications own saved investment hypotheses;
-calculations own the calculator domain service, remuneration strategies, taxes,
-and calculation results.
+calculations own the calculation scenario, the calculator domain service,
+taxes, and calculation results.
 
 ## Offer catalog
 
@@ -23,7 +23,11 @@ issuer, maturity, redemption, remuneration, and optional soft deletion.
 
 The catalog model is prepared for CDB, LCI, and LCA titles and for prefixed,
 CDI percentage, Selic percentage, and IPCA-plus remuneration. `RemunerationTerms`
-holds a kind and a `Rate`; the domain interprets the rate according to the kind.
+is a discriminated union whose variants name their rate by meaning:
+`PrefixedRemuneration.annualRate`, `IndexPercentageRemuneration.percentage`
+(CDI or SELIC), and `IpcaPlusRemuneration.annualSpread`. Each variant exposes
+`requiredIndex` and the boundary-facing `contractRate`; `RemunerationTerms.create()`
+builds the variant from the persisted or transported kind and rate.
 This structural support does not expand the current MVP beyond CDB simulations.
 
 Index curves expose the domain name `EconomicIndex` as an alias of the shared
@@ -47,56 +51,59 @@ redemption, or remuneration overrides. Replacements retain the original catalog
 provenance and leave previous snapshots intact.
 
 `Application` is a saved investment hypothesis with an owner, snapshot reference,
-principal, investment date, and optional soft deletion. Creation and revision
-receive a snapshot `Offer` but store only its ID. Principal must be positive BRL,
-and the investment date must precede snapshot maturity. Past dates, weekends,
-and holidays are accepted without calendar adjustment. Revisions validate the
-complete proposed investment state before applying changes. Deleted applications
-cannot be revised; repeated deletion preserves the first deletion instant.
+optional index-curve reference, principal, investment date, and optional soft
+deletion. Creation and revision receive the snapshot `Offer` and the chosen
+`IndexCurve` but store only their IDs. Principal must be positive BRL, and the
+proposed investment must form a valid `InvestmentScenario`: the investment date
+precedes snapshot maturity, and a curve is linked exactly when the remuneration
+requires one, matches its index, and is not deleted. Past dates, weekends, and
+holidays are accepted without calendar adjustment; only calculation enforces
+business days. Revisions validate the complete proposed investment state before
+applying changes. Deleted applications cannot be revised; repeated deletion
+preserves the first deletion instant.
 
-This initial model is domain-only. Persistence does not yet store snapshot
-provenance or applications. Portfolios and execution history are outside this
-slice. Snapshots must not be saved through the existing offer
-repository until persistence support is added.
+`Application.toScenario()` rebuilds the calculable scenario from the loaded
+snapshot and curve, rejecting deleted applications, foreign references, and
+curves deleted after linking. Snapshots share the offer table and are excluded
+from catalog queries and catalog commands.
 
 ## Investment calculation domain service
 
 `InvestmentCalculator` is a synchronous, framework-free domain service under
-`src/lib/calculations/investment-calculator.domain-service.ts`. It receives an
-`Application`, its matching snapshot `Offer`, and an optional `IndexCurve`.
-It does not load, persist, or mutate these aggregates and never reads a clock.
-Application use cases will own aggregate loading and result persistence.
-
-Construct it with a business calendar (the MVP uses
-`BrazilianBusinessDayCalendar`) and remuneration strategies:
+`src/lib/calculations/investment-calculator.domain-service.ts`. It calculates an
+`InvestmentScenario`: principal, investment and maturity dates, title type,
+remuneration, and the index curve when the remuneration needs one. It does not
+know aggregates, persistence, or clocks.
 
 ```typescript
-const calculator = new InvestmentCalculator(new BrazilianBusinessDayCalendar(), [new PrefixedRemunerationStrategy(), new CdiPercentageRemunerationStrategy(), new SelicPercentageRemunerationStrategy()]);
-const result = calculator.calculate({ application, offerSnapshot, indexCurve });
+const calculator = new InvestmentCalculator(new BrazilianBusinessDayCalendar());
+const scenario = InvestmentScenario.create(props);
+if (scenario.isErr()) return scenario;
+const result = calculator.calculate(scenario.value);
 ```
 
-The calculator supports CDBs and requires business dates for investment and
-maturity; storing a hypothesis still accepts non-business dates. Unsupported
-titles and IPCA-plus remuneration return explicit errors. SELIC means effective
-SELIC annualized on a 252-business-day basis. Rates use decimal fractions:
-`0.12` is 12% annually and `1.05` is 105% of an index.
+`InvestmentScenario.create()` validates everything that does not depend on the
+calendar: the investment date precedes maturity, and a curve is present exactly
+when the remuneration requires one, matches its index, and is not deleted. The
+calculator then runs a linear pipeline:
 
-`BusinessDayAccrualSchedule` owns the investment-date and maturity-date policy
-and returns the ordered business dates, including investment and maturity.
-The calculator explicitly pairs consecutive dates into `DailyAccrual` steps,
-with a `rateReferenceDate` and a `balanceDate`. The investment date anchors
-the first step; it does not produce a daily balance row.
-`RemunerationStrategy.prepare()` receives terms and daily steps, resolves all
-required rate-reference values, and returns `PreparedDailyAccrual` entries
-containing the two named dates and their factor. Entries preserve the supplied
-order. Daily accrual follows the business-date sequence rather than the
-containment or overlap semantics of a generic date range.
-`AnnualEffective252AccrualPolicy` owns equivalent daily compounding and applying
-a contracted percentage to the daily index rate. Fixed-rate, CDI, and SELIC
-strategies share this convention while indexed strategies enforce their index.
-Conversion factors are cached per rate within a calculation. Missing coverage,
-deleted curves, and incompatible indexes are distinct failures; the calculator
-never fills gaps automatically.
+1. `accrualPeriodsBetween()` requires business investment and maturity dates
+   and pairs consecutive business days into `AccrualPeriod` values.
+2. `resolveAccrualRates()` switches exhaustively over the remuneration kind and
+   prices every period as a percentage of an annual effective rate (base 252):
+   a fixed rate at 100%, or the curve value at the contracted percentage.
+   `IndexCurve.valuesAt()` reports every uncovered reference at once; gaps are
+   never filled. IPCA-plus returns an explicit unsupported error.
+3. Daily balances compound `dailyAccrualFactor()`, cached per rate.
+4. `CdbTaxCalculator` derives the maturity summary.
+
+Only steps 1 and 2 return expected failures. Steps 3 and 4 are plain
+arithmetic, wrapped once so that numeric overflow becomes
+`INVESTMENT_CALCULATION_FAILED`. The calculator supports CDBs only. SELIC
+means effective SELIC annualized on a 252-business-day basis. Rates use decimal
+fractions: `0.12` is 12% annually and `1.05` is 105% of an index. Each result
+carries `METHODOLOGY_VERSION`; bump it whenever formulas, conventions, or the
+business calendar change the figures.
 
 The rate on an interval's starting business day produces the balance at its
 ending business day. A Friday-to-Monday interval accrues one factor using
@@ -105,7 +112,7 @@ balance, daily gross earnings, and accumulated gross earnings. The maturity
 summary contains principal, gross balance, gross earnings, IOF, income tax, total
 taxes, and net balance.
 
-`CdbTaxCalculator` is a separate domain service. `CdbIncomeTaxPolicy` owns the
+`CdbTaxCalculator` is a separate, infallible domain service. `CdbIncomeTaxPolicy` owns the
 regressive income-tax schedule, selecting a `Rate` by holding period in calendar
 days from explicit brackets and a long-term rate. `CdbIofPolicy` owns the
 regressive IOF table, using shared `Rate` values for its nonzero rates, and
@@ -114,6 +121,19 @@ the positive taxable earnings and income-tax base after IOF explicitly. Taxes
 use calendar days and IOF before income tax, without reducing daily gross
 balances. Calculations preserve decimal.js default precision without business
 rounding. This does not reproduce B3-specific truncation and rounding.
+
+## Simulation runs
+
+`SimulationRun` is an immutable, append-only record of one successful
+calculation of an `Application`. `SimulationRun.record()` freezes the
+application's inputs at calculation time (offer snapshot ID, index-curve ID,
+principal, and investment date), the calculation's `methodologyVersion`, the
+`calculatedAt` instant supplied by the caller's clock, the maturity summary, and
+every daily balance. Snapshots and curves are immutable, so those inputs fully
+determine the scenario. Runs have no mutators and no deletion; revising an
+application leaves its runs untouched, and read models derive whether a run is
+outdated by comparing its inputs and methodology with the application's current
+state and `METHODOLOGY_VERSION`.
 
 ## Building
 

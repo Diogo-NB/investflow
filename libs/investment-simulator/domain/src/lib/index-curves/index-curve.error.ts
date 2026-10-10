@@ -21,3 +21,15 @@ export class IndexCurveValueNotFoundError extends DomainError {
     });
   }
 }
+
+export class IndexCurveCoverageError extends DomainError {
+  constructor(curveId: string, missing: readonly CalendarDate[]) {
+    super('Index curve does not cover every requested reference', {
+      code: 'INDEX_CURVE_COVERAGE_MISSING',
+      metadata: {
+        curveId,
+        missingReferences: missing.map((date) => date.toIsoString()),
+      },
+    });
+  }
+}

@@ -15,7 +15,9 @@ describe('UpdateOfferCommand', () => {
     expect(command.offerId).toBe(OFFER_ID);
     expect(command.maturityDate?.toIsoString()).toBe('2031-06-21');
     expect(command.remunerationTerms?.kind).toBe('IPCA_PLUS');
-    expect(command.remunerationTerms?.rate.value.toString()).toBe('7.5');
+    expect(command.remunerationTerms?.contractRate.value.toString()).toBe(
+      '7.5',
+    );
   });
 
   it('creates an empty command', () => {

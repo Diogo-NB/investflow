@@ -36,9 +36,10 @@ export class PrismaOfferRepository
       (error) => new RepositoryFindError('Offer', id, error),
     );
 
-    return offerResult.andThen((offer) =>
-      offer ? Result.ok(offer) : Result.err(new OfferNotFoundError(id)),
-    );
+    if (offerResult.isErr()) return offerResult;
+    return offerResult.value
+      ? Result.ok(offerResult.value)
+      : Result.err(new OfferNotFoundError(id));
   }
 
   protected async persistAggregate(

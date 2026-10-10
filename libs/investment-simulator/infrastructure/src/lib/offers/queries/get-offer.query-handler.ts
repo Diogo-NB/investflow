@@ -54,16 +54,17 @@ export class GetOfferQueryHandler
     const result = await Result.fromPromise(
       async () => {
         const record = await this.prisma.client.investmentOffer.findUnique({
-          where: { id: offerId, deletedAt: null },
+          where: { id: offerId, sourceOfferId: null, deletedAt: null },
           select: offerSelect,
         });
         return record ? this.toOutput(record) : null;
       },
       (cause) => new OfferQueryError(cause),
     );
-    return result.andThen((offer) =>
-      offer ? Result.ok(offer) : Result.err(new OfferNotFoundError(offerId)),
-    );
+    if (result.isErr()) return result;
+    return result.value
+      ? Result.ok(result.value)
+      : Result.err(new OfferNotFoundError(offerId));
   }
 
   private toOutput(record: OfferRecord): GetOfferOutput {

@@ -1,5 +1,11 @@
 import { Rate } from '@investflow/shared-domain';
-import { RemunerationTerms } from './remuneration-terms.vo';
+import { EconomicIndex } from '../../../index-curves/economic-index.enum';
+import {
+  IndexPercentageRemuneration,
+  IpcaPlusRemuneration,
+  PrefixedRemuneration,
+  RemunerationTerms,
+} from './remuneration-terms.vo';
 
 const KINDS = [
   'PREFIXED',
@@ -14,7 +20,7 @@ describe.each(KINDS)('%s remuneration terms', (kind) => {
     const terms = RemunerationTerms.create(kind, rate);
 
     expect(terms.kind).toBe(kind);
-    expect(terms.rate).toBe(rate);
+    expect(terms.contractRate).toBe(rate);
   });
 
   it('compares rates by numeric value', () => {
@@ -36,5 +42,26 @@ describe.each(KINDS)('%s remuneration terms', (kind) => {
       expect(terms.equals(candidate)).toBe(kind === otherKind);
       expect(candidate.equals(terms)).toBe(kind === otherKind);
     }
+  });
+});
+
+describe('RemunerationTerms variants', () => {
+  it('names the rate by its meaning and the index the terms require', () => {
+    const rate = Rate.of('1.05');
+    const prefixed = RemunerationTerms.create('PREFIXED', rate);
+    const cdi = RemunerationTerms.create('CDI_PERCENTAGE', rate);
+    const selic = RemunerationTerms.create('SELIC_PERCENTAGE', rate);
+    const ipca = RemunerationTerms.create('IPCA_PLUS', rate);
+
+    expect(prefixed).toBeInstanceOf(PrefixedRemuneration);
+    expect((prefixed as PrefixedRemuneration).annualRate).toBe(rate);
+    expect(prefixed.requiredIndex).toBeNull();
+    expect(cdi).toBeInstanceOf(IndexPercentageRemuneration);
+    expect((cdi as IndexPercentageRemuneration).percentage).toBe(rate);
+    expect(cdi.requiredIndex).toBe(EconomicIndex.CDI);
+    expect(selic.requiredIndex).toBe(EconomicIndex.SELIC);
+    expect(ipca).toBeInstanceOf(IpcaPlusRemuneration);
+    expect((ipca as IpcaPlusRemuneration).annualSpread).toBe(rate);
+    expect(ipca.requiredIndex).toBe(EconomicIndex.IPCA);
   });
 });

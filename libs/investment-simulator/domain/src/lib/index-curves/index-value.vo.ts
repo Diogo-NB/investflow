@@ -15,19 +15,17 @@ export class IndexValue extends ValueObject<IndexValue> {
   static create(
     value: Decimal.Value,
   ): Result<IndexValue, InvalidIndexValueError> {
-    return Result.fromThrowable(
+    const decimal = Result.fromThrowable(
       () => new Decimal(value),
       () => new InvalidIndexValueError('expected a decimal'),
-    ).andThen((decimal) => {
-      if (!decimal.isFinite() || decimal.lessThanOrEqualTo(-1)) {
-        return Result.err(
-          new InvalidIndexValueError(
-            'value must be finite and greater than -1',
-          ),
-        );
-      }
-      return Result.ok(new IndexValue(decimal));
-    });
+    );
+    if (decimal.isErr()) return decimal;
+    if (!decimal.value.isFinite() || decimal.value.lessThanOrEqualTo(-1)) {
+      return Result.err(
+        new InvalidIndexValueError('value must be finite and greater than -1'),
+      );
+    }
+    return Result.ok(new IndexValue(decimal.value));
   }
 
   static of(value: Decimal.Value): IndexValue {
