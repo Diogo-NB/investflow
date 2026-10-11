@@ -75,6 +75,11 @@ export function formatMonth(isoMonth: string): string {
   return `${MONTH_NAMES[Number(month) - 1]} de ${year}`;
 }
 
+export function formatShortMonth(isoMonth: string): string {
+  const [year, month] = isoMonth.split('-');
+  return `${MONTH_NAMES[Number(month) - 1].slice(0, 3)}/${year.slice(2)}`;
+}
+
 export function formatIsoDate(iso: string): string {
   const [year, month, day] = iso.split('-');
   return `${day}/${month}/${year}`;

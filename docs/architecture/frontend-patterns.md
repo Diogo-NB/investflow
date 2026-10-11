@@ -48,6 +48,7 @@ Form, Zod, Base UI, and react-day-picker arrived with the simulation workspace.
 | Forms                  | `react-hook-form`, `zod`, `@hookform/resolvers`                              | 7.x, 4.x, 5.x                     |
 | Interaction primitives | `@base-ui/react`                                                             | 1.x                               |
 | Calendar popup         | `react-day-picker`                                                           | latest stable major               |
+| Charts                 | `recharts`, `react-is` (Recharts peer, on the React line)                    | 3.x (3.10.1), 19.x                |
 | Styling                | `tailwindcss`, `@tailwindcss/vite`                                           | 4.x (keep installed line)         |
 | Identity               | `keycloak-js`                                                                | 26.2.4 (keep)                     |
 | Tests                  | `vitest`, `jsdom`, `@testing-library/react`                                  | 4.x (keep `^4.0.8`), keep, 16.x   |
@@ -56,6 +57,14 @@ Form, Zod, Base UI, and react-day-picker arrived with the simulation workspace.
 TypeScript `~5.9`, Node 22 (`.nvmrc`), pnpm 10, and Nx 22.6.3 stay. The
 `@nx/vite` 22.6.3 peer range accepts Vite 8 and Vitest 4. Vitest 5 and Nx 23
 aren't adopted.
+
+Charts use Recharts (2026-10-11): stable, widely adopted, declarative SVG
+components with a keyboard accessibility layer, covering the line, area, and
+bar charts the product needs. It needs no stylesheet; charts take the design
+tokens as props (`var(--color-accent)`), disable animation because it runs
+in JS outside the reduced-motion rule, and keep a table or text with the exact
+values beside them. Add a shared chart component only when a second chart
+repeats the setup.
 
 React Compiler 1.0 is stable, but its integration with `@vitejs/plugin-react` 6
 goes through `@rolldown/plugin-babel`, which is pre-1.0. Under the stability
@@ -419,7 +428,9 @@ the latest one is the current state, earlier ones are its history.
   business days, calculation instant in São Paulo time and the methodology
   version. "Evolução do saldo" and "Histórico de cálculos" are disclosures; a
   past calculation is selected with the `calculo` URL parameter.
-- "Evolução do saldo" lists one row per month (business days, the month's
+- "Evolução do saldo" opens with an area chart of each month's closing gross
+  balance (compact BRL axis; the tooltip shows the exact closing balance and
+  accumulated earnings), then lists one row per month (business days, the month's
   earnings, accumulated earnings and the closing gross balance). Each month's
   button (`aria-expanded`) reveals that month's business days beneath it.
 - Taxes: the IOF and income-tax rows name the applied rate ("IOF · isento pelo

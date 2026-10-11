@@ -132,7 +132,8 @@ Por portfólio:
 - rentabilidade média;
 - comparação agregada entre portfólios.
 
-No MVP, apresentar resultados em tabelas simples. Gráficos e exportação para
+No MVP, apresentar resultados em tabelas simples; a evolução do saldo de uma
+simulação também tem um gráfico. Os demais gráficos e a exportação para
 PDF/CSV ficam fora do escopo.
 
 ## Regras de Cálculo
@@ -329,7 +330,7 @@ validada antes da implementação.
 - transações financeiras reais;
 - autocadastro;
 - atualização automática de CDI, IPCA ou Selic;
-- gráficos;
+- gráficos além da evolução do saldo;
 - exportação PDF/CSV;
 - aportes recorrentes e reinvestimento automático;
 - rentabilidade real ajustada pela inflação;
@@ -346,7 +347,7 @@ validada antes da implementação.
 - Comparar rendimento líquido entre diferentes tipos de título.
 - Exibir rentabilidade real descontada pelo IPCA.
 - Simular aportes regulares, reinvestimentos e taxas variáveis.
-- Adicionar gráficos, relatórios e exportações.
+- Adicionar outros gráficos, relatórios e exportações.
 - Adicionar análise de risco, rating, FGC e suporte multi-moeda.
 
 ## Regras Futuras Relevantes

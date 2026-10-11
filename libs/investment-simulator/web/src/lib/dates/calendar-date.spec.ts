@@ -1,6 +1,7 @@
 import {
   formatInstant,
   formatMonth,
+  formatShortMonth,
   formatIsoDate,
   isIsoDate,
   isoToLocalDate,
@@ -26,6 +27,7 @@ describe('calendar dates', () => {
     expect(formatIsoDate('2026-01-02')).toBe('02/01/2026');
     expect(formatMonth('2026-03')).toBe('março de 2026');
     expect(formatMonth('2027-12')).toBe('dezembro de 2027');
+    expect(formatShortMonth('2026-03')).toBe('mar/26');
   });
 
   it('reads today and instants in São Paulo time', () => {

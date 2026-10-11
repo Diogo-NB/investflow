@@ -1,9 +1,16 @@
-import { Fragment, useState } from 'react';
+import { Fragment, lazy, Suspense, useState } from 'react';
 import { formatIsoDate, formatMonth } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
 import type { MonthlyBalance } from '../models/simulation.types';
 
 const CELL = 'px-3 py-2 text-right';
+
+// Keeps the charting library out of the workspace chunk until the section opens.
+const MonthlyBalanceChart = lazy(() =>
+  import('./monthly-balance-chart').then((module) => ({
+    default: module.MonthlyBalanceChart,
+  })),
+);
 
 // Rows render only while the section is open.
 export function MonthlyBalanceTable({
@@ -32,6 +39,17 @@ export function MonthlyBalanceTable({
         Evolução do saldo ({months.length}{' '}
         {months.length === 1 ? 'mês' : 'meses'})
       </summary>
+      {open && (
+        <Suspense
+          fallback={
+            <p className="m-0 border-t border-border px-6 py-3 text-sm text-muted">
+              Carregando o gráfico…
+            </p>
+          }
+        >
+          <MonthlyBalanceChart months={months} />
+        </Suspense>
+      )}
       {open && (
         <div className="overflow-x-auto border-t border-border">
           <table className="w-full border-collapse text-sm tabular-nums">
