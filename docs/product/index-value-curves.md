@@ -14,8 +14,8 @@ modalidades de títulos citadas parte do escopo do produto.
 
 ## Problema de Negócio
 
-Uma aplicação hipotética precisa de uma trajetória de índices para calcular
-seu rendimento durante o tempo. Um único CDI ou IPCA informado para todo o
+Uma simulação de investimento precisa de uma trajetória de índices para
+calcular seu rendimento durante o tempo. Um único CDI ou IPCA informado para todo o
 prazo não representa mudanças de cenário nem permite comparar diferentes
 expectativas para o mesmo investimento.
 
@@ -63,8 +63,8 @@ que eles possam ser trocados sem uma regra de negócio específica.
 | Competência       | Período econômico medido por um índice, como um mês de inflação.                           |
 | Cobertura         | Disponibilidade dos valores necessários para um cálculo específico.                        |
 | Oferta            | Condições de remuneração e prazo do investimento escolhido.                                |
-| Aplicação         | Hipótese concreta de investir um valor em uma data sob as condições de uma oferta.         |
-| Execução          | Cálculo da hipótese com as curvas imutáveis e premissas selecionadas.                      |
+| Simulação         | Hipótese de investir um valor em uma data sob termos digitados ou copiados de uma oferta.  |
+| Cálculo           | Registro imutável do resultado da simulação com as curvas e premissas selecionadas.        |
 | Rendimento diário | Diferença entre o saldo bruto calculado e o saldo bruto anterior.                          |
 
 Uma curva é uma trajetória de premissas do simulador. Não se presume que ela
@@ -83,9 +83,9 @@ seja uma curva de juros a termo extraída de preços de mercado.
 | Cadastro incompleto          | Lacunas são permitidas, mas a curva precisa ter pelo menos um intervalo.                        |
 | Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                            |
 | Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                |
-| Resultado diário             | A execução fornece rendimento e acumulação brutos para todos os dias úteis do período.          |
+| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.           |
 | Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                           |
-| Horizonte atual              | A execução não considera saída ou recebimento antecipado.                                       |
+| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                        |
 
 As regras exatas do CDI e do híbrido foram objeto de pesquisa de mercado
 solicitada durante a definição do produto. O CDI e as pendências do IPCA estão
@@ -93,7 +93,7 @@ detalhados adiante.
 
 ## Identidade e Responsabilidades da Curva
 
-A curva possui identidade própria, independente de ofertas e aplicações.
+A curva possui identidade própria, independente de ofertas e simulações.
 Ela organiza valores de um índice segundo uma convenção e permite que o
 usuário escolha uma trajetória reconhecível e preserve suas premissas.
 
@@ -106,7 +106,7 @@ Informações conceituais necessárias:
 - intervalos e valores imutáveis.
 
 A curva não possui o valor investido, o percentual do CDI contratado, a taxa
-fixa da oferta, o vencimento da aplicação ou suas regras tributárias. Uma
+fixa da oferta, o vencimento do investimento ou suas regras tributárias. Uma
 mesma curva pode alimentar várias hipóteses com resultados diferentes.
 
 A curva é uma unidade de negócio independente. Nome, descrição, índice,
@@ -222,10 +222,10 @@ de verificar o conjunto de referências será refinada em uma etapa posterior.
 
 Uma curva possui taxas de 01/10/2026 a 06/10/2026 e de 08/10/2026 a
 31/10/2026. O dia 07/10/2026 é um dia útil no calendário do PRD. Se sua taxa
-for necessária à execução, a curva não possui cobertura suficiente.
+for necessária ao cálculo, a curva não possui cobertura suficiente.
 
 A presença de valores nos dias anteriores e posteriores não autoriza deduzir
-o valor do dia ausente. A execução deve ser impedida.
+o valor do dia ausente. O cálculo deve ser impedido.
 
 ### Exemplo de Intervalo Sem Capitalização
 
@@ -239,13 +239,13 @@ constitui uma lacuna de juros para a capitalização por dias úteis.
 intervalo. Sua suficiência é verificada quando ela for usada. Uma referência
 necessária ausente impede o cálculo e deve constar do diagnóstico de cobertura.
 
-Uma mesma curva pode servir a uma aplicação curta e não servir a outra
+Uma mesma curva pode servir a uma simulação curta e não servir a outra
 mais longa. Portanto, sua suficiência não deve ser presumida como uma
 característica permanente e universal da curva.
 
 Para o IPCA, as competências exigidas podem anteceder a data da aplicação,
-conforme a defasagem contratual. Uma busca simples por datas dentro da
-aplicação não basta para verificar a cobertura de inflação.
+conforme a defasagem contratual. Uma busca simples por datas dentro do
+período investido não basta para verificar a cobertura de inflação.
 
 ## Imutabilidade e Reprodução
 
@@ -255,18 +255,18 @@ alteração recebe outro identificador e preserva a curva original.
 
 Exemplo:
 
-1. A execução A usa a curva CDI base, identificada por X.
+1. O cálculo A usa a curva CDI base, identificada por X.
 2. O usuário cria outra curva, identificada por Y, com valores ajustados.
-3. A execução A continua vinculada à curva X.
-4. Uma nova execução pode selecionar Y para comparar resultados.
+3. O cálculo A continua vinculado à curva X.
+4. Um novo cálculo pode selecionar Y para comparar resultados.
 
 O identificador da curva é suficiente para identificar seu conteúdo
-preservado. A execução fixa esse identificador e não troca suas premissas
+preservado. O cálculo fixa esse identificador e não troca suas premissas
 automaticamente quando outra curva é criada. Gravar novamente uma curva com um
 identificador já existente preserva o conteúdo originalmente armazenado. A
 exclusão lógica altera apenas o estado de disponibilidade da curva.
 
-A reprodução completa também depende da hipótese de aplicação, das condições
+A reprodução completa também depende da hipótese da simulação, dos termos
 da oferta, do calendário e das regras de cálculo utilizados. Preservar a curva
 é necessário, mas não suficiente para preservar todos esses elementos. Por
 isso, cada cálculo registrado fixa a curva, uma cópia dos termos da oferta, o
@@ -280,15 +280,15 @@ Ela registra o instante da primeira exclusão. Repetir a exclusão não altera
 esse instante, o identificador, as premissas ou os intervalos.
 
 Curvas excluídas deixam de ser encontradas na consulta normal por identidade
-e não podem ser vinculadas a aplicações nem usadas em novas execuções, mesmo
-por aplicações que já as tinham vinculado. A exclusão preserva o conteúdo
-armazenado: execuções registradas antes da exclusão continuam consultáveis com
-seus resultados originais. Restauração e exclusão física não fazem parte desta
+e não podem ser usadas em novos cálculos, mesmo por simulações cujos cálculos
+anteriores as usaram. A exclusão preserva o conteúdo armazenado: cálculos
+registrados antes da exclusão continuam consultáveis com seus resultados
+originais. Restauração e exclusão física não fazem parte desta
 etapa.
 
 ## Histórico e Projeções
 
-A curva pode fornecer premissas para aplicações passadas e futuras. A
+A curva pode fornecer premissas para investimentos passados e futuros. A
 distinção recomendada é entre valores observados e projetados, especialmente
 quando uma trajetória combina histórico com expectativas futuras.
 
@@ -410,10 +410,10 @@ O vencimento deve ocorrer em dia útil. A última linha diária apresenta o sald
 bruto no vencimento, enquanto o resumo desconta os tributos. A taxa do vencimento
 não é necessária, pois o último intervalo usa a taxa do dia útil anterior.
 
-## Fluxo de Negócio da Execução
+## Fluxo de Negócio do Cálculo
 
-1. Identificar a hipótese, a oferta e a curva escolhidas.
-2. Fixar o identificador da curva imutável usada nesta execução.
+1. Identificar os termos, o investimento e a curva escolhidos.
+2. Fixar o identificador da curva imutável usada neste cálculo.
 3. Verificar a compatibilidade entre índice, convenção e remuneração.
 4. Determinar as datas ou competências exigidas até o vencimento.
 5. Verificar toda a cobertura; se faltar algum dado, impedir o cálculo.
@@ -423,7 +423,7 @@ não é necessária, pois o último intervalo usa a taxa do dia útil anterior.
    o resultado.
 
 Uma curva incompatível e uma curva sem cobertura suficiente são motivos
-distintos para impedir a execução. O usuário deve conseguir identificar qual
+distintos para impedir o cálculo. O usuário deve conseguir identificar qual
 condição precisa corrigir. Consultar um resultado existente não deve fazê-lo
 passar silenciosamente para outra curva.
 
@@ -434,11 +434,11 @@ passar silenciosamente para outra curva.
   valores são iguais; cada referência necessária resolve para um único valor.
 - Identificação explícita da competência em curvas de inflação.
 - Cadastro permitido de curvas incompletas com pelo menos um intervalo,
-  com diagnóstico de cobertura por execução.
+  com diagnóstico de cobertura por cálculo.
 - Índice e convenção estáveis na identidade da curva; uma mudança de
   significado originaria outra curva.
 - Preservação das curvas usadas mesmo se uma curva deixar de ser oferecida
-  para novas execuções.
+  para novos cálculos.
 
 Dividir, substituir ou unir intervalos produz outra curva. Essas operações
 precisam preservar o significado da trajetória que o usuário pretende criar.
@@ -450,7 +450,7 @@ precisam preservar o significado da trajetória que o usuário pretende criar.
 | Perfil contratual do IPCA | Definir atualização, aniversário, defasagem, proporcionalização e tratamento das extremidades do investimento. |
 | Reprodução após exclusão  | Definir o acesso às curvas excluídas por simulações que já utilizavam suas premissas preservadas.              |
 | Histórico e projeções     | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários.      |
-| Escolha e reprodução      | Definir o fluxo de seleção e a vinculação da curva imutável à hipótese e à execução.                           |
+| Escolha e reprodução      | Definir o fluxo de seleção e a vinculação da curva imutável à simulação e ao cálculo.                          |
 
 A decisão de impedir cálculo sem cobertura não é reaberta por essas
 pendências. Interpolação, prolongamento e substituição automática de curvas
@@ -465,8 +465,7 @@ não estão autorizados como comportamento implícito.
 - Substituição automática de um índice por outro.
 - Resgate, recebimento antecipado e reinvestimento.
 - Reprodução do conjunto de informações disponíveis em cada data histórica.
-- Definição completa dos agregados de aplicação e carteira.
-- Solução de armazenamento das condições imutáveis da oferta.
+- Definição completa do agregado de carteira.
 
 A comparação de trajetórias otimista e pessimista motiva essa preparação,
 mas não exige implementar agora um fluxo específico de comparação de cenários.

@@ -13,7 +13,8 @@ export interface ListSimulationsQuery {
   readonly pageSize: number;
 }
 
-// The inputs and result come from the simulation's latest calculation.
+// Terms come from the simulation; the investment and result from its latest
+// calculation.
 export interface SimulationListItem {
   readonly id: string;
   readonly fromCatalogOffer: boolean;
@@ -21,7 +22,7 @@ export interface SimulationListItem {
   readonly investmentDate: string;
   readonly maturityDate: string;
   readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly issuerName: string;
+  readonly issuerName: string | null;
   readonly remunerationTerms: {
     readonly kind:
       | 'PREFIXED'
@@ -43,6 +44,11 @@ export type ListSimulationsOutput = PaginatedResult<SimulationListItem>;
 const simulationSelect = {
   id: true,
   sourceOfferId: true,
+  maturityDate: true,
+  titleType: true,
+  issuer: { select: { name: true } },
+  remunerationType: true,
+  rateValue: true,
   calculations: {
     select: {
       id: true,
@@ -51,11 +57,6 @@ const simulationSelect = {
       netBalance: true,
       principal: true,
       investmentDate: true,
-      maturityDate: true,
-      titleType: true,
-      issuer: { select: { name: true } },
-      remunerationType: true,
-      rateValue: true,
     },
     orderBy: { calculatedAt: 'desc' },
     take: 1,
@@ -113,13 +114,13 @@ export class ListSimulationsQueryHandler
         latest.investmentDate,
       ).value.toIsoString(),
       maturityDate: CalendarDate.fromUtcDate(
-        latest.maturityDate,
+        record.maturityDate,
       ).value.toIsoString(),
-      titleType: latest.titleType,
-      issuerName: latest.issuer.name,
+      titleType: record.titleType,
+      issuerName: record.issuer?.name ?? null,
       remunerationTerms: {
-        kind: latest.remunerationType,
-        rate: latest.rateValue.toFixed(),
+        kind: record.remunerationType,
+        rate: record.rateValue.toFixed(),
       },
       latestCalculation: {
         id: latest.id,

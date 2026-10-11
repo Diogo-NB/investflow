@@ -113,7 +113,7 @@ placement, public contracts, or project boundaries.
   cases (see "Coding Conventions" in `AGENTS.md`). A rule belongs to its
   aggregate, value object, or domain service; a capability several services
   need belongs on a port; a type that several commands build owns its factory
-  as a static method (`ApplicationInvestment.fromRequest`). Inline one-line
+  as a static method. Inline one-line
   lookups, such as `id ? repository.findById(id) : Result.ok(null)` read with
   `valueOrNull`.
 - Presentation queries live in infrastructure and own operation-specific plain

@@ -1,9 +1,12 @@
 import {
+  BrazilianBusinessDayCalendar,
   CalendarDate,
   CalendarDateRange,
   Money,
   Rate,
+  UtcInstant,
 } from '@investflow/shared-domain';
+import { InvestmentCalculator } from '../calculations/investment-calculator.domain-service';
 import { EEconomicIndex } from '../index-curves/economic-index.enum';
 import { IndexCurve } from '../index-curves/index-curve.aggregate';
 import { IndexCurveInterval } from '../index-curves/index-curve-interval.vo';
@@ -15,7 +18,13 @@ import {
   RemunerationTerms,
 } from '../offers/terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from '../offers/title-type.enum';
-import { SimulationInputs } from './simulation-inputs.vo';
+import { InvestmentInputs } from './investment-inputs.vo';
+
+export const CALCULATED_AT = UtcInstant.ofIso('2026-10-10T12:00:00Z');
+
+export const calculator = new InvestmentCalculator(
+  new BrazilianBusinessDayCalendar(),
+);
 
 export function cdiCurve(): IndexCurve {
   return IndexCurve.create({
@@ -33,23 +42,32 @@ export function cdiCurve(): IndexCurve {
   }).value;
 }
 
-export function simulationInputs(
+export function terms(
   kind: RemunerationKind = 'PREFIXED',
-  overrides: { indexCurveId?: string | null; principal?: Money } = {},
-): SimulationInputs {
-  return SimulationInputs.create({
-    terms: InvestmentTerms.create({
-      titleType: ETitleType.CDB,
-      issuerId: 'issuer-id',
-      maturityDate: CalendarDate.of('2026-01-06'),
-      redemption: RedemptionTerms.create('AT_MATURITY'),
-      remuneration: RemunerationTerms.create(
-        kind,
-        Rate.of(kind === 'PREFIXED' ? '0.12' : '1'),
-      ),
-    }),
+  issuerId: string | null = 'issuer-id',
+): InvestmentTerms {
+  return InvestmentTerms.create({
+    titleType: ETitleType.CDB,
+    issuerId,
+    maturityDate: CalendarDate.of('2026-01-06'),
+    redemption: RedemptionTerms.create('AT_MATURITY'),
+    remuneration: RemunerationTerms.create(
+      kind,
+      Rate.of(kind === 'PREFIXED' ? '0.12' : '1'),
+    ),
+  });
+}
+
+export function investment(
+  overrides: {
+    indexCurveId?: string | null;
+    principal?: Money;
+    investmentDate?: string;
+  } = {},
+): InvestmentInputs {
+  return InvestmentInputs.create({
     principal: overrides.principal ?? Money.of('1000'),
-    investmentDate: CalendarDate.of('2026-01-02'),
+    investmentDate: CalendarDate.of(overrides.investmentDate ?? '2026-01-02'),
     indexCurveId: overrides.indexCurveId ?? null,
   });
 }

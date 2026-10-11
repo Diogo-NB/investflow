@@ -53,7 +53,7 @@ export interface GetSimulationOptionsOutput {
   readonly offers: readonly {
     readonly id: string;
     readonly titleType: 'CDB' | 'LCI' | 'LCA';
-    readonly issuer: { readonly id: string; readonly name: string };
+    readonly issuer: { readonly id: string; readonly name: string } | null;
     readonly maturityDate: string;
     readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
     readonly remunerationTerms: {

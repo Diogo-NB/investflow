@@ -31,12 +31,12 @@ enum InvestmentRemunerationType {
 }
 
 model InvestmentIssuer {
-  id        String            @id @default(uuid()) @db.Uuid
-  name      String
-  offers       InvestmentOffer[]
-  calculations SimulationCalculation[]
-  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  offers      InvestmentOffer[]
+  simulations Simulation[]
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("investment_issuer")
 }
@@ -44,7 +44,7 @@ model InvestmentIssuer {
 model InvestmentOffer {
   id               String                     @id @default(uuid()) @db.Uuid
   titleType        InvestmentTitleType        @map("title_type")
-  issuerId         String                     @map("issuer_id") @db.Uuid
+  issuerId         String?                    @map("issuer_id") @db.Uuid
   maturityDate     DateTime                   @map("maturity_date") @db.Date
   redemptionType   InvestmentRedemptionType   @map("redemption_type")
   remunerationType InvestmentRemunerationType @map("remuneration_type")
@@ -52,7 +52,7 @@ model InvestmentOffer {
   deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  issuer           InvestmentIssuer           @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  issuer           InvestmentIssuer?          @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   simulations      Simulation[]
 
   @@index([issuerId])
@@ -60,15 +60,22 @@ model InvestmentOffer {
 }
 
 model Simulation {
-  id            String                  @id @db.Uuid
-  ownerId       String                  @map("owner_id")
-  // The catalog offer the first inputs were filled from; null for typed terms.
-  sourceOfferId String?                 @map("source_offer_id") @db.Uuid
-  deletedAt     DateTime?               @map("deleted_at") @db.Timestamptz(3)
-  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  sourceOffer   InvestmentOffer?        @relation(fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  calculations  SimulationCalculation[]
+  id               String                     @id @db.Uuid
+  ownerId          String                     @map("owner_id")
+  // The catalog offer the terms were filled from; null for typed terms.
+  sourceOfferId    String?                    @map("source_offer_id") @db.Uuid
+  titleType        InvestmentTitleType        @map("title_type")
+  issuerId         String?                    @map("issuer_id") @db.Uuid
+  maturityDate     DateTime                   @map("maturity_date") @db.Date
+  redemptionType   InvestmentRedemptionType   @map("redemption_type")
+  remunerationType InvestmentRemunerationType @map("remuneration_type")
+  rateValue        Decimal                    @map("rate_value") @db.Decimal(65, 30)
+  deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sourceOffer      InvestmentOffer?           @relation(fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  issuer           InvestmentIssuer?          @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  calculations     SimulationCalculation[]
 
   @@index([ownerId])
   @@map("simulation")
@@ -78,12 +85,6 @@ model Simulation {
 model SimulationCalculation {
   id                        String                         @id @db.Uuid
   simulationId              String                         @map("simulation_id") @db.Uuid
-  titleType                 InvestmentTitleType            @map("title_type")
-  issuerId                  String                         @map("issuer_id") @db.Uuid
-  maturityDate              DateTime                       @map("maturity_date") @db.Date
-  redemptionType            InvestmentRedemptionType       @map("redemption_type")
-  remunerationType          InvestmentRemunerationType     @map("remuneration_type")
-  rateValue                 Decimal                        @map("rate_value") @db.Decimal(65, 30)
   indexCurveId              String?                        @map("index_curve_id") @db.Uuid
   principal                 Decimal                        @db.Decimal(65, 30)
   investmentDate            DateTime                       @map("investment_date") @db.Date
@@ -102,7 +103,6 @@ model SimulationCalculation {
   iofRate                   Decimal?                       @map("iof_rate") @db.Decimal(65, 30)
   incomeTaxRate             Decimal                        @map("income_tax_rate") @db.Decimal(65, 30)
   simulation                Simulation                     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  issuer                    InvestmentIssuer               @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   indexCurve                IndexCurve?                    @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   balances                  SimulationCalculationBalance[]
 
@@ -131,14 +131,14 @@ enum EconomicIndex {
 }
 
 model IndexCurve {
-  id             String                  @id @default(uuid()) @db.Uuid
-  name           String
-  description    String?
-  index          EconomicIndex
-  deletedAt      DateTime?               @map("deleted_at") @db.Timestamptz(3)
-  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  intervals      IndexCurveInterval[]
-  calculations   SimulationCalculation[]
+  id           String                  @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  index        EconomicIndex
+  deletedAt    DateTime?               @map("deleted_at") @db.Timestamptz(3)
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  intervals    IndexCurveInterval[]
+  calculations SimulationCalculation[]
 
   @@map("index_curve")
 }

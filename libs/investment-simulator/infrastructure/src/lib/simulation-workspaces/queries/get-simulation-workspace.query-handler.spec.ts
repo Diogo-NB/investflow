@@ -16,12 +16,6 @@ function calculation(overrides: Partial<Record<string, unknown>> = {}) {
     principal: new Prisma.Decimal('1000.50'),
     investmentDate: date('2026-01-02'),
     indexCurveId: 'curve-id',
-    titleType: 'CDB',
-    issuer: { id: 'issuer-id', name: 'Banco Local' },
-    maturityDate: date('2026-03-02'),
-    redemptionType: 'AT_MATURITY',
-    remunerationType: 'CDI_PERCENTAGE',
-    rateValue: new Prisma.Decimal('1.10'),
     grossBalance: new Prisma.Decimal('1001.000000000000000001'),
     grossEarnings: new Prisma.Decimal('0.500000000000000001'),
     iof: new Prisma.Decimal('0'),
@@ -48,8 +42,18 @@ function setup(record: unknown) {
     handler.execute({ ownerId: 'owner-id', simulationId });
 }
 
-function workspace(calculations: unknown[]) {
-  return { id: 'simulation-id', sourceOfferId: null, calculations };
+function workspace(calculations: unknown[], issuer: unknown = null) {
+  return {
+    id: 'simulation-id',
+    sourceOfferId: null,
+    titleType: 'CDB',
+    issuer,
+    maturityDate: date('2026-03-02'),
+    redemptionType: 'AT_MATURITY',
+    remunerationType: 'CDI_PERCENTAGE',
+    rateValue: new Prisma.Decimal('1.10'),
+    calculations,
+  };
 }
 
 describe('GetSimulationWorkspaceQueryHandler', () => {
@@ -59,6 +63,13 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     expect(result.value.simulation).toEqual({
       id: 'simulation-id',
       fromCatalogOffer: false,
+      terms: {
+        titleType: 'CDB',
+        issuer: null,
+        maturityDate: '2026-03-02',
+        redemptionTerms: { kind: 'AT_MATURITY' },
+        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+      },
     });
     expect(result.value.calculations).toEqual([
       {
@@ -66,15 +77,10 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
         calculatedAt: '2026-10-10T12:00:00.000Z',
         methodologyVersion: METHODOLOGY_VERSION,
         outdated: false,
-        inputs: {
+        investment: {
           principal: '1000.5',
           investmentDate: '2026-01-02',
           indexCurveId: 'curve-id',
-          titleType: 'CDB',
-          issuer: { id: 'issuer-id', name: 'Banco Local' },
-          maturityDate: '2026-03-02',
-          redemptionTerms: { kind: 'AT_MATURITY' },
-          remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
         },
         businessDays: 40,
         maturitySummary: {
@@ -103,6 +109,17 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
         },
       },
     ]);
+  });
+
+  it('names the issuer when the terms have one', async () => {
+    const result = await setup(
+      workspace([calculation()], { id: 'issuer-id', name: 'Banco Local' }),
+    )();
+
+    expect(result.value.simulation.terms.issuer).toEqual({
+      id: 'issuer-id',
+      name: 'Banco Local',
+    });
   });
 
   it('flags calculations made under another methodology', async () => {

@@ -113,12 +113,14 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
   result surface with the net value at maturity right-aligned in tabular
   figures and a textual "Desatualizado" tag in the warning token.
 - Simulation workspace: an inputs surface (about 26rem, sticky on desktop)
-  beside the results; fieldsets "Investimento", "Termos do CDB" and "Índice"
-  separated by rules, with "Calcular" last. Results lead with the net value,
-  then a definition list of amounts; the balance evolution (month rows that
-  expand to their business days on a background-colored band) and the
-  calculation history are native disclosures. Rejections use the error token and also
-  mark the responsible field; staleness uses the warning token with text.
+  beside the results. "Termos do CDB" comes first, as a fieldset on a new
+  simulation and as a muted definition list on a saved one; "Investimento"
+  (principal, investment date, curve) follows below a rule, with "Calcular"
+  last. Results lead with the net value, then a definition list of amounts;
+  the balance evolution (month rows that expand to their business days on a
+  background-colored band) and the calculation history are native
+  disclosures. Rejections use the error token and also mark the responsible
+  field; staleness uses the warning token with text.
 - Tax explanation: a short scrollable Dialog (max 36rem) opened by a quiet
   text action with an inline SVG info icon under the result amounts. One
   section per tax separated by rules: a one-line rule, the filled-in formula

@@ -1,83 +1,52 @@
-import {
-  BrazilianBusinessDayCalendar,
-  EAppErrorCode,
-  UtcInstant,
-} from '@investflow/shared-domain';
-import {
-  InvestmentCalculator,
-  METHODOLOGY_VERSION,
-} from '../calculations/investment-calculator.domain-service';
-import { Simulation } from './simulation.aggregate';
+import { METHODOLOGY_VERSION } from '../calculations/investment-calculator.domain-service';
 import { SimulationCalculation } from './simulation-calculation.aggregate';
-import { simulationInputs } from './simulation-fixture';
+import {
+  CALCULATED_AT,
+  calculator,
+  investment,
+  terms,
+} from './simulation-fixture';
+import { Simulation } from './simulation.aggregate';
 
-const CALCULATED_AT = UtcInstant.ofIso('2026-10-10T12:00:00Z');
-
-function calculated() {
-  const simulation = Simulation.create({
+function recorded() {
+  return Simulation.start({
     ownerId: 'owner-id',
     sourceOfferId: null,
-  });
-  const inputs = simulationInputs();
-  const result = new InvestmentCalculator(
-    new BrazilianBusinessDayCalendar(),
-  ).calculate(inputs.toScenario(null).value).value;
-  return { simulation, inputs, result };
+    terms: terms(),
+    investment: investment(),
+    indexCurve: null,
+    calculator,
+    calculatedAt: CALCULATED_AT,
+  }).value.calculation;
 }
 
 describe('SimulationCalculation', () => {
-  it('records the inputs and the result of one calculation', () => {
-    const { simulation, inputs, result } = calculated();
-
-    const calculation = SimulationCalculation.record({
-      simulation,
-      inputs,
-      result,
-      calculatedAt: CALCULATED_AT,
-    }).value;
-
-    expect(calculation.simulationId).toBe(simulation.id);
-    expect(calculation.inputs).toBe(inputs);
-    expect(calculation.result).toBe(result);
-    expect(calculation.result.methodologyVersion).toBe(METHODOLOGY_VERSION);
-    expect(calculation.calculatedAt).toBe(CALCULATED_AT);
-  });
-
   it('gives each calculation its own identity', () => {
-    const props = { ...calculated(), calculatedAt: CALCULATED_AT };
-
-    expect(SimulationCalculation.record(props).value.id).not.toBe(
-      SimulationCalculation.record(props).value.id,
-    );
-  });
-
-  it('rejects calculating a deleted simulation', () => {
-    const { simulation, inputs, result } = calculated();
-    simulation.delete(CALCULATED_AT);
-
-    const recorded = SimulationCalculation.record({
-      simulation,
-      inputs,
-      result,
-      calculatedAt: CALCULATED_AT,
+    const calculation = recorded();
+    const again = SimulationCalculation.record({
+      simulationId: calculation.simulationId,
+      investment: calculation.investment,
+      result: calculation.result,
+      calculatedAt: calculation.calculatedAt,
     });
 
-    expect(recorded.error.code).toBe(EAppErrorCode.SIMULATION_DELETED);
+    expect(again.id).not.toBe(calculation.id);
   });
 
   it('reconstitutes the stored record', () => {
-    const { simulation, inputs, result } = calculated();
+    const calculation = recorded();
 
-    const calculation = SimulationCalculation.reconstitute({
+    const restored = SimulationCalculation.reconstitute({
       id: 'calculation-id',
-      simulationId: simulation.id,
-      inputs,
-      result,
-      calculatedAt: CALCULATED_AT,
+      simulationId: calculation.simulationId,
+      investment: calculation.investment,
+      result: calculation.result,
+      calculatedAt: calculation.calculatedAt,
     });
 
-    expect(calculation.id).toBe('calculation-id');
-    expect(calculation.result).toBe(result);
+    expect(restored.id).toBe('calculation-id');
+    expect(restored.result).toBe(calculation.result);
+    expect(restored.result.methodologyVersion).toBe(METHODOLOGY_VERSION);
   });
 
   it('is outdated only under another methodology', () => {

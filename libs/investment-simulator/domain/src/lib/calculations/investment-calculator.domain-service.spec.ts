@@ -101,22 +101,20 @@ describe('InvestmentCalculator domain service', () => {
     }
     // Four calendar days, despite only two accrual periods.
     expect(
-      result.maturitySummary.iof.amount.equals(
+      result.taxes.iof.amount.amount.equals(
         result.maturitySummary.grossEarnings.amount.times('0.86'),
       ),
     ).toBe(true);
     expect(
-      result.maturitySummary.incomeTax.amount.equals(
+      result.taxes.incomeTax.amount.amount.equals(
         result.maturitySummary.grossEarnings.amount
-          .minus(result.maturitySummary.iof.amount)
+          .minus(result.taxes.iof.amount.amount)
           .times('0.225'),
       ),
     ).toBe(true);
     expect(
       result.maturitySummary.netBalance.equals(
-        result.maturitySummary.grossBalance.subtract(
-          result.maturitySummary.totalTaxes,
-        ),
+        result.maturitySummary.grossBalance.subtract(result.taxes.total),
       ),
     ).toBe(true);
     expect(
@@ -165,7 +163,7 @@ describe('InvestmentCalculator domain service', () => {
     );
     // Taxes count four calendar days across the holiday and weekend.
     expect(
-      result.maturitySummary.iof.amount.equals(
+      result.taxes.iof.amount.amount.equals(
         result.maturitySummary.grossEarnings.amount.times('0.86'),
       ),
     ).toBe(true);
@@ -220,7 +218,7 @@ describe('InvestmentCalculator domain service', () => {
       expect(result.maturitySummary.grossBalance.amount.toString()).toBe(
         '1000',
       );
-      expect(result.maturitySummary.totalTaxes.isZero()).toBe(true);
+      expect(result.taxes.total.isZero()).toBe(true);
       expect(
         result.dailyBalances.every((row) => row.dailyGrossEarnings.isZero()),
       ).toBe(true);

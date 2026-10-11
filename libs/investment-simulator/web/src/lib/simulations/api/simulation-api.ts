@@ -2,9 +2,9 @@ import { queryOptions } from '@tanstack/react-query';
 import { jsonBody, requestJson, type FetchFn } from '../../http/request-json';
 import type { PaginatedResult } from '../../pagination/paginated-result.type';
 import type {
-  CreateSimulationInput,
+  Investment,
   MonthlyBalance,
-  SimulationInput,
+  StartSimulationInput,
   SimulationListItem,
   SimulationOptions,
   SimulationWorkspace,
@@ -78,7 +78,7 @@ export interface CalculatedSimulation {
 
 export function createSimulation(
   fetchFn: FetchFn,
-  input: CreateSimulationInput,
+  input: StartSimulationInput,
 ) {
   return requestJson<CalculatedSimulation>(fetchFn, `${BASE}/simulations`, {
     method: 'POST',
@@ -89,7 +89,7 @@ export function createSimulation(
 export function calculateSimulation(
   fetchFn: FetchFn,
   id: string,
-  input: SimulationInput,
+  input: Investment,
 ) {
   return requestJson<CalculatedSimulation>(
     fetchFn,

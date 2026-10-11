@@ -7,7 +7,8 @@ import type {
   UnsupportedReason,
 } from '../../offers/models/offer-terms';
 
-// Inputs and result come from the simulation's latest calculation.
+// Terms come from the simulation; the investment and result from its latest
+// calculation.
 export interface SimulationListItem {
   readonly id: string;
   readonly fromCatalogOffer: boolean;
@@ -15,7 +16,7 @@ export interface SimulationListItem {
   readonly investmentDate: string;
   readonly maturityDate: string;
   readonly titleType: TitleType;
-  readonly issuerName: string;
+  readonly issuerName: string | null;
   readonly remunerationTerms: RemunerationTerms;
   readonly latestCalculation: {
     readonly id: string;
@@ -43,7 +44,7 @@ export interface RemunerationOption {
 export interface OfferOption {
   readonly id: string;
   readonly titleType: TitleType;
-  readonly issuer: { readonly id: string; readonly name: string };
+  readonly issuer: { readonly id: string; readonly name: string } | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };
   readonly remunerationTerms: RemunerationTerms;
@@ -93,7 +94,7 @@ export interface CalculationSummary {
   readonly methodologyVersion: string;
   // The current methodology could produce different figures.
   readonly outdated: boolean;
-  readonly inputs: CalculationInputs;
+  readonly investment: Investment;
   readonly businessDays: number;
   readonly maturitySummary: MaturitySummary;
   readonly taxes: CalculationTaxes;
@@ -117,23 +118,28 @@ export interface CalculationTaxes {
   };
 }
 
-export interface CalculationInputs {
-  readonly principal: string;
-  readonly investmentDate: string;
-  readonly indexCurveId: string | null;
+export interface SimulationTerms {
   readonly titleType: TitleType;
-  readonly issuer: { readonly id: string; readonly name: string };
+  readonly issuer: { readonly id: string; readonly name: string } | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };
   readonly remunerationTerms: RemunerationTerms;
+}
+
+export interface Investment {
+  readonly principal: string;
+  readonly investmentDate: string;
+  readonly indexCurveId: string | null;
 }
 
 export interface SimulationWorkspace {
   readonly simulation: {
     readonly id: string;
     readonly fromCatalogOffer: boolean;
+    // Fixed for the simulation's life.
+    readonly terms: SimulationTerms;
   };
-  // Newest first and never empty; the first one holds the current inputs.
+  // Newest first and never empty; the first one holds the current investment.
   readonly calculations: readonly CalculationSummary[];
 }
 
@@ -155,17 +161,16 @@ export interface MonthlyBalance {
   readonly days: readonly DailyBalance[];
 }
 
-export interface SimulationInput {
-  readonly principal: string;
-  readonly investmentDate: string;
-  readonly indexCurveId: string | null;
-  readonly issuerId: string;
+export interface SimulationTermsInput {
+  readonly issuerId: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };
   readonly remunerationTerms: RemunerationTerms;
 }
 
-export interface CreateSimulationInput extends SimulationInput {
+export interface StartSimulationInput {
   // The catalog offer the terms were filled from.
   readonly offerId?: string;
+  readonly terms: SimulationTermsInput;
+  readonly investment: Investment;
 }

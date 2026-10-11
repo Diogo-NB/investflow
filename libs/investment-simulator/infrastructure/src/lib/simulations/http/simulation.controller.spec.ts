@@ -1,11 +1,12 @@
 import {
   CalculateSimulationUseCase,
   DeleteSimulationUseCase,
+  StartSimulationUseCase,
 } from '@investflow/investment-simulator-application';
 import { Result } from '@investflow/shared-domain';
 import { ListCalculationMonthlyBalancesQueryHandler } from '../queries/list-calculation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from '../queries/list-simulations.query-handler';
-import { CreateSimulationRequest } from './requests/create-simulation.request';
+import { StartSimulationRequest } from './requests/start-simulation.request';
 import { ListSimulationsRequest } from './requests/list-simulations.request';
 import { SimulationController } from './simulation.controller';
 
@@ -26,12 +27,20 @@ function handler<T>() {
 }
 
 function createFixture() {
+  const start = handler<StartSimulationUseCase>();
   const calculate = handler<CalculateSimulationUseCase>();
   const remove = handler<DeleteSimulationUseCase>();
   const list = handler<ListSimulationsQueryHandler>();
   const balances = handler<ListCalculationMonthlyBalancesQueryHandler>();
   return {
-    controller: new SimulationController(calculate, remove, list, balances),
+    controller: new SimulationController(
+      start,
+      calculate,
+      remove,
+      list,
+      balances,
+    ),
+    start,
     calculate,
     remove,
     list,
@@ -39,16 +48,22 @@ function createFixture() {
   };
 }
 
-function createRequest() {
-  return Object.assign(new CreateSimulationRequest(), {
+const INVESTMENT = {
+  principal: '1000.50',
+  investmentDate: '2026-01-02',
+  indexCurveId: '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e',
+};
+
+function startRequest() {
+  return Object.assign(new StartSimulationRequest(), {
     offerId: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
-    principal: '1000.50',
-    investmentDate: '2026-01-02',
-    indexCurveId: '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e',
-    issuerId: '6f1c1c55-61a1-4e3f-9b8a-1d1d6a9b2f10',
-    maturityDate: '2028-01-03',
-    redemptionTerms: { kind: 'DAILY' as const },
-    remunerationTerms: { kind: 'CDI_PERCENTAGE' as const, rate: '1.1' },
+    terms: {
+      issuerId: '6f1c1c55-61a1-4e3f-9b8a-1d1d6a9b2f10',
+      maturityDate: '2028-01-03',
+      redemptionTerms: { kind: 'DAILY' as const },
+      remunerationTerms: { kind: 'CDI_PERCENTAGE' as const, rate: '1.1' },
+    },
+    investment: INVESTMENT,
   });
 }
 
@@ -74,23 +89,24 @@ describe('SimulationController', () => {
 
   it('builds owned commands from the request', async () => {
     const fixture = createFixture();
-    const request = createRequest();
+    const request = startRequest();
 
     await fixture.controller.create(USER, request);
     await fixture.controller.calculate(
       USER,
       { simulationId: SIMULATION_ID },
-      request,
+      INVESTMENT,
     );
     await fixture.controller.delete(USER, { simulationId: SIMULATION_ID });
 
-    const created = fixture.calculate.execute.mock.calls[0][0];
-    expect(created.ownerId).toBe(USER.userId);
-    expect(created.target).toEqual({ sourceOfferId: request.offerId });
-    expect(created.inputs.principal.amount.toString()).toBe('1000.5');
-    expect(created.inputs.indexCurveId).toBe(request.indexCurveId);
-    const calculated = fixture.calculate.execute.mock.calls[1][0];
-    expect(calculated.target).toEqual({ simulationId: SIMULATION_ID });
+    const started = fixture.start.execute.mock.calls[0][0];
+    expect(started.ownerId).toBe(USER.userId);
+    expect(started.sourceOfferId).toBe(request.offerId);
+    expect(started.terms.issuerId).toBe(request.terms.issuerId);
+    expect(started.investment.principal.amount.toString()).toBe('1000.5');
+    const calculated = fixture.calculate.execute.mock.calls[0][0];
+    expect(calculated.simulationId).toBe(SIMULATION_ID);
+    expect(calculated.investment.indexCurveId).toBe(INVESTMENT.indexCurveId);
     const deleted = fixture.remove.execute.mock.calls[0][0];
     expect(deleted).toMatchObject({
       ownerId: USER.userId,

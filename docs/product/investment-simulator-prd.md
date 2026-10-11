@@ -39,7 +39,8 @@ permitem persistir portfólios, comparar cenários ou reproduzir simulações.
 
 - Criar, consultar, editar e excluir simulações.
 - Comparar duas ou mais simulações lado a lado.
-- Executar experimentos alterando taxa, percentual do CDI e datas.
+- Executar experimentos alterando valor e data de aplicação em uma simulação, e
+  taxa, percentual do CDI e vencimento em simulações duplicadas.
 
 Dados de entrada:
 
@@ -57,7 +58,7 @@ convenção única e conteúdo imutável. Alterações criam outra curva com out
 identificador. Podem existir várias curvas para o
 mesmo índice. A falta de cobertura necessária impede o cálculo.
 
-No recorte atual das curvas, a execução calcula a trajetória bruta de todos
+No recorte atual das curvas, o cálculo produz a trajetória bruta de todos
 os dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem
 somente no resumo do vencimento. A funcionalidade geral de resgate antecipado
 descrita neste PRD permanece fora desse recorte.
@@ -66,24 +67,33 @@ O calculador inicial suporta CDB prefixado, percentual do CDI e percentual da
 SELIC efetiva. IPCA permanece previsto no produto, mas seu cálculo fica adiado
 até a definição do perfil contratual.
 
-Os termos de uma simulação podem ser digitados livremente (CDB) ou
-preenchidos a partir de uma oferta do catálogo e então ajustados. Em ambos os
-casos cada cálculo guarda uma cópia dos termos; termos digitados não criam
-ofertas no catálogo, e alterar ou excluir a oferta não muda as simulações. A
-simulação registra a oferta de origem quando foi preenchida a partir de uma.
+Uma simulação representa um CDB: seus termos (emissor, remuneração e taxa,
+vencimento e liquidez) são definidos ao criá-la e não mudam depois. Os termos
+podem ser digitados livremente ou preenchidos a partir de uma oferta do
+catálogo e então ajustados antes do primeiro cálculo. A simulação guarda uma
+cópia dos termos; termos digitados não criam ofertas no catálogo, e alterar ou
+excluir a oferta não muda as simulações. A simulação registra a oferta de
+origem quando foi preenchida a partir de uma. O emissor é opcional.
+
+Experimentos com valor aplicado, data de aplicação e curva acontecem dentro da
+simulação, a cada cálculo. Experimentos com taxa, percentual do índice,
+vencimento ou liquidez criam outra simulação ("Duplicar"), comparável lado a
+lado com a original.
 
 ### Cálculos de Simulação
 
-- O cálculo é executado por comando explícito do usuário ("Calcular"), que
-  envia as entradas e calcula em um único passo. Não há salvamento separado.
+- O cálculo é executado por comando explícito do usuário ("Calcular"). Na
+  criação, envia os termos e o primeiro investimento; depois, apenas o
+  investimento (valor aplicado, data de aplicação e curva). Não há salvamento
+  separado.
 - Uma simulação passa a existir com seu primeiro cálculo bem sucedido. Cada
   cálculo bem sucedido é registrado como um registro imutável e somente
-  acrescentado, contendo as entradas usadas (termos, curva, valor inicial e
-  data de aplicação), a versão da metodologia, o instante do cálculo, o resumo
-  no vencimento, a base dos tributos (prazo em dias corridos, rendimento
-  tributável, alíquota do IOF ou isenção, base e alíquota do IR) e a
-  trajetória diária bruta.
-- As entradas atuais de uma simulação são as do seu cálculo mais recente; os
+  acrescentado, contendo o investimento usado (valor inicial, data de
+  aplicação e curva), a versão da metodologia, o instante do cálculo, o resumo
+  no vencimento, a apuração dos tributos (prazo em dias corridos, base,
+  alíquota e valor do IOF ou isenção, base, alíquota e valor do IR) e a
+  trajetória diária bruta. Os termos fixos da simulação completam as entradas.
+- O investimento atual de uma simulação é o do seu cálculo mais recente; os
   anteriores formam o histórico da simulação.
 - A curva escolhida é registrada quando a remuneração é indexada; ela deve ser
   do mesmo índice da remuneração e não pode estar excluída.
@@ -155,7 +165,7 @@ PDF/CSV ficam fora do escopo.
   derivados anualmente da data da Páscoa pelo computus gregoriano documentado
   no domínio compartilhado.
 - A contagem exclui a data inicial e inclui a data final.
-- A execução exige aplicação e vencimento em dias úteis, sem ajuste automático.
+- O cálculo exige aplicação e vencimento em dias úteis, sem ajuste automático.
   A hipótese pode ser cadastrada com outras datas, mas não pode ser calculada.
 - Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
   extraordinárias de calendário ficam fora do MVP.
@@ -281,17 +291,17 @@ rendimento líquido é R$ 26,35.
 ### Portfólio com Vencimentos Diferentes
 
 A data final de análise é o vencimento mais distante do portfólio. Nessa data,
-somar somente aplicações ainda ativas, sem reinvestir aplicações já vencidas.
+somar somente simulações ainda ativas, sem reinvestir simulações já vencidas.
 
-Esta regra pode excluir do total aplicações vencidas anteriormente e deve ser
+Esta regra pode excluir do total simulações vencidas anteriormente e deve ser
 validada antes da implementação.
 
 ## Requisitos Não Funcionais
 
-- Persistir portfólios, simulações, execuções e índices com data de referência.
+- Persistir portfólios, simulações, cálculos e índices com data de referência.
 - Manter histórico suficiente para reproduzir simulações.
 - Autenticar por token.
-- Registrar alterações de parâmetros e execuções de simulações para auditoria.
+- Registrar alterações de parâmetros e cálculos de simulações para auditoria.
 - Interface em português, responsiva e acessível.
 - Permitir futura internacionalização.
 

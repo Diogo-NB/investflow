@@ -10,11 +10,13 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  CalculatedSimulationOutput,
   CalculateSimulationCommand,
-  CalculateSimulationOutput,
   CalculateSimulationUseCase,
   DeleteSimulationCommand,
   DeleteSimulationUseCase,
+  StartSimulationCommand,
+  StartSimulationUseCase,
 } from '@investflow/investment-simulator-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import {
@@ -24,15 +26,16 @@ import {
 import type { AuthenticatedUser } from '@investflow/shared-types';
 import { ListCalculationMonthlyBalancesQueryHandler } from '../queries/list-calculation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from '../queries/list-simulations.query-handler';
-import { CreateSimulationRequest } from './requests/create-simulation.request';
 import { ListSimulationsRequest } from './requests/list-simulations.request';
 import { SimulationCalculationIdRequest } from './requests/simulation-calculation-id.request';
 import { SimulationIdRequest } from './requests/simulation-id.request';
-import { SimulationInputsRequest } from './requests/simulation-inputs.request';
+import { InvestmentRequest } from './requests/investment.request';
+import { StartSimulationRequest } from './requests/start-simulation.request';
 
 @Controller('investment-simulator')
 export class SimulationController {
   constructor(
+    private readonly startSimulation: StartSimulationUseCase,
     private readonly calculateSimulation: CalculateSimulationUseCase,
     private readonly deleteSimulation: DeleteSimulationUseCase,
     private readonly listSimulations: ListSimulationsQueryHandler,
@@ -51,10 +54,10 @@ export class SimulationController {
   @Post('simulations')
   create(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() request: CreateSimulationRequest,
-  ): Promise<Result<CalculateSimulationOutput, AppError>> {
-    return this.calculateSimulation.execute(
-      CalculateSimulationCommand.fromCreateRequest(user.userId, request),
+    @Body() request: StartSimulationRequest,
+  ): Promise<Result<CalculatedSimulationOutput, AppError>> {
+    return this.startSimulation.execute(
+      StartSimulationCommand.fromRequest(user.userId, request),
     );
   }
 
@@ -62,8 +65,8 @@ export class SimulationController {
   calculate(
     @CurrentUser() user: AuthenticatedUser,
     @Param() params: SimulationIdRequest,
-    @Body() request: SimulationInputsRequest,
-  ): Promise<Result<CalculateSimulationOutput, AppError>> {
+    @Body() request: InvestmentRequest,
+  ): Promise<Result<CalculatedSimulationOutput, AppError>> {
     return this.calculateSimulation.execute(
       CalculateSimulationCommand.fromRequest(user.userId, params, request),
     );

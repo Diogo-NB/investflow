@@ -1,8 +1,17 @@
+-- AlterTable
+ALTER TABLE "investment_offer" ALTER COLUMN "issuer_id" DROP NOT NULL;
+
 -- CreateTable
 CREATE TABLE "simulation" (
     "id" UUID NOT NULL,
     "owner_id" TEXT NOT NULL,
     "source_offer_id" UUID,
+    "title_type" "investment_title_type" NOT NULL,
+    "issuer_id" UUID,
+    "maturity_date" DATE NOT NULL,
+    "redemption_type" "investment_redemption_type" NOT NULL,
+    "remuneration_type" "investment_remuneration_type" NOT NULL,
+    "rate_value" DECIMAL(65,30) NOT NULL,
     "deleted_at" TIMESTAMPTZ(3),
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(3) NOT NULL,
@@ -14,12 +23,6 @@ CREATE TABLE "simulation" (
 CREATE TABLE "simulation_calculation" (
     "id" UUID NOT NULL,
     "simulation_id" UUID NOT NULL,
-    "title_type" "investment_title_type" NOT NULL,
-    "issuer_id" UUID NOT NULL,
-    "maturity_date" DATE NOT NULL,
-    "redemption_type" "investment_redemption_type" NOT NULL,
-    "remuneration_type" "investment_remuneration_type" NOT NULL,
-    "rate_value" DECIMAL(65,30) NOT NULL,
     "index_curve_id" UUID,
     "principal" DECIMAL(65,30) NOT NULL,
     "investment_date" DATE NOT NULL,
@@ -61,10 +64,10 @@ CREATE INDEX "simulation_calculation_simulation_id_calculated_at_idx" ON "simula
 ALTER TABLE "simulation" ADD CONSTRAINT "simulation_source_offer_id_fkey" FOREIGN KEY ("source_offer_id") REFERENCES "investment_offer"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
-ALTER TABLE "simulation_calculation" ADD CONSTRAINT "simulation_calculation_simulation_id_fkey" FOREIGN KEY ("simulation_id") REFERENCES "simulation"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE "simulation" ADD CONSTRAINT "simulation_issuer_id_fkey" FOREIGN KEY ("issuer_id") REFERENCES "investment_issuer"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
-ALTER TABLE "simulation_calculation" ADD CONSTRAINT "simulation_calculation_issuer_id_fkey" FOREIGN KEY ("issuer_id") REFERENCES "investment_issuer"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE "simulation_calculation" ADD CONSTRAINT "simulation_calculation_simulation_id_fkey" FOREIGN KEY ("simulation_id") REFERENCES "simulation"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 -- AddForeignKey
 ALTER TABLE "simulation_calculation" ADD CONSTRAINT "simulation_calculation_index_curve_id_fkey" FOREIGN KEY ("index_curve_id") REFERENCES "index_curve"("id") ON DELETE RESTRICT ON UPDATE RESTRICT;

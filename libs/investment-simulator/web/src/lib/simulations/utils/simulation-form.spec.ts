@@ -50,13 +50,17 @@ describe('simulation form', () => {
   it('accepts complete terms and builds the exact API payload', () => {
     expect(errors(valid)).toEqual({});
     expect(toSimulationInput(valid)).toEqual({
-      principal: '10000.5',
-      investmentDate: '2026-01-02',
-      indexCurveId: 'cdi',
-      issuerId: 'issuer',
-      maturityDate: '2026-03-02',
-      redemptionTerms: { kind: 'DAILY' },
-      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+      terms: {
+        issuerId: 'issuer',
+        maturityDate: '2026-03-02',
+        redemptionTerms: { kind: 'DAILY' },
+        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+      },
+      investment: {
+        principal: '10000.5',
+        investmentDate: '2026-01-02',
+        indexCurveId: 'cdi',
+      },
     });
   });
 
@@ -70,11 +74,18 @@ describe('simulation form', () => {
       indexCurveId: '',
     });
     expect(input.offerId).toBe('offer');
-    expect(input.indexCurveId).toBeNull();
-    expect(input.remunerationTerms).toEqual({
+    expect(input.investment.indexCurveId).toBeNull();
+    expect(input.terms.remunerationTerms).toEqual({
       kind: 'PREFIXED',
       rate: '0.125',
     });
+  });
+
+  it('sends terms without an issuer', () => {
+    expect(errors({ ...valid, issuerId: '' })).toEqual({});
+    expect(toSimulationInput({ ...valid, issuerId: '' }).terms.issuerId).toBe(
+      null,
+    );
   });
 
   it('explains every invalid input in Portuguese', () => {
@@ -83,7 +94,6 @@ describe('simulation form', () => {
         ...valid,
         principal: '0',
         rate: 'abc',
-        issuerId: '',
         investmentDate: '31/02/2026',
         maturityDate: '',
         indexCurveId: '',
@@ -91,7 +101,6 @@ describe('simulation form', () => {
     ).toEqual({
       principal: 'O valor aplicado deve ser maior que zero.',
       rate: 'Use apenas números, como 10.000,50.',
-      issuerId: 'Escolha o emissor.',
       investmentDate: 'Informe uma data válida no formato DD/MM/AAAA.',
       maturityDate: 'Informe a data.',
       indexCurveId: 'Escolha a curva do índice.',
@@ -104,10 +113,10 @@ describe('simulation form', () => {
     });
   });
 
-  it('starts blank simulations with today, a sole issuer and a sole curve', () => {
+  it('starts blank simulations with today, no issuer and a sole curve', () => {
     expect(blankSimulationValues('2026-10-10', options)).toMatchObject({
       investmentDate: '2026-10-10',
-      issuerId: 'issuer',
+      issuerId: '',
       remunerationKind: 'CDI_PERCENTAGE',
       redemptionKind: 'AT_MATURITY',
       indexCurveId: 'cdi',
@@ -121,8 +130,8 @@ describe('simulation form', () => {
 
   it('edits saved simulations in the units the user typed', () => {
     expect(
-      simulationValues({
-        ...workspace.calculations[0].inputs,
+      simulationValues(workspace.simulation.terms, {
+        ...workspace.calculations[0].investment,
         principal: '10000.5',
       }),
     ).toEqual({ ...valid, principal: '10000,5', rate: '105' });

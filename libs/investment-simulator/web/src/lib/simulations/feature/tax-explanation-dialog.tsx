@@ -183,9 +183,11 @@ function InfoIcon() {
 
 export function TaxExplanationDialog({
   calculation,
+  maturityDate,
   rules,
 }: {
   readonly calculation: CalculationSummary;
+  readonly maturityDate: string;
   readonly rules: TaxRules;
 }) {
   const { taxes } = calculation;
@@ -211,8 +213,8 @@ export function TaxExplanationDialog({
           <Dialog.Description className="m-0">
             Incidem sobre o rendimento e dependem do prazo:{' '}
             <strong className="font-semibold">{days} dias corridos</strong> (
-            {formatIsoDate(calculation.inputs.investmentDate)} a{' '}
-            {formatIsoDate(calculation.inputs.maturityDate)}).
+            {formatIsoDate(calculation.investment.investmentDate)} a{' '}
+            {formatIsoDate(maturityDate)}).
           </Dialog.Description>
 
           <Section

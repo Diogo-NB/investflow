@@ -40,19 +40,13 @@ from lookups and report them as not found.
 
 ## Simulation inputs
 
-`InvestmentTerms` holds the contractual terms a simulation uses (title type,
-issuer ID, maturity, redemption, and remuneration) by value, independent of the
-offer catalog. Filling the terms from a catalog offer copies them, so later
-catalog edits or deletions never change a simulation.
+`InvestmentTerms` holds the contractual terms of the CDB being simulated (title
+type, optional issuer ID, maturity, redemption, and remuneration) by value,
+independent of the offer catalog. Filling the terms from a catalog offer copies
+them, so later catalog edits or deletions never change a simulation.
 
-`SimulationInputs` combines the terms with the principal, the investment date,
-and the chosen index-curve ID (null for fixed rates). `toScenario()` builds the
-calculable `InvestmentScenario` from the loaded curve and returns the scenario
-rule the inputs break: principal positive BRL, investment before maturity, and a
-curve exactly when the remuneration requires one, of its index and not deleted.
-Passing a curve other than the referenced one is an invariant breach. Past
-dates, weekends, and holidays pass the scenario; only calculation enforces
-business days.
+`InvestmentInputs` is what each calculation varies: the principal, the
+investment date, and the chosen index-curve ID (null for fixed rates).
 
 ## Investment calculation domain service
 
@@ -113,23 +107,33 @@ rounding. This does not reproduce B3-specific truncation and rounding.
 
 ## Simulations and calculations
 
-`Simulation` is an identity: its owner, the catalog offer its first inputs were
-filled from (null for typed terms), and optional soft deletion that keeps the
-first instant. It holds no inputs.
+`Simulation` is the CDB being simulated: its owner, the catalog offer its terms
+were filled from (null for typed terms), its `InvestmentTerms`, fixed for its
+life, and optional soft deletion that keeps the first instant. Other terms make
+another simulation.
+
+`Simulation.start()` creates a simulation only together with its first
+successful calculation, and `calculate()` records another investment under the
+same terms, rejecting deleted simulations. Both combine the terms with an
+investment into the calculable `InvestmentScenario` and return the scenario rule
+that breaks: principal positive BRL, investment before maturity, and a curve
+exactly when the remuneration requires one, of its index and not deleted.
+Passing a curve other than the referenced one is an invariant breach. Past
+dates, weekends, and holidays pass the scenario; only calculation enforces
+business days.
 
 `SimulationCalculation` is an immutable, append-only record of one successful
-calculation of a simulation. `SimulationCalculation.record()` keeps the
-`SimulationInputs` by value, the whole `InvestmentCalculation` (methodology
-version, maturity summary, taxation basis, and every daily balance), and the
-`calculatedAt` instant supplied by the caller's clock. It rejects deleted
-simulations. Index curves are immutable, so the inputs fully reproduce the
-result under the recorded methodology.
+calculation. It keeps the `InvestmentInputs`, the whole `InvestmentCalculation`
+(methodology version, maturity summary, tax assessment, and every daily
+balance), and the `calculatedAt` instant supplied by the caller's clock. The
+simulation's fixed terms, the investment, and immutable index curves reproduce
+the result under the recorded methodology.
 
-A simulation's current state is its latest calculation; earlier ones are its
-history. A simulation exists only once a first calculation succeeds, and
-failed calculations are never recorded. `SimulationCalculation.isOutdated()`
-takes a plain methodology version so read models can flag calculations made
-under a methodology other than `METHODOLOGY_VERSION`.
+A simulation's current investment is its latest calculation's; earlier ones
+are its history. Failed calculations are never recorded.
+`SimulationCalculation.isOutdated()` takes a plain methodology version so read
+models can flag calculations made under a methodology other than
+`METHODOLOGY_VERSION`.
 
 ## Building
 

@@ -15,12 +15,9 @@ export interface GetSimulationWorkspaceQuery {
   readonly simulationId: string;
 }
 
-export interface CalculationInputsOutput {
-  readonly principal: string;
-  readonly investmentDate: string;
-  readonly indexCurveId: string | null;
+export interface SimulationTermsOutput {
   readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly issuer: { readonly id: string; readonly name: string };
+  readonly issuer: { readonly id: string; readonly name: string } | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
   readonly remunerationTerms: {
@@ -33,13 +30,19 @@ export interface CalculationInputsOutput {
   };
 }
 
+export interface InvestmentOutput {
+  readonly principal: string;
+  readonly investmentDate: string;
+  readonly indexCurveId: string | null;
+}
+
 export interface CalculationSummary {
   readonly id: string;
   readonly calculatedAt: string;
   readonly methodologyVersion: string;
   // True when the current methodology could produce different figures.
   readonly outdated: boolean;
-  readonly inputs: CalculationInputsOutput;
+  readonly investment: InvestmentOutput;
   // Business days with a balance, the last one being maturity.
   readonly businessDays: number;
   readonly maturitySummary: {
@@ -74,8 +77,9 @@ export interface GetSimulationWorkspaceOutput {
   readonly simulation: {
     readonly id: string;
     readonly fromCatalogOffer: boolean;
+    readonly terms: SimulationTermsOutput;
   };
-  // Newest first and never empty; the first one holds the current inputs.
+  // Newest first and never empty; the first one holds the current investment.
   readonly calculations: readonly CalculationSummary[];
 }
 
@@ -86,12 +90,6 @@ const calculationSelect = {
   principal: true,
   investmentDate: true,
   indexCurveId: true,
-  titleType: true,
-  issuer: { select: { id: true, name: true } },
-  maturityDate: true,
-  redemptionType: true,
-  remunerationType: true,
-  rateValue: true,
   grossBalance: true,
   grossEarnings: true,
   iof: true,
@@ -134,6 +132,12 @@ const IOF_EXEMPT_FORMULA = `Isento: prazo de ${CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS
 const workspaceSelect = {
   id: true,
   sourceOfferId: true,
+  titleType: true,
+  issuer: { select: { id: true, name: true } },
+  maturityDate: true,
+  redemptionType: true,
+  remunerationType: true,
+  rateValue: true,
   calculations: {
     select: calculationSelect,
     orderBy: { calculatedAt: 'desc' },
@@ -183,6 +187,18 @@ export class GetSimulationWorkspaceQueryHandler
       simulation: {
         id: record.id,
         fromCatalogOffer: record.sourceOfferId !== null,
+        terms: {
+          titleType: record.titleType,
+          issuer: record.issuer,
+          maturityDate: CalendarDate.fromUtcDate(
+            record.maturityDate,
+          ).value.toIsoString(),
+          redemptionTerms: { kind: record.redemptionType },
+          remunerationTerms: {
+            kind: record.remunerationType,
+            rate: record.rateValue.toFixed(),
+          },
+        },
       },
       calculations: record.calculations.map((calculation) =>
         this.toCalculationSummary(calculation),
@@ -196,22 +212,12 @@ export class GetSimulationWorkspaceQueryHandler
       calculatedAt: calculation.calculatedAt.toISOString(),
       methodologyVersion: calculation.methodologyVersion,
       outdated: SimulationCalculation.isOutdated(calculation.methodologyVersion),
-      inputs: {
+      investment: {
         principal: calculation.principal.toFixed(),
         investmentDate: CalendarDate.fromUtcDate(
           calculation.investmentDate,
         ).value.toIsoString(),
         indexCurveId: calculation.indexCurveId,
-        titleType: calculation.titleType,
-        issuer: calculation.issuer,
-        maturityDate: CalendarDate.fromUtcDate(
-          calculation.maturityDate,
-        ).value.toIsoString(),
-        redemptionTerms: { kind: calculation.redemptionType },
-        remunerationTerms: {
-          kind: calculation.remunerationType,
-          rate: calculation.rateValue.toFixed(),
-        },
       },
       businessDays: calculation._count.balances,
       maturitySummary: {

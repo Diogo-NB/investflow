@@ -1,5 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsDefined, IsEnum, IsUUID, ValidateNested } from 'class-validator';
+import {
+  IsDefined,
+  IsEnum,
+  IsOptional,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import { CreateOfferCommandInput } from '@investflow/investment-simulator-application';
 import { ETitleType } from '@investflow/investment-simulator-domain';
 import { IsCalendarDate } from '@investflow/shared-infrastructure';
@@ -12,8 +18,9 @@ export class CreateOfferRequest implements CreateOfferCommandInput {
   @IsEnum(ETitleType)
   titleType!: ETitleType;
 
+  @IsOptional()
   @IsUUID()
-  issuerId!: string;
+  issuerId?: string | null;
 
   @IsCalendarDate()
   maturityDate!: string;
