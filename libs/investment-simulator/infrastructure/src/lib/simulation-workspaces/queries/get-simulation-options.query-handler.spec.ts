@@ -5,18 +5,34 @@ import { GetSimulationOptionsQueryHandler } from './get-simulation-options.query
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
+const VIEWER = 'viewer-id';
+
 const date = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 function setup() {
   const curves = [
     {
-      id: 'cdi',
+      id: 'base',
+      index: 'CDI',
       name: 'CDI Local',
       description: null,
-      index: 'CDI',
+      ownerId: null,
+      revision: 1,
       intervals: [
         { startDate: date('2024-01-01'), endDate: date('2026-12-31') },
         { startDate: date('2027-01-01'), endDate: date('2028-12-31') },
+      ],
+    },
+    {
+      id: 'own',
+      index: 'CDI',
+      name: 'Minha CDI',
+      description: 'Com lacuna',
+      ownerId: VIEWER,
+      revision: 3,
+      intervals: [
+        { startDate: date('2026-01-01'), endDate: date('2026-01-31') },
+        { startDate: date('2026-03-01'), endDate: date('2026-03-31') },
       ],
     },
   ];
@@ -35,7 +51,7 @@ function setup() {
     offer('lci', 'LCI', 'PREFIXED'),
   ];
   const client = {
-    indexCurve: { findMany: jest.fn().mockResolvedValue(curves) },
+    curve: { findMany: jest.fn().mockResolvedValue(curves) },
     investmentOffer: { findMany: jest.fn().mockResolvedValue(offers) },
   };
   return {
@@ -47,10 +63,11 @@ function setup() {
 }
 
 describe('GetSimulationOptionsQueryHandler', () => {
-  it('pairs each remuneration kind with its index, curves and support', async () => {
+  it('pairs each remuneration kind with its index, visible curves and support', async () => {
     const { handler } = setup();
 
-    const { remunerations } = (await handler.execute()).value;
+    const { remunerations } = (await handler.execute({ viewerId: VIEWER }))
+      .value;
 
     expect(remunerations).toEqual([
       { kind: 'PREFIXED', index: null, unsupportedReason: null, curves: [] },
@@ -60,10 +77,24 @@ describe('GetSimulationOptionsQueryHandler', () => {
         unsupportedReason: null,
         curves: [
           {
-            id: 'cdi',
+            id: 'base',
+            index: 'CDI',
             name: 'CDI Local',
             description: null,
+            origin: 'SYSTEM',
+            revision: 1,
             coverage: { startDate: '2024-01-01', endDate: '2028-12-31' },
+            hasGaps: false,
+          },
+          {
+            id: 'own',
+            index: 'CDI',
+            name: 'Minha CDI',
+            description: 'Com lacuna',
+            origin: 'OWN',
+            revision: 3,
+            coverage: { startDate: '2026-01-01', endDate: '2026-03-31' },
+            hasGaps: true,
           },
         ],
       },
@@ -85,15 +116,20 @@ describe('GetSimulationOptionsQueryHandler', () => {
   it('flags catalog offers the calculator cannot price', async () => {
     const { client, handler } = setup();
 
-    const { offers } = (await handler.execute()).value;
+    const { offers } = (await handler.execute({ viewerId: VIEWER })).value;
 
     expect(client.investmentOffer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { deletedAt: null },
       }),
     );
-    expect(client.indexCurve.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deletedAt: null } }),
+    expect(client.curve.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deletedAt: null,
+          OR: [{ ownerId: null }, { ownerId: VIEWER }],
+        },
+      }),
     );
     expect(offers.map((offer) => [offer.id, offer.unsupportedReason])).toEqual([
       ['cdb', null],
@@ -108,7 +144,9 @@ describe('GetSimulationOptionsQueryHandler', () => {
   });
 
   it('publishes the domain tax tables as plain data', async () => {
-    const { taxRules, titleTypes } = (await setup().handler.execute()).value;
+    const { taxRules, titleTypes } = (
+      await setup().handler.execute({ viewerId: VIEWER })
+    ).value;
 
     expect(titleTypes).toEqual([
       { titleType: 'CDB', incomeTaxExempt: false, minimumTermMonths: null },
@@ -132,9 +170,9 @@ describe('GetSimulationOptionsQueryHandler', () => {
 
   it('maps read failures to a query error', async () => {
     const { client, handler } = setup();
-    client.indexCurve.findMany.mockRejectedValue(new Error('database'));
+    client.curve.findMany.mockRejectedValue(new Error('database'));
 
-    expect((await handler.execute()).error.code).toBe(
+    expect((await handler.execute({ viewerId: VIEWER })).error.code).toBe(
       EAppErrorCode.SIMULATION_WORKSPACE_QUERY_FAILED,
     );
   });

@@ -321,19 +321,33 @@ function InvestmentFieldset({
   readonly simulation: SimulationForm;
   readonly pending: boolean;
 }) {
-  const { form, values, index, curveOptions, coverageWarning } = simulation;
+  const { form, index, curveOptions, curve, coverageWarning } = simulation;
   const { errors } = form.formState;
   const curveHint = (() => {
     if (coverageWarning) {
       return `A curva cobre de ${formatIsoDate(coverageWarning.startDate)} a ${formatIsoDate(coverageWarning.endDate)} e pode não alcançar todo o período.`;
     }
-    const curve = curveOptions.find(
-      (option) => option.id === values.indexCurveId,
-    );
     return curve
       ? `Cobertura de ${formatIsoDate(curve.coverage.startDate)} a ${formatIsoDate(curve.coverage.endDate)}.`
       : undefined;
   })();
+  const curveGroups = (
+    [
+      ['SYSTEM', 'Do sistema'],
+      ['OWN', 'Minhas'],
+    ] as const
+  )
+    .map(([origin, label]) => ({
+      label,
+      options: curveOptions
+        .filter((option) => option.origin === origin)
+        .map((option) => ({
+          value: option.id,
+          label: option.name,
+          ...(option.description ? { detail: option.description } : {}),
+        })),
+    }))
+    .filter((group) => group.options.length > 0);
 
   return (
     <fieldset
@@ -376,7 +390,7 @@ function InvestmentFieldset({
       {index && (
         <Controller
           control={form.control}
-          name="indexCurveId"
+          name="curveId"
           render={({ field, fieldState }) => (
             <FormField
               label={`Curva do ${index}`}
@@ -394,11 +408,7 @@ function InvestmentFieldset({
                   value={field.value}
                   placeholder="Escolha a curva"
                   disabled={pending || curveOptions.length === 0}
-                  options={curveOptions.map((curve) => ({
-                    value: curve.id,
-                    label: curve.name,
-                    ...(curve.description ? { detail: curve.description } : {}),
-                  }))}
+                  groups={curveGroups}
                   onValueChange={field.onChange}
                   onBlur={field.onBlur}
                 />

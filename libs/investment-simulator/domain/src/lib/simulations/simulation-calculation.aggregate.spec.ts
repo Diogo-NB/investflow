@@ -14,7 +14,7 @@ function recorded() {
     sourceOfferId: null,
     terms: terms(),
     investment: investment(),
-    indexCurve: null,
+    curve: null,
     calculator,
     calculatedAt: CALCULATED_AT,
   }).value.calculation;

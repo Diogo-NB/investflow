@@ -44,6 +44,22 @@ Accrual does not vary by title, so there is no per-title calculator.
 Index curves expose the domain name `EEconomicIndex` as an alias of the shared
 `EInvestmentType` enum, reusing its CDI, SELIC, and IPCA definitions.
 
+## Curves
+
+`Curve` is one aggregate: the index (fixed, and through it the value
+convention), the editable name, description, and intervals, an owner, and a
+revision. Alternatives of one index are separate curves; grouping them is
+left to screens. A `null` owner is the system: a user sees system curves and
+their own, and changes only their own (`isVisibleTo()`, `canBeChangedBy()`).
+`duplicateFor()` creates a private copy with the same content and no link to
+its source.
+
+Every change increments the revision once and raises a past-tense event
+(`CurveCreated`, `CurveChanged`, `CurveDeleted`) carrying only the curve's
+identity. An edit that changes nothing keeps the revision and raises nothing.
+`assertRevision()` reports a stale client revision as
+`CURVE_REVISION_CONFLICT`.
+
 Technical creation and update timestamps remain in persistence. Offers do not
 validate future or business-day maturity dates at this stage. Deletion does
 not restrict catalog aggregate updates; command repositories exclude deleted offers
@@ -57,14 +73,14 @@ independent of the offer catalog. Filling the terms from a catalog offer copies
 them, so later catalog edits or deletions never change a simulation.
 
 `InvestmentInputs` is what each calculation varies: the principal, the
-investment date, and the chosen index-curve ID (null for fixed rates).
+investment date, and the chosen curve ID (null for fixed rates).
 
 ## Investment calculation domain service
 
 `InvestmentCalculator` is a synchronous, framework-free domain service under
 `src/lib/calculations/investment-calculator.domain-service.ts`. It calculates an
 `InvestmentScenario`: principal, investment and maturity dates, title type,
-remuneration, and the index curve when the remuneration needs one. It does not
+remuneration, and the curve when the remuneration needs one. It does not
 know aggregates, persistence, or clocks.
 
 ```typescript
@@ -85,7 +101,7 @@ calculator then runs a linear pipeline:
 2. Accrual rates: an exhaustive switch over the remuneration kind prices every
    period as a percentage of an annual effective rate (base 252): a fixed rate
    at 100%, or the curve value at the contracted percentage.
-   `IndexCurve.valuesAt()` reports every uncovered reference at once; gaps are
+   `Curve.valuesAt()` reports every uncovered reference at once; gaps are
    never filled. IPCA-plus returns an explicit unsupported error, and
    `InvestmentCalculator.unsupportedReason()` tells screens which terms cannot
    be priced yet.
@@ -139,9 +155,7 @@ business days.
 `SimulationCalculation` is an immutable, append-only record of one successful
 calculation. It keeps the `InvestmentInputs`, the whole `InvestmentCalculation`
 (methodology version, maturity summary, tax assessment, and every daily
-balance), and the `calculatedAt` instant supplied by the caller's clock. The
-simulation's fixed terms, the investment, and immutable index curves reproduce
-the result under the recorded methodology.
+balance), and the `calculatedAt` instant supplied by the caller's clock.
 
 A simulation's current investment is its latest calculation's; earlier ones
 are its history. Failed calculations are never recorded.

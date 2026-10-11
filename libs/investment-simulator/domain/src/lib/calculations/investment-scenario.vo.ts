@@ -6,7 +6,7 @@ import {
   Result,
   ValueObject,
 } from '@investflow/shared-domain';
-import { IndexCurve } from '../index-curves/index-curve.aggregate';
+import { Curve } from '../curves/curve.aggregate';
 import { RemunerationTerms } from '../offers/terms/remuneration/remuneration-terms.vo';
 import { TITLE_TYPE_RULES } from '../offers/title-type-rules';
 import { ETitleType } from '../offers/title-type.enum';
@@ -18,7 +18,7 @@ export interface InvestmentScenarioProps {
   readonly maturityDate: CalendarDate;
   readonly titleType: ETitleType;
   readonly remuneration: RemunerationTerms;
-  readonly indexCurve: IndexCurve | null;
+  readonly curve: Curve | null;
 }
 
 // Everything one calculation depends on, independent of how it is persisted.
@@ -86,8 +86,8 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
     return this.props.remuneration;
   }
 
-  get indexCurve(): IndexCurve | null {
-    return this.props.indexCurve;
+  get curve(): Curve | null {
+    return this.props.curve;
   }
 
   // Calendar days counted from the day after investment through maturity.
@@ -96,8 +96,8 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
   }
 
   // For indexed remunerations, which create() guarantees have a curve.
-  requireIndexCurve(): IndexCurve {
-    const curve = this.props.indexCurve;
+  requireCurve(): Curve {
+    const curve = this.props.curve;
     if (!curve) {
       throw new DomainError('A remuneração indexada está sem curva.', {
         code: EAppErrorCode.INVESTMENT_SCENARIO_INVARIANT,
@@ -114,7 +114,7 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
       this.maturityDate.equals(other.maturityDate) &&
       this.titleType === other.titleType &&
       this.remuneration.equals(other.remuneration) &&
-      this.indexCurve?.id === other.indexCurve?.id
+      this.curve?.id === other.curve?.id
     );
   }
 
@@ -138,7 +138,7 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
     props: InvestmentScenarioProps,
   ): InvestmentCalculationError | null {
     const requiredIndex = props.remuneration.requiredIndex;
-    const curve = props.indexCurve;
+    const curve = props.curve;
     if (requiredIndex && !curve) {
       return new InvestmentCalculationError(
         EAppErrorCode.INVESTMENT_CURVE_REQUIRED,
@@ -161,7 +161,7 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
     if (curve.deletedAt) {
       return new InvestmentCalculationError(
         EAppErrorCode.INVESTMENT_CURVE_UNAVAILABLE,
-        'Esta curva foi excluída. Escolha outra curva.',
+        'Sem curva, escolha outra.',
         { curveId: curve.id },
       );
     }

@@ -5,7 +5,8 @@ import {
 } from '@investflow/investment-simulator-domain';
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
-import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
+import { CurveNotFoundError } from '../../curves/curve-not-found.error';
+import { CurveRepository } from '../../curves/curve.repository';
 import { OfferRepository } from '../../offers/offer.repository';
 import { SimulationCalculationRepository } from '../simulation-calculation.repository';
 import { SimulationRepository } from '../simulation.repository';
@@ -21,7 +22,7 @@ export class StartSimulationUseCase
     private readonly simulationRepository: SimulationRepository,
     private readonly calculationRepository: SimulationCalculationRepository,
     private readonly offerRepository: OfferRepository,
-    private readonly indexCurveRepository: IndexCurveRepository,
+    private readonly curveRepository: CurveRepository,
     private readonly calculator: InvestmentCalculator,
     private readonly clock: Clock,
   ) {}
@@ -34,18 +35,21 @@ export class StartSimulationUseCase
       const offer = await this.offerRepository.findById(command.sourceOfferId);
       if (offer.isErr()) return offer;
     }
-    const { indexCurveId } = command.investment;
-    const curve = indexCurveId
-      ? await this.indexCurveRepository.findById(indexCurveId)
+    const { curveId } = command.investment;
+    const curve = curveId
+      ? await this.curveRepository.findById(curveId)
       : Result.ok(null);
     if (curve.isErr()) return curve;
+    if (curve.value && !curve.value.isVisibleTo(command.ownerId)) {
+      return Result.err(new CurveNotFoundError(curve.value.id));
+    }
 
     const started = Simulation.start({
       ownerId: command.ownerId,
       sourceOfferId: command.sourceOfferId,
       terms: command.terms,
       investment: command.investment,
-      indexCurve: curve.valueOrNull,
+      curve: curve.value,
       calculator: this.calculator,
       calculatedAt: this.clock.now(),
     });

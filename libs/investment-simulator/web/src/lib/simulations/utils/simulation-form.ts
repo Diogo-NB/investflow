@@ -39,7 +39,7 @@ export interface SimulationFormValues {
   rate: string;
   maturityDate: string;
   redemptionKind: RedemptionKind;
-  indexCurveId: string;
+  curveId: string;
 }
 
 export type SimulationField = Exclude<keyof SimulationFormValues, 'offerId'>;
@@ -109,16 +109,16 @@ export function simulationFormSchema(
       }, 'Taxa com casas decimais demais.'),
       maturityDate: requiredDate,
       redemptionKind: z.enum(['AT_MATURITY', 'DAILY']),
-      indexCurveId: z.string(),
+      curveId: z.string(),
     })
     .superRefine((values, context) => {
       if (
         remunerationOption(remunerations, values.remunerationKind)?.index &&
-        !values.indexCurveId
+        !values.curveId
       ) {
         context.addIssue({
           code: 'custom',
-          path: ['indexCurveId'],
+          path: ['curveId'],
           message: 'Escolha a curva do índice.',
         });
       }
@@ -164,12 +164,12 @@ export function toSimulationInput(
     investment: {
       principal: validatedDecimal(values.principal),
       investmentDate: values.investmentDate,
-      indexCurveId: values.indexCurveId || null,
+      curveId: values.curveId || null,
     },
   };
 }
 
-/** The only live curve the kind accepts, chosen for the user. */
+/** The only visible curve the kind accepts, chosen for the user. */
 export function defaultCurveId(
   kind: RemunerationKind,
   remunerations: readonly RemunerationOption[],
@@ -192,7 +192,7 @@ export function blankSimulationValues(
     rate: '',
     maturityDate: '',
     redemptionKind: 'AT_MATURITY',
-    indexCurveId: defaultCurveId('CDI_PERCENTAGE', options.remunerations),
+    curveId: defaultCurveId('CDI_PERCENTAGE', options.remunerations),
   };
 }
 
@@ -210,14 +210,14 @@ export function simulationValues(
     rate: toBrazilianInput(shiftDecimal(terms.remunerationTerms.rate, 2)),
     maturityDate: terms.maturityDate,
     redemptionKind: terms.redemptionTerms.kind,
-    indexCurveId: investment.indexCurveId ?? '',
+    curveId: investment.curveId ?? '',
   };
 }
 
 /** The term fields a catalog offer fills; the investment itself is kept. */
 export function offerTermValues(
   offer: OfferOption,
-  current: Pick<SimulationFormValues, 'indexCurveId'>,
+  current: Pick<SimulationFormValues, 'curveId'>,
   remunerations: readonly RemunerationOption[],
 ): Pick<
   SimulationFormValues,
@@ -227,12 +227,12 @@ export function offerTermValues(
   | 'rate'
   | 'maturityDate'
   | 'redemptionKind'
-  | 'indexCurveId'
+  | 'curveId'
 > {
   const kind = offer.remunerationTerms.kind;
   const keepsCurve = (
     remunerationOption(remunerations, kind)?.curves ?? []
-  ).some((curve) => curve.id === current.indexCurveId);
+  ).some((curve) => curve.id === current.curveId);
   return {
     titleType: offer.titleType,
     issuerName: offer.issuerName ?? '',
@@ -240,9 +240,7 @@ export function offerTermValues(
     rate: toBrazilianInput(shiftDecimal(offer.remunerationTerms.rate, 2)),
     maturityDate: offer.maturityDate,
     redemptionKind: offer.redemptionTerms.kind,
-    indexCurveId: keepsCurve
-      ? current.indexCurveId
-      : defaultCurveId(kind, remunerations),
+    curveId: keepsCurve ? current.curveId : defaultCurveId(kind, remunerations),
   };
 }
 

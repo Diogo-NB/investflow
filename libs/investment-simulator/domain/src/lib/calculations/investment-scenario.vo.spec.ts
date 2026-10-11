@@ -6,10 +6,10 @@ import {
   Rate,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { EEconomicIndex } from '../index-curves/economic-index.enum';
-import { IndexCurve } from '../index-curves/index-curve.aggregate';
-import { IndexCurveInterval } from '../index-curves/index-curve-interval.vo';
-import { IndexValue } from '../index-curves/index-value.vo';
+import { EEconomicIndex } from '../curves/economic-index.enum';
+import { Curve } from '../curves/curve.aggregate';
+import { CurveInterval } from '../curves/curve-interval.vo';
+import { IndexValue } from '../curves/index-value.vo';
 import {
   RemunerationKind,
   RemunerationTerms,
@@ -18,24 +18,28 @@ import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentScenario } from './investment-scenario.vo';
 
 function curve(index: EEconomicIndex) {
-  return IndexCurve.create({
-    name: 'Scenario',
-    index,
-    intervals: [
-      IndexCurveInterval.create(
-        CalendarDateRange.of(
-          CalendarDate.of('2026-01-01'),
-          CalendarDate.of('2026-01-31'),
+  return Curve.create(
+    {
+      ownerId: null,
+      name: 'Scenario',
+      index,
+      intervals: [
+        CurveInterval.create(
+          CalendarDateRange.of(
+            CalendarDate.of('2026-01-01'),
+            CalendarDate.of('2026-01-31'),
+          ),
+          IndexValue.of('0.01'),
         ),
-        IndexValue.of('0.01'),
-      ),
-    ],
-  }).value;
+      ],
+    },
+    UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+  ).value;
 }
 
 function create(
   kind: RemunerationKind,
-  indexCurve: IndexCurve | null,
+  curve: Curve | null,
   dates: { start?: string; end?: string } = {},
   principal = Money.of('1000'),
   titleType = ETitleType.CDB,
@@ -46,7 +50,7 @@ function create(
     maturityDate: CalendarDate.of(dates.end ?? '2026-01-06'),
     titleType,
     remuneration: RemunerationTerms.create(kind, Rate.of('1')),
-    indexCurve,
+    curve,
   });
 }
 
@@ -137,7 +141,7 @@ describe('InvestmentScenario', () => {
 
   it('exposes the curve only through the indexed invariant', () => {
     const cdi = curve(EEconomicIndex.CDI);
-    expect(create('CDI_PERCENTAGE', cdi).value.requireIndexCurve()).toBe(cdi);
-    expect(() => create('PREFIXED', null).value.requireIndexCurve()).toThrow();
+    expect(create('CDI_PERCENTAGE', cdi).value.requireCurve()).toBe(cdi);
+    expect(() => create('PREFIXED', null).value.requireCurve()).toThrow();
   });
 });

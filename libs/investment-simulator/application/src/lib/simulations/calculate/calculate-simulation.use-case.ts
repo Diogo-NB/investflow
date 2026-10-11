@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InvestmentCalculator } from '@investflow/investment-simulator-domain';
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
-import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
+import { CurveNotFoundError } from '../../curves/curve-not-found.error';
+import { CurveRepository } from '../../curves/curve.repository';
 import { SimulationCalculationRepository } from '../simulation-calculation.repository';
 import { SimulationRepository } from '../simulation.repository';
 import { CalculatedSimulationOutput } from '../shared/calculated-simulation.output';
@@ -18,7 +19,7 @@ export class CalculateSimulationUseCase
   constructor(
     private readonly simulationRepository: SimulationRepository,
     private readonly calculationRepository: SimulationCalculationRepository,
-    private readonly indexCurveRepository: IndexCurveRepository,
+    private readonly curveRepository: CurveRepository,
     private readonly calculator: InvestmentCalculator,
     private readonly clock: Clock,
   ) {}
@@ -31,15 +32,18 @@ export class CalculateSimulationUseCase
       command.ownerId,
     );
     if (simulation.isErr()) return simulation;
-    const { indexCurveId } = command.investment;
-    const curve = indexCurveId
-      ? await this.indexCurveRepository.findById(indexCurveId)
+    const { curveId } = command.investment;
+    const curve = curveId
+      ? await this.curveRepository.findById(curveId)
       : Result.ok(null);
     if (curve.isErr()) return curve;
+    if (curve.value && !curve.value.isVisibleTo(simulation.value.ownerId)) {
+      return Result.err(new CurveNotFoundError(curve.value.id));
+    }
 
     const calculation = simulation.value.calculate({
       investment: command.investment,
-      indexCurve: curve.valueOrNull,
+      curve: curve.value,
       calculator: this.calculator,
       calculatedAt: this.clock.now(),
     });

@@ -11,5 +11,5 @@ export class InvestmentRequest implements InvestmentCommandInput {
 
   @IsOptional()
   @IsUUID()
-  indexCurveId?: string | null;
+  curveId?: string | null;
 }

@@ -10,8 +10,6 @@ describe('InvestmentInputs', () => {
     expect(
       investment().equals(investment({ principal: Money.of('1001') })),
     ).toBe(false);
-    expect(investment().equals(investment({ indexCurveId: 'curve' }))).toBe(
-      false,
-    );
+    expect(investment().equals(investment({ curveId: 'curve' }))).toBe(false);
   });
 });

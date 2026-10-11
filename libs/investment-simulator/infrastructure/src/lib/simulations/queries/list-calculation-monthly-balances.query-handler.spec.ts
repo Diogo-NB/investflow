@@ -49,7 +49,10 @@ describe('ListCalculationMonthlyBalancesQueryHandler', () => {
       ],
     });
 
-    const result = await handler.execute({ ownerId: 'owner', calculationId: 'calculation' });
+    const result = await handler.execute({
+      ownerId: 'owner',
+      calculationId: 'calculation',
+    });
 
     expect(findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,11 +89,21 @@ describe('ListCalculationMonthlyBalancesQueryHandler', () => {
   it('reports a missing calculation and maps read failures', async () => {
     const { findFirst, handler } = setup(null);
     expect(
-      (await handler.execute({ ownerId: 'owner', calculationId: 'calculation' })).error.code,
+      (
+        await handler.execute({
+          ownerId: 'owner',
+          calculationId: 'calculation',
+        })
+      ).error.code,
     ).toBe(EAppErrorCode.SIMULATION_CALCULATION_NOT_FOUND);
     findFirst.mockRejectedValue(new Error('database'));
     expect(
-      (await handler.execute({ ownerId: 'owner', calculationId: 'calculation' })).error.code,
+      (
+        await handler.execute({
+          ownerId: 'owner',
+          calculationId: 'calculation',
+        })
+      ).error.code,
     ).toBe(EAppErrorCode.SIMULATION_CALCULATION_QUERY_FAILED);
   });
 });

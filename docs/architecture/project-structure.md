@@ -379,49 +379,66 @@ append-only calculation history kept for reproducibility). Product rules are in
 `docs/product/investment-simulator-prd.md` and
 `docs/product/index-value-curves.md`.
 
-**Status:** decided, not implemented. The code still implements the earlier
-model: `Simulation` stores copied terms, `IndexCurve` is immutable,
-`SimulationCalculation` keeps every calculation, offers and curves have no
-owner, and no domain event is emitted or consumed. Deliverables and their
-order are in `docs/product/implementation-roadmap.md`.
+**Status:** partly implemented. Curves are built on this model: independent
+`Curve` aggregates with owners, revisions, and events in the outbox. The rest
+still follows the earlier model: `Simulation` stores copied terms, each
+`SimulationCalculation` records the curve it used and every calculation is
+kept, calculation runs inside the request, offers have no groups or owner,
+and no domain event is consumed. Deliverables and
+their order are in `docs/product/implementation-roadmap.md`.
 
 ### Model
 
-- Offers and curves are each a group plus members. The group is its own
-  aggregate holding the fields members share and cannot change (offer: title
-  type and issuer; curve: index, and through it the value convention), a name,
-  and an owner. Each member (offer condition, curve scenario) is a separate
-  aggregate holding the editable fields, its owner, and a `revision`. Editing a
-  member never touches its siblings, so only simulations that use that member
-  are recalculated.
+- A curve is a single aggregate: its index (fixed, and through it the value
+  convention), editable name, description, and intervals, its owner, and a
+  `revision`. Alternatives of one index are separate curves; screens group
+  curves by index and origin, and no grouping is stored (decision 2026-10-11).
+  Duplicating copies a curve's content into a new private curve, with no link
+  back to its source.
+- An offer is a group plus members. The group is its own aggregate holding
+  the fields members share and cannot change (title type and issuer), a name,
+  and an owner. Each condition is a separate aggregate holding the editable
+  fields, its owner, and a `revision`. Editing a condition never touches its
+  siblings, so only simulations that use it are recalculated. D2 revisits
+  whether offers follow the curves' single-aggregate model.
 - Ownership is the Keycloak `sub` (`AuthenticatedUser.userId`); `null` means
   system-owned. Users read their own content plus system content and change
   only their own. System content is written by seed and import processes
   through application use cases, never through HTTP. No application roles are
-  needed. A private member may belong to a system group (a user's duplicate),
-  so visibility is decided per member.
-- A group never stays empty. Deleting the last member of a private group
-  deletes the group in the same transaction. A system process deleting a system
-  group that still holds private members retires it instead: its system
-  members are deleted, it accepts no new members, and it stays visible only to
-  the owners of its remaining private members until the last one is deleted.
-- A simulation references one offer condition, an optional curve scenario, and
+  needed. A private condition may belong to a system offer (a user's
+  duplicate), so visibility is decided per condition.
+- An offer never stays empty. Deleting the last condition of a private offer
+  deletes the offer in the same transaction. A system process deleting a
+  system offer that still holds private conditions retires it instead: its
+  system conditions are deleted, it accepts no new conditions, and it stays
+  visible only to the owners of its remaining private conditions until the
+  last one is deleted.
+- A simulation references one offer condition, an optional curve, and
   holds its investment (principal and investment date). Editing any of those
-  increments the simulation's own `revision`. A reference to a member that is
-  not visible to the simulation's owner is treated as not found.
+  increments the simulation's own `revision`. A reference to a condition or
+  curve that is not visible to the simulation's owner is treated as not
+  found.
 - `revision` starts at 1 and increments on every persisted change. Commands
-  that change a member or a simulation carry the revision the client edited;
+  that change a condition, a curve, or a simulation carry the revision the
+  client edited;
   a mismatch is a conflict, so concurrent edits (two tabs, a user and an
-  import job) never overwrite each other silently.
-- Every change to an offer, condition, curve, or scenario raises a past-tense
-  domain event carrying the new revision and the changed fields' previous and
-  new values, persisted through the transactional outbox (see
-  `$investflow-eventing`).
+  import job) never overwrite each other silently. Repositories also update
+  from the revision they read (`updateMany` on `id` and revision, 0 rows is
+  the same conflict), so two concurrent transactions that both passed the
+  check cannot both commit. Commands carry the actor (`string | null`, `null`
+  for seed and import processes), and use cases report content the actor
+  cannot see as not found and visible content they cannot change as
+  `forbidden`.
+- Every change to an offer, condition, or curve raises a past-tense domain
+  event persisted through the transactional outbox (see
+  `$investflow-eventing`). Events carry identifiers only: the aggregate and,
+  for a condition, its offer. Consumers read current state, so events never carry
+  revisions or values, and their size does not grow with the content.
 
 ### Recalculation
 
 A simulation has one current result. It stores what it was computed from: the
-simulation revision, the condition revision, the scenario revision, and the
+simulation revision, the condition revision, the curve revision, and the
 methodology version. The target is read from the current references, not
 copied, so it can never drift from them.
 
@@ -440,17 +457,17 @@ copied, so it can never drift from them.
   transaction. Coverage is checked only by the calculation. Nothing is
   calculated inside the request, so calculation cost is not bounded by request
   timeouts.
-- **Fan-out.** Changing or deleting a condition or scenario marks every
+- **Fan-out.** Changing or deleting a condition or curve marks every
   simulation that references it `PENDING` and queues their calculations in
-  batches. A system scenario update can reach every user's simulations, so
+  batches. A system curve update can reach every user's simulations, so
   fan-out must never load them all into one transaction.
 - **Calculation.** A consumer claims a `PENDING` simulation (or one whose lease
   expired), calculates from current state, not from the event payload, and
   writes the outcome.
 - **Monotonic writes.** An outcome is written only when its inputs are not
   older than the stored ones: compare the simulation revision first, then the
-  condition and scenario revisions (at the same simulation revision the
-  references are the same members, so their revisions are comparable). Late,
+  condition and curve revisions (at the same simulation revision the
+  references are the same condition and curve, so their revisions are comparable). Late,
   duplicate, or out-of-order deliveries therefore cannot replace a newer
   result, and consumers stay idempotent. The methodology version is not part
   of this comparison, because version strings have no order: a worker always
@@ -458,7 +475,7 @@ copied, so it can never drift from them.
   version is out of date and recovered by reconciliation.
 - **`INVALID` is scoped to its target.** It records the inputs it was decided
   for; any change to the target returns the simulation to `PENDING`. A deleted
-  condition or scenario sets `INVALID` with its own reason code.
+  condition or curve sets `INVALID` with its own reason code.
 - **Reconciliation.** A periodic sweep queues a simulation again when it is:
   - `PENDING` with `queuedAt` older than a threshold (its message was lost or
     dead-lettered);
@@ -670,20 +687,21 @@ a year's weekends and holidays on every request.
 
 ### Durable audit of premise changes (deferred 2026-10-11)
 
-Every change to an offer, condition, curve, or scenario raises a domain event
-with the new revision and the changed fields' previous and new values (see
-Mutable Premises And Asynchronous Recalculation).
+The product records the revision and what changed for every change to an
+offer, condition, or curve.
 
-- **Today:** nothing emits these events yet. Once they exist, they reach only
-  the outbox, which is a delivery mechanism: its rows are published and may be
-  cleaned up, so it is not an audit trail.
-- **Why deferred:** audit is a low-priority requirement; the events carry
-  enough information to build it later without changing the aggregates.
+- **Today:** nothing records it. Domain events carry identifiers only (see
+  Mutable Premises And Asynchronous Recalculation), so the audit cannot be
+  derived from them, and the outbox is a delivery mechanism whose rows may be
+  cleaned up.
+- **Why deferred:** audit is a low-priority requirement. Aggregates already
+  keep their revision, and use cases already know the actor and the change,
+  so recording it later needs no aggregate change.
 - **Done means:**
   - Each change is kept in a durable audit store (an `audit_entry` row written
-    in the same transaction as the change, or by a dedicated consumer), with
-    the aggregate, revision, actor (user or system), instant, and changed
-    fields.
+    in the same transaction as the change), with the aggregate, revision,
+    actor (user or system), instant, and changed fields' previous and new
+    values.
   - Outbox cleanup cannot remove audit history.
   - Users can read the history of the offers and curves they can see.
   - Tests cover recording, ordering by revision, and visibility.

@@ -2,8 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import {
   EEconomicIndex,
   ETitleType,
-  IndexCurve,
-  IndexCurveInterval,
+  Curve,
+  CurveInterval,
   IndexValue,
   InvestmentCalculator,
   InvestmentInputs,
@@ -26,7 +26,7 @@ import {
 } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
-import { PrismaIndexCurveRepository } from '../../index-curves/persistence/prisma-index-curve.repository';
+import { PrismaCurveRepository } from '../../curves/persistence/prisma-curve.repository';
 import { PrismaOfferRepository } from '../../offers/persistence/prisma-offer.repository';
 import { GetSimulationWorkspaceQueryHandler } from '../../simulation-workspaces/queries/get-simulation-workspace.query-handler';
 import { ListCalculationMonthlyBalancesQueryHandler } from '../queries/list-calculation-monthly-balances.query-handler';
@@ -45,7 +45,7 @@ const calculator = new InvestmentCalculator(new BrazilianBusinessDayCalendar());
 integration('Simulation PostgreSQL persistence', () => {
   let prisma: PrismaService;
   let offers: PrismaOfferRepository;
-  let curves: PrismaIndexCurveRepository;
+  let curves: PrismaCurveRepository;
   let simulations: PrismaSimulationRepository;
   let calculations: PrismaSimulationCalculationRepository;
   const issuerName = `Integration Simulation Bank ${generateUuid()}`;
@@ -61,7 +61,7 @@ integration('Simulation PostgreSQL persistence', () => {
     );
     await prisma.onModuleInit();
     offers = new PrismaOfferRepository(prisma);
-    curves = new PrismaIndexCurveRepository(prisma);
+    curves = new PrismaCurveRepository(prisma);
     simulations = new PrismaSimulationRepository(prisma);
     calculations = new PrismaSimulationCalculationRepository(prisma);
   });
@@ -77,11 +77,14 @@ integration('Simulation PostgreSQL persistence', () => {
       });
       await prisma.client.simulation.deleteMany({ where: simulation });
       await prisma.client.investmentOffer.deleteMany({ where: { issuerName } });
-      await prisma.client.indexCurveInterval.deleteMany({
+      await prisma.client.curveInterval.deleteMany({
         where: { curveId: { in: curveIds } },
       });
-      await prisma.client.indexCurve.deleteMany({
+      await prisma.client.curve.deleteMany({
         where: { id: { in: curveIds } },
+      });
+      await prisma.client.outboxEvent.deleteMany({
+        where: { aggregateId: { in: curveIds } },
       });
     } finally {
       await prisma.onModuleDestroy();
@@ -93,19 +96,23 @@ integration('Simulation PostgreSQL persistence', () => {
     simulationOwner = ownerId,
     titleType = ETitleType.CDB,
   ) {
-    const curve = IndexCurve.create({
-      name: 'Integration simulation CDI',
-      index: EEconomicIndex.CDI,
-      intervals: [
-        IndexCurveInterval.create(
-          CalendarDateRange.of(
-            CalendarDate.of('2026-01-01'),
-            CalendarDate.of('2026-12-31'),
+    const curve = Curve.create(
+      {
+        ownerId: null,
+        index: EEconomicIndex.CDI,
+        name: 'Integration CDI',
+        intervals: [
+          CurveInterval.create(
+            CalendarDateRange.of(
+              CalendarDate.of('2026-01-01'),
+              CalendarDate.of('2026-12-31'),
+            ),
+            IndexValue.of('0.1415'),
           ),
-          IndexValue.of('0.1415'),
-        ),
-      ],
-    }).value;
+        ],
+      },
+      UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
+    ).value;
     curveIds.push(curve.id);
     const offer = Offer.create({
       titleType: ETitleType.CDB,
@@ -129,7 +136,7 @@ integration('Simulation PostgreSQL persistence', () => {
       sourceOfferId: offer.id,
       terms,
       investment: investmentOf(curve),
-      indexCurve: curve,
+      curve,
       calculator,
       calculatedAt: UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
     }).value;
@@ -143,11 +150,11 @@ integration('Simulation PostgreSQL persistence', () => {
     return { simulation, curve };
   }
 
-  function investmentOf(curve: IndexCurve, principal = '10000.123456789') {
+  function investmentOf(curve: Curve, principal = '10000.123456789') {
     return InvestmentInputs.create({
       principal: Money.of(principal),
       investmentDate: CalendarDate.of('2026-01-02'),
-      indexCurveId: curve.id,
+      curveId: curve.id,
     });
   }
 
@@ -159,7 +166,7 @@ integration('Simulation PostgreSQL persistence', () => {
   ) {
     return simulation.calculate({
       investment: investmentOf(curve, options.principal),
-      indexCurve: curve,
+      curve,
       calculator,
       calculatedAt: UtcInstant.ofIso(
         options.calculatedAt ?? '2026-10-10T12:00:00.000Z',
@@ -312,7 +319,7 @@ integration('Simulation PostgreSQL persistence', () => {
     expect(read.calculations[0].investment).toEqual({
       principal: '20000',
       investmentDate: '2026-01-02',
-      indexCurveId: saved.curve.id,
+      curveId: saved.curve.id,
     });
     expect(read.calculations[1]).toMatchObject({
       investment: { principal: '10000.123456789' },

@@ -1,4 +1,3 @@
-
 export const primaryButton =
   'inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-control bg-accent px-5 font-medium text-accent-fg no-underline hover:bg-fg disabled:cursor-default disabled:bg-border disabled:text-muted';
 

@@ -21,7 +21,7 @@ const values: SimulationFormValues = {
   rate: '105',
   maturityDate: '2026-03-02',
   redemptionKind: 'DAILY',
-  indexCurveId: 'cdi',
+  curveId: 'cdi',
 };
 
 const savedRoutes = {
@@ -74,7 +74,7 @@ describe('useSimulationWorkspace', () => {
     expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
       titleType: 'CDB',
       issuerName: '',
-      indexCurveId: 'cdi',
+      curveId: 'cdi',
       investmentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
   });
@@ -127,7 +127,7 @@ describe('useSimulationWorkspace', () => {
         investment: {
           principal: '10000',
           investmentDate: '2026-01-02',
-          indexCurveId: 'cdi',
+          curveId: 'cdi',
         },
       },
     ]);
@@ -183,7 +183,11 @@ describe('useSimulationWorkspace', () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(api.bodies(`POST ${API}/simulations/sim/calculations`)).toEqual([
-      { principal: '10000', investmentDate: '2026-01-02', indexCurveId: 'cdi' },
+      {
+        principal: '10000',
+        investmentDate: '2026-01-02',
+        curveId: 'cdi',
+      },
     ]);
     expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
       `POST ${API}/simulations/sim/calculations`,

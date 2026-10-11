@@ -26,10 +26,13 @@ export interface SimulationListItem {
   };
 }
 
+export type ContentOrigin = 'SYSTEM' | 'OWN';
+
 export interface CurveOption {
   readonly id: string;
   readonly name: string;
   readonly description: string | null;
+  readonly origin: ContentOrigin;
   readonly coverage: { readonly startDate: string; readonly endDate: string };
 }
 
@@ -37,7 +40,7 @@ export interface RemunerationOption {
   readonly kind: RemunerationKind;
   readonly index: EconomicIndex | null;
   readonly unsupportedReason: UnsupportedReason | null;
-  // Live curves of this kind's index.
+  // Visible curves of this kind's index.
   readonly curves: readonly CurveOption[];
 }
 
@@ -136,7 +139,7 @@ export interface SimulationTerms {
 export interface Investment {
   readonly principal: string;
   readonly investmentDate: string;
-  readonly indexCurveId: string | null;
+  readonly curveId: string | null;
 }
 
 export interface SimulationWorkspace {

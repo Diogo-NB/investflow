@@ -31,7 +31,7 @@ export class SimulationCalculationMapper {
       investment: InvestmentInputs.create({
         principal,
         investmentDate: CalendarDate.fromUtcDate(record.investmentDate).value,
-        indexCurveId: record.indexCurveId,
+        curveId: record.curveId,
       }),
       result: {
         methodologyVersion: record.methodologyVersion,
@@ -77,8 +77,8 @@ export class SimulationCalculationMapper {
     return {
       id: calculation.id,
       simulation: { connect: { id: calculation.simulationId } },
-      ...(investment.indexCurveId
-        ? { indexCurve: { connect: { id: investment.indexCurveId } } }
+      ...(investment.curveId
+        ? { curve: { connect: { id: investment.curveId } } }
         : {}),
       principal: investment.principal.amount.toFixed(),
       investmentDate: investment.investmentDate.toUtcDate(),

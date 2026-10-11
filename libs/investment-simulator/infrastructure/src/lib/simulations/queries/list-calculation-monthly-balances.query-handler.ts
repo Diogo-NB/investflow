@@ -53,7 +53,10 @@ type BalanceRecord = CalculationRecord['balances'][number];
 @Injectable()
 export class ListCalculationMonthlyBalancesQueryHandler
   implements
-    QueryHandler<ListCalculationMonthlyBalancesQuery, ListCalculationMonthlyBalancesOutput>
+    QueryHandler<
+      ListCalculationMonthlyBalancesQuery,
+      ListCalculationMonthlyBalancesOutput
+    >
 {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -68,14 +71,16 @@ export class ListCalculationMonthlyBalancesQueryHandler
   > {
     const result = await Result.fromPromise(
       async () => {
-        const record = await this.prisma.client.simulationCalculation.findFirst({
-          // Calculations of deleted simulations are hidden with them.
-          where: {
-            id: calculationId,
-            simulation: { ownerId, deletedAt: null },
+        const record = await this.prisma.client.simulationCalculation.findFirst(
+          {
+            // Calculations of deleted simulations are hidden with them.
+            where: {
+              id: calculationId,
+              simulation: { ownerId, deletedAt: null },
+            },
+            select: calculationSelect,
           },
-          select: calculationSelect,
-        });
+        );
         return record ? this.toOutput(record) : null;
       },
       (cause) => new SimulationCalculationQueryError(cause),
@@ -86,7 +91,9 @@ export class ListCalculationMonthlyBalancesQueryHandler
       : Result.err(new SimulationCalculationNotFoundError(calculationId));
   }
 
-  private toOutput(record: CalculationRecord): ListCalculationMonthlyBalancesOutput {
+  private toOutput(
+    record: CalculationRecord,
+  ): ListCalculationMonthlyBalancesOutput {
     const months = new Map<string, BalanceRecord[]>();
     for (const balance of record.balances) {
       const month = CalendarDate.fromUtcDate(balance.date)

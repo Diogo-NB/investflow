@@ -23,12 +23,14 @@ const month = {
 
 function api() {
   return fakeApi({
-    'GET /api/investment-simulator/simulation-calculations/latest/monthly-balances': {
-      items: [month],
-    },
-    'GET /api/investment-simulator/simulation-calculations/past/monthly-balances': {
-      items: [],
-    },
+    'GET /api/investment-simulator/simulation-calculations/latest/monthly-balances':
+      {
+        items: [month],
+      },
+    'GET /api/investment-simulator/simulation-calculations/past/monthly-balances':
+      {
+        items: [],
+      },
   });
 }
 

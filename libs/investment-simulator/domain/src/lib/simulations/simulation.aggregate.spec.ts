@@ -27,7 +27,7 @@ function start(
     sourceOfferId: options.sourceOfferId ?? null,
     terms: terms(options.kind),
     investment: options.investment ?? investment(),
-    indexCurve: null,
+    curve: null,
     calculator,
     calculatedAt: CALCULATED_AT,
   });
@@ -67,7 +67,7 @@ describe('Simulation', () => {
 
     const calculation = simulation.calculate({
       investment: investment({ principal: Money.of('2000') }),
-      indexCurve: null,
+      curve: null,
       calculator,
       calculatedAt: CALCULATED_AT,
     }).value;
@@ -85,13 +85,13 @@ describe('Simulation', () => {
       ownerId: 'owner-id',
       sourceOfferId: null,
       terms: terms('CDI_PERCENTAGE'),
-      investment: investment({ indexCurveId: curve.id }),
-      indexCurve: curve,
+      investment: investment({ curveId: curve.id }),
+      curve: curve,
       calculator,
       calculatedAt: CALCULATED_AT,
     });
 
-    expect(started.value.calculation.investment.indexCurveId).toBe(curve.id);
+    expect(started.value.calculation.investment.curveId).toBe(curve.id);
     expect(start({ kind: 'CDI_PERCENTAGE' }).error.code).toBe(
       EAppErrorCode.INVESTMENT_CURVE_REQUIRED,
     );
@@ -102,8 +102,8 @@ describe('Simulation', () => {
 
     expect(() =>
       simulation.calculate({
-        investment: investment({ indexCurveId: 'other-curve' }),
-        indexCurve: cdiCurve(),
+        investment: investment({ curveId: 'other-curve' }),
+        curve: cdiCurve(),
         calculator,
         calculatedAt: CALCULATED_AT,
       }),
@@ -116,7 +116,7 @@ describe('Simulation', () => {
 
     const calculated = simulation.calculate({
       investment: investment(),
-      indexCurve: null,
+      curve: null,
       calculator,
       calculatedAt: CALCULATED_AT,
     });

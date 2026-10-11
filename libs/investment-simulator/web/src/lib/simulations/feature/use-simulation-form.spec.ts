@@ -18,7 +18,7 @@ const initialValues: SimulationFormValues = {
   rate: '105',
   maturityDate: '2026-03-02',
   redemptionKind: 'DAILY',
-  indexCurveId: 'cdi',
+  curveId: 'cdi',
 };
 
 function render(
@@ -40,14 +40,14 @@ describe('useSimulationForm', () => {
     expect(result.current.values).toMatchObject({
       remunerationKind: 'SELIC_PERCENTAGE',
       rate: '',
-      indexCurveId: 'selic',
+      curveId: 'selic',
     });
     expect(result.current.curveOptions).toEqual([selicCurve]);
     expect(result.current.index).toBe('SELIC');
     expect(result.current.form.formState.isDirty).toBe(true);
 
     act(() => result.current.changeKind('PREFIXED'));
-    expect(result.current.values.indexCurveId).toBe('');
+    expect(result.current.values.curveId).toBe('');
     expect(result.current.curveOptions).toEqual([]);
     expect(result.current.index).toBeNull();
   });
@@ -65,7 +65,7 @@ describe('useSimulationForm', () => {
       rate: '100',
       maturityDate: '2028-12-29',
       redemptionKind: 'AT_MATURITY',
-      indexCurveId: 'selic',
+      curveId: 'selic',
     });
     expect(result.current.termsChangedFrom(offer)).toBe(false);
 
@@ -92,11 +92,11 @@ describe('useSimulationForm', () => {
 
     act(() =>
       result.current.showProblem({
-        field: 'indexCurveId',
+        field: 'curveId',
         message: 'Curva excluída.',
       }),
     );
-    expect(result.current.form.formState.errors.indexCurveId?.message).toBe(
+    expect(result.current.form.formState.errors.curveId?.message).toBe(
       'Curva excluída.',
     );
   });

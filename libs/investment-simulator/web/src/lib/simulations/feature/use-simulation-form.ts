@@ -42,13 +42,14 @@ export function useSimulationForm({
     values.remunerationKind,
   );
   const curveOptions = remuneration?.curves ?? [];
+  const curve = curveOptions.find((option) => option.id === values.curveId);
 
   /** A new kind changes the rate's unit, so the rate and curve start over. */
   function changeKind(next: RemunerationKind) {
     form.setValue('remunerationKind', next, EDIT);
     form.setValue('rate', '', EDIT);
-    form.setValue('indexCurveId', defaultCurveId(next, remunerations), EDIT);
-    form.clearErrors(['rate', 'indexCurveId', 'remunerationKind']);
+    form.setValue('curveId', defaultCurveId(next, remunerations), EDIT);
+    form.clearErrors(['rate', 'curveId', 'remunerationKind']);
   }
 
   function applyOffer(offer: OfferOption | null) {
@@ -56,7 +57,7 @@ export function useSimulationForm({
     if (!offer) return;
     const terms = offerTermValues(
       offer,
-      { indexCurveId: form.getValues('indexCurveId') },
+      { curveId: form.getValues('curveId') },
       remunerations,
     );
     for (const [field, value] of Object.entries(terms)) {
@@ -79,11 +80,9 @@ export function useSimulationForm({
     values,
     index: remuneration?.index ?? null,
     curveOptions,
+    curve,
     // Curve dates that may not cover the period; the API has the final word.
-    coverageWarning: coverageGap(
-      values,
-      curveOptions.find((curve) => curve.id === values.indexCurveId),
-    ),
+    coverageWarning: coverageGap(values, curve),
     termsChangedFrom: (offer: OfferOption | undefined) =>
       offer !== undefined && differsFromOffer(values, offer),
     changeKind,

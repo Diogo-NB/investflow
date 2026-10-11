@@ -383,14 +383,14 @@ it.
 Recorded 2026-10-11 for the redesigned model. The screens built on 2026-10-10
 implement the earlier model (fixed terms, "Calcular" recording one calculation
 per click, and a calculation history); they are reworked to this behavior. A
-simulation always uses an offer condition, plus a curve scenario when its
+simulation always uses an offer condition, plus a curve when its
 remuneration is indexed, and holds the principal and investment date. All of
 them are editable. Its single result is recalculated asynchronously whenever
 any of them changes.
 
 - `/simulacoes` lists the user's simulations, 20 per page (`page` URL
   parameter, corrected by navigation when stale). Each row shows the offer
-  (issuer, or "Sem emissor") and condition, the remuneration, the scenario
+  (issuer, or "Sem emissor") and condition, the remuneration, the curve
   when indexed, the principal, the period, the net value of the last
   successful result, and a textual status tag unless the result is up to date
   ("Aguardando cálculo", "Calculando", "Requer ação", "Falha técnica"). Desktop
@@ -407,12 +407,12 @@ any of them changes.
     is created together with the simulation when it is saved. The user's own
     chosen condition can also be edited in place, with the offer editor's
     impact notice; a system condition offers only "Duplicar e ajustar".
-    Changing the remuneration kind clears the rate and the scenario. Liquidity
+    Changing the remuneration kind clears the rate and the curve. Liquidity
     defaults to "No vencimento".
-  - "Investimento": principal, investment date, and the curve scenario for
-    indexed kinds. The scenario list is filtered by the condition's index and
-    grouped by curve, auto-selects a sole scenario, shows its coverage, and
-    warns when the period may exceed it.
+  - "Investimento": principal, investment date, and the curve for indexed
+    kinds. The curve list is filtered by the condition's index and grouped by
+    origin ("Do sistema", "Minhas"), auto-selects a sole curve, shows its
+    coverage, and warns when the period may exceed it.
 - The investment and maturity date pickers grey out weekends and holidays.
   `BusinessDateField` (in the library's `business-calendar/` folder, for any
   screen that needs business days) reads them per year from
@@ -423,7 +423,7 @@ any of them changes.
   is disabled when nothing changed. A rejected request saves nothing: the form
   keeps its edits as unsaved changes and the reason appears on the responsible
   field (principal, non-business day, minimum term, index, missing condition
-  or scenario). A revision conflict says the simulation changed elsewhere and
+  or curve). A revision conflict says the simulation changed elsewhere and
   offers to reload. An accepted new simulation opens its own page, already
   waiting for its calculation.
 - Status: the results panel always shows the calculation status in a live
@@ -432,10 +432,10 @@ any of them changes.
   status is up to date, the panel shows the last successful result marked as
   predating the changes; a simulation that never succeeded shows only the
   status.
-  - "Requer ação" shows the reason with its recovery: choose another scenario
+  - "Requer ação" shows the reason with its recovery: choose another curve
     or condition when one was deleted ("Sem curva, escolha outra", "Sem
     oferta, escolha outra"), or fix the field. A coverage gap names the first
-    gap the API reports ("O cenário não tem valores entre 02/01/2029 e
+    gap the API reports ("A curva não tem valores entre 02/01/2029 e
     28/12/2029 e em mais 2 períodos"); the domain groups consecutive missing
     rate references into ranges and the browser only phrases them.
   - "Falha técnica" explains that the system will retry and offers "Tentar
@@ -462,15 +462,15 @@ any of them changes.
 - A saved simulation's header offers "Nova simulação" (a blank form at
   `/simulacoes/nova`), "Duplicar" and "Excluir".
 - "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled with the same
-  condition, scenario and investment, for side-by-side comparison. "Excluir"
+  condition, curve and investment, for side-by-side comparison. "Excluir"
   confirms in an AlertDialog and says the deletion is permanent. Unsaved edits
   are guarded by `useBlocker` and `beforeunload`.
 - Rentabilidade (monthly, annualized, total) and "prazo restante" are not
   shown yet; their definition is a pending product decision.
 - Reads are screen-oriented (Backend for Frontend): the options query (title
   types, remuneration kinds with their index, visible offers grouped with their
-  conditions and calculability, visible curves grouped with their scenarios
-  and coverage), the workspace query (the simulation's references and
+  conditions and calculability, visible curves with their origin and
+  coverage), the workspace query (the simulation's references and
   investment, its status with any reason, and the last successful result with
   the inputs it was computed from), and the monthly balances of the current
   result. The list has its own query. Writes create (optionally with a new
@@ -521,20 +521,23 @@ and editable; system content is visible to everyone and read only.
 
 ## Curve behavior
 
-Recorded 2026-10-11. Not implemented in the browser. A curve is a group (index,
-which fixes the value convention, name, owner) with scenarios (name, optional
-description, intervals with values, owner, revision). Visibility, ownership,
-duplication and deletion follow Offer behavior.
+Recorded 2026-10-11. Not implemented in the browser. A curve has an index
+(which fixes the value convention), a name, an optional description,
+intervals with values, an owner, and a revision. Alternatives of one index are
+separate curves; screens group them by index and origin, and nothing about the
+grouping is stored. Visibility and ownership follow Offer behavior.
 
-- Routes under `/curvas`: list, curve details, create, and scenario editor.
-  Each loads lazily.
-- The list shows the curves visible to the user with their visible scenarios
-  grouped beneath them, filterable by index, with each scenario's origin and
-  coverage (first and last dates, and whether it has gaps).
-- The scenario editor edits the name, description, and intervals; rates are
-  typed as percentages. The interval input design is a pending product
-  decision (see the curve specification). It follows the condition editor's
-  impact notice, revision conflict, and save rules.
-- Deleting a scenario states how many of the user's simulations will require
-  a new choice ("Sem curva, escolha outra") and, for the last scenario of a
-  private curve, that the curve is deleted with it.
+- Routes under `/curvas`: list, curve details, create, and editor. Each loads
+  lazily.
+- The list shows the curves visible to the user grouped by index, then by
+  origin ("Do sistema", "Minhas"), sorted by name, filterable by index, with
+  each curve's coverage (first and last dates, and whether it has gaps).
+- "Duplicar" creates a private copy named "<nome> (cópia)" with the same
+  index and content, including from a system curve; a system curve offers
+  only "Duplicar".
+- The editor edits the name, description, and intervals; rates are typed as
+  percentages. The interval input design is a pending product decision (see
+  the curve specification). It follows the condition editor's impact notice,
+  revision conflict, and save rules.
+- Deleting a curve states how many of the user's simulations will require a
+  new choice ("Sem curva, escolha outra"). Its copies are not affected.

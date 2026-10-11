@@ -1,4 +1,4 @@
-import { AggregateRoot, Result } from '@investflow/shared-domain';
+import { AggregateRoot, AppError, Result } from '@investflow/shared-domain';
 import { OutboxWriter } from '../messaging/outbox/outbox-writer';
 import { RepositorySaveError } from './repository.error';
 import type { TransactionalPrismaClient } from './prisma/prisma-client.type';
@@ -9,7 +9,11 @@ export abstract class BaseRepository<T extends AggregateRoot> {
 
   constructor(protected readonly prisma: PrismaService) {}
 
-  async save(aggregate: T): Promise<Result<void, RepositorySaveError>> {
+  // An AppError thrown by persistAggregate (a revision conflict, an
+  // unrepresentable value) is returned as is; anything else is a save failure.
+  async save(
+    aggregate: T,
+  ): Promise<Result<void, AppError | RepositorySaveError>> {
     return Result.fromPromise(
       async () => {
         // Preparing first rejects an invalid event before anything is written.
@@ -20,7 +24,10 @@ export abstract class BaseRepository<T extends AggregateRoot> {
 
         aggregate.clearDomainEvents();
       },
-      (error) => new RepositorySaveError(aggregate, error),
+      (error) =>
+        error instanceof AppError
+          ? error
+          : new RepositorySaveError(aggregate, error),
     );
   }
 

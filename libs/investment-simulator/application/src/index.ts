@@ -1,6 +1,15 @@
 export {};
-export * from './lib/index-curves/index-curve.repository';
-export * from './lib/index-curves/index-curve-not-found.error';
+export * from './lib/curves/curve.repository';
+export * from './lib/curves/curve-not-found.error';
+export * from './lib/curves/shared/curve-command-input.type';
+export * from './lib/curves/create/create-curve.command';
+export * from './lib/curves/create/create-curve.use-case';
+export * from './lib/curves/edit/edit-curve.command';
+export * from './lib/curves/edit/edit-curve.use-case';
+export * from './lib/curves/duplicate/duplicate-curve.command';
+export * from './lib/curves/duplicate/duplicate-curve.use-case';
+export * from './lib/curves/delete/delete-curve.command';
+export * from './lib/curves/delete/delete-curve.use-case';
 export * from './lib/offers/create/create-offer.command';
 export * from './lib/offers/create/create-offer.use-case';
 export * from './lib/offers/delete/delete-offer.command';

@@ -12,6 +12,7 @@ export const cdiCurve: CurveOption = {
   id: 'cdi',
   name: 'CDI Local',
   description: null,
+  origin: 'SYSTEM',
   coverage: { startDate: '2026-01-01', endDate: '2028-12-31' },
 };
 
@@ -99,7 +100,7 @@ export function calculationSummary(
     investment: {
       principal: '10000',
       investmentDate: '2026-01-02',
-      indexCurveId: 'cdi',
+      curveId: 'cdi',
     },
     businessDays: 40,
     maturitySummary: {

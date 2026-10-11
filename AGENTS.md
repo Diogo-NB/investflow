@@ -85,12 +85,14 @@ frontend testing policy.
   technical auditing. Persistence timestamps remain an infrastructure concern;
   temporal fields belong in the domain only when business rules, state
   transitions, or calculations depend on them.
-- Offers and index curves are mutable groups of revisioned members (offer
-  conditions, curve scenarios), private to their user or read-only system
-  content; simulations always reference them and are recalculated
-  asynchronously when they change (decision 2026-10-11). Reproducibility and
-  calculation history were dropped. The code still implements the earlier
-  immutable model; see "Mutable Premises And Asynchronous Recalculation" in
+- Offers (a group of revisioned conditions) and index curves (independent
+  revisioned curves, grouped only on screen) are mutable, private to their
+  user or read-only system content; simulations always reference them and are
+  recalculated asynchronously when they change (decision 2026-10-11).
+  Reproducibility and calculation history were dropped. Curves are built on
+  this model; offers and simulations still implement the earlier immutable
+  one. See "Mutable
+  Premises And Asynchronous Recalculation" in
   `docs/architecture/project-structure.md` before touching offers, curves,
   simulations, or eventing.
 - Integration events travel over EventBridge and SQS, emulated locally by

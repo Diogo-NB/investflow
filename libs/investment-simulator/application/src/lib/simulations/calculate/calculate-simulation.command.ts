@@ -23,7 +23,7 @@ export class CalculateSimulationCommand {
       InvestmentInputs.create({
         principal: Money.of(request.principal),
         investmentDate: CalendarDate.of(request.investmentDate),
-        indexCurveId: request.indexCurveId ?? null,
+        curveId: request.curveId ?? null,
       }),
     );
   }

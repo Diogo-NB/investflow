@@ -14,7 +14,7 @@ function calculation(overrides: Partial<Record<string, unknown>> = {}) {
     methodologyVersion: 'cdb-252-v1',
     principal: new Prisma.Decimal('1000.50'),
     investmentDate: date('2026-01-02'),
-    indexCurveId: 'curve-id',
+    curveId: 'curve-id',
     grossBalance: new Prisma.Decimal('1001.000000000000000001'),
     grossEarnings: new Prisma.Decimal('0.500000000000000001'),
     iof: new Prisma.Decimal('0'),
@@ -79,7 +79,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
         investment: {
           principal: '1000.5',
           investmentDate: '2026-01-02',
-          indexCurveId: 'curve-id',
+          curveId: 'curve-id',
         },
         businessDays: 40,
         maturitySummary: {

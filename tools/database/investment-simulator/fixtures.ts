@@ -56,40 +56,29 @@ export const offers = [
 // Effective SELIC and DI: https://www.anbima.com.br/informacoes/indicadores/
 // August 2026 trailing IPCA: https://www.ibge.gov.br/explica/inflacao.php
 // Monthly IPCA = (1.0422)^(1/12) - 1, rounded to the database's 30 decimal places.
-const curveDefaults = {
-  deletedAt: null,
-} as const;
-
+// Each is a system curve covering 2024–2028.
 export const curves = [
   {
-    ...curveDefaults,
-    name: 'CDI Local',
     index: 'CDI',
+    name: 'CDI Local',
     description:
       'Local fixture: DI-B3 at 13.65% annually (252-day basis), reported by ANBIMA on 2026-10-05; held constant for 2024–2028.',
     value: '0.1365',
   },
   {
-    ...curveDefaults,
-    name: 'SELIC Local',
     index: 'SELIC',
+    name: 'SELIC Local',
     description:
       'Local fixture: effective SELIC at 13.65% annually (252-day basis), reported by ANBIMA on 2026-10-05; held constant for 2024–2028.',
     value: '0.1365',
   },
   {
-    ...curveDefaults,
-    name: 'IPCA Local',
     index: 'IPCA',
+    name: 'IPCA Local',
     description:
       'Local fixture: August 2026 IPCA at 4.22% over 12 months, published on 2026-09-11 and available as of 2026-10-05; monthly equivalent (1.0422)^(1/12) - 1 repeated for every month in 2024–2028.',
     value: '0.003450427692416233215455407623',
   },
-] satisfies (Prisma.IndexCurveCreateWithoutIntervalsInput & {
-  value: string;
-})[];
+] as const;
 
-export const curveRange = {
-  startDate: new Date('2024-01-01T00:00:00.000Z'),
-  endDate: new Date('2028-12-31T00:00:00.000Z'),
-};
+export const curveRange = { startDate: '2024-01-01', endDate: '2028-12-31' };

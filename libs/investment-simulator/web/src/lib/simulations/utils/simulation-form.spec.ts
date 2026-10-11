@@ -35,7 +35,7 @@ const valid: SimulationFormValues = {
   rate: '110',
   maturityDate: '2026-03-02',
   redemptionKind: 'DAILY',
-  indexCurveId: 'cdi',
+  curveId: 'cdi',
 };
 
 function errors(values: SimulationFormValues) {
@@ -61,7 +61,7 @@ describe('simulation form', () => {
       investment: {
         principal: '10000.5',
         investmentDate: '2026-01-02',
-        indexCurveId: 'cdi',
+        curveId: 'cdi',
       },
     });
   });
@@ -73,10 +73,10 @@ describe('simulation form', () => {
       offerId: 'offer',
       remunerationKind: 'PREFIXED',
       rate: '12,5',
-      indexCurveId: '',
+      curveId: '',
     });
     expect(input.offerId).toBe('offer');
-    expect(input.investment.indexCurveId).toBeNull();
+    expect(input.investment.curveId).toBeNull();
     expect(input.terms.remunerationTerms).toEqual({
       kind: 'PREFIXED',
       rate: '0.125',
@@ -111,14 +111,14 @@ describe('simulation form', () => {
         rate: 'abc',
         investmentDate: '31/02/2026',
         maturityDate: '',
-        indexCurveId: '',
+        curveId: '',
       }),
     ).toEqual({
       principal: 'O valor aplicado deve ser maior que zero.',
       rate: 'Use apenas números, como 10.000,50.',
       investmentDate: 'Informe uma data válida no formato DD/MM/AAAA.',
       maturityDate: 'Informe a data.',
-      indexCurveId: 'Escolha a curva do índice.',
+      curveId: 'Escolha a curva do índice.',
     });
     expect(errors({ ...valid, maturityDate: '2026-01-02' })).toEqual({
       maturityDate: 'O vencimento deve ser depois da data da aplicação.',
@@ -135,7 +135,7 @@ describe('simulation form', () => {
       issuerName: '',
       remunerationKind: 'CDI_PERCENTAGE',
       redemptionKind: 'AT_MATURITY',
-      indexCurveId: 'cdi',
+      curveId: 'cdi',
     });
     const twoCurves: RemunerationOption[] = [
       { ...remunerations[1], curves: [cdi, { ...cdi, id: 'cdi-2' }] },
@@ -156,21 +156,20 @@ describe('simulation form', () => {
   it('fills terms from an offer and tracks later edits', () => {
     const filled = {
       ...valid,
-      ...offerTermValues(offer, { indexCurveId: '' }, remunerations),
+      ...offerTermValues(offer, { curveId: '' }, remunerations),
     };
     expect(filled).toMatchObject({
       titleType: 'CDB',
       issuerName: 'Banco Local',
       rate: '110',
       maturityDate: '2028-12-29',
-      indexCurveId: 'cdi',
+      curveId: 'cdi',
     });
     expect(differsFromOffer(filled, offer)).toBe(false);
     expect(differsFromOffer({ ...filled, rate: '115' }, offer)).toBe(true);
     expect(differsFromOffer({ ...filled, titleType: 'LCI' }, offer)).toBe(true);
     expect(
-      offerTermValues(offer, { indexCurveId: 'selic' }, remunerations)
-        .indexCurveId,
+      offerTermValues(offer, { curveId: 'selic' }, remunerations).curveId,
     ).toBe('cdi');
   });
 

@@ -35,9 +35,9 @@ function recordedCalculation(
     investment: InvestmentInputs.create({
       principal: Money.of('1000.123456789'),
       investmentDate: CalendarDate.of('2026-01-02'),
-      indexCurveId: null,
+      curveId: null,
     }),
-    indexCurve: null,
+    curve: null,
     calculator: new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
     calculatedAt: UtcInstant.ofIso('2026-10-10T12:00:00Z'),
   }).value.calculation;
@@ -50,7 +50,7 @@ function storedRecord(calculation: SimulationCalculation) {
   return {
     id: calculation.id,
     simulationId: calculation.simulationId,
-    indexCurveId: calculation.investment.indexCurveId,
+    curveId: calculation.investment.curveId,
     principal: decimal(data.principal),
     investmentDate: data.investmentDate as Date,
     methodologyVersion: data.methodologyVersion,
@@ -88,7 +88,7 @@ describe('SimulationCalculationMapper', () => {
     expect(data.simulation).toEqual({
       connect: { id: calculation.simulationId },
     });
-    expect(data.indexCurve).toBeUndefined();
+    expect(data.curve).toBeUndefined();
     const restored = SimulationCalculationMapper.toDomain(
       storedRecord(calculation),
     );

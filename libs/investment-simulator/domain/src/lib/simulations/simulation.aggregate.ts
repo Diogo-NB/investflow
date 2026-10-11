@@ -9,7 +9,7 @@ import {
 import { InvestmentCalculationError } from '../calculations/investment-calculation.error';
 import type { InvestmentCalculator } from '../calculations/investment-calculator.domain-service';
 import { InvestmentScenario } from '../calculations/investment-scenario.vo';
-import type { IndexCurve } from '../index-curves/index-curve.aggregate';
+import type { Curve } from '../curves/curve.aggregate';
 import { InvestmentTerms } from '../offers/terms/investment-terms.vo';
 import { InvestmentInputs } from './investment-inputs.vo';
 import { SimulationCalculation } from './simulation-calculation.aggregate';
@@ -27,7 +27,7 @@ interface SimulationProps {
 export interface CalculateSimulationProps {
   readonly investment: InvestmentInputs;
   // The curve the investment references; null for fixed rates.
-  readonly indexCurve: IndexCurve | null;
+  readonly curve: Curve | null;
   readonly calculator: InvestmentCalculator;
   readonly calculatedAt: UtcInstant;
 }
@@ -116,14 +116,14 @@ export class Simulation extends AggregateRoot {
 
   private calculateUnchecked({
     investment,
-    indexCurve,
+    curve,
     calculator,
     calculatedAt,
   }: CalculateSimulationProps): Result<
     SimulationCalculation,
     InvestmentCalculationError
   > {
-    const scenario = this.scenarioFor(investment, indexCurve);
+    const scenario = this.scenarioFor(investment, curve);
     if (scenario.isErr()) return scenario;
     const result = calculator.calculate(scenario.value);
     if (result.isErr()) return result;
@@ -139,15 +139,15 @@ export class Simulation extends AggregateRoot {
 
   private scenarioFor(
     investment: InvestmentInputs,
-    indexCurve: IndexCurve | null,
+    curve: Curve | null,
   ): Result<InvestmentScenario, InvestmentCalculationError> {
-    if ((indexCurve?.id ?? null) !== investment.indexCurveId) {
+    if ((curve?.id ?? null) !== investment.curveId) {
       throw new DomainError('A curva não corresponde ao investimento.', {
         code: EAppErrorCode.INVESTMENT_SCENARIO_INVARIANT,
         kind: 'unexpected',
         metadata: {
-          expectedCurveId: investment.indexCurveId,
-          actualCurveId: indexCurve?.id ?? null,
+          expectedCurveId: investment.curveId,
+          actualCurveId: curve?.id ?? null,
         },
       });
     }
@@ -158,7 +158,7 @@ export class Simulation extends AggregateRoot {
       maturityDate: terms.maturityDate,
       titleType: terms.titleType,
       remuneration: terms.remuneration,
-      indexCurve,
+      curve,
     });
   }
 }

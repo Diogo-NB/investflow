@@ -13,17 +13,19 @@ import { QueryHandler } from '@investflow/shared-application';
 import { CalendarDate, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
+import {
+  CurveSummary,
+  curveSummaryOrder,
+  curveSummarySelect,
+  toCurveSummary,
+  visibleCurveWhere,
+} from '../../curves/queries/curve-projection';
 import { SimulationWorkspaceQueryError } from './simulation-workspace-query.error';
 
 type EEconomicIndex = 'CDI' | 'SELIC' | 'IPCA';
 
-export interface CurveOption {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string | null;
-  // First and last covered dates; gaps between intervals are still reported
-  // when a calculation needs them.
-  readonly coverage: { readonly startDate: string; readonly endDate: string };
+export interface GetSimulationOptionsQuery {
+  readonly viewerId: string;
 }
 
 type TitleType = 'CDB' | 'LCI' | 'LCA';
@@ -38,7 +40,8 @@ export interface GetSimulationOptionsOutput {
     readonly kind: RemunerationKind;
     readonly index: EEconomicIndex | null;
     readonly unsupportedReason: UnsupportedCalculationCode | null;
-    readonly curves: readonly CurveOption[];
+    // Visible curves of this kind's index.
+    readonly curves: readonly CurveSummary[];
   }[];
   readonly taxRules: {
     readonly iof: {
@@ -102,17 +105,6 @@ const TAX_RULES: GetSimulationOptionsOutput['taxRules'] = {
   },
 };
 
-const curveSelect = {
-  id: true,
-  name: true,
-  description: true,
-  index: true,
-  intervals: {
-    select: { startDate: true, endDate: true },
-    orderBy: { startDate: 'asc' },
-  },
-} satisfies Prisma.IndexCurveSelect;
-
 const offerSelect = {
   id: true,
   titleType: true,
@@ -123,28 +115,28 @@ const offerSelect = {
   rateValue: true,
 } satisfies Prisma.InvestmentOfferSelect;
 
-type CurveRecord = Prisma.IndexCurveGetPayload<{ select: typeof curveSelect }>;
 type OfferRecord = Prisma.InvestmentOfferGetPayload<{
   select: typeof offerSelect;
 }>;
 
 @Injectable()
 export class GetSimulationOptionsQueryHandler
-  implements QueryHandler<void, GetSimulationOptionsOutput>
+  implements QueryHandler<GetSimulationOptionsQuery, GetSimulationOptionsOutput>
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  execute(): Promise<
+  execute(
+    query: GetSimulationOptionsQuery,
+  ): Promise<
     Result<GetSimulationOptionsOutput, SimulationWorkspaceQueryError>
   > {
     return Result.fromPromise(
       async () => {
         const [curves, offers] = await Promise.all([
-          // Deleted curves cannot be linked to simulations.
-          this.prisma.client.indexCurve.findMany({
-            where: { deletedAt: null },
-            select: curveSelect,
-            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          this.prisma.client.curve.findMany({
+            where: visibleCurveWhere(query.viewerId),
+            select: curveSummarySelect,
+            orderBy: curveSummaryOrder,
           }),
           this.prisma.client.investmentOffer.findMany({
             where: { deletedAt: null },
@@ -167,7 +159,7 @@ export class GetSimulationOptionsQueryHandler
               curves: index
                 ? curves
                     .filter((curve) => curve.index === index)
-                    .map((curve) => this.toCurveOption(curve))
+                    .map((curve) => toCurveSummary(curve))
                 : [],
             };
           }),
@@ -177,23 +169,6 @@ export class GetSimulationOptionsQueryHandler
       },
       (cause) => new SimulationWorkspaceQueryError(cause),
     );
-  }
-
-  private toCurveOption(record: CurveRecord): CurveOption {
-    const ends = record.intervals.map(({ endDate }) => endDate.getTime());
-    return {
-      id: record.id,
-      name: record.name,
-      description: record.description,
-      coverage: {
-        startDate: CalendarDate.fromUtcDate(
-          record.intervals[0].startDate,
-        ).value.toIsoString(),
-        endDate: CalendarDate.fromUtcDate(
-          new Date(Math.max(...ends)),
-        ).value.toIsoString(),
-      },
-    };
   }
 
   private toOfferOption(

@@ -71,7 +71,7 @@ model Simulation {
 model SimulationCalculation {
   id                        String                         @id @db.Uuid
   simulationId              String                         @map("simulation_id") @db.Uuid
-  indexCurveId              String?                        @map("index_curve_id") @db.Uuid
+  curveId                   String?                        @map("curve_id") @db.Uuid
   principal                 Decimal                        @db.Decimal(65, 30)
   investmentDate            DateTime                       @map("investment_date") @db.Date
   methodologyVersion        String                         @map("methodology_version")
@@ -89,7 +89,7 @@ model SimulationCalculation {
   iofRate                   Decimal?                       @map("iof_rate") @db.Decimal(65, 30)
   incomeTaxRate             Decimal?                       @map("income_tax_rate") @db.Decimal(65, 30)
   simulation                Simulation                     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  indexCurve                IndexCurve?                    @relation(fields: [indexCurveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  curve                     Curve?                         @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   balances                  SimulationCalculationBalance[]
 
   @@index([simulationId, calculatedAt(sort: Desc)])
@@ -116,28 +116,33 @@ enum EconomicIndex {
   @@map("economic_index")
 }
 
-model IndexCurve {
-  id           String                  @id @default(uuid()) @db.Uuid
+// A null owner means system content, visible to every user.
+model Curve {
+  id           String                  @id @db.Uuid
+  ownerId      String?                 @map("owner_id")
+  index        EconomicIndex
   name         String
   description  String?
-  index        EconomicIndex
+  revision     Int
   deletedAt    DateTime?               @map("deleted_at") @db.Timestamptz(3)
   createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  intervals    IndexCurveInterval[]
+  updatedAt    DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  intervals    CurveInterval[]
   calculations SimulationCalculation[]
 
-  @@map("index_curve")
+  @@index([ownerId])
+  @@map("curve")
 }
 
-model IndexCurveInterval {
-  curveId   String     @map("curve_id") @db.Uuid
-  startDate DateTime   @map("start_date") @db.Date
-  endDate   DateTime   @map("end_date") @db.Date
-  value     Decimal    @db.Decimal(65, 30)
-  curve     IndexCurve @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+model CurveInterval {
+  curveId   String   @map("curve_id") @db.Uuid
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  value     Decimal  @db.Decimal(65, 30)
+  curve     Curve    @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([curveId, startDate])
-  @@map("index_curve_interval")
+  @@map("curve_interval")
 }
 
 model OutboxEvent {

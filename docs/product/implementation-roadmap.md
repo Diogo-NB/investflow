@@ -22,21 +22,19 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-11, after D0.
+Last updated 2026-10-11, after D1.
 
 Built, on the earlier immutable model:
 
 - **Simulations:** create, recalculate, list, view, duplicate, and delete.
   CDB, LCI, and LCA with prefixed, CDI, or effective SELIC remuneration on the
   252 business-day convention, with IOF, income tax, and the LCI/LCA exemption.
-  A calculation is rejected when the curve does not cover the period.
+  A calculation is rejected when the chosen curve does not cover the
+  period.
 - **Results:** the summary, the tax explanation dialog, the balance evolution
   chart with monthly rows, and the calculation history.
 - **Offers:** backend CRUD only; no browser screens.
-- **Index curves:** domain, persistence, and the reads used by the simulation
-  workspace; curves are created only by the seed.
-
-Built for the target model:
+  Built for the target model:
 
 - **Messaging:** runs locally end to end on EventBridge and SQS emulated by
   Floci (see "Messaging Transport" in
@@ -44,14 +42,24 @@ Built for the target model:
   poller publishes to the `investflow` bus every second, backs a failed event
   off on its own (up to 5 minutes) and pauses during broker outages; events
   above the 200 KB outbox payload limit fail at save time. Consumers are plain
-  classes that the host binds to their queues. No domain event is emitted or
-  consumed yet.
+  classes that the host binds to their queues. No domain event is consumed
+  yet.
+- **Curves:** independent, revisioned `Curve` aggregates with owners; `null`
+  is the system. Alternatives of an index ("CDI base", "CDI otimista") are
+  separate curves, and screens group them by index and origin; no grouping
+  is stored. The API under `investment-simulator/curves` lists, reads,
+  creates, edits (revision check, `409` on mismatch), duplicates, and deletes
+  curves, always as the authenticated user. Every change writes an
+  identifier-only event to the outbox. The seed creates the system curves
+  through the same use case with the system actor. The simulation workspace
+  picks a curve grouped by origin; no curve screens yet.
 
 Differs from the target model:
 
 - `Simulation` copies the offer terms; it does not reference a condition.
-- `IndexCurve` is immutable and has no scenarios; offers have no groups.
-- Offers and curves have no owner and no revision.
+- Offers have no groups, owner, or revision.
+- Simulation calculations reference a curve directly; deleting one does not
+  mark the simulations that use it.
 - `SimulationCalculation` keeps every calculation instead of one current
   result, and calculation runs inside the request.
 
@@ -61,9 +69,11 @@ redemption.
 
 ## Next Steps
 
-1. D1 and D2, in either order or in parallel. They are the first deliverables
-   to emit events.
-2. Decide how users enter a scenario's intervals before D6 starts (open
+1. D2, which reuses D1's patterns: the actor-carrying commands, the revision
+   guard in the repositories, and the event base class. Decide at its start
+   whether offers keep their group of conditions or follow the curves'
+   single-aggregate model.
+2. Decide how users enter a curve's intervals before D6 starts (open
    question in the curve specification).
 3. Decide how D4b's batched fan-out writes calculation events before D4b
    starts (open decision in its section).
@@ -73,9 +83,9 @@ redemption.
 | #   | Deliverable                                                       | Depends on                         | Status      |
 | --- | ----------------------------------------------------------------- | ---------------------------------- | ----------- |
 | D0  | Messaging runs locally end to end                                 | —                                  | Done        |
-| D1  | Curves become groups of revisioned scenarios with owners          | D0                                 | Not started |
+| D1  | Curves become independent, revisioned, and owned                  | D0                                 | Done        |
 | D2  | Offers become groups of revisioned conditions with owners         | D0                                 | Not started |
-| D3  | Simulations reference a condition and scenario; one result        | D1, D2                             | Not started |
+| D3  | Simulations reference a condition and curve; one result           | D1, D2                             | Not started |
 | D4a | A simulation's own calculation runs asynchronously                | D3                                 | Not started |
 | D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Not started |
 | D4c | Reconciliation sweep, retries, and "Falha técnica"                | D4b                                | Not started |
@@ -91,43 +101,21 @@ D0 ──┤         ├──► D3 ──► D4a ──► D4b ──► D4c
 ```
 
 Recommended order: D0, D1, D2, D3, D4a, D4b, D4c, D5, D6. D0 went first
-because it carried the most infrastructure unknowns, touched no business code,
-and D1 and D2 are the first deliverables to emit events. D1 and D2 are
-independent of each other. D6 waits for the pending product decision on how
-users enter a scenario's intervals, which can be made while D1 to D4 are
+because it carried the most infrastructure unknowns and touched no business
+code. D1 and D2 are independent of each other. D6 waits for the pending product decision on how
+users enter a curve's intervals, which can be made while D1 to D4 are
 built.
 
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
-
-## D1 — Curve groups and scenarios
-
-- Split `IndexCurve` into a `Curve` group aggregate (index, name, owner) and a
-  `CurveScenario` aggregate (name, description, intervals, owner, revision).
-  Interval and coverage behavior moves to the scenario unchanged.
-- Ownership from the Keycloak `sub`; `null` owner means system. Visibility is
-  own plus system content, decided per scenario.
-- Use cases: create a curve with its first scenario, edit a scenario (revision
-  check, conflict on mismatch), duplicate a scenario (private copy in the same
-  curve), delete a scenario, rename and delete a private curve. Deleting the
-  last scenario of a private curve deletes the curve; a system process
-  deleting a system curve that holds private scenarios retires it instead.
-- Domain events with the revision and changed fields, persisted to the outbox
-  (no consumers yet).
-- The seed creates the system curves.
-- HTTP endpoints for the use cases and the curve and scenario reads.
-- The simulation options query returns scenarios grouped by curve; the
-  existing scenario picker adapts.
-
-**Done when** the curve API enforces ownership and revisions, and the current
-simulation workspace still calculates with a scenario.
 
 ## D2 — Offer groups and conditions
 
 - `Offer` group aggregate (title type, issuer, name, owner) and
   `OfferCondition` aggregate (remuneration and rate, maturity, liquidity,
   optional name, owner, revision).
-- Same visibility rules, use cases, events, conflict checks, and seed as D1.
+- Same visibility rules, use cases, events, conflict checks, and seed as the
+  curves (see Current State).
 - The simulation workspace fills terms from a condition.
 
 **Done when** the offer API enforces ownership and revisions, and the current
@@ -136,12 +124,12 @@ workspace can still fill its terms from a condition.
 ## D3 — Simulations always use an offer
 
 - `Simulation` drops its copied terms and references a condition, an optional
-  scenario, and its investment. All are editable; the simulation has its own
+  curve, and its investment. All are editable; the simulation has its own
   revision.
 - "Digitar termos" and "Duplicar e ajustar" create a private offer or
   condition in the same transaction as the simulation.
 - `SimulationCalculation` and its history are replaced by one current result
-  recording the simulation, condition, and scenario revisions it used and the
+  recording the simulation, condition, and curve revisions it used and the
   methodology version.
 - Calculation stays synchronous in this deliverable, so the change is limited
   to the data model.
@@ -150,7 +138,7 @@ workspace can still fill its terms from a condition.
   termos"; "Salvar e calcular" sends the revision.
 
 **Done when** the workspace runs on the new model, and editing a condition or
-scenario is reflected the next time an affected simulation is saved.
+curve is reflected the next time an affected simulation is saved.
 
 ## D4a — Asynchronous calculation of a simulation
 
@@ -173,14 +161,14 @@ and duplicate or out-of-order deliveries cannot replace a newer result.
 
 ## D4b — Recalculation from premise changes
 
-- Consumers for condition and scenario changes mark the affected simulations
+- Consumers for condition and curve changes mark the affected simulations
   `PENDING` and queue them in batches, never in one transaction.
-- Deleting a condition or scenario sets its simulations `INVALID` ("Sem oferta,
+- Deleting a condition or curve sets its simulations `INVALID` ("Sem oferta,
   escolha outra" or "Sem curva, escolha outra").
 - A query counting the user's affected simulations, for impact notices.
 - Outbox publishing throughput. The poller publishes one event per
   EventBridge call, sequentially, so it sustains roughly 20 to 50 events per
-  second, and after a full batch it waits for the next tick. A system scenario
+  second, and after a full batch it waits for the next tick. A system curve
   edit can queue thousands of calculations. Batch entries per `PutEvents` call
   (up to 10, checking each entry's result), mark a batch with one update, and
   poll again immediately when a batch was full.
@@ -203,7 +191,7 @@ Rejected: bulk repository methods that write events themselves (event
 definitions would live in a persistence adapter) and one summary event per
 batch (complicates per-simulation claims, retries, and dead-lettering).
 
-**Done when** editing a scenario recalculates every simulation that uses it,
+**Done when** editing a curve recalculates every simulation that uses it,
 and deleting it moves them to "Requer ação".
 
 ## D4c — Recovery

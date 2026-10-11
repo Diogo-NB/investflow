@@ -1,6 +1,8 @@
 import {
   AggregateRoot,
+  ConflictError,
   DomainEvent,
+  EAppErrorCode,
   UtcInstant,
 } from '@investflow/shared-domain';
 import { RepositorySaveError } from './repository.error';
@@ -98,6 +100,22 @@ describe('BaseRepository', () => {
       aggregateId: 'aggregate-id',
       aggregateType: 'TestAggregate',
     });
+    expect(aggregate.getDomainEvents()).toHaveLength(1);
+  });
+
+  it('returns an application error thrown by persistence as is', async () => {
+    const prisma = createPrismaService();
+    const repository = new TestRepository(prisma);
+    const aggregate = new TestAggregate().recordEvent();
+    const conflict = new ConflictError('Conflito.', {
+      code: EAppErrorCode.CURVE_REVISION_CONFLICT,
+    });
+    repository.persistAggregateMock.mockRejectedValue(conflict);
+
+    const result = await repository.save(aggregate);
+
+    expect(result.error).toBe(conflict);
+    expect(prisma.client.outboxEvent.createMany).not.toHaveBeenCalled();
     expect(aggregate.getDomainEvents()).toHaveLength(1);
   });
 

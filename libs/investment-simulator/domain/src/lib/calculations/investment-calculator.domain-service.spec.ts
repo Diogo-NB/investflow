@@ -5,11 +5,12 @@ import {
   EAppErrorCode,
   Money,
   Rate,
+  UtcInstant,
 } from '@investflow/shared-domain';
-import { EEconomicIndex } from '../index-curves/economic-index.enum';
-import { IndexCurve } from '../index-curves/index-curve.aggregate';
-import { IndexCurveInterval } from '../index-curves/index-curve-interval.vo';
-import { IndexValue } from '../index-curves/index-value.vo';
+import { EEconomicIndex } from '../curves/economic-index.enum';
+import { Curve } from '../curves/curve.aggregate';
+import { CurveInterval } from '../curves/curve-interval.vo';
+import { IndexValue } from '../curves/index-value.vo';
 import {
   RemunerationKind,
   RemunerationTerms,
@@ -30,7 +31,7 @@ function scenario(
     end?: string;
     titleType?: ETitleType;
     principal?: string;
-    indexCurve?: IndexCurve | null;
+    curve?: Curve | null;
   } = {},
 ) {
   return InvestmentScenario.create({
@@ -42,7 +43,7 @@ function scenario(
       options.kind ?? 'PREFIXED',
       Rate.of(options.rate ?? '0.12'),
     ),
-    indexCurve: options.indexCurve ?? null,
+    curve: options.curve ?? null,
   }).value;
 }
 
@@ -52,16 +53,20 @@ function curve(
     ['2026-01-02', '2026-01-05', '0.12'],
   ],
 ) {
-  return IndexCurve.create({
-    name: 'Scenario',
-    index,
-    intervals: intervals.map(([start, end, rate]) =>
-      IndexCurveInterval.create(
-        CalendarDateRange.of(CalendarDate.of(start), CalendarDate.of(end)),
-        IndexValue.of(rate),
+  return Curve.create(
+    {
+      ownerId: null,
+      name: 'Scenario',
+      index,
+      intervals: intervals.map(([start, end, rate]) =>
+        CurveInterval.create(
+          CalendarDateRange.of(CalendarDate.of(start), CalendarDate.of(end)),
+          IndexValue.of(rate),
+        ),
       ),
-    ),
-  }).value;
+    },
+    UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+  ).value;
 }
 
 describe('InvestmentCalculator domain service', () => {
@@ -140,7 +145,7 @@ describe('InvestmentCalculator domain service', () => {
   });
 
   it('skips Good Friday and the weekend without adding accrual periods', () => {
-    const indexCurve = curve(EEconomicIndex.CDI, [
+    const cdi = curve(EEconomicIndex.CDI, [
       ['2026-04-02', '2026-04-02', '0.12'],
     ]);
     const result = calculator.calculate(
@@ -149,7 +154,7 @@ describe('InvestmentCalculator domain service', () => {
         rate: '1',
         start: '2026-04-02',
         end: '2026-04-06',
-        indexCurve,
+        curve: cdi,
       }),
     ).value;
     expect(result.dailyBalances).toHaveLength(1);
@@ -174,7 +179,7 @@ describe('InvestmentCalculator domain service', () => {
       'applies %s of the daily index rate',
       (rate) => {
         const result = calculator.calculate(
-          scenario({ kind, rate, indexCurve: curve(index) }),
+          scenario({ kind, rate, curve: curve(index) }),
         ).value;
         const expectedFactor = 1 + (Math.pow(1.12, 1 / 252) - 1) * Number(rate);
         expect(
@@ -187,7 +192,7 @@ describe('InvestmentCalculator domain service', () => {
       const input = scenario({
         kind,
         rate: '1.05',
-        indexCurve: curve(index, [
+        curve: curve(index, [
           ['2026-01-02', '2026-01-02', '0.12'],
           ['2026-01-05', '2026-01-05', '0.20'],
         ]),
@@ -209,7 +214,7 @@ describe('InvestmentCalculator domain service', () => {
         scenario({
           kind,
           rate: '1',
-          indexCurve: curve(index, [['2026-01-02', '2026-01-05', '0']]),
+          curve: curve(index, [['2026-01-02', '2026-01-05', '0']]),
         }),
       ).value;
       expect(result.maturitySummary.grossBalance.amount.toString()).toBe(
@@ -226,7 +231,7 @@ describe('InvestmentCalculator domain service', () => {
         scenario({
           kind,
           rate: '1',
-          indexCurve: curve(index, [['2026-01-06', '2026-01-06', '0.12']]),
+          curve: curve(index, [['2026-01-06', '2026-01-06', '0.12']]),
         }),
       );
       expect(result.isErr()).toBe(true);
@@ -245,7 +250,7 @@ describe('InvestmentCalculator domain service', () => {
         scenario({
           kind,
           rate: '1',
-          indexCurve: curve(index, [['2026-01-02', '2026-01-02', '0.12']]),
+          curve: curve(index, [['2026-01-02', '2026-01-02', '0.12']]),
         }),
       );
       expect(result.error.metadata?.['missingRanges']).toEqual([
@@ -286,11 +291,11 @@ describe('InvestmentCalculator domain service', () => {
   });
 
   it('returns an explicit error for deferred IPCA', () => {
-    const indexCurve = curve(EEconomicIndex.IPCA, [
+    const ipca = curve(EEconomicIndex.IPCA, [
       ['2026-01-01', '2026-01-31', '0.01'],
     ]);
     expect(
-      calculator.calculate(scenario({ kind: 'IPCA_PLUS', indexCurve })).error
+      calculator.calculate(scenario({ kind: 'IPCA_PLUS', curve: ipca })).error
         .code,
     ).toBe(EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED);
   });
@@ -301,9 +306,7 @@ describe('InvestmentCalculator domain service', () => {
         kind: 'SELIC_PERCENTAGE',
         rate: '1',
         principal: '1000.123456789123456',
-        indexCurve: curve(EEconomicIndex.SELIC, [
-          ['2026-01-02', '2026-01-05', '0'],
-        ]),
+        curve: curve(EEconomicIndex.SELIC, [['2026-01-02', '2026-01-05', '0']]),
       }),
     ).value;
     expect(result.maturitySummary.netBalance.amount.toString()).toBe(

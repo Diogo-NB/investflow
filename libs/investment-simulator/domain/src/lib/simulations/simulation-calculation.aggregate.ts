@@ -20,8 +20,7 @@ export type RecordSimulationCalculationProps = SimulationCalculationProps;
 export type ReconstituteSimulationCalculationProps =
   SimulationCalculationProps & { readonly id: string };
 
-// Immutable and append-only. The simulation's fixed terms, this investment and
-// immutable curves reproduce the result under the recorded methodology.
+// Immutable and append-only.
 // Recorded through Simulation, which enforces its own rules first.
 export class SimulationCalculation extends AggregateRoot {
   private constructor(

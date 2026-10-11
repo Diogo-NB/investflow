@@ -34,7 +34,7 @@ export interface SimulationTermsOutput {
 export interface InvestmentOutput {
   readonly principal: string;
   readonly investmentDate: string;
-  readonly indexCurveId: string | null;
+  readonly curveId: string | null;
 }
 
 export interface CalculationSummary {
@@ -91,7 +91,7 @@ const calculationSelect = {
   methodologyVersion: true,
   principal: true,
   investmentDate: true,
-  indexCurveId: true,
+  curveId: true,
   grossBalance: true,
   grossEarnings: true,
   iof: true,
@@ -226,7 +226,7 @@ export class GetSimulationWorkspaceQueryHandler
         investmentDate: CalendarDate.fromUtcDate(
           calculation.investmentDate,
         ).value.toIsoString(),
-        indexCurveId: calculation.indexCurveId,
+        curveId: calculation.curveId,
       },
       businessDays: calculation._count.balances,
       maturitySummary: {

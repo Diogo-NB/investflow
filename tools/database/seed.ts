@@ -1,19 +1,44 @@
+import 'reflect-metadata';
+import { Global, Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { config } from 'dotenv';
 import { Pool } from 'pg';
+import {
+  CreateCurveCommand,
+  CreateCurveUseCase,
+} from '@investflow/investment-simulator-application';
+import { EEconomicIndex } from '@investflow/investment-simulator-domain';
+import { CurvesModule } from '@investflow/investment-simulator-infrastructure';
+import {
+  ClockModule,
+  PrismaModule,
+  PrismaService,
+  TransactionContext,
+} from '@investflow/shared-infrastructure';
 import { curveRange, curves, offers } from './investment-simulator/fixtures';
 
-async function main(): Promise<void> {
-  config();
-  const connectionString = process.env['DATABASE_URL'];
-  if (!connectionString?.trim()) {
-    throw new Error('DATABASE_URL is required to seed the local database');
-  }
+// Provides what the host normally makes global, without authentication,
+// HTTP, or the outbox poller.
+@Global()
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    ClockModule,
+    PrismaModule,
+  ],
+  exports: [ClockModule],
+})
+class SeedInfrastructureModule {}
 
+@Module({ imports: [SeedInfrastructureModule, CurvesModule] })
+class SeedModule {}
+
+async function seedOffers(connectionString: string): Promise<void> {
   const pool = new Pool({ connectionString });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-
   try {
     await prisma.$transaction(async (tx) => {
       for (const offer of offers) {
@@ -34,29 +59,7 @@ async function main(): Promise<void> {
           await tx.investmentOffer.create({ data: offer });
         }
       }
-
-      for (const { value, ...curve } of curves) {
-        const existingCurve = await tx.indexCurve.findFirst({
-          where: { name: curve.name, index: curve.index },
-        });
-        const seededCurve = existingCurve
-          ? await tx.indexCurve.update({
-              where: { id: existingCurve.id },
-              data: curve,
-            })
-          : await tx.indexCurve.create({ data: curve });
-        await tx.indexCurveInterval.deleteMany({
-          where: { curveId: seededCurve.id },
-        });
-        await tx.indexCurveInterval.create({
-          data: { curveId: seededCurve.id, ...curveRange, value },
-        });
-      }
     });
-
-    console.log(
-      `Seeded Banco Local, ${offers.length} offers, and ${curves.length} index curves for 2024–2028.`,
-    );
   } finally {
     try {
       await prisma.$disconnect();
@@ -64,6 +67,61 @@ async function main(): Promise<void> {
       await pool.end();
     }
   }
+}
+
+// System curves go through the use case with the system actor, so they obey
+// the domain rules and raise their events. Existing ones are left untouched.
+async function seedCurves(): Promise<number> {
+  const app = await NestFactory.createApplicationContext(SeedModule, {
+    logger: ['error', 'warn'],
+  });
+  try {
+    const prisma = app.get(PrismaService);
+    const createCurve = app.get(CreateCurveUseCase);
+    let created = 0;
+    for (const curve of curves) {
+      const existing = await prisma.client.curve.findFirst({
+        where: {
+          ownerId: null,
+          index: curve.index,
+          name: curve.name,
+          deletedAt: null,
+        },
+      });
+      if (existing) continue;
+
+      const command = CreateCurveCommand.fromRequest(null, {
+        index: curve.index as EEconomicIndex,
+        name: curve.name,
+        description: curve.description,
+        intervals: [{ ...curveRange, value: curve.value }],
+      });
+      await prisma.$transaction((tx) =>
+        TransactionContext.run(tx, async () => {
+          const result = await createCurve.execute(command);
+          if (result.isErr()) throw result.error;
+        }),
+      );
+      created++;
+    }
+    return created;
+  } finally {
+    await app.close();
+  }
+}
+
+async function main(): Promise<void> {
+  config();
+  const connectionString = process.env['DATABASE_URL'];
+  if (!connectionString?.trim()) {
+    throw new Error('DATABASE_URL is required to seed the local database');
+  }
+
+  await seedOffers(connectionString);
+  const created = await seedCurves();
+  console.log(
+    `Seeded Banco Local, ${offers.length} offers, and ${created} of ${curves.length} system curves for 2024–2028.`,
+  );
 }
 
 main().catch((error: unknown) => {

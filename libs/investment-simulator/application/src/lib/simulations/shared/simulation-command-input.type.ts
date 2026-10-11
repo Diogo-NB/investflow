@@ -15,7 +15,7 @@ export interface SimulationTermsCommandInput {
 export interface InvestmentCommandInput {
   readonly principal: string;
   readonly investmentDate: string;
-  readonly indexCurveId?: string | null;
+  readonly curveId?: string | null;
 }
 
 export interface StartSimulationCommandInput {

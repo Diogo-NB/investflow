@@ -36,7 +36,7 @@ export class StartSimulationCommand {
       InvestmentInputs.create({
         principal: Money.of(investment.principal),
         investmentDate: CalendarDate.of(investment.investmentDate),
-        indexCurveId: investment.indexCurveId ?? null,
+        curveId: investment.curveId ?? null,
       }),
     );
   }

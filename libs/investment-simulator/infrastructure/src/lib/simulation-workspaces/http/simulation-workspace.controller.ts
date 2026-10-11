@@ -17,8 +17,8 @@ export class SimulationWorkspaceController {
 
   @Get('simulation-options')
   @SkipTransaction()
-  options() {
-    return this.getOptions.execute();
+  options(@CurrentUser() user: AuthenticatedUser) {
+    return this.getOptions.execute({ viewerId: user.userId });
   }
 
   @Get('simulation-workspaces/:simulationId')

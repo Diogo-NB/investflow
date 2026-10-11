@@ -12,8 +12,8 @@ import {
   Result,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { IndexCurveNotFoundError } from '../../index-curves/index-curve-not-found.error';
-import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
+import { CurveNotFoundError } from '../../curves/curve-not-found.error';
+import { CurveRepository } from '../../curves/curve.repository';
 import { OfferNotFoundError } from '../../offers/offer-not-found.error';
 import { OfferRepository } from '../../offers/offer.repository';
 import { SimulationCalculationRepository } from '../simulation-calculation.repository';
@@ -46,7 +46,7 @@ function setup() {
   const curves = {
     findById: jest.fn(),
     save: jest.fn(),
-  } as unknown as jest.Mocked<IndexCurveRepository>;
+  } as unknown as jest.Mocked<CurveRepository>;
   const clock = { now: () => NOW } as unknown as Clock;
   const useCase = new StartSimulationUseCase(
     simulations,
@@ -80,7 +80,7 @@ describe('StartSimulationCommand', () => {
         issuerName: undefined,
         remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
       }),
-      investment: investmentRequest({ indexCurveId: 'curve-id' }),
+      investment: investmentRequest({ curveId: 'curve-id' }),
     });
 
     expect(started.sourceOfferId).toBe('offer-id');
@@ -89,7 +89,7 @@ describe('StartSimulationCommand', () => {
     expect(started.terms.maturityDate.toIsoString()).toBe('2030-01-02');
     expect(started.terms.remuneration.kind).toBe('CDI_PERCENTAGE');
     expect(started.investment.principal.equals(Money.of('1000'))).toBe(true);
-    expect(started.investment.indexCurveId).toBe('curve-id');
+    expect(started.investment.curveId).toBe('curve-id');
   });
 });
 
@@ -138,14 +138,14 @@ describe('StartSimulationUseCase', () => {
           maturityDate: '2026-02-02',
           remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1' },
         }),
-        investment: investmentRequest({ indexCurveId: curve.id }),
+        investment: investmentRequest({ curveId: curve.id }),
       }),
     );
 
     expect(curves.findById).toHaveBeenCalledWith(curve.id);
     expect(
       (calculations.save.mock.calls[0][0] as SimulationCalculation).investment
-        .indexCurveId,
+        .curveId,
     ).toBe(curve.id);
   });
 
@@ -194,9 +194,17 @@ describe('StartSimulationUseCase', () => {
       'curve',
       (deps: ReturnType<typeof setup>) =>
         deps.curves.findById.mockResolvedValue(
-          Result.err(new IndexCurveNotFoundError('curve-id')),
+          Result.err(new CurveNotFoundError('curve-id')),
         ),
-      EAppErrorCode.INDEX_CURVE_NOT_FOUND,
+      EAppErrorCode.CURVE_NOT_FOUND,
+    ],
+    [
+      "another user's curve",
+      (deps: ReturnType<typeof setup>) =>
+        deps.curves.findById.mockResolvedValue(
+          Result.ok(cdiCurve('another-owner')),
+        ),
+      EAppErrorCode.CURVE_NOT_FOUND,
     ],
   ])('stops when the %s is missing', async (_, arrange, code) => {
     const deps = setup();
@@ -208,7 +216,7 @@ describe('StartSimulationUseCase', () => {
         terms: termsRequest({
           remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1' },
         }),
-        investment: investmentRequest({ indexCurveId: 'curve-id' }),
+        investment: investmentRequest({ curveId: 'curve-id' }),
       }),
     );
 

@@ -2,8 +2,8 @@
 import {
   EEconomicIndex,
   ETitleType,
-  IndexCurve,
-  IndexCurveInterval,
+  CurveInterval,
+  Curve,
   IndexValue,
   InvestmentTerms,
   Offer,
@@ -16,6 +16,7 @@ import {
   CalendarDate,
   CalendarDateRange,
   Rate,
+  UtcInstant,
 } from '@investflow/shared-domain';
 import {
   InvestmentCommandInput,
@@ -34,20 +35,24 @@ export function catalogOffer() {
   });
 }
 
-export function cdiCurve() {
-  return IndexCurve.create({
-    name: 'Base',
-    index: EEconomicIndex.CDI,
-    intervals: [
-      IndexCurveInterval.create(
-        CalendarDateRange.of(
-          CalendarDate.of('2026-01-01'),
-          CalendarDate.of('2030-01-01'),
+export function cdiCurve(ownerId: string | null = null) {
+  return Curve.create(
+    {
+      ownerId,
+      name: 'CDI',
+      index: EEconomicIndex.CDI,
+      intervals: [
+        CurveInterval.create(
+          CalendarDateRange.of(
+            CalendarDate.of('2026-01-01'),
+            CalendarDate.of('2030-01-01'),
+          ),
+          IndexValue.of('0.12'),
         ),
-        IndexValue.of('0.12'),
-      ),
-    ],
-  }).value;
+      ],
+    },
+    UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+  ).value;
 }
 
 export function ownedSimulation(kind: RemunerationKind = 'PREFIXED') {

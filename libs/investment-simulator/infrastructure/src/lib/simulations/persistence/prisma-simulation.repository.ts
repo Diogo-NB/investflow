@@ -25,7 +25,9 @@ export class PrismaSimulationRepository
   async findById(
     id: string,
     ownerId: string,
-  ): Promise<Result<Simulation, SimulationNotFoundError | RepositoryFindError>> {
+  ): Promise<
+    Result<Simulation, SimulationNotFoundError | RepositoryFindError>
+  > {
     const simulationResult = await Result.fromPromise(
       async () => {
         const record = await this.prisma.client.simulation.findUnique({

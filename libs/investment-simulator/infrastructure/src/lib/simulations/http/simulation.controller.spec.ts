@@ -52,7 +52,7 @@ function createFixture() {
 const INVESTMENT = {
   principal: '1000.50',
   investmentDate: '2026-01-02',
-  indexCurveId: '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e',
+  curveId: '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e',
 };
 
 function startRequest() {
@@ -109,7 +109,7 @@ describe('SimulationController', () => {
     expect(started.investment.principal.amount.toString()).toBe('1000.5');
     const calculated = fixture.calculate.execute.mock.calls[0][0];
     expect(calculated.simulationId).toBe(SIMULATION_ID);
-    expect(calculated.investment.indexCurveId).toBe(INVESTMENT.indexCurveId);
+    expect(calculated.investment.curveId).toBe(INVESTMENT.curveId);
     const deleted = fixture.remove.execute.mock.calls[0][0];
     expect(deleted).toMatchObject({
       ownerId: USER.userId,

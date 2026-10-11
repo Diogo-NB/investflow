@@ -4,7 +4,7 @@ export interface InvestmentInputsProps {
   readonly principal: Money;
   readonly investmentDate: CalendarDate;
   // The market assumption for indexed remuneration; null for fixed rates.
-  readonly indexCurveId: string | null;
+  readonly curveId: string | null;
 }
 
 export class InvestmentInputs extends ValueObject<InvestmentInputs> {
@@ -24,15 +24,15 @@ export class InvestmentInputs extends ValueObject<InvestmentInputs> {
     return this.props.investmentDate;
   }
 
-  get indexCurveId(): string | null {
-    return this.props.indexCurveId;
+  get curveId(): string | null {
+    return this.props.curveId;
   }
 
   equals(other: InvestmentInputs): boolean {
     return (
       this.principal.equals(other.principal) &&
       this.investmentDate.equals(other.investmentDate) &&
-      this.indexCurveId === other.indexCurveId
+      this.curveId === other.curveId
     );
   }
 }

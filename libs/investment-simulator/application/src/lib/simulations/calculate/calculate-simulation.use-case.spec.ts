@@ -10,7 +10,7 @@ import {
   Result,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
+import { CurveRepository } from '../../curves/curve.repository';
 import { SimulationCalculationRepository } from '../simulation-calculation.repository';
 import { SimulationNotFoundError } from '../simulation-not-found.error';
 import { SimulationRepository } from '../simulation.repository';
@@ -37,7 +37,7 @@ function setup(simulation = ownedSimulation()) {
   const curves = {
     findById: jest.fn(),
     save: jest.fn(),
-  } as unknown as jest.Mocked<IndexCurveRepository>;
+  } as unknown as jest.Mocked<CurveRepository>;
   const clock = { now: () => NOW } as unknown as Clock;
   const useCase = new CalculateSimulationUseCase(
     simulations,
@@ -90,10 +90,25 @@ describe('CalculateSimulationUseCase', () => {
     const curve = cdiCurve();
     curves.findById.mockResolvedValue(Result.ok(curve));
 
-    await useCase.execute(command(OWNER_ID, { indexCurveId: curve.id }));
+    await useCase.execute(command(OWNER_ID, { curveId: curve.id }));
 
     expect(curves.findById).toHaveBeenCalledWith(curve.id);
     expect(calculations.save).toHaveBeenCalled();
+  });
+
+  it("treats another user's curve as missing", async () => {
+    const { curves, calculations, useCase } = setup(
+      ownedSimulation('CDI_PERCENTAGE'),
+    );
+    const curve = cdiCurve('another-owner');
+    curves.findById.mockResolvedValue(Result.ok(curve));
+
+    const result = await useCase.execute(
+      command(OWNER_ID, { curveId: curve.id }),
+    );
+
+    expect(result.error.code).toBe(EAppErrorCode.CURVE_NOT_FOUND);
+    expect(calculations.save).not.toHaveBeenCalled();
   });
 
   it('saves nothing when the calculation is rejected', async () => {

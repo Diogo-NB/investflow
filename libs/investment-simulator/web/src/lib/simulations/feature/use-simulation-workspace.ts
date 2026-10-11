@@ -31,11 +31,11 @@ export interface CalculationProblem {
 
 // The API explains the failure; the form only needs to know where to point.
 const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
-  INVESTMENT_CURVE_REQUIRED: 'indexCurveId',
-  INVESTMENT_CURVE_INCOMPATIBLE: 'indexCurveId',
-  INVESTMENT_CURVE_UNAVAILABLE: 'indexCurveId',
-  INVESTMENT_CURVE_COVERAGE_MISSING: 'indexCurveId',
-  INDEX_CURVE_NOT_FOUND: 'indexCurveId',
+  INVESTMENT_CURVE_REQUIRED: 'curveId',
+  INVESTMENT_CURVE_INCOMPATIBLE: 'curveId',
+  INVESTMENT_CURVE_UNAVAILABLE: 'curveId',
+  INVESTMENT_CURVE_COVERAGE_MISSING: 'curveId',
+  CURVE_NOT_FOUND: 'curveId',
   INVESTMENT_PERIOD_INVALID: 'maturityDate',
   INVESTMENT_PRINCIPAL_INVALID: 'principal',
   INVESTMENT_REMUNERATION_UNSUPPORTED: 'remunerationKind',

@@ -1,5 +1,5 @@
 import { Rate } from '@investflow/shared-domain';
-import { EEconomicIndex } from '../../../index-curves/economic-index.enum';
+import { EEconomicIndex } from '../../../curves/economic-index.enum';
 import {
   IndexPercentageRemuneration,
   IpcaPlusRemuneration,

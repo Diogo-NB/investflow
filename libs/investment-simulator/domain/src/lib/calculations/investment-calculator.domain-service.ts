@@ -127,7 +127,7 @@ export class InvestmentCalculator {
       case 'CDI_PERCENTAGE':
       case 'SELIC_PERCENTAGE':
         return scenario
-          .requireIndexCurve()
+          .requireCurve()
           .valuesAt(periods.map((period) => period.rateReferenceDate))
           .map((values) =>
             periods.map((period, index) => ({

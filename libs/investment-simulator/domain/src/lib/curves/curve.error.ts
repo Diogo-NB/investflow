@@ -1,23 +1,46 @@
 import {
   AppErrorMetadata,
   CalendarDate,
+  ConflictError,
   DomainError,
   EAppErrorCode,
 } from '@investflow/shared-domain';
 
-export class InvalidIndexCurveError extends DomainError {
+export class InvalidCurveError extends DomainError {
   constructor(reason: string, metadata?: AppErrorMetadata) {
-    super(reason, {
-      code: EAppErrorCode.INVALID_INDEX_CURVE,
-      metadata,
-    });
+    super(reason, { code: EAppErrorCode.INVALID_CURVE, metadata });
   }
 }
 
-export class IndexCurveValueNotFoundError extends DomainError {
+export class CurveRevisionConflictError extends ConflictError {
+  constructor(id: string, expectedRevision: number) {
+    super(
+      'Estes dados foram alterados em outro lugar. Recarregue e tente novamente.',
+      {
+        code: EAppErrorCode.CURVE_REVISION_CONFLICT,
+        metadata: { id, expectedRevision },
+      },
+    );
+  }
+}
+
+export class CurveReadOnlyError extends DomainError {
+  constructor(id: string) {
+    super(
+      'Curvas do sistema não podem ser alteradas. Duplique a curva para editá-la.',
+      {
+        code: EAppErrorCode.CURVE_READ_ONLY,
+        kind: 'forbidden',
+        metadata: { id },
+      },
+    );
+  }
+}
+
+export class CurveValueNotFoundError extends DomainError {
   constructor(curveId: string, reference: CalendarDate) {
     super('A curva não tem valor para a data solicitada.', {
-      code: EAppErrorCode.INDEX_CURVE_VALUE_NOT_FOUND,
+      code: EAppErrorCode.CURVE_VALUE_NOT_FOUND,
       metadata: { curveId, reference: reference.toIsoString() },
     });
   }
@@ -41,10 +64,10 @@ function coverageMessage(missing: readonly MissingCoverageRange[]): string {
   return `${gap}${more}.`;
 }
 
-export class IndexCurveCoverageError extends DomainError {
+export class CurveCoverageError extends DomainError {
   constructor(curveId: string, missing: readonly MissingCoverageRange[]) {
     super(coverageMessage(missing), {
-      code: EAppErrorCode.INDEX_CURVE_COVERAGE_MISSING,
+      code: EAppErrorCode.CURVE_COVERAGE_MISSING,
       metadata: {
         curveId,
         missingRanges: missing.map(({ start, end }) => ({

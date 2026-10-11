@@ -4,7 +4,6 @@ import {
   CreateOfferUseCase,
   DeleteOfferUseCase,
   DeleteSimulationUseCase,
-  IndexCurveRepository,
   OfferRepository,
   SimulationCalculationRepository,
   SimulationRepository,
@@ -29,11 +28,12 @@ import { GetSimulationWorkspaceQueryHandler } from './simulation-workspaces/quer
 import { InvestmentSimulatorController } from './investment-simulator.controller';
 import { OfferController } from './offers/http/offer.controller';
 import { PrismaOfferRepository } from './offers/persistence/prisma-offer.repository';
-import { PrismaIndexCurveRepository } from './index-curves/persistence/prisma-index-curve.repository';
+import { CurvesModule } from './curves/curves.module';
 import { ListOffersQueryHandler } from './offers/queries/list-offers.query-handler';
 import { GetOfferQueryHandler } from './offers/queries/get-offer.query-handler';
 
 @Module({
+  imports: [CurvesModule],
   controllers: [
     InvestmentSimulatorController,
     OfferController,
@@ -42,7 +42,6 @@ import { GetOfferQueryHandler } from './offers/queries/get-offer.query-handler';
     BusinessCalendarController,
   ],
   providers: [
-    { provide: IndexCurveRepository, useClass: PrismaIndexCurveRepository },
     { provide: OfferRepository, useClass: PrismaOfferRepository },
     CreateOfferUseCase,
     UpdateOfferUseCase,

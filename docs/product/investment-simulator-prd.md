@@ -45,7 +45,7 @@ atualizarem quando as premissas mudam.
 Ofertas, curvas e simulações são deliberadamente editáveis, e as simulações
 reagem às mudanças das ofertas e curvas que usam:
 
-- Editar uma condição de oferta ou um cenário de curva recalcula todas as
+- Editar uma condição de oferta ou uma curva recalcula todas as
   simulações que usam o item editado. Não há cópia congelada das premissas.
 - O recálculo é assíncrono. Uma simulação pode estar aguardando cálculo,
   calculando, atualizada, impedida por uma regra de negócio ou com falha
@@ -57,13 +57,14 @@ reagem às mudanças das ofertas e curvas que usam:
   resultado atual; não há histórico de cálculos.
 - A interface deixa claro, antes de salvar ou excluir, que a mudança afeta as
   simulações que usam o item, e quantas são.
-- Quem quiser preservar uma condição ou um cenário antes de alterá-lo usa
+- Quem quiser preservar uma condição ou uma curva antes de alterá-la usa
   "Duplicar" e edita a cópia.
 
-Cada condição de oferta e cada cenário de curva tem um número de revisão,
+Cada condição de oferta e cada curva tem um número de revisão,
 incrementado a cada alteração salva. A revisão identifica quais premissas um
 resultado usou e revela quando ele ficou desatualizado. Cada alteração também
-gera um evento com a revisão e o que mudou, base da auditoria.
+gera um evento que identifica o item alterado e leva ao recálculo das
+simulações afetadas.
 
 ## Escopo do MVP
 
@@ -98,16 +99,20 @@ Comportamento:
 
 ### Curvas
 
-Uma curva reúne um grupo e seus cenários:
+Uma curva tem índice (CDI, SELIC efetiva ou IPCA), que determina a convenção
+dos valores, nome, descrição opcional e intervalos com valores. O índice não
+muda depois da criação. Alternativas do mesmo índice, como "CDI base" e "CDI
+otimista", são curvas distintas, cada uma independente e editável por seu
+dono.
 
-- **Curva** (grupo): índice (CDI, SELIC efetiva ou IPCA), que determina a
-  convenção dos valores, e nome. O índice não muda depois da criação.
-- **Cenário**: nome, descrição opcional e intervalos com valores, como "Base",
-  "Otimista" ou "Pessimista". Cada cenário é independente e editável por seu
-  dono.
+- Criar, consultar, editar e excluir curvas privadas.
+- "Duplicar" uma curva, inclusive do sistema, cria uma curva privada do
+  usuário com o mesmo conteúdo, para ser editada sem afetar a original.
+- Excluir uma curva não afeta suas cópias.
+- A interface apresenta as curvas agrupadas por índice e por origem (do
+  sistema ou minhas). O agrupamento é apenas apresentação.
 
-Grupos privados, duplicação, visibilidade e exclusão seguem as mesmas regras
-das ofertas. Valores de usuários são informados manualmente; curvas do sistema
+Valores de usuários são informados manualmente; curvas do sistema
 vêm da carga inicial e, futuramente, de processos de importação. A falta de
 cobertura necessária impede o cálculo. As regras dos intervalos estão na
 documentação de curvas.
@@ -132,8 +137,8 @@ documentação de curvas.
 Uma simulação sempre usa uma condição de oferta. Ela é composta por:
 
 - a condição de oferta escolhida;
-- o cenário de curva, quando a remuneração é indexada; ele deve ser do mesmo
-  índice da remuneração;
+- a curva, quando a remuneração é indexada; ela deve ser do mesmo índice da
+  remuneração;
 - o valor inicial;
 - a data de aplicação.
 
@@ -162,13 +167,13 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   cálculo; o resultado chega de forma assíncrona.
 - A validação imediata cobre o que depende apenas das entradas e das
   referências escolhidas: valor inicial positivo, dias úteis, prazo mínimo,
-  compatibilidade entre remuneração e índice, e condição e cenário existentes
-  e visíveis para o usuário.
-- Alterar ou excluir uma condição ou um cenário, ou mudar a versão da
+  compatibilidade entre remuneração e índice, e condição e curva existentes e
+  visíveis para o usuário.
+- Alterar ou excluir uma condição ou uma curva, ou mudar a versão da
   metodologia de um título, agenda o recálculo de todas as simulações
   afetadas.
 - Cada simulação tem um único resultado atual: o investimento usado, a versão
-  da metodologia, as revisões da condição e do cenário usados, o instante do
+  da metodologia, as revisões da condição e da curva usadas, o instante do
   cálculo, o resumo no vencimento, a apuração dos tributos (prazo em dias
   corridos, base, alíquota e valor do IOF ou isenção, base, alíquota e valor do
   IR) e a trajetória diária bruta. Um novo cálculo bem sucedido substitui o
@@ -183,12 +188,12 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   | Requer ação        | Uma regra de negócio impede o cálculo; o motivo é exibido.                    | Usuário                                    |
   | Falha técnica      | O cálculo falhou por erro do sistema depois das novas tentativas automáticas. | Sistema; usuário pode pedir nova tentativa |
 
-- "Requer ação" exibe o motivo: falta de cobertura do cenário (com os
-  períodos descobertos), cenário excluído ("Sem curva, escolha outra"),
+- "Requer ação" exibe o motivo: falta de cobertura da curva (com os
+  períodos descobertos), curva excluída ("Sem curva, escolha outra"),
   condição excluída ("Sem oferta, escolha outra"), data que não é dia útil,
   prazo mínimo não atendido ou índice incompatível. Exceto a falta de cobertura,
   esses motivos também rejeitam a solicitação ao salvar; aparecem aqui quando
-  uma condição ou um cenário muda ou é excluído depois de a simulação ter sido
+  uma condição ou uma curva muda ou é excluída depois de a simulação ter sido
   salva. "Requer ação" vale para
   as entradas atuais: quando o usuário ou o dono da premissa a corrige, a
   simulação volta a aguardar cálculo.
@@ -421,9 +426,9 @@ validada antes da implementação.
   cada simulação.
 - Recalcular de forma assíncrona e confiável: toda alteração aceita leva ao
   recálculo das simulações afetadas, mesmo após falhas temporárias.
-- Gerar um evento com a revisão e a alteração realizada a cada criação,
-  edição ou exclusão de ofertas, condições, curvas e cenários. A consulta de
-  auditoria a partir desses eventos fica adiada.
+- Gerar um evento a cada criação, edição ou exclusão de ofertas, condições e
+  curvas. O registro e a consulta da auditoria dessas alterações
+  (revisão e o que mudou) ficam adiados.
 - Autenticar por token.
 - Interface em português, responsiva e acessível.
 - Permitir futura internacionalização.
@@ -475,4 +480,4 @@ validada antes da implementação.
 - Definir a rentabilidade mensal, anualizada e total da simulação (bruta ou
   líquida e a forma de anualização) e o prazo restante.
 - Definir comportamento após vencimento e eventual resgate.
-- Definir a interface de cadastro dos intervalos de um cenário.
+- Definir a interface de cadastro dos intervalos de uma curva.
