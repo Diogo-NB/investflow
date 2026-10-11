@@ -10,6 +10,7 @@ import {
 import type {
   RedemptionKind,
   RemunerationKind,
+  TitleType,
 } from '../../offers/models/offer-terms';
 import type {
   CurveOption,
@@ -30,6 +31,7 @@ export interface SimulationFormValues {
   offerId: string;
   principal: string;
   investmentDate: string;
+  titleType: TitleType;
   // Empty when the terms have no issuer.
   issuerId: string;
   remunerationKind: RemunerationKind;
@@ -88,6 +90,7 @@ export function simulationFormSchema(
         return decimal === null || fitsDecimalStorage(decimal);
       }, 'Valor grande demais.'),
       investmentDate: requiredDate,
+      titleType: z.enum(['CDB', 'LCI', 'LCA']),
       issuerId: z.string(),
       remunerationKind: z.enum([
         'PREFIXED',
@@ -149,6 +152,7 @@ export function toSimulationInput(
   return {
     ...(values.offerId ? { offerId: values.offerId } : {}),
     terms: {
+      titleType: values.titleType,
       issuerId: values.issuerId || null,
       maturityDate: values.maturityDate,
       redemptionTerms: { kind: values.redemptionKind },
@@ -182,6 +186,7 @@ export function blankSimulationValues(
     offerId: '',
     principal: '',
     investmentDate: today,
+    titleType: 'CDB',
     issuerId: '',
     remunerationKind: 'CDI_PERCENTAGE',
     rate: '',
@@ -199,6 +204,7 @@ export function simulationValues(
     offerId: '',
     principal: toBrazilianInput(investment.principal),
     investmentDate: investment.investmentDate,
+    titleType: terms.titleType,
     issuerId: terms.issuer?.id ?? '',
     remunerationKind: terms.remunerationTerms.kind,
     rate: toBrazilianInput(shiftDecimal(terms.remunerationTerms.rate, 2)),
@@ -215,6 +221,7 @@ export function offerTermValues(
   remunerations: readonly RemunerationOption[],
 ): Pick<
   SimulationFormValues,
+  | 'titleType'
   | 'issuerId'
   | 'remunerationKind'
   | 'rate'
@@ -227,6 +234,7 @@ export function offerTermValues(
     remunerationOption(remunerations, kind)?.curves ?? []
   ).some((curve) => curve.id === current.indexCurveId);
   return {
+    titleType: offer.titleType,
     issuerId: offer.issuer?.id ?? '',
     remunerationKind: kind,
     rate: toBrazilianInput(shiftDecimal(offer.remunerationTerms.rate, 2)),
@@ -244,6 +252,7 @@ export function differsFromOffer(
 ): boolean {
   const rate = parseBrazilianDecimal(values.rate);
   return (
+    values.titleType !== offer.titleType ||
     values.issuerId !== (offer.issuer?.id ?? '') ||
     values.remunerationKind !== offer.remunerationTerms.kind ||
     rate === null ||

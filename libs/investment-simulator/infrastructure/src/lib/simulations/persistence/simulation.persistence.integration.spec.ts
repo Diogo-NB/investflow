@@ -93,7 +93,10 @@ integration('Simulation PostgreSQL persistence', () => {
   });
 
   // A saved simulation of a CDI CDB over about one year of business days.
-  async function savedSimulation(simulationOwner = ownerId) {
+  async function savedSimulation(
+    simulationOwner = ownerId,
+    titleType = ETitleType.CDB,
+  ) {
     const curve = IndexCurve.create({
       name: 'Integration simulation CDI',
       index: EEconomicIndex.CDI,
@@ -119,7 +122,7 @@ integration('Simulation PostgreSQL persistence', () => {
       ),
     });
     const terms = InvestmentTerms.create({
-      titleType: ETitleType.CDB,
+      titleType,
       issuerId,
       maturityDate: CalendarDate.of('2027-01-04'),
       redemption: RedemptionTerms.create('AT_MATURITY'),
@@ -179,9 +182,9 @@ integration('Simulation PostgreSQL persistence', () => {
 
     simulation.delete(UtcInstant.ofIso('2026-10-13T00:00:00Z'));
     expect((await simulations.save(simulation)).isOk()).toBe(true);
-    expect((await simulations.findById(simulation.id, ownerId)).error.code).toBe(
-      EAppErrorCode.SIMULATION_NOT_FOUND,
-    );
+    expect(
+      (await simulations.findById(simulation.id, ownerId)).error.code,
+    ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
   });
 
   it('stores a full year of daily balances and restores them exactly', async () => {
@@ -220,6 +223,21 @@ integration('Simulation PostgreSQL persistence', () => {
         original.accumulatedGrossEarnings.amount.toFixed(),
       );
     });
+  });
+
+  it('stores an LCI income tax exemption as a null rate', async () => {
+    const calculation = record(await savedSimulation(ownerId, ETitleType.LCI));
+    expect(calculation.result.taxes.incomeTax.rate).toBeNull();
+
+    expect((await calculations.save(calculation)).isOk()).toBe(true);
+    const loaded = (await calculations.findById(calculation.id)).value;
+
+    expect(loaded.result.methodologyVersion).toBe('lci-252-v1');
+    expect(loaded.result.taxes.incomeTax.rate).toBeNull();
+    expect(loaded.result.taxes.incomeTax.amount.isZero()).toBe(true);
+    expect(loaded.result.maturitySummary.netBalance.amount.toFixed()).toBe(
+      calculation.result.maturitySummary.grossBalance.amount.toFixed(),
+    );
   });
 
   it('is append-only: saving a recorded calculation again fails without duplicating balances', async () => {

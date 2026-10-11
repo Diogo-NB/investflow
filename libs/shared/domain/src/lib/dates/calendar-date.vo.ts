@@ -143,6 +143,25 @@ export class CalendarDate extends ValueObject<CalendarDate> {
     return result.value;
   }
 
+  // Keeps the day of month, clamped to the target month's last day.
+  addMonths(months: number): CalendarDate {
+    if (!Number.isInteger(months)) {
+      throw new InvalidCalendarDateError(
+        'O deslocamento de meses deve ser um número inteiro.',
+      );
+    }
+
+    const monthIndex = this.year * 12 + this.month - 1 + months;
+    const year = Math.floor(monthIndex / 12);
+    const month = (monthIndex % 12) + 1;
+    const firstOfMonth = CalendarDate.of(
+      `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-01`,
+    );
+    return firstOfMonth.addDays(
+      Math.min(this.day, firstOfMonth.daysInMonth) - 1,
+    );
+  }
+
   daysUntil(other: CalendarDate): number {
     return other.epochDay - this.epochDay;
   }

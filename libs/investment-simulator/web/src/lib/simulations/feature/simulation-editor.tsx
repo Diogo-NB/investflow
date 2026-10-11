@@ -52,7 +52,7 @@ function SimulationHeading({
           Nova simulação
         </h1>
         <p className="mt-2 mb-0 text-muted">
-          Informe quanto e quando investir e os termos do CDB.
+          Informe quanto e quando investir e os termos do título.
         </p>
       </div>
     );

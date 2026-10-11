@@ -1,4 +1,5 @@
 import {
+  ETitleType,
   InvestmentCalculator,
   Simulation,
   SimulationCalculation,
@@ -67,7 +68,9 @@ function setup() {
 }
 
 function command(
-  overrides: Partial<Parameters<typeof StartSimulationCommand.fromRequest>[1]> = {},
+  overrides: Partial<
+    Parameters<typeof StartSimulationCommand.fromRequest>[1]
+  > = {},
 ) {
   return StartSimulationCommand.fromRequest(OWNER_ID, {
     terms: termsRequest(),
@@ -77,10 +80,11 @@ function command(
 }
 
 describe('StartSimulationCommand', () => {
-  it('converts the request into CDB terms and an investment', () => {
+  it('converts the request into terms and an investment', () => {
     const started = StartSimulationCommand.fromRequest(OWNER_ID, {
       offerId: 'offer-id',
       terms: termsRequest({
+        titleType: ETitleType.LCI,
         issuerId: undefined,
         remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
       }),
@@ -88,7 +92,7 @@ describe('StartSimulationCommand', () => {
     });
 
     expect(started.sourceOfferId).toBe('offer-id');
-    expect(started.terms.titleType).toBe('CDB');
+    expect(started.terms.titleType).toBe(ETitleType.LCI);
     expect(started.terms.issuerId).toBeNull();
     expect(started.terms.maturityDate.toIsoString()).toBe('2030-01-02');
     expect(started.terms.remuneration.kind).toBe('CDI_PERCENTAGE');
@@ -158,7 +162,9 @@ describe('StartSimulationUseCase', () => {
     const { simulations, calculations, useCase } = setup();
 
     const result = await useCase.execute(
-      command({ investment: investmentRequest({ investmentDate: '2026-01-03' }) }),
+      command({
+        investment: investmentRequest({ investmentDate: '2026-01-03' }),
+      }),
     );
 
     expect(result.error.code).toBe(
@@ -166,6 +172,22 @@ describe('StartSimulationUseCase', () => {
     );
     expect(simulations.save).not.toHaveBeenCalled();
     expect(calculations.save).not.toHaveBeenCalled();
+  });
+
+  it('saves nothing when an LCA term is shorter than its minimum', async () => {
+    const { simulations, useCase } = setup();
+
+    const result = await useCase.execute(
+      command({
+        terms: termsRequest({
+          titleType: ETitleType.LCA,
+          maturityDate: '2026-06-01',
+        }),
+      }),
+    );
+
+    expect(result.error.code).toBe(EAppErrorCode.INVESTMENT_TERM_TOO_SHORT);
+    expect(simulations.save).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -9,7 +9,8 @@ estão detalhados em [Curvas de Valores dos Índices](./index-value-curves.md).
 ## Visão
 
 Simulador educacional para planejar e comparar investimentos brasileiros de
-renda fixa. O MVP cobre CDBs e permite persistir portfólios e simulações.
+renda fixa. O MVP cobre CDB, LCI e LCA e permite persistir portfólios e
+simulações.
 
 O produto não executa transações financeiras reais.
 
@@ -32,10 +33,10 @@ permitem persistir portfólios, comparar cenários ou reproduzir simulações.
 
 - Criar, consultar, renomear e excluir múltiplos portfólios.
 - Nome e descrição identificam um portfólio.
-- Um portfólio agrupa múltiplas simulações de CDB.
+- Um portfólio agrupa múltiplas simulações de títulos bancários.
 - Comparar portfólios por valores agregados e rentabilidade média.
 
-### Simulações de CDB
+### Simulações de Títulos Bancários
 
 - Criar, consultar, editar e excluir simulações.
 - Comparar duas ou mais simulações lado a lado.
@@ -46,6 +47,7 @@ Dados de entrada:
 
 - valor inicial;
 - data de aplicação;
+- título: CDB, LCI ou LCA;
 - data de vencimento ou prazo;
 - tipo: prefixado, pós-fixado por CDI ou SELIC efetiva, ou híbrido por IPCA;
 - taxa fixa, percentual do CDI ou SELIC e/ou IPCA, conforme o tipo;
@@ -63,12 +65,12 @@ os dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparece
 somente no resumo do vencimento. A funcionalidade geral de resgate antecipado
 descrita neste PRD permanece fora desse recorte.
 
-O calculador inicial suporta CDB prefixado, percentual do CDI e percentual da
-SELIC efetiva. IPCA permanece previsto no produto, mas seu cálculo fica adiado
-até a definição do perfil contratual.
+O calculador inicial suporta CDB, LCI e LCA prefixados, por percentual do CDI
+ou por percentual da SELIC efetiva. IPCA permanece previsto no produto, mas seu
+cálculo fica adiado até a definição do perfil contratual.
 
-Uma simulação representa um CDB: seus termos (emissor, remuneração e taxa,
-vencimento e liquidez) são definidos ao criá-la e não mudam depois. Os termos
+Uma simulação representa um título: seus termos (título, emissor, remuneração e
+taxa, vencimento e liquidez) são definidos ao criá-la e não mudam depois. Os termos
 podem ser digitados livremente ou preenchidos a partir de uma oferta do
 catálogo e então ajustados antes do primeiro cálculo. A simulação guarda uma
 cópia dos termos; termos digitados não criam ofertas no catálogo, e alterar ou
@@ -106,8 +108,9 @@ lado com a original.
   novamente.
 - Um cálculo é apresentado como desatualizado quando a metodologia vigente
   difere da registrada.
-- A versão da metodologia muda sempre que fórmulas, convenções ou o calendário
-  alterarem os valores calculados.
+- Cada título tem sua própria versão da metodologia (`cdb-252-v1`,
+  `lci-252-v1`, `lca-252-v1`), que muda sempre que fórmulas, convenções,
+  tributação ou o calendário alterarem os valores calculados daquele título.
 - Cálculos de simulações excluídas deixam de ser consultáveis.
 
 ### Resultados
@@ -155,6 +158,22 @@ PDF/CSV ficam fora do escopo.
   houver.
 - O montante líquido corresponde ao montante bruto menos IR e IOF.
 
+### LCI e LCA
+
+- Rendem com as mesmas fórmulas e convenções do CDB.
+- São isentas de IR para pessoa física
+  ([art. 3º, II, da Lei nº 11.033/2004](https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11.033.htm)).
+  O IOF segue a mesma tabela, mas o prazo mínimo o torna sempre zero.
+- O vencimento deve ser de ao menos 9 meses após a aplicação, prazo mínimo do
+  CMN para LCI e LCA não atualizadas por índice de preços. A regra vigente é
+  aplicada a qualquer data de aplicação, sem reproduzir os prazos anteriores
+  (90 dias até fevereiro de 2024; 12 meses para LCI entre fevereiro e agosto de
+  2024). Títulos indexados ao IPCA, com prazos maiores, ficam para quando o IPCA
+  for calculável.
+- Somando um mês civil, o dia é mantido ou limitado ao último dia do mês:
+  aplicação em 31/05 exige vencimento a partir de 28/02 (29/02 em ano
+  bissexto).
+
 ### Calendário de Dias Úteis
 
 - Um dia útil exclui sábados, domingos e os feriados nacionais usados pelo
@@ -170,7 +189,7 @@ PDF/CSV ficam fora do escopo.
 - Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
   extraordinárias de calendário ficam fora do MVP.
 
-### CDB Prefixado
+### Prefixado
 
 Usar juros compostos:
 
@@ -180,7 +199,7 @@ montante_bruto = valor_inicial * (1 + taxa_do_periodo) ^ periodos
 
 Converter a taxa anual para a periodicidade usada no cálculo.
 
-### CDB Pós-Fixado por CDI
+### Pós-Fixado por CDI
 
 Converter o CDI anual para a taxa diária equivalente e então aplicar o
 percentual contratado sobre essa taxa diária:
@@ -199,7 +218,7 @@ incluem a aplicação e excluem o vencimento.
 
 Referência: [metodologia de cálculo acumulado do DI — B3](https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-de-segmentos-e-setoriais/di/metodologia-de-calcudo-acumulado-de-di/).
 
-### CDB Pós-Fixado por SELIC Efetiva
+### Pós-Fixado por SELIC Efetiva
 
 Usar a curva de SELIC efetiva em taxa anual base 252, convertendo a taxa anual
 para a equivalente diária antes de aplicar o percentual contratado:
@@ -213,7 +232,7 @@ saldo_bruto = saldo_bruto_anterior * fator_diario_aplicacao
 Usar a mesma convenção de datas do CDI. A remuneração exige uma curva de SELIC;
 uma curva de CDI não pode substituí-la. Não há conversão implícita da meta SELIC.
 
-### CDB Híbrido
+### Híbrido por IPCA
 
 Compor multiplicativamente o fator de atualização pelo IPCA e o fator da
 parcela fixa. O perfil contratual de atualização, incluindo aniversário,
@@ -222,8 +241,8 @@ mercado e suas implicações estão na documentação de curvas.
 
 ### Imposto de Renda
 
-Aplicar automaticamente a alíquota regressiva conforme o prazo efetivo em dias
-corridos:
+Para CDB, aplicar automaticamente a alíquota regressiva conforme o prazo
+efetivo em dias corridos (LCI e LCA são isentas):
 
 | Prazo efetivo     | Alíquota |
 | ----------------- | -------: |
@@ -316,14 +335,14 @@ validada antes da implementação.
 - rentabilidade real ajustada pela inflação;
 - análise de risco ou rating de emissores;
 - alertas sobre limite do FGC;
-- outros títulos além de CDB;
+- outros títulos além de CDB, LCI e LCA;
 - multi-moeda.
 
 ## Evolução Futura
 
 - Importar índices de fontes como Banco Central, ANBIMA ou BrasilAPI.
 - Armazenar histórico de índices para simulações retrospectivas.
-- Suportar Tesouro Direto, LCI/LCA, debêntures, CRI e CRA.
+- Suportar Tesouro Direto, debêntures, CRI e CRA.
 - Comparar rendimento líquido entre diferentes tipos de título.
 - Exibir rentabilidade real descontada pelo IPCA.
 - Simular aportes regulares, reinvestimentos e taxas variáveis.
@@ -333,14 +352,15 @@ validada antes da implementação.
 ## Regras Futuras Relevantes
 
 - FGC cobre determinados títulos em até R$ 250.000 por CPF e instituição.
-- LCI/LCA são isentas de IR para pessoa física e cobertas pelo FGC.
+- LCI/LCA são cobertas pelo FGC.
 - Tesouro Direto não é coberto pelo FGC.
 - Debêntures e CRI/CRA não são cobertos pelo FGC.
 
 ## Pendências de Produto
 
-- Definir o perfil contratual de atualização e a fórmula completa do CDB
-  híbrido, conforme a documentação de curvas.
+- Definir o perfil contratual de atualização e a fórmula completa dos títulos
+  híbridos por IPCA, conforme a documentação de curvas, incluindo os prazos
+  mínimos de LCI e LCA indexadas a índice de preços.
 - Validar regra de agregação para portfólios com vencimentos diferentes.
 - Definir significado e cálculo da rentabilidade média do portfólio.
 - Definir comportamento após vencimento e eventual resgate.

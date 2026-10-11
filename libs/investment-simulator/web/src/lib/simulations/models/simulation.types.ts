@@ -71,7 +71,14 @@ export interface TaxRules {
   readonly incomeTax: { readonly brackets: readonly IncomeTaxBracket[] };
 }
 
+export interface TitleTypeOption {
+  readonly titleType: TitleType;
+  readonly incomeTaxExempt: boolean;
+  readonly minimumTermMonths: number | null;
+}
+
 export interface SimulationOptions {
+  readonly titleTypes: readonly TitleTypeOption[];
   readonly issuers: readonly { readonly id: string; readonly name: string }[];
   readonly remunerations: readonly RemunerationOption[];
   readonly offers: readonly OfferOption[];
@@ -110,9 +117,10 @@ export interface CalculationTaxes {
     readonly amount: string;
     readonly formula: string;
   };
+  // rate is null when the title type is exempt from income tax.
   readonly incomeTax: {
     readonly base: string;
-    readonly rate: string;
+    readonly rate: string | null;
     readonly amount: string;
     readonly formula: string;
   };
@@ -162,6 +170,7 @@ export interface MonthlyBalance {
 }
 
 export interface SimulationTermsInput {
+  readonly titleType: TitleType;
   readonly issuerId: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };

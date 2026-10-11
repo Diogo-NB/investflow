@@ -1,5 +1,4 @@
 import {
-  ETitleType,
   InvestmentInputs,
   InvestmentTerms,
   RedemptionTerms,
@@ -25,8 +24,7 @@ export class StartSimulationCommand {
       ownerId,
       request.offerId ?? null,
       InvestmentTerms.create({
-        // CDB is the only calculable title.
-        titleType: ETitleType.CDB,
+        titleType: terms.titleType,
         issuerId: terms.issuerId ?? null,
         maturityDate: CalendarDate.of(terms.maturityDate),
         redemption: RedemptionTerms.create(terms.redemptionTerms.kind),

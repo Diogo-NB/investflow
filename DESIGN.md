@@ -113,7 +113,7 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
   result surface with the net value at maturity right-aligned in tabular
   figures and a textual "Desatualizado" tag in the warning token.
 - Simulation workspace: an inputs surface (about 26rem, sticky on desktop)
-  beside the results. "Termos do CDB" comes first, as a fieldset on a new
+  beside the results. "Termos do título" comes first, as a fieldset on a new
   simulation and as a muted definition list on a saved one; "Investimento"
   (principal, investment date, curve) follows below a rule, with "Calcular"
   last. Results lead with the net value, then a definition list of amounts;

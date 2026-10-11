@@ -38,7 +38,7 @@ CREATE TABLE "simulation_calculation" (
     "taxable_earnings" DECIMAL(65,30) NOT NULL,
     "income_tax_base" DECIMAL(65,30) NOT NULL,
     "iof_rate" DECIMAL(65,30),
-    "income_tax_rate" DECIMAL(65,30) NOT NULL,
+    "income_tax_rate" DECIMAL(65,30),
 
     CONSTRAINT "simulation_calculation_pkey" PRIMARY KEY ("id")
 );

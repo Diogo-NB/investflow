@@ -50,7 +50,9 @@ export class SimulationCalculationMapper {
           },
           incomeTax: {
             base: money(record.incomeTaxBase),
-            rate: Rate.of(record.incomeTaxRate.toFixed()),
+            rate: record.incomeTaxRate
+              ? Rate.of(record.incomeTaxRate.toFixed())
+              : null,
             amount: money(record.incomeTax),
           },
           total: money(record.totalTaxes),
@@ -90,7 +92,7 @@ export class SimulationCalculationMapper {
       iofRate: taxes.iof.rate?.value.toFixed() ?? null,
       iof: taxes.iof.amount.amount.toFixed(),
       incomeTaxBase: taxes.incomeTax.base.amount.toFixed(),
-      incomeTaxRate: taxes.incomeTax.rate.value.toFixed(),
+      incomeTaxRate: taxes.incomeTax.rate?.value.toFixed() ?? null,
       incomeTax: taxes.incomeTax.amount.amount.toFixed(),
       totalTaxes: taxes.total.amount.toFixed(),
       balances: {

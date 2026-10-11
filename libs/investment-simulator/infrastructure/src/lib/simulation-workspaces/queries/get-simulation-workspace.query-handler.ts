@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { SimulationNotFoundError } from '@investflow/investment-simulator-application';
 import { QueryHandler } from '@investflow/shared-application';
 import {
-  CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS,
+  ETitleType,
+  IOF_EXEMPT_FROM_CALENDAR_DAYS,
   SimulationCalculation,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Result } from '@investflow/shared-domain';
@@ -64,9 +65,10 @@ export interface CalculationSummary {
       readonly amount: string;
       readonly formula: string;
     };
+    // rate is null when the title type is exempt from income tax.
     readonly incomeTax: {
       readonly base: string;
-      readonly rate: string;
+      readonly rate: string | null;
       readonly amount: string;
       readonly formula: string;
     };
@@ -127,7 +129,8 @@ function taxFormula(
   return `${money.format(asNumeric(base))} × ${percent.format(asNumeric(rate))} = ${money.format(asNumeric(amount))}`;
 }
 
-const IOF_EXEMPT_FORMULA = `Isento: prazo de ${CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS} dias ou mais`;
+const IOF_EXEMPT_FORMULA = `Isento: prazo de ${IOF_EXEMPT_FROM_CALENDAR_DAYS} dias ou mais`;
+const INCOME_TAX_EXEMPT_FORMULA = 'Isento: LCI e LCA de pessoa física';
 
 const workspaceSelect = {
   id: true,
@@ -201,17 +204,23 @@ export class GetSimulationWorkspaceQueryHandler
         },
       },
       calculations: record.calculations.map((calculation) =>
-        this.toCalculationSummary(calculation),
+        this.toCalculationSummary(record.titleType as ETitleType, calculation),
       ),
     };
   }
 
-  private toCalculationSummary(calculation: CalculationRecord): CalculationSummary {
+  private toCalculationSummary(
+    titleType: ETitleType,
+    calculation: CalculationRecord,
+  ): CalculationSummary {
     return {
       id: calculation.id,
       calculatedAt: calculation.calculatedAt.toISOString(),
       methodologyVersion: calculation.methodologyVersion,
-      outdated: SimulationCalculation.isOutdated(calculation.methodologyVersion),
+      outdated: SimulationCalculation.isOutdated(
+        titleType,
+        calculation.methodologyVersion,
+      ),
       investment: {
         principal: calculation.principal.toFixed(),
         investmentDate: CalendarDate.fromUtcDate(
@@ -236,18 +245,24 @@ export class GetSimulationWorkspaceQueryHandler
           rate: calculation.iofRate?.toFixed() ?? null,
           amount: calculation.iof.toFixed(),
           formula: calculation.iofRate
-            ? taxFormula(calculation.taxableEarnings, calculation.iofRate, calculation.iof)
+            ? taxFormula(
+                calculation.taxableEarnings,
+                calculation.iofRate,
+                calculation.iof,
+              )
             : IOF_EXEMPT_FORMULA,
         },
         incomeTax: {
           base: calculation.incomeTaxBase.toFixed(),
-          rate: calculation.incomeTaxRate.toFixed(),
+          rate: calculation.incomeTaxRate?.toFixed() ?? null,
           amount: calculation.incomeTax.toFixed(),
-          formula: taxFormula(
-            calculation.incomeTaxBase,
-            calculation.incomeTaxRate,
-            calculation.incomeTax,
-          ),
+          formula: calculation.incomeTaxRate
+            ? taxFormula(
+                calculation.incomeTaxBase,
+                calculation.incomeTaxRate,
+                calculation.incomeTax,
+              )
+            : INCOME_TAX_EXEMPT_FORMULA,
         },
       },
     };

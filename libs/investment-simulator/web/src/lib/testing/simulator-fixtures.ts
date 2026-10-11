@@ -77,6 +77,11 @@ export const taxRules: TaxRules = {
 };
 
 export const options: SimulationOptions = {
+  titleTypes: [
+    { titleType: 'CDB', incomeTaxExempt: false, minimumTermMonths: null },
+    { titleType: 'LCI', incomeTaxExempt: true, minimumTermMonths: 9 },
+    { titleType: 'LCA', incomeTaxExempt: true, minimumTermMonths: 9 },
+  ],
   issuers: [{ id: 'issuer', name: 'Banco Local' }],
   remunerations,
   offers: [selicOffer],

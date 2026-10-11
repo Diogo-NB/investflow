@@ -15,6 +15,7 @@ const values: SimulationFormValues = {
   offerId: '',
   principal: '10.000',
   investmentDate: '2026-01-02',
+  titleType: 'LCI',
   issuerId: 'issuer',
   remunerationKind: 'CDI_PERCENTAGE',
   rate: '105',
@@ -71,6 +72,7 @@ describe('useSimulationWorkspace', () => {
     expect(setup.status === 'ready' && setup.simulation).toBeNull();
     expect(setup.status === 'ready' && setup.calculations).toEqual([]);
     expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
+      titleType: 'CDB',
       issuerId: '',
       indexCurveId: 'cdi',
       investmentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
@@ -116,6 +118,7 @@ describe('useSimulationWorkspace', () => {
     expect(api.bodies(`POST ${API}/simulations`)).toEqual([
       {
         terms: {
+          titleType: 'LCI',
           issuerId: 'issuer',
           maturityDate: '2026-03-02',
           redemptionTerms: { kind: 'DAILY' },
@@ -223,9 +226,7 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() =>
-      result.current.hook.calculate.run(values, { onProblem }),
-    );
+    act(() => result.current.hook.calculate.run(values, { onProblem }));
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toEqual({
@@ -241,8 +242,7 @@ describe('useSimulationWorkspace', () => {
       ...savedRoutes,
       [`POST ${API}/simulations/sim/calculations`]: () =>
         new Promise((resolve) => {
-          release = () =>
-            resolve({ simulationId: 'sim', calculationId: 'c2' });
+          release = () => resolve({ simulationId: 'sim', calculationId: 'c2' });
         }),
     });
     const { result } = render(api, 'sim', '/simulacoes/sim');
@@ -251,9 +251,7 @@ describe('useSimulationWorkspace', () => {
     act(() => result.current.hook.calculate.run(values));
     act(() => result.current.hook.calculate.run(values));
     await waitFor(() =>
-      expect(api.calls()).toContain(
-        `POST ${API}/simulations/sim/calculations`,
-      ),
+      expect(api.calls()).toContain(`POST ${API}/simulations/sim/calculations`),
     );
     release();
     await waitFor(() =>

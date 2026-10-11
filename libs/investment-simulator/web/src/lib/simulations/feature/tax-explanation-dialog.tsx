@@ -32,8 +32,10 @@ function appliedIncomeTaxBracket(
   rules: TaxRules,
   taxes: CalculationTaxes,
 ): IncomeTaxBracket | undefined {
+  const { rate } = taxes.incomeTax;
+  if (rate === null) return undefined;
   return rules.incomeTax.brackets.find((bracket) =>
-    sameRate(bracket.rate, taxes.incomeTax.rate),
+    sameRate(bracket.rate, rate),
   );
 }
 
@@ -55,7 +57,7 @@ function Section({
   readonly title: string;
   readonly summary: string;
   readonly formula: ReactNode;
-  readonly table: ReactNode;
+  readonly table?: ReactNode;
 }) {
   return (
     <section className="grid gap-3 border-t border-border pt-5">
@@ -224,12 +226,20 @@ export function TaxExplanationDialog({
             table={<IofTable rules={rules} calculation={calculation} />}
           />
 
-          <Section
-            title="Imposto de renda"
-            summary="Calculado sobre o rendimento menos o IOF; a alíquota cai quanto maior o prazo."
-            formula={taxes.incomeTax.formula}
-            table={<IncomeTaxTable rules={rules} calculation={calculation} />}
-          />
+          {taxes.incomeTax.rate === null ? (
+            <Section
+              title="Imposto de renda"
+              summary="LCI e LCA não pagam imposto de renda quando o investidor é pessoa física."
+              formula={taxes.incomeTax.formula}
+            />
+          ) : (
+            <Section
+              title="Imposto de renda"
+              summary="Calculado sobre o rendimento menos o IOF; a alíquota cai quanto maior o prazo."
+              formula={taxes.incomeTax.formula}
+              table={<IncomeTaxTable rules={rules} calculation={calculation} />}
+            />
+          )}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

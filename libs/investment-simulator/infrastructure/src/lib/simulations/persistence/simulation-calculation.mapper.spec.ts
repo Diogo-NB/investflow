@@ -18,14 +18,17 @@ import {
 import { Prisma } from '@prisma/client';
 import { SimulationCalculationMapper } from './simulation-calculation.mapper';
 
-function recordedCalculation(): SimulationCalculation {
+function recordedCalculation(
+  titleType = ETitleType.CDB,
+  maturityDate = '2026-01-08',
+): SimulationCalculation {
   return Simulation.start({
     ownerId: 'owner-id',
     sourceOfferId: null,
     terms: InvestmentTerms.create({
-      titleType: ETitleType.CDB,
+      titleType,
       issuerId: null,
-      maturityDate: CalendarDate.of('2026-01-08'),
+      maturityDate: CalendarDate.of(maturityDate),
       redemption: RedemptionTerms.create('DAILY'),
       remuneration: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
     }),
@@ -62,7 +65,8 @@ function storedRecord(calculation: SimulationCalculation) {
     taxableEarnings: decimal(data.taxableEarnings),
     incomeTaxBase: decimal(data.incomeTaxBase),
     iofRate: data.iofRate == null ? null : decimal(data.iofRate),
-    incomeTaxRate: decimal(data.incomeTaxRate),
+    incomeTaxRate:
+      data.incomeTaxRate == null ? null : decimal(data.incomeTaxRate),
     balances: (
       data.balances?.createMany
         ?.data as Prisma.SimulationCalculationBalanceCreateManyCalculationInput[]
@@ -98,7 +102,9 @@ describe('SimulationCalculationMapper', () => {
       result.maturitySummary,
     ) as (keyof typeof result.maturitySummary)[]) {
       expect(
-        restored.result.maturitySummary[key].equals(result.maturitySummary[key]),
+        restored.result.maturitySummary[key].equals(
+          result.maturitySummary[key],
+        ),
       ).toBe(true);
     }
     const taxes = restored.result.taxes;
@@ -111,7 +117,9 @@ describe('SimulationCalculationMapper', () => {
     );
     expect(taxes.iof.amount.equals(result.taxes.iof.amount)).toBe(true);
     expect(taxes.incomeTax.base.equals(result.taxes.incomeTax.base)).toBe(true);
-    expect(taxes.incomeTax.rate.equals(result.taxes.incomeTax.rate)).toBe(true);
+    expect(taxes.incomeTax.rate?.value.toFixed()).toBe(
+      result.taxes.incomeTax.rate?.value.toFixed(),
+    );
     expect(taxes.incomeTax.amount.equals(result.taxes.incomeTax.amount)).toBe(
       true,
     );
@@ -129,5 +137,18 @@ describe('SimulationCalculationMapper', () => {
         ),
       ).toBe(true);
     });
+  });
+
+  it('stores an income tax exemption as a null rate', () => {
+    const calculation = recordedCalculation(ETitleType.LCA, '2026-10-02');
+    const data = SimulationCalculationMapper.toPersistence(calculation);
+
+    expect(data.incomeTaxRate).toBeNull();
+    expect(data.methodologyVersion).toBe('lca-252-v1');
+    const restored = SimulationCalculationMapper.toDomain(
+      storedRecord(calculation),
+    );
+    expect(restored.result.taxes.incomeTax.rate).toBeNull();
+    expect(restored.result.taxes.incomeTax.amount.isZero()).toBe(true);
   });
 });

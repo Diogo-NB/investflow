@@ -11,11 +11,12 @@ export interface IofAssessment {
 export interface IncomeTaxAssessment {
   // The IOF base left after IOF.
   readonly base: Money;
-  readonly rate: Rate;
+  // Null when the title type is exempt from income tax.
+  readonly rate: Rate | null;
   readonly amount: Money;
 }
 
-export interface CdbTaxAssessment {
+export interface TaxAssessment {
   // Calendar days from the investment (excluded) to maturity (included).
   readonly holdingPeriodCalendarDays: number;
   readonly iof: IofAssessment;

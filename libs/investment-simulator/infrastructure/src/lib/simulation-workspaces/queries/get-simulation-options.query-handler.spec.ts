@@ -101,7 +101,7 @@ describe('GetSimulationOptionsQueryHandler', () => {
     expect(offers.map((offer) => [offer.id, offer.unsupportedReason])).toEqual([
       ['cdb', null],
       ['ipca', EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED],
-      ['lci', EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED],
+      ['lci', null],
     ]);
     expect(offers[0]).toMatchObject({
       maturityDate: '2028-12-31',
@@ -111,7 +111,13 @@ describe('GetSimulationOptionsQueryHandler', () => {
   });
 
   it('publishes the domain tax tables as plain data', async () => {
-    const { taxRules } = (await setup().handler.execute()).value;
+    const { taxRules, titleTypes } = (await setup().handler.execute()).value;
+
+    expect(titleTypes).toEqual([
+      { titleType: 'CDB', incomeTaxExempt: false, minimumTermMonths: null },
+      { titleType: 'LCI', incomeTaxExempt: true, minimumTermMonths: 9 },
+      { titleType: 'LCA', incomeTaxExempt: true, minimumTermMonths: 9 },
+    ]);
 
     expect(taxRules.iof.exemptFromCalendarDays).toBe(30);
     expect(taxRules.iof.dailyRates).toHaveLength(29);

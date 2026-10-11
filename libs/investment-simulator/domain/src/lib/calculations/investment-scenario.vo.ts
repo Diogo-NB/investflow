@@ -8,6 +8,7 @@ import {
 } from '@investflow/shared-domain';
 import { IndexCurve } from '../index-curves/index-curve.aggregate';
 import { RemunerationTerms } from '../offers/terms/remuneration/remuneration-terms.vo';
+import { TITLE_TYPE_RULES } from '../offers/title-type-rules';
 import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentCalculationError } from './investment-calculation.error';
 
@@ -58,6 +59,8 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
         ),
       );
     }
+    const termError = InvestmentScenario.checkMinimumTerm(props);
+    if (termError) return Result.err(termError);
     const curveError = InvestmentScenario.checkCurve(props);
     if (curveError) return Result.err(curveError);
     return Result.ok(new InvestmentScenario(props));
@@ -112,6 +115,22 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
       this.titleType === other.titleType &&
       this.remuneration.equals(other.remuneration) &&
       this.indexCurve?.id === other.indexCurve?.id
+    );
+  }
+
+  private static checkMinimumTerm({
+    titleType,
+    investmentDate,
+    maturityDate,
+  }: InvestmentScenarioProps): InvestmentCalculationError | null {
+    const months = TITLE_TYPE_RULES[titleType].minimumTermMonths;
+    if (months === null) return null;
+    const minimumMaturityDate = investmentDate.addMonths(months);
+    if (!maturityDate.isBefore(minimumMaturityDate)) return null;
+    return new InvestmentCalculationError(
+      EAppErrorCode.INVESTMENT_TERM_TOO_SHORT,
+      `${titleType} exige vencimento de ao menos ${months} meses após a aplicação (a partir de ${minimumMaturityDate.toPtBrString()}).`,
+      { titleType, minimumMaturityDate: minimumMaturityDate.toIsoString() },
     );
   }
 

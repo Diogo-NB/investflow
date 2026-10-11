@@ -117,7 +117,9 @@ function SimulationRows({
             className="grid gap-2 p-4 text-fg no-underline hover:bg-accent-soft"
           >
             <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium text-accent">{item.issuerName ?? 'Sem emissor'}</span>
+              <span className="font-medium text-accent">
+                {item.issuerName ?? 'Sem emissor'}
+              </span>
               <NetResult item={item} />
             </span>
             <span className="text-sm text-muted">
@@ -159,7 +161,7 @@ export function SimulationListPage() {
             Simulações
           </h1>
           <p className="mt-2 mb-0 text-muted">
-            Compare quanto cada CDB rende líquido no vencimento.
+            Compare quanto cada título rende líquido no vencimento.
           </p>
         </div>
         <Link to="nova" className={primaryButton}>
@@ -196,7 +198,8 @@ export function SimulationListPage() {
           <div className="grid justify-items-start gap-4 p-6">
             <p className="m-0 max-w-prose">
               Você ainda não tem simulações. Informe o valor, as datas e os
-              termos de um CDB para ver o resultado líquido no vencimento.
+              termos de um CDB, LCI ou LCA para ver o resultado líquido no
+              vencimento.
             </p>
             <Link to="nova" className={secondaryButton}>
               Criar a primeira simulação

@@ -34,7 +34,9 @@ function rowLabel(
       : `${label} · ${formatPercentOf(taxes.iof.rate)}% do rendimento`;
   }
   if (key === 'incomeTax') {
-    return `${label} · ${formatPercentOf(taxes.incomeTax.rate)}%`;
+    return taxes.incomeTax.rate === null
+      ? `${label} · isento`
+      : `${label} · ${formatPercentOf(taxes.incomeTax.rate)}%`;
   }
   return label;
 }

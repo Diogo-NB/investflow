@@ -38,12 +38,13 @@ function create(
   indexCurve: IndexCurve | null,
   dates: { start?: string; end?: string } = {},
   principal = Money.of('1000'),
+  titleType = ETitleType.CDB,
 ) {
   return InvestmentScenario.create({
     principal,
     investmentDate: CalendarDate.of(dates.start ?? '2026-01-02'),
     maturityDate: CalendarDate.of(dates.end ?? '2026-01-06'),
-    titleType: ETitleType.CDB,
+    titleType,
     remuneration: RemunerationTerms.create(kind, Rate.of('1')),
     indexCurve,
   });
@@ -60,6 +61,31 @@ describe('InvestmentScenario', () => {
     expect(
       create('PREFIXED', null, {}, Money.of('1000', 'USD')).error.code,
     ).toBe(EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID);
+  });
+
+  it.each([ETitleType.LCI, ETitleType.LCA])(
+    'requires %s to mature at least nine months after the investment',
+    (titleType) => {
+      const at = (end: string) =>
+        create(
+          'PREFIXED',
+          null,
+          { start: '2026-05-31', end },
+          undefined,
+          titleType,
+        );
+      const error = at('2027-02-27').error;
+      expect(error.code).toBe(EAppErrorCode.INVESTMENT_TERM_TOO_SHORT);
+      expect(error.metadata).toEqual({
+        titleType,
+        minimumMaturityDate: '2027-02-28',
+      });
+      expect(at('2027-02-28').isOk()).toBe(true);
+    },
+  );
+
+  it('has no minimum term for a CDB', () => {
+    expect(create('PREFIXED', null, { end: '2026-01-05' }).isOk()).toBe(true);
   });
 
   it('counts holding calendar days excluding the investment date', () => {

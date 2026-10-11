@@ -1,4 +1,4 @@
-import { METHODOLOGY_VERSION } from '../calculations/investment-calculator.domain-service';
+import { ETitleType } from '../offers/title-type.enum';
 import { SimulationCalculation } from './simulation-calculation.aggregate';
 import {
   CALCULATED_AT,
@@ -46,11 +46,21 @@ describe('SimulationCalculation', () => {
 
     expect(restored.id).toBe('calculation-id');
     expect(restored.result).toBe(calculation.result);
-    expect(restored.result.methodologyVersion).toBe(METHODOLOGY_VERSION);
+    expect(restored.result.methodologyVersion).toBe('cdb-252-v1');
   });
 
   it('is outdated only under another methodology', () => {
-    expect(SimulationCalculation.isOutdated(METHODOLOGY_VERSION)).toBe(false);
-    expect(SimulationCalculation.isOutdated('cdb-252-v0')).toBe(true);
+    expect(SimulationCalculation.isOutdated(ETitleType.CDB, 'cdb-252-v1')).toBe(
+      false,
+    );
+    expect(SimulationCalculation.isOutdated(ETitleType.CDB, 'cdb-252-v0')).toBe(
+      true,
+    );
+    expect(SimulationCalculation.isOutdated(ETitleType.LCI, 'lci-252-v1')).toBe(
+      false,
+    );
+    expect(SimulationCalculation.isOutdated(ETitleType.LCA, 'cdb-252-v1')).toBe(
+      true,
+    );
   });
 });

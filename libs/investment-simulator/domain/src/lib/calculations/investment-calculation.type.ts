@@ -1,5 +1,5 @@
 import { CalendarDate, Money } from '@investflow/shared-domain';
-import type { CdbTaxAssessment } from '../taxes/cdb-tax-assessment.type';
+import type { TaxAssessment } from '../taxes/tax-assessment.type';
 
 export interface DailyInvestmentBalance {
   readonly date: CalendarDate;
@@ -21,5 +21,5 @@ export interface InvestmentCalculation {
   readonly methodologyVersion: string;
   readonly dailyBalances: readonly DailyInvestmentBalance[];
   readonly maturitySummary: InvestmentMaturitySummary;
-  readonly taxes: CdbTaxAssessment;
+  readonly taxes: TaxAssessment;
 }

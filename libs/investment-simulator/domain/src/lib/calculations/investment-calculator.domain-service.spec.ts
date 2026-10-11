@@ -16,10 +16,7 @@ import {
 } from '../offers/terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentCalculationError } from './investment-calculation.error';
-import {
-  InvestmentCalculator,
-  METHODOLOGY_VERSION,
-} from './investment-calculator.domain-service';
+import { InvestmentCalculator } from './investment-calculator.domain-service';
 import { InvestmentScenario } from './investment-scenario.vo';
 
 const calendar = new BrazilianBusinessDayCalendar();
@@ -71,7 +68,7 @@ describe('InvestmentCalculator domain service', () => {
   it('returns gross daily balances and a separate maturity tax summary', () => {
     const input = scenario();
     const result = calculator.calculate(input).value;
-    expect(result.methodologyVersion).toBe(METHODOLOGY_VERSION);
+    expect(result.methodologyVersion).toBe('cdb-252-v1');
     expect(result.dailyBalances.map((row) => row.date.toIsoString())).toEqual([
       '2026-01-05',
       '2026-01-06',
@@ -263,14 +260,30 @@ describe('InvestmentCalculator domain service', () => {
     ).toBe(EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY);
   });
 
-  it.each([ETitleType.LCI, ETitleType.LCA])(
-    'rejects unsupported title %s',
-    (titleType) => {
-      expect(calculator.calculate(scenario({ titleType })).error.code).toBe(
-        EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED,
-      );
-    },
-  );
+  it.each([
+    [ETitleType.LCI, 'lci-252-v1'],
+    [ETitleType.LCA, 'lca-252-v1'],
+  ])('accrues %s like a CDB, without income tax', (titleType, version) => {
+    const dates = { start: '2026-01-02', end: '2026-10-02' };
+    const cdb = calculator.calculate(scenario(dates)).value;
+    const result = calculator.calculate(
+      scenario({ ...dates, titleType }),
+    ).value;
+    expect(result.methodologyVersion).toBe(version);
+    expect(
+      result.maturitySummary.grossBalance.equals(
+        cdb.maturitySummary.grossBalance,
+      ),
+    ).toBe(true);
+    expect(result.taxes.incomeTax.rate).toBeNull();
+    expect(result.taxes.total.isZero()).toBe(true);
+    expect(
+      result.maturitySummary.netBalance.equals(
+        result.maturitySummary.grossBalance,
+      ),
+    ).toBe(true);
+    expect(cdb.taxes.total.isPositive()).toBe(true);
+  });
 
   it('returns an explicit error for deferred IPCA', () => {
     const indexCurve = curve(EEconomicIndex.IPCA, [
@@ -338,27 +351,16 @@ describe('InvestmentCalculator domain service', () => {
 
   describe('unsupportedReason', () => {
     it.each(['PREFIXED', 'CDI_PERCENTAGE', 'SELIC_PERCENTAGE'] as const)(
-      'supports CDB %s',
+      'supports %s',
       (kind) => {
-        expect(
-          InvestmentCalculator.unsupportedReason(ETitleType.CDB, kind),
-        ).toBeNull();
+        expect(InvestmentCalculator.unsupportedReason(kind)).toBeNull();
       },
     );
 
-    it('rejects other titles before their remuneration', () => {
-      expect(
-        InvestmentCalculator.unsupportedReason(ETitleType.LCI, 'IPCA_PLUS'),
-      ).toBe(EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED);
-      expect(
-        InvestmentCalculator.unsupportedReason(ETitleType.LCA, 'PREFIXED'),
-      ).toBe(EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED);
-    });
-
     it('defers IPCA+ remuneration', () => {
-      expect(
-        InvestmentCalculator.unsupportedReason(ETitleType.CDB, 'IPCA_PLUS'),
-      ).toBe(EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED);
+      expect(InvestmentCalculator.unsupportedReason('IPCA_PLUS')).toBe(
+        EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED,
+      );
     });
   });
 });

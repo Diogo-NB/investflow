@@ -1,9 +1,11 @@
+import { ETitleType } from '@investflow/investment-simulator-domain';
 import {
   RedemptionTermsCommandInput,
   RemunerationTermsCommandInput,
 } from '../../offers/shared/offer-command-input.type';
 
 export interface SimulationTermsCommandInput {
+  readonly titleType: ETitleType;
   readonly issuerId?: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: RedemptionTermsCommandInput;

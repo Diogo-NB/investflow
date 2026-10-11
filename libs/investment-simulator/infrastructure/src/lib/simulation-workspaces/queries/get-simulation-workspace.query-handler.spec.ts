@@ -1,4 +1,3 @@
-import { METHODOLOGY_VERSION } from '@investflow/investment-simulator-domain';
 import { EAppErrorCode } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
@@ -12,7 +11,7 @@ function calculation(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: 'calculation-id',
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
-    methodologyVersion: METHODOLOGY_VERSION,
+    methodologyVersion: 'cdb-252-v1',
     principal: new Prisma.Decimal('1000.50'),
     investmentDate: date('2026-01-02'),
     indexCurveId: 'curve-id',
@@ -75,7 +74,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
       {
         id: 'calculation-id',
         calculatedAt: '2026-10-10T12:00:00.000Z',
-        methodologyVersion: METHODOLOGY_VERSION,
+        methodologyVersion: 'cdb-252-v1',
         outdated: false,
         investment: {
           principal: '1000.5',
@@ -144,6 +143,27 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     expect(result.value.calculations[0].taxes.iof.formula).toBe(
       'R$\u00a0100,00 × 66% = R$\u00a066,00',
     );
+  });
+
+  it('explains an LCI income tax exemption against its own methodology', async () => {
+    const result = await setup({
+      ...workspace([
+        calculation({
+          methodologyVersion: 'lci-252-v1',
+          incomeTaxRate: null,
+          incomeTax: new Prisma.Decimal('0'),
+        }),
+      ]),
+      titleType: 'LCI',
+    })();
+
+    const [summary] = result.value.calculations;
+    expect(summary.outdated).toBe(false);
+    expect(summary.taxes.incomeTax).toMatchObject({
+      rate: null,
+      amount: '0',
+      formula: 'Isento: LCI e LCA de pessoa física',
+    });
   });
 
   it('reports a missing simulation', async () => {

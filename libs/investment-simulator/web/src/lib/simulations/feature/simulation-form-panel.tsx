@@ -7,6 +7,7 @@ import {
   remunerationLabel,
   UNSUPPORTED_LABELS,
   type RemunerationKind,
+  type TitleType,
 } from '../../offers/models/offer-terms';
 import { BusinessDateField } from '../../business-calendar/business-date-field';
 import { DecimalInput } from '../../ui/decimal-input';
@@ -17,6 +18,7 @@ import type {
   OfferOption,
   SimulationOptions,
   SimulationTerms,
+  TitleTypeOption,
 } from '../models/simulation.types';
 import type { useSimulationForm } from './use-simulation-form';
 
@@ -31,6 +33,21 @@ const NO_ISSUER = 'none';
 
 const legendClass =
   'float-left mb-4 w-full p-0 text-sm font-semibold tracking-wide text-muted uppercase';
+
+function titleTypeHint(
+  option: TitleTypeOption | undefined,
+): string | undefined {
+  if (!option) return undefined;
+  const facts = [
+    option.incomeTaxExempt
+      ? 'Isento de IR para pessoa física'
+      : 'IR regressivo de 22,5% a 15%',
+    option.minimumTermMonths
+      ? `vencimento mínimo de ${option.minimumTermMonths} meses`
+      : null,
+  ];
+  return facts.filter(Boolean).join(' · ');
+}
 
 function offerOption(offer: OfferOption): SelectOption {
   return {
@@ -126,7 +143,7 @@ function TermsFieldset({
 
   return (
     <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
-      <legend className={legendClass}>Termos do CDB</legend>
+      <legend className={legendClass}>Termos do título</legend>
       <OfferPicker
         simulation={simulation}
         offers={options.offers}
@@ -134,9 +151,43 @@ function TermsFieldset({
       />
       <Controller
         control={form.control}
+        name="titleType"
+        render={({ field, fieldState }) => (
+          <FormField
+            label="Título"
+            hint={titleTypeHint(
+              options.titleTypes.find(
+                (option) => option.titleType === field.value,
+              ),
+            )}
+            error={fieldState.error?.message}
+          >
+            {(control) => (
+              <SelectField
+                {...control}
+                ref={field.ref}
+                value={field.value}
+                placeholder="Escolha"
+                disabled={pending}
+                options={options.titleTypes.map(({ titleType }) => ({
+                  value: titleType,
+                  label: titleType,
+                }))}
+                onValueChange={(value) => field.onChange(value as TitleType)}
+                onBlur={field.onBlur}
+              />
+            )}
+          </FormField>
+        )}
+      />
+      <Controller
+        control={form.control}
         name="issuerId"
         render={({ field, fieldState }) => (
-          <FormField label="Emissor (opcional)" error={fieldState.error?.message}>
+          <FormField
+            label="Emissor (opcional)"
+            error={fieldState.error?.message}
+          >
             {(control) => (
               <SelectField
                 {...control}
@@ -257,7 +308,7 @@ function TermsSummary({ terms }: { readonly terms: SimulationTerms }) {
         id="terms-title"
         className="m-0 text-sm font-semibold tracking-wide text-muted uppercase"
       >
-        Termos do CDB
+        Termos do título
       </h3>
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
         {rows.map(([label, value]) => (
@@ -357,9 +408,7 @@ function InvestmentFieldset({
                   options={curveOptions.map((curve) => ({
                     value: curve.id,
                     label: curve.name,
-                    ...(curve.description
-                      ? { detail: curve.description }
-                      : {}),
+                    ...(curve.description ? { detail: curve.description } : {}),
                   }))}
                   onValueChange={field.onChange}
                   onBlur={field.onBlur}

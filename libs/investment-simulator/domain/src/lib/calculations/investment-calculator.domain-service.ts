@@ -8,8 +8,8 @@ import {
 } from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
 import type { RemunerationKind } from '../offers/terms/remuneration/remuneration-terms.vo';
-import { ETitleType } from '../offers/title-type.enum';
-import { CdbTaxCalculator } from '../taxes/cdb-tax-calculator.domain-service';
+import { TITLE_TYPE_RULES } from '../offers/title-type-rules';
+import { TaxCalculator } from '../taxes/tax-calculator.domain-service';
 import {
   InvestmentCalculationError,
   UnsupportedCalculationCode,
@@ -19,10 +19,6 @@ import {
   InvestmentCalculation,
 } from './investment-calculation.type';
 import { InvestmentScenario } from './investment-scenario.vo';
-
-// Bump whenever formulas, conventions or the business-day calendar change the
-// figures, so recorded calculations keep identifying what produced them.
-export const METHODOLOGY_VERSION = 'cdb-252-v1';
 
 const BUSINESS_DAYS_PER_YEAR = 252;
 const FULL_RATE = new Decimal(1);
@@ -42,35 +38,28 @@ interface AccrualRate extends AccrualPeriod {
 }
 
 export class InvestmentCalculator {
-  private readonly cdbTaxes = new CdbTaxCalculator();
+  private readonly taxes = new TaxCalculator();
 
   constructor(private readonly calendar: BusinessDayCalendar) {}
 
+  // The IPCA contractual profile is not defined yet.
   static unsupportedReason(
-    titleType: ETitleType,
     remunerationKind: RemunerationKind,
   ): UnsupportedCalculationCode | null {
-    if (titleType !== ETitleType.CDB) {
-      return EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED;
-    }
-    // The IPCA contractual profile is not defined yet.
-    if (remunerationKind === 'IPCA_PLUS') {
-      return EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED;
-    }
-    return null;
+    return remunerationKind === 'IPCA_PLUS'
+      ? EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED
+      : null;
   }
 
   calculate(
     scenario: InvestmentScenario,
   ): Result<InvestmentCalculation, InvestmentCalculationError> {
     const unsupported = InvestmentCalculator.unsupportedReason(
-      scenario.titleType,
       scenario.remuneration.kind,
     );
     if (unsupported) {
       return Result.err(
         InvestmentCalculationError.unsupported(unsupported, {
-          titleType: scenario.titleType,
           remunerationKind: scenario.remuneration.kind,
         }),
       );
@@ -174,12 +163,14 @@ export class InvestmentCalculator {
     const dailyBalances = this.accrue(principal, rates);
     const grossBalance = dailyBalances[dailyBalances.length - 1].grossBalance;
     const grossEarnings = grossBalance.subtract(principal);
-    const taxes = this.cdbTaxes.assess(
+    const taxes = this.taxes.assess(
+      scenario.titleType,
       grossEarnings,
       scenario.holdingPeriodCalendarDays,
     );
     return {
-      methodologyVersion: METHODOLOGY_VERSION,
+      methodologyVersion:
+        TITLE_TYPE_RULES[scenario.titleType].methodologyVersion,
       dailyBalances,
       maturitySummary: {
         principal,

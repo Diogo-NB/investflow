@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { QueryHandler } from '@investflow/shared-application';
 import type { PaginatedResult } from '@investflow/shared-types';
-import { SimulationCalculation } from '@investflow/investment-simulator-domain';
+import {
+  ETitleType,
+  SimulationCalculation,
+} from '@investflow/investment-simulator-domain';
 import { CalendarDate, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
@@ -125,7 +128,10 @@ export class ListSimulationsQueryHandler
       latestCalculation: {
         id: latest.id,
         calculatedAt: latest.calculatedAt.toISOString(),
-        outdated: SimulationCalculation.isOutdated(latest.methodologyVersion),
+        outdated: SimulationCalculation.isOutdated(
+          record.titleType as ETitleType,
+          latest.methodologyVersion,
+        ),
         netBalance: latest.netBalance.toFixed(),
       },
     };

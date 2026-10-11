@@ -12,6 +12,7 @@ const initialValues: SimulationFormValues = {
   offerId: '',
   principal: '10.000',
   investmentDate: '2026-01-02',
+  titleType: 'CDB',
   issuerId: 'issuer',
   remunerationKind: 'CDI_PERCENTAGE',
   rate: '105',

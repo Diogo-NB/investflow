@@ -1,3 +1,4 @@
+import { ETitleType } from '@investflow/investment-simulator-domain';
 import {
   CalculateSimulationUseCase,
   DeleteSimulationUseCase,
@@ -58,6 +59,7 @@ function startRequest() {
   return Object.assign(new StartSimulationRequest(), {
     offerId: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
     terms: {
+      titleType: ETitleType.LCA,
       issuerId: '6f1c1c55-61a1-4e3f-9b8a-1d1d6a9b2f10',
       maturityDate: '2028-01-03',
       redemptionTerms: { kind: 'DAILY' as const },
@@ -102,6 +104,7 @@ describe('SimulationController', () => {
     const started = fixture.start.execute.mock.calls[0][0];
     expect(started.ownerId).toBe(USER.userId);
     expect(started.sourceOfferId).toBe(request.offerId);
+    expect(started.terms.titleType).toBe(ETitleType.LCA);
     expect(started.terms.issuerId).toBe(request.terms.issuerId);
     expect(started.investment.principal.amount.toString()).toBe('1000.5');
     const calculated = fixture.calculate.execute.mock.calls[0][0];

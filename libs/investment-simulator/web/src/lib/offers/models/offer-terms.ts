@@ -8,9 +8,7 @@ export type RemunerationKind =
   | 'SELIC_PERCENTAGE'
   | 'IPCA_PLUS';
 export type EconomicIndex = 'CDI' | 'SELIC' | 'IPCA';
-export type UnsupportedReason =
-  | 'INVESTMENT_TITLE_UNSUPPORTED'
-  | 'INVESTMENT_REMUNERATION_UNSUPPORTED';
+export type UnsupportedReason = 'INVESTMENT_REMUNERATION_UNSUPPORTED';
 
 export interface RemunerationTerms {
   readonly kind: RemunerationKind;
@@ -33,7 +31,6 @@ export const REMUNERATION_LABELS: Record<RemunerationKind, string> = {
 };
 
 export const UNSUPPORTED_LABELS: Record<UnsupportedReason, string> = {
-  INVESTMENT_TITLE_UNSUPPORTED: 'Só CDBs podem ser calculados',
   INVESTMENT_REMUNERATION_UNSUPPORTED: 'IPCA+ ainda não pode ser calculado',
 };
 

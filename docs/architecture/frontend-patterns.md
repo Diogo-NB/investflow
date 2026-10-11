@@ -366,7 +366,7 @@ it.
 
 ## Simulation workspace behavior
 
-Built 2026-10-10. A simulation is one CDB: its terms are fixed when it is
+Built 2026-10-10. A simulation is one title (CDB, LCI or LCA): its terms are fixed when it is
 created. Each calculation ("cálculo") records an investment under those terms;
 the latest one is the current state, earlier ones are its history.
 
@@ -381,7 +381,9 @@ the latest one is the current state, earlier ones are its history.
   desktop.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
   (stacked below 1024px), split into the offer form and the simulation form:
-  - "Termos do CDB" (offer form): optional issuer ("Sem emissor"), remuneration
+  - "Termos do título" (offer form): title type, hinted with its income-tax
+    treatment and minimum term from the options query (the API enforces the
+    minimum term; the form does not repeat it), optional issuer ("Sem emissor"), remuneration
     kind, rate in the kind's unit, maturity, liquidity. Editable on a new
     simulation; a saved simulation shows them read only, pointing to
     "Duplicar" for other terms. Changing the kind clears the rate and the
@@ -421,7 +423,9 @@ the latest one is the current state, earlier ones are its history.
   earnings, accumulated earnings and the closing gross balance). Each month's
   button (`aria-expanded`) reveals that month's business days beneath it.
 - Taxes: the IOF and income-tax rows name the applied rate ("IOF · isento pelo
-  prazo", "Imposto de renda · 22,5%"). "Como os tributos foram calculados"
+  prazo", "Imposto de renda · 22,5%", or "Imposto de renda · isento" for LCI
+  and LCA, whose dialog section explains the exemption without a bracket
+  table). "Como os tributos foram calculados"
   (with an info icon) opens a short Base UI Dialog: the holding period, then
   for IOF and income tax one sentence on the rule, the formula string the API
   writes from the calculation's recorded values (shown as is), and the table with the applied row marked

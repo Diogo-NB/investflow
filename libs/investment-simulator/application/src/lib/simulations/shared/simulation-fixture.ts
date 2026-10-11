@@ -78,6 +78,7 @@ export function termsRequest(
   overrides: Partial<SimulationTermsCommandInput> = {},
 ): SimulationTermsCommandInput {
   return {
+    titleType: ETitleType.CDB,
     issuerId: 'issuer-id',
     maturityDate: '2030-01-02',
     redemptionTerms: { kind: 'AT_MATURITY' },

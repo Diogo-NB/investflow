@@ -4,7 +4,8 @@ import {
   UtcInstant,
 } from '@investflow/shared-domain';
 import { InvestmentCalculation } from '../calculations/investment-calculation.type';
-import { METHODOLOGY_VERSION } from '../calculations/investment-calculator.domain-service';
+import { TITLE_TYPE_RULES } from '../offers/title-type-rules';
+import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentInputs } from './investment-inputs.vo';
 
 interface SimulationCalculationProps {
@@ -30,13 +31,20 @@ export class SimulationCalculation extends AggregateRoot {
     super(id);
   }
 
-  static record(props: RecordSimulationCalculationProps): SimulationCalculation {
+  static record(
+    props: RecordSimulationCalculationProps,
+  ): SimulationCalculation {
     return new SimulationCalculation(generateUuid(), { ...props });
   }
 
-  // Takes a plain value so read sides need not load the aggregate.
-  static isOutdated(methodologyVersion: string): boolean {
-    return methodologyVersion !== METHODOLOGY_VERSION;
+  // Takes plain values so read sides need not load the aggregates.
+  static isOutdated(
+    titleType: ETitleType,
+    methodologyVersion: string,
+  ): boolean {
+    return (
+      methodologyVersion !== TITLE_TYPE_RULES[titleType].methodologyVersion
+    );
   }
 
   static reconstitute(

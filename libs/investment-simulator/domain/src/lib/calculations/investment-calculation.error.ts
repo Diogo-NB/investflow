@@ -6,13 +6,12 @@ import {
 } from '@investflow/shared-domain';
 
 export type UnsupportedCalculationCode =
-  | EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED
-  | EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED;
+  EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED;
 
 export type InvestmentCalculationErrorCode =
-  | EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED
   | EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED
   | EAppErrorCode.INVESTMENT_PERIOD_INVALID
+  | EAppErrorCode.INVESTMENT_TERM_TOO_SHORT
   | EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID
   | EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY
   | EAppErrorCode.INVESTMENT_CURVE_REQUIRED
@@ -56,9 +55,7 @@ export class InvestmentCalculationError extends DomainError {
   ): InvestmentCalculationError {
     return new InvestmentCalculationError(
       code,
-      code === EAppErrorCode.INVESTMENT_TITLE_UNSUPPORTED
-        ? 'Por enquanto, só é possível calcular CDBs.'
-        : 'O cálculo de IPCA+ ainda não está disponível.',
+      'O cálculo de IPCA+ ainda não está disponível.',
       metadata,
     );
   }

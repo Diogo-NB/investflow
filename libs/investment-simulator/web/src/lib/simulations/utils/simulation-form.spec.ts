@@ -29,6 +29,7 @@ const valid: SimulationFormValues = {
   offerId: '',
   principal: '10.000,50',
   investmentDate: '2026-01-02',
+  titleType: 'CDB',
   issuerId: 'issuer',
   remunerationKind: 'CDI_PERCENTAGE',
   rate: '110',
@@ -51,6 +52,7 @@ describe('simulation form', () => {
     expect(errors(valid)).toEqual({});
     expect(toSimulationInput(valid)).toEqual({
       terms: {
+        titleType: 'CDB',
         issuerId: 'issuer',
         maturityDate: '2026-03-02',
         redemptionTerms: { kind: 'DAILY' },
@@ -79,6 +81,12 @@ describe('simulation form', () => {
       kind: 'PREFIXED',
       rate: '0.125',
     });
+  });
+
+  it('sends the chosen title type', () => {
+    expect(
+      toSimulationInput({ ...valid, titleType: 'LCA' }).terms.titleType,
+    ).toBe('LCA');
   });
 
   it('sends terms without an issuer', () => {
@@ -116,6 +124,7 @@ describe('simulation form', () => {
   it('starts blank simulations with today, no issuer and a sole curve', () => {
     expect(blankSimulationValues('2026-10-10', options)).toMatchObject({
       investmentDate: '2026-10-10',
+      titleType: 'CDB',
       issuerId: '',
       remunerationKind: 'CDI_PERCENTAGE',
       redemptionKind: 'AT_MATURITY',
@@ -143,6 +152,7 @@ describe('simulation form', () => {
       ...offerTermValues(offer, { indexCurveId: '' }, remunerations),
     };
     expect(filled).toMatchObject({
+      titleType: 'CDB',
       issuerId: 'issuer',
       rate: '110',
       maturityDate: '2028-12-29',
@@ -150,6 +160,7 @@ describe('simulation form', () => {
     });
     expect(differsFromOffer(filled, offer)).toBe(false);
     expect(differsFromOffer({ ...filled, rate: '115' }, offer)).toBe(true);
+    expect(differsFromOffer({ ...filled, titleType: 'LCI' }, offer)).toBe(true);
     expect(
       offerTermValues(offer, { indexCurveId: 'selic' }, remunerations)
         .indexCurveId,

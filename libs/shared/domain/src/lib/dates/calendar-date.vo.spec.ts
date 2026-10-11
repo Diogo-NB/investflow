@@ -143,6 +143,24 @@ describe('CalendarDate', () => {
     );
   });
 
+  it('adds months keeping the day, clamped to the end of the month', () => {
+    expect(CalendarDate.of('2026-01-02').addMonths(9).toString()).toBe(
+      '2026-10-02',
+    );
+    expect(CalendarDate.of('2026-05-31').addMonths(9).toString()).toBe(
+      '2027-02-28',
+    );
+    expect(CalendarDate.of('2027-05-31').addMonths(9).toString()).toBe(
+      '2028-02-29',
+    );
+    expect(CalendarDate.of('2026-03-31').addMonths(-1).toString()).toBe(
+      '2026-02-28',
+    );
+    expect(() => CalendarDate.of('2026-01-01').addMonths(0.5)).toThrow(
+      InvalidCalendarDateError,
+    );
+  });
+
   it('keeps calendar parts consistent when arithmetic crosses a leap month', () => {
     const leapDay = CalendarDate.of('2024-02-28').addDays(1);
     expect(leapDay.year).toBe(2024);

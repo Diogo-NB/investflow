@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
   InvestmentCalculator,
-  CDB_INCOME_TAX_BRACKETS,
-  CDB_IOF_DAILY_RATES,
-  CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS,
+  INCOME_TAX_BRACKETS,
+  IOF_DAILY_RATES,
+  IOF_EXEMPT_FROM_CALENDAR_DAYS,
   RemunerationKind,
   RemunerationTerms,
-  ETitleType,
+  TITLE_TYPE_RULES,
   UnsupportedCalculationCode,
 } from '@investflow/investment-simulator-domain';
 import { QueryHandler } from '@investflow/shared-application';
@@ -26,7 +26,14 @@ export interface CurveOption {
   readonly coverage: { readonly startDate: string; readonly endDate: string };
 }
 
+type TitleType = 'CDB' | 'LCI' | 'LCA';
+
 export interface GetSimulationOptionsOutput {
+  readonly titleTypes: readonly {
+    readonly titleType: TitleType;
+    readonly incomeTaxExempt: boolean;
+    readonly minimumTermMonths: number | null;
+  }[];
   readonly issuers: readonly { readonly id: string; readonly name: string }[];
   readonly remunerations: readonly {
     readonly kind: RemunerationKind;
@@ -52,7 +59,7 @@ export interface GetSimulationOptionsOutput {
   };
   readonly offers: readonly {
     readonly id: string;
-    readonly titleType: 'CDB' | 'LCI' | 'LCA';
+    readonly titleType: TitleType;
     readonly issuer: { readonly id: string; readonly name: string } | null;
     readonly maturityDate: string;
     readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
@@ -71,16 +78,24 @@ const REMUNERATION_KINDS: readonly RemunerationKind[] = [
   'IPCA_PLUS',
 ];
 
+const TITLE_TYPES: GetSimulationOptionsOutput['titleTypes'] = Object.entries(
+  TITLE_TYPE_RULES,
+).map(([titleType, rules]) => ({
+  titleType: titleType as TitleType,
+  incomeTaxExempt: rules.incomeTax === null,
+  minimumTermMonths: rules.minimumTermMonths,
+}));
+
 const TAX_RULES: GetSimulationOptionsOutput['taxRules'] = {
   iof: {
-    exemptFromCalendarDays: CDB_IOF_EXEMPT_FROM_CALENDAR_DAYS,
-    dailyRates: CDB_IOF_DAILY_RATES.map(({ calendarDay, rate }) => ({
+    exemptFromCalendarDays: IOF_EXEMPT_FROM_CALENDAR_DAYS,
+    dailyRates: IOF_DAILY_RATES.map(({ calendarDay, rate }) => ({
       calendarDay,
       rate: rate.value.toFixed(),
     })),
   },
   incomeTax: {
-    brackets: CDB_INCOME_TAX_BRACKETS.map((bracket) => ({
+    brackets: INCOME_TAX_BRACKETS.map((bracket) => ({
       fromCalendarDays: bracket.fromCalendarDays,
       upToCalendarDays: bracket.upToCalendarDays,
       rate: bracket.rate.value.toFixed(),
@@ -147,13 +162,14 @@ export class GetSimulationOptionsQueryHandler
           }),
         ]);
         return {
+          titleTypes: TITLE_TYPES,
           issuers,
           remunerations: REMUNERATION_KINDS.map((kind) => {
             const index = RemunerationTerms.requiredIndex(kind);
             return {
               kind,
               index,
-              unsupportedReason: InvestmentCalculator.unsupportedReason(ETitleType.CDB, kind),
+              unsupportedReason: InvestmentCalculator.unsupportedReason(kind),
               curves: index
                 ? curves
                     .filter((curve) => curve.index === index)
@@ -176,8 +192,12 @@ export class GetSimulationOptionsQueryHandler
       name: record.name,
       description: record.description,
       coverage: {
-        startDate: CalendarDate.fromUtcDate(record.intervals[0].startDate).value.toIsoString(),
-        endDate: CalendarDate.fromUtcDate(new Date(Math.max(...ends))).value.toIsoString(),
+        startDate: CalendarDate.fromUtcDate(
+          record.intervals[0].startDate,
+        ).value.toIsoString(),
+        endDate: CalendarDate.fromUtcDate(
+          new Date(Math.max(...ends)),
+        ).value.toIsoString(),
       },
     };
   }
@@ -189,14 +209,15 @@ export class GetSimulationOptionsQueryHandler
       id: record.id,
       titleType: record.titleType,
       issuer: record.issuer,
-      maturityDate: CalendarDate.fromUtcDate(record.maturityDate).value.toIsoString(),
+      maturityDate: CalendarDate.fromUtcDate(
+        record.maturityDate,
+      ).value.toIsoString(),
       redemptionTerms: { kind: record.redemptionType },
       remunerationTerms: {
         kind: record.remunerationType,
         rate: record.rateValue.toFixed(),
       },
       unsupportedReason: InvestmentCalculator.unsupportedReason(
-        record.titleType as ETitleType,
         record.remunerationType,
       ),
     };
