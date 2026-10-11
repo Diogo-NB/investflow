@@ -380,9 +380,8 @@ append-only calculation history kept for reproducibility). Product rules are in
 **Status:** decided, not implemented. The code still implements the earlier
 model: `Simulation` stores copied terms, `IndexCurve` is immutable,
 `SimulationCalculation` keeps every calculation, offers and curves have no
-owner, and no domain event is emitted or consumed. Implementation order:
-ownership and groups, revisioned offer conditions and curve scenarios,
-asynchronous recalculation, then the browser screens.
+owner, and no domain event is emitted or consumed. Deliverables and their
+order are in `docs/product/implementation-roadmap.md`.
 
 ### Model
 
@@ -399,6 +398,11 @@ asynchronous recalculation, then the browser screens.
   through application use cases, never through HTTP. No application roles are
   needed. A private member may belong to a system group (a user's duplicate),
   so visibility is decided per member.
+- A group never stays empty. Deleting the last member of a private group
+  deletes the group in the same transaction. A system process deleting a system
+  group that still holds private members retires it instead: its system
+  members are deleted, it accepts no new members, and it stays visible only to
+  the owners of its remaining private members until the last one is deleted.
 - A simulation references one offer condition, an optional curve scenario, and
   holds its investment (principal and investment date). Editing any of those
   increments the simulation's own `revision`. A reference to a member that is
@@ -419,13 +423,13 @@ simulation revision, the condition revision, the scenario revision, and the
 methodology version. The target is read from the current references, not
 copied, so it can never drift from them.
 
-| Status        | Meaning                                                                     |
-| ------------- | --------------------------------------------------------------------------- |
-| `PENDING`     | The target differs from the stored result and a calculation is queued.      |
-| `CALCULATING` | A worker claimed the calculation with a lease (`claimedUntil`).             |
-| `CALCULATED`  | The stored result matches the target.                                       |
-| `INVALID`     | A business rule blocks the target; the reason code and metadata are stored. |
-| `FAILED`      | A technical failure exhausted the queue's retries.                          |
+| Status        | Meaning                                                                            |
+| ------------- | ---------------------------------------------------------------------------------- |
+| `PENDING`     | The target differs from the stored result; a calculation was queued at `queuedAt`. |
+| `CALCULATING` | A worker claimed the calculation with a lease (`claimedUntil`).                    |
+| `CALCULATED`  | The stored result matches the target.                                              |
+| `INVALID`     | A business rule blocks the target; the reason code and metadata are stored.        |
+| `FAILED`      | A technical failure exhausted the queue's retries.                                 |
 
 - **Requests validate synchronously, then calculate asynchronously.** Creating
   or editing a simulation validates input and references in the request
@@ -444,17 +448,28 @@ copied, so it can never drift from them.
 - **Monotonic writes.** An outcome is written only when its inputs are not
   older than the stored ones: compare the simulation revision first, then the
   condition and scenario revisions (at the same simulation revision the
-  references are the same members, so their revisions are comparable), then
-  the methodology version. Late, duplicate, or out-of-order deliveries
-  therefore cannot replace a newer result, and consumers stay idempotent.
+  references are the same members, so their revisions are comparable). Late,
+  duplicate, or out-of-order deliveries therefore cannot replace a newer
+  result, and consumers stay idempotent. The methodology version is not part
+  of this comparison, because version strings have no order: a worker always
+  calculates with the current methodology, and a result recorded with another
+  version is out of date and recovered by reconciliation.
 - **`INVALID` is scoped to its target.** It records the inputs it was decided
   for; any change to the target returns the simulation to `PENDING`. A deleted
   condition or scenario sets `INVALID` with its own reason code.
-- **Reconciliation.** A periodic sweep queues simulations whose stored inputs
-  differ from the target with no calculation queued or running, whose lease
-  expired, or that are `FAILED` past a cooldown. Events make recalculation
-  fast; the sweep guarantees it converges after lost events, crashed workers,
-  dead-lettered messages, and methodology version changes.
+- **Reconciliation.** A periodic sweep queues a simulation again when it is:
+  - `PENDING` with `queuedAt` older than a threshold (its message was lost or
+    dead-lettered);
+  - `CALCULATING` with an expired lease (its worker crashed);
+  - `CALCULATED` or `INVALID` while its stored inputs or methodology version
+    differ from the target (a fan-out event was lost, or the methodology
+    changed);
+  - `FAILED` past a cooldown.
+
+  Queuing sets `PENDING` and a new `queuedAt`. Repeated queuing is harmless
+  because claims and monotonic writes discard redundant work. Events make
+  recalculation fast; the sweep guarantees it converges.
+
 - **Reads** return the last successful result together with the status and
   the inputs it was computed from, so the screen can show "recalculating" or
   "requires action" over the previous values. The browser refreshes while a

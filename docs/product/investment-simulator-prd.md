@@ -6,6 +6,10 @@ não define arquitetura de software.
 O contexto de negócio e as regras das curvas estão detalhados em
 [Curvas de Valores dos Índices](./index-value-curves.md).
 
+Este documento descreve o produto pretendido, não o que já está implementado.
+O estado atual da implementação e as próximas entregas estão no
+[roteiro de implementação](./implementation-roadmap.md).
+
 ## Visão
 
 Simulador educacional para planejar e comparar investimentos brasileiros de
@@ -42,7 +46,7 @@ Ofertas, curvas e simulações são deliberadamente editáveis, e as simulaçõe
 reagem às mudanças das ofertas e curvas que usam:
 
 - Editar uma condição de oferta ou um cenário de curva recalcula todas as
-  simulações que o usam. Não há cópia congelada das premissas.
+  simulações que usam o item editado. Não há cópia congelada das premissas.
 - O recálculo é assíncrono. Uma simulação pode estar aguardando cálculo,
   calculando, atualizada, impedida por uma regra de negócio ou com falha
   técnica (ver [Cálculos de Simulação](#cálculos-de-simulação)). Esses estados
@@ -84,6 +88,12 @@ Comportamento:
   demais usuários não veem a cópia.
 - Criar uma oferta a partir do zero cria um novo grupo privado com sua
   primeira condição.
+- Uma oferta nunca fica vazia. Excluir a última condição de uma oferta privada
+  exclui a oferta, e a confirmação avisa isso.
+- Quando o sistema remove uma oferta que contém cópias privadas de usuários,
+  ela é desativada em vez de excluída: suas condições do sistema são
+  excluídas, ela não aceita novas condições e continua visível somente para os
+  donos das cópias, até que a última seja excluída.
 - A interface apresenta as condições agrupadas sob sua oferta.
 
 ### Curvas
@@ -176,15 +186,18 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
 - "Requer ação" exibe o motivo: falta de cobertura do cenário (com os
   períodos descobertos), cenário excluído ("Sem curva, escolha outra"),
   condição excluída ("Sem oferta, escolha outra"), data que não é dia útil,
-  prazo mínimo não atendido ou índice incompatível. Ele vale para as entradas
-  atuais: quando o usuário ou o dono da premissa a corrige, a simulação volta a
-  aguardar cálculo.
+  prazo mínimo não atendido ou índice incompatível. Exceto a falta de cobertura,
+  esses motivos também rejeitam a solicitação ao salvar; aparecem aqui quando
+  uma condição ou um cenário muda ou é excluído depois de a simulação ter sido
+  salva. "Requer ação" vale para
+  as entradas atuais: quando o usuário ou o dono da premissa a corrige, a
+  simulação volta a aguardar cálculo.
 - Enquanto não está atualizada, a simulação exibe o último resultado bem
   sucedido, identificado como anterior às alterações, junto com seu estado.
   Uma simulação que nunca teve cálculo bem sucedido exibe somente o estado.
 - Uma simulação cujo resultado não corresponde às revisões atuais de suas
-  premissas, sem cálculo agendado ou em execução, é recalculada
-  automaticamente pelo sistema. Nenhuma alteração fica sem cálculo por perda de
+  premissas ou à metodologia vigente, ou cujo cálculo não termina no prazo
+  esperado, é recalculada automaticamente pelo sistema. Nenhuma alteração fica sem cálculo por perda de
   uma notificação interna.
 - A tela de resultado mostra a alíquota aplicada ao lado de cada tributo e, sob
   demanda, explica o cálculo de forma breve: a regra de cada tributo, a conta

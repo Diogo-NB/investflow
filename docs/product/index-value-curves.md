@@ -304,6 +304,11 @@ anterior de um cenário editado nem os resultados calculados com ela.
 
 Excluir um cenário é definitivo para o usuário, mesmo que o armazenamento
 mantenha um registro técnico. Excluir uma curva privada exclui seus cenários.
+Uma curva nunca fica vazia: excluir o último cenário de uma curva privada
+exclui a curva. Quando o sistema remove uma curva que contém cenários privados
+de usuários, ela é desativada em vez de excluída: seus cenários do sistema são
+excluídos, ela não aceita novos cenários e continua visível somente para os
+donos desses cenários, até que o último seja excluído.
 
 O cenário excluído deixa de ser encontrado e não pode ser escolhido. As
 simulações que o usavam passam a "Requer ação" com o motivo "Sem curva,

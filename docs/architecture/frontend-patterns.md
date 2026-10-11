@@ -498,9 +498,11 @@ and editable; system content is visible to everyone and read only.
   "Excluir"; system conditions offer "Duplicar", which adds a private
   condition to the same offer. An own offer can be renamed and deleted, which
   deletes its conditions. A missing or deleted record has its own state.
-- Deleting confirms in an AlertDialog that states the deletion is permanent
-  and how many of the user's simulations will require a new choice ("Sem
-  oferta, escolha outra").
+- Deleting confirms in an AlertDialog that states the deletion is permanent,
+  how many of the user's simulations will require a new choice ("Sem oferta,
+  escolha outra"), and, for the last condition of a private offer, that the
+  offer is deleted with it. A retired system offer appears only while the user
+  still has conditions in it, marked as no longer offered by the system.
 - The condition editor initializes from one snapshot. Title type and issuer
   are displayed as fixed information. Changing the remuneration kind clears
   the rate, because its unit changed. Before saving, it states how many of the
@@ -534,4 +536,5 @@ duplication and deletion follow Offer behavior.
   decision (see the curve specification). It follows the condition editor's
   impact notice, revision conflict, and save rules.
 - Deleting a scenario states how many of the user's simulations will require
-  a new choice ("Sem curva, escolha outra").
+  a new choice ("Sem curva, escolha outra") and, for the last scenario of a
+  private curve, that the curve is deleted with it.
