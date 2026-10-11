@@ -1,9 +1,5 @@
 import { CalendarDate } from '@investflow/shared-domain';
-import {
-  buildMessage,
-  ValidateBy,
-  ValidationOptions,
-} from 'class-validator';
+import { buildMessage, ValidateBy, ValidationOptions } from 'class-validator';
 
 export const IS_CALENDAR_DATE = 'isCalendarDate';
 

@@ -203,6 +203,8 @@ shared/infrastructure/src/lib/
   dates/
   http/
   messaging/
+    consumers/
+    eventbridge/
     outbox/
     sqs/
   persistence/
@@ -475,6 +477,47 @@ copied, so it can never drift from them.
   "requires action" over the previous values. The browser refreshes while a
   simulation is `PENDING` or `CALCULATING`; real-time push is future work.
 - A portfolio's status is derived from its simulations' statuses at read time.
+
+## Messaging Transport
+
+Decision dated 2026-10-11: integration events travel over Amazon EventBridge
+and Amazon SQS, emulated locally by [Floci](https://github.com/floci-io/floci).
+This replaces the earlier SNS topic per context.
+
+- **Routing.** The outbox poller publishes every event to the custom bus
+  `investflow` with `source` `investflow.<context>` and `detail-type` set to
+  the event type; the `detail` is the serialized domain event. Each consumer
+  owns one SQS queue fed by an EventBridge rule on `source` and `detail-type`.
+  Publishers never know their consumers, and a new consumer is a new rule.
+- **Retries.** Every queue has a dead-letter queue. A message that is not
+  deleted becomes visible again after the visibility timeout (30 seconds) and is
+  dead-lettered after 5 receives. Retry policy is queue configuration, not code.
+- **Publishing failures.** The outbox poller retries a failed event with
+  exponential backoff per event (up to 5 minutes, indefinitely), so one bad
+  event never blocks the rest, and pauses entirely when consecutive events
+  fail, so an EventBridge outage costs 3 calls and 3 warnings per pause, with
+  pauses growing to 60 seconds.
+- **Payload limit.** The outbox owns a 200 KB payload limit, enforced when the
+  event is saved: events carry identifiers and changed fields, not documents.
+  The limit is not derived from the transport; every broker adapter must
+  accept payloads of that size (EventBridge accepts 256 KB per entry).
+- **Hosts.** Consumers run in the API today and can become SQS-triggered
+  Lambdas later. The future index-curve update Lambdas use EventBridge
+  Scheduler and deliver data by publishing events or calling the API, so the
+  database never needs to accept connections from outside the backend.
+- **Hosting is not tied to AWS.** EventBridge and SQS are public HTTPS APIs. A
+  backend on a VPS needs outbound HTTPS to AWS and credentials: a scoped IAM
+  user key in the environment, or IAM Roles Anywhere.
+- **Local emulation.** Floci needs no account or auth token, unlike LocalStack
+  since its 2026.03 release. `infra/floci/init/provision.sh` runs on every
+  container start (Floci keeps state in memory) and creates the bus and each
+  consumer queue through `consumer_queue`. The SDK reaches Floci through
+  `AWS_ENDPOINT_URL`; no code knows about the emulator.
+- **Ports.** `MessageBroker` (publishing) and `EventDispatcher` (deduplication
+  per consumer, transaction, and `@OnEvent` dispatch) are transport-neutral.
+  Only `EventBridgeMessageBroker`, `SqsEventListener`, and the provisioning
+  script know the transport, so replacing it does not touch business code or
+  consumers.
 
 ## Persistence Mappers
 

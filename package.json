@@ -27,7 +27,7 @@
   },
   "private": true,
   "dependencies": {
-    "@aws-sdk/client-sns": "^3.1034.0",
+    "@aws-sdk/client-eventbridge": "^3.1034.0",
     "@aws-sdk/client-sqs": "^3.1034.0",
     "@base-ui/react": "^1.9.0",
     "@hookform/resolvers": "^5.9.1",

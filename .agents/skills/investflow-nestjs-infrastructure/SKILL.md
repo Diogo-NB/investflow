@@ -46,7 +46,7 @@ module composition, host responsibilities, or library boundaries.
   such as `authentication`, `clocks`, `dates`, `http`, `messaging`, `money`,
   and `persistence`;
   place provider-specific boundaries beneath them when useful, for example
-  `messaging/outbox`, `messaging/sqs`, and `persistence/prisma`. Do not recreate
+  `messaging/eventbridge`, `messaging/sqs`, and `persistence/prisma`. Do not recreate
   global role buckets such as `filters`, `presenters`, `validators`, or
   `formatters`; place a validator or formatter with the capability it serves.
 

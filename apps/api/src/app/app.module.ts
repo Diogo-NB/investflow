@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TerminusModule } from '@nestjs/terminus';
 import {
   SharedInfrastructureModule,
+  OutboxModule,
   JwtAuthGuard,
   AppExceptionFilter,
 } from '@investflow/shared-infrastructure';
@@ -14,6 +15,7 @@ import { HTTP_INTERCEPTOR_PROVIDERS } from './http-interceptors.providers';
 @Module({
   imports: [
     SharedInfrastructureModule,
+    OutboxModule,
     InvestmentSimulatorInfrastructureModule,
     TerminusModule,
   ],

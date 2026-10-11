@@ -22,11 +22,12 @@ export {
   formatMoneyPtBr,
   type MoneyFormatOptions,
 } from './lib/money/money.formatter';
-export { MessageBroker } from './lib/messaging/outbox/message-broker.port';
-export { SnsMessageBroker } from './lib/messaging/outbox/sns-message-broker';
-export { OutboxTopicRegistry } from './lib/messaging/outbox/outbox-topic.registry';
-export { SqsConsumerBase } from './lib/messaging/sqs/sqs-consumer.base';
-export { OnEvent } from './lib/messaging/sqs/on-event.decorator';
+export { OutboxModule } from './lib/messaging/outbox/outbox.module';
+export { OnEvent } from './lib/messaging/consumers/on-event.decorator';
+export {
+  SqsConsumersModule,
+  type SqsConsumerBinding,
+} from './lib/messaging/sqs/sqs-consumers.module';
 export { AppExceptionFilter } from './lib/http/app-exception.filter';
 export { HttpResultInterceptor } from './lib/http/http-result.interceptor';
 export { createRequestValidationPipe } from './lib/http/request-validation.pipe';

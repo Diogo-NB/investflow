@@ -39,5 +39,27 @@ services:
     volumes:
       - ./infra/keycloak/realms:/opt/keycloak/data/import
 
+  floci:
+    image: floci/floci:2.1.0-compat
+    container_name: investflow-floci
+    restart: unless-stopped
+    ports:
+      - '${FLOCI_PORT:-4566}:4566'
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+    volumes:
+      - ./infra/floci/init:/etc/localstack/init/ready.d
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'aws --endpoint-url http://localhost:4566 events describe-event-bus --name investflow',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   pgdata:

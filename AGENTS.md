@@ -17,8 +17,8 @@ Load the repository skill that matches the work:
   services, use cases, ports, application errors, and temporal behavior.
 - `$investflow-nestjs-infrastructure` for controllers, DTOs, Prisma adapters,
   query handlers, Nest modules, dependency injection, and host composition.
-- `$investflow-eventing` for domain events, the transactional outbox, SNS/SQS,
-  consumers, retries, and idempotency.
+- `$investflow-eventing` for domain events, the transactional outbox,
+  EventBridge/SQS, consumers, retries, and idempotency.
 - `$investflow-react` for routes, components, hooks, forms, browser API
   clients, state, styling, accessibility, and frontend tests.
 
@@ -93,6 +93,10 @@ frontend testing policy.
   immutable model; see "Mutable Premises And Asynchronous Recalculation" in
   `docs/architecture/project-structure.md` before touching offers, curves,
   simulations, or eventing.
+- Integration events travel over EventBridge and SQS, emulated locally by
+  Floci (decision 2026-10-11): one bus, one queue with a dead-letter queue per
+  consumer, and transport knowledge confined to the messaging adapters. See
+  "Messaging Transport" in `docs/architecture/project-structure.md`.
 - The frontend is React 19 + Vite 8 (decision 2026-10-10). The simulation
   workspace under `/simulacoes` is built on the earlier model; the offer and
   curve screens are not built yet. Follow the status sequence in
@@ -118,12 +122,13 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 - If pnpm is unavailable after installing a new NVM Node version, run `corepack enable`; Corepack will use the pnpm version pinned in `packageManager`.
 - In sandboxes or containers that prohibit Unix sockets, prefix Nx commands with `NX_DAEMON=false`.
 - `pnpm install`: install workspace dependencies.
-- `pnpm db:up`: start PostgreSQL and Keycloak with their existing local state.
-- `pnpm db:down`: stop and remove both containers while preserving local data.
-- `pnpm db:setup`: delete local PostgreSQL and Keycloak state, recreate both
+- `pnpm db:up`: start PostgreSQL, Keycloak, and Floci with their existing
+  local state (Floci reprovisions its in-memory resources on every start).
+- `pnpm db:down`: stop and remove the containers while preserving local data.
+- `pnpm db:setup`: delete local PostgreSQL and Keycloak state, recreate the
   services, apply Prisma migrations, and import the development realm.
-- `pnpm start`: start PostgreSQL and Keycloak, then serve the API and web
-  applications in parallel.
+- `pnpm start`: start PostgreSQL, Keycloak, and Floci, then serve the API and
+  web applications in parallel.
 - `pnpm db:migrate`: create/apply local Prisma migrations after schema changes.
 - `pnpm start:api`: serve the API in development mode.
 - `pnpm build:api`: build the API into `dist/`.

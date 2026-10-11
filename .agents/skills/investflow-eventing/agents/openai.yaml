@@ -1,6 +1,6 @@
 interface:
-  display_name: "InvestFlow Eventing"
-  short_description: "Build transactional event flows"
+  display_name: 'InvestFlow Eventing'
+  short_description: 'Build transactional event flows'
   default_prompt: "Use $investflow-eventing to implement this event flow with the repository's outbox and consumer guarantees."
 
 policy:

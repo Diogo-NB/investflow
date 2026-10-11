@@ -6,7 +6,7 @@
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
-    "@aws-sdk/client-sns": "^3.1034.0",
+    "@aws-sdk/client-eventbridge": "^3.1034.0",
     "@aws-sdk/client-sqs": "^3.1034.0",
     "@investflow/shared-application": "*",
     "@investflow/shared-domain": "*",

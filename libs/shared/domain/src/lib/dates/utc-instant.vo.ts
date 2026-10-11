@@ -75,6 +75,12 @@ export class UtcInstant extends ValueObject<UtcInstant> {
     return result.value;
   }
 
+  addMs(milliseconds: number): UtcInstant {
+    return UtcInstant.ofEpochMilliseconds(
+      this.epochMilliseconds + milliseconds,
+    );
+  }
+
   get epochMilliseconds(): number {
     return this.dateValue.getTime();
   }

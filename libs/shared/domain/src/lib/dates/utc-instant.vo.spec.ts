@@ -81,4 +81,14 @@ describe('UtcInstant', () => {
       first.equals(UtcInstant.ofEpochMilliseconds(first.epochMilliseconds)),
     ).toBe(true);
   });
+
+  it('adds milliseconds without changing the original instant', () => {
+    const instant = UtcInstant.ofIso('2026-01-02T03:04:05Z');
+
+    expect(instant.addMs(1_500).toISOString()).toBe('2026-01-02T03:04:06.500Z');
+    expect(instant.addMs(-5_000).toISOString()).toBe(
+      '2026-01-02T03:04:00.000Z',
+    );
+    expect(instant.toISOString()).toBe('2026-01-02T03:04:05.000Z');
+  });
 });

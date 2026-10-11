@@ -29,10 +29,12 @@ export class TransactionInterceptor implements NestInterceptor {
 
     return from(
       this.prisma.$transaction(async (tx) =>
-        TransactionContext.run(tx, () =>
-          new Promise<unknown>((resolve, reject) => {
-            next.handle().subscribe({ next: resolve, error: reject });
-          }),
+        TransactionContext.run(
+          tx,
+          () =>
+            new Promise<unknown>((resolve, reject) => {
+              next.handle().subscribe({ next: resolve, error: reject });
+            }),
         ),
       ),
     );

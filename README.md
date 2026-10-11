@@ -38,7 +38,7 @@ pnpm start
 pnpm check
 ```
 
-`pnpm start` starts PostgreSQL and Keycloak, then serves the API and web
+`pnpm start` starts PostgreSQL, Keycloak, and Floci, then serves the API and web
 applications in parallel. Use `pnpm start:api` or `pnpm start:web` when only
 one application is needed, and `pnpm db:down` to stop the infrastructure
 containers.
@@ -86,8 +86,8 @@ the shared Keycloak JWT guard unless marked with `@Public()`.
 
 | Script             | What it does                                                         |
 | ------------------ | -------------------------------------------------------------------- |
-| `pnpm db:up`       | Start PostgreSQL and Keycloak with existing state                    |
-| `pnpm db:down`     | Stop and remove both containers while preserving state               |
+| `pnpm db:up`       | Start PostgreSQL, Keycloak, and Floci with existing state            |
+| `pnpm db:down`     | Stop and remove the containers while preserving state                |
 | `pnpm db:setup`    | Recreate databases, import realm, migrate, generate client, and seed |
 | `pnpm start`       | Start local infrastructure, API, and web applications                |
 | `pnpm db:generate` | Regenerate the Prisma client                                         |
@@ -132,9 +132,11 @@ fixture to be created on the next run. Other records are preserved.
 Keycloak users remain managed by the realm
 import. The runner lives under `tools/database`, with fixtures grouped by context.
 
-Domain events use their `context` field to select an SNS topic. Each bounded
-context registers its own topic during module initialization through the shared
-`OutboxTopicRegistry`.
+Domain events reach consumers through EventBridge and SQS, emulated locally by
+Floci on port 4566. Events are published to the `investflow` bus with their
+`context` as the source; each consumer has its own queue and dead-letter queue,
+provisioned by `infra/floci/init/provision.sh` when the container starts. See
+"Messaging Transport" in `docs/architecture/project-structure.md`.
 
 ## Architecture Conventions
 

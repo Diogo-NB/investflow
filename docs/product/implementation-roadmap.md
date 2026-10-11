@@ -22,7 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-11, before D0.
+Last updated 2026-10-11, after D0.
 
 Built, on the earlier immutable model:
 
@@ -35,8 +35,12 @@ Built, on the earlier immutable model:
 - **Offers:** backend CRUD only; no browser screens.
 - **Index curves:** domain, persistence, and the reads used by the simulation
   workspace; curves are created only by the seed.
-- **Messaging:** the outbox, SNS publisher, and SQS consumer base exist, but no
-  domain event is emitted or consumed and local SNS/SQS is not provisioned.
+- **Messaging:** runs locally end to end on EventBridge and SQS emulated by
+  Floci (see "Messaging Transport" in
+  [Project Structure](../architecture/project-structure.md)). The outbox
+  poller publishes to the `investflow` bus, and consumers are plain classes
+  that the host binds to their queues; no domain event is emitted or consumed
+  yet.
 
 Differs from the target model:
 
@@ -52,17 +56,18 @@ redemption.
 
 ## Next Steps
 
-1. **D0 — Messaging foundation**, the recommended first deliverable.
-2. D1 and D2 next, in either order or in parallel; both need D0 because they
-   are the first deliverables to emit events.
-3. Decide how users enter a scenario's intervals before D6 starts (open
+1. D1 and D2, in either order or in parallel. They are the first deliverables
+   to emit events.
+2. Decide how users enter a scenario's intervals before D6 starts (open
    question in the curve specification).
+3. Decide how D4b's batched fan-out writes calculation events before D4b
+   starts (open decision in its section).
 
 ## Overview
 
 | #   | Deliverable                                                       | Depends on                         | Status      |
 | --- | ----------------------------------------------------------------- | ---------------------------------- | ----------- |
-| D0  | Messaging runs locally end to end                                 | —                                  | Not started |
+| D0  | Messaging runs locally end to end                                 | —                                  | Done        |
 | D1  | Curves become groups of revisioned scenarios with owners          | D0                                 | Not started |
 | D2  | Offers become groups of revisioned conditions with owners         | D0                                 | Not started |
 | D3  | Simulations reference a condition and scenario; one result        | D1, D2                             | Not started |
@@ -80,37 +85,15 @@ D0 ──┤         ├──► D3 ──► D4a ──► D4b ──► D4c
           D1 ── (interval input decided) ──► D6
 ```
 
-Recommended order: D0, D1, D2, D3, D4a, D4b, D4c, D5, D6. D0 goes first: it
-carries the most infrastructure unknowns, touches no business code, and D1 and
-D2 depend on it. They are the first deliverables to emit events, and the outbox
-poller already running in the API cannot publish them without a configured
-topic, so they would stay unpublished and log an error on every poll. D1 and
-D2 are independent of each other. D6 waits for
+Recommended order: D0, D1, D2, D3, D4a, D4b, D4c, D5, D6. D0 went first
+because it carried the most infrastructure unknowns, touched no business code,
+and D1 and D2 are the first deliverables to emit events. D1 and D2 are
+independent of each other. D6 waits for
 the pending product decision on how users enter a scenario's intervals, which
 can be made while D1 to D4 are built.
 
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
-
-## D0 — Messaging foundation
-
-Today `OutboxModule` (imported by `SharedInfrastructureModule`) polls the
-outbox and publishes through `SnsMessageBroker`, but `docker-compose.yml` runs
-only PostgreSQL and Keycloak, and nothing emits or consumes events.
-
-- LocalStack (SNS and SQS) in `docker-compose.yml`; `pnpm db:setup` provisions
-  the context topic, queues, and dead-letter queues.
-- Retry and dead-letter configuration per queue.
-- The API host activates consumers explicitly; importing modules does not
-  start background work.
-- `OutboxPollerService` publishes outside the database transaction (publish,
-  then mark published, relying on consumer deduplication), and one event's
-  failure no longer skips the rest of the batch.
-- An integration test covering the full path: domain event, outbox, poller,
-  SNS, SQS, consumer, `processed_events`.
-
-**Done when** a test event travels the whole path locally and a redelivery is
-ignored.
 
 ## D1 — Curve groups and scenarios
 
@@ -170,6 +153,9 @@ scenario is reflected the next time an affected simulation is saved.
   `CALCULATED`, `INVALID` with reason, `FAILED`).
 - The request validates synchronously, persists the simulation as `PENDING`,
   and raises an event in the same transaction.
+- The calculation consumer gets its queue through `consumer_queue` in
+  `infra/floci/init/provision.sh`, and the API binds it with
+  `SqsConsumersModule.register`.
 - A consumer claims the calculation with a lease, calculates from current
   state, and writes the outcome only when its inputs are not older than the
   stored ones.
@@ -187,6 +173,24 @@ and duplicate or out-of-order deliveries cannot replace a newer result.
 - Deleting a condition or scenario sets its simulations `INVALID` ("Sem oferta,
   escolha outra" or "Sem curva, escolha outra").
 - A query counting the user's affected simulations, for impact notices.
+
+**Open decision, settle before starting:** how batched fan-out writes its
+calculation events. Events are written to the outbox only by
+`BaseRepository.save()`, so only a loaded aggregate can raise them, but fan-out
+is meant to update simulations in bulk without loading them. The same choice
+applies to the D4c sweep.
+
+- **Outbox port (recommended for throughput).** An application port appends
+  events to the outbox in the current transaction, implemented by
+  `OutboxWriter`. Batch use cases pair it with a bulk update repository method.
+  Aggregate changes keep using `save()`; the eventing skill must state when
+  each path applies.
+- **Load aggregates in small batches.** Keeps one path to the outbox at the
+  cost of slower fan-out; affordable if calculation dominates the cost.
+
+Rejected: bulk repository methods that write events themselves (event
+definitions would live in a persistence adapter) and one summary event per
+batch (complicates per-simulation claims, retries, and dead-lettering).
 
 **Done when** editing a scenario recalculates every simulation that uses it,
 and deleting it moves them to "Requer ação".

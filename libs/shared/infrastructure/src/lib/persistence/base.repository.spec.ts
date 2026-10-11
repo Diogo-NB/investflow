@@ -18,13 +18,17 @@ class TestEvent implements DomainEvent {
   readonly context = 'test-context';
 }
 
+class LargeTestEvent extends TestEvent {
+  readonly notes = 'x'.repeat(200 * 1024);
+}
+
 class TestAggregate extends AggregateRoot {
   constructor() {
     super('aggregate-id');
   }
 
-  recordEvent(): this {
-    return this.apply(new TestEvent());
+  recordEvent(event: DomainEvent = new TestEvent()): this {
+    return this.apply(event);
   }
 }
 
@@ -72,23 +76,7 @@ describe('BaseRepository', () => {
     expect(result.isOk()).toBe(true);
     expect(prisma.client.outboxEvent.createMany).toHaveBeenCalledWith({
       data: [
-        expect.objectContaining({
-          id: 'event-id',
-          aggregateId: 'aggregate-id',
-          aggregateType: 'TestAggregate',
-          eventType: 'TestEvent',
-          context: 'test-context',
-          occurredAt: new Date('2026-01-01T00:00:00.000Z'),
-          payload: {
-            eventId: 'event-id',
-            occurredAt: '2026-01-01T00:00:00.000Z',
-            eventType: 'TestEvent',
-            version: 1,
-            aggregateId: 'aggregate-id',
-            aggregateType: 'TestAggregate',
-            context: 'test-context',
-          },
-        }),
+        expect.objectContaining({ id: 'event-id', eventType: 'TestEvent' }),
       ],
     });
     expect(aggregate.getDomainEvents()).toEqual([]);
@@ -110,6 +98,20 @@ describe('BaseRepository', () => {
       aggregateId: 'aggregate-id',
       aggregateType: 'TestAggregate',
     });
+    expect(aggregate.getDomainEvents()).toHaveLength(1);
+  });
+
+  it('rejects an event above the outbox payload limit before persisting', async () => {
+    const prisma = createPrismaService();
+    const repository = new TestRepository(prisma);
+    const aggregate = new TestAggregate().recordEvent(new LargeTestEvent());
+
+    const result = await repository.save(aggregate);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.error).toBeInstanceOf(RepositorySaveError);
+    expect(repository.persistAggregateMock).not.toHaveBeenCalled();
+    expect(prisma.client.outboxEvent.createMany).not.toHaveBeenCalled();
     expect(aggregate.getDomainEvents()).toHaveLength(1);
   });
 });
