@@ -9,7 +9,7 @@ import {
 import Decimal from 'decimal.js';
 import type { RemunerationKind } from '../offers/terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from '../offers/title-type.enum';
-import { CdbTaxCalculator } from './cdb-tax-calculator.domain-service';
+import { CdbTaxCalculator } from '../taxes/cdb-tax-calculator.domain-service';
 import {
   InvestmentCalculationError,
   UnsupportedCalculationCode,
@@ -21,7 +21,7 @@ import {
 import { InvestmentScenario } from './investment-scenario.vo';
 
 // Bump whenever formulas, conventions or the business-day calendar change the
-// figures, so recorded runs keep identifying what produced them.
+// figures, so recorded calculations keep identifying what produced them.
 export const METHODOLOGY_VERSION = 'cdb-252-v1';
 
 const BUSINESS_DAYS_PER_YEAR = 252;
@@ -174,7 +174,7 @@ export class InvestmentCalculator {
     const dailyBalances = this.accrue(principal, rates);
     const grossBalance = dailyBalances[dailyBalances.length - 1].grossBalance;
     const grossEarnings = grossBalance.subtract(principal);
-    const { basis, ...taxes } = this.cdbTaxes.calculate(
+    const taxes = this.cdbTaxes.assess(
       grossEarnings,
       scenario.holdingPeriodCalendarDays,
     );
@@ -185,10 +185,9 @@ export class InvestmentCalculator {
         principal,
         grossBalance,
         grossEarnings,
-        ...taxes,
-        netBalance: grossBalance.subtract(taxes.totalTaxes),
+        netBalance: grossBalance.subtract(taxes.total),
       },
-      taxation: basis,
+      taxes,
     };
   }
 

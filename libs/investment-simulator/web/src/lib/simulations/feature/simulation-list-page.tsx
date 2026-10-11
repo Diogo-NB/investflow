@@ -79,7 +79,7 @@ function SimulationTable({
                 to={item.id}
                 className="font-medium text-accent underline-offset-4 outline-none group-hover:underline after:absolute after:inset-0 after:rounded-control focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
               >
-                {item.issuerName}
+                {item.issuerName ?? 'Sem emissor'}
               </Link>
               <span className="block text-sm text-muted">{origin(item)}</span>
             </td>
@@ -117,7 +117,7 @@ function SimulationRows({
             className="grid gap-2 p-4 text-fg no-underline hover:bg-accent-soft"
           >
             <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium text-accent">{item.issuerName}</span>
+              <span className="font-medium text-accent">{item.issuerName ?? 'Sem emissor'}</span>
               <NetResult item={item} />
             </span>
             <span className="text-sm text-muted">

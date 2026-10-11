@@ -1,10 +1,6 @@
 import {
-  ETitleType,
-  InvestmentTerms,
-  RedemptionTerms,
-  RemunerationTerms,
+  InvestmentInputs,
   SimulationCalculation,
-  SimulationInputs,
 } from '@investflow/investment-simulator-domain';
 import {
   CalendarDate,
@@ -32,17 +28,7 @@ export class SimulationCalculationMapper {
     return SimulationCalculation.reconstitute({
       id: record.id,
       simulationId: record.simulationId,
-      inputs: SimulationInputs.create({
-        terms: InvestmentTerms.create({
-          titleType: record.titleType as ETitleType,
-          issuerId: record.issuerId,
-          maturityDate: CalendarDate.fromUtcDate(record.maturityDate).value,
-          redemption: RedemptionTerms.create(record.redemptionType),
-          remuneration: RemunerationTerms.create(
-            record.remunerationType,
-            Rate.of(record.rateValue.toFixed()),
-          ),
-        }),
+      investment: InvestmentInputs.create({
         principal,
         investmentDate: CalendarDate.fromUtcDate(record.investmentDate).value,
         indexCurveId: record.indexCurveId,
@@ -53,17 +39,21 @@ export class SimulationCalculationMapper {
           principal,
           grossBalance: money(record.grossBalance),
           grossEarnings: money(record.grossEarnings),
-          iof: money(record.iof),
-          incomeTax: money(record.incomeTax),
-          totalTaxes: money(record.totalTaxes),
           netBalance: money(record.netBalance),
         },
-        taxation: {
+        taxes: {
           holdingPeriodCalendarDays: record.holdingPeriodCalendarDays,
-          taxableEarnings: money(record.taxableEarnings),
-          incomeTaxBase: money(record.incomeTaxBase),
-          iofRate: record.iofRate ? Rate.of(record.iofRate.toFixed()) : null,
-          incomeTaxRate: Rate.of(record.incomeTaxRate.toFixed()),
+          iof: {
+            base: money(record.taxableEarnings),
+            rate: record.iofRate ? Rate.of(record.iofRate.toFixed()) : null,
+            amount: money(record.iof),
+          },
+          incomeTax: {
+            base: money(record.incomeTaxBase),
+            rate: Rate.of(record.incomeTaxRate.toFixed()),
+            amount: money(record.incomeTax),
+          },
+          total: money(record.totalTaxes),
         },
         dailyBalances: record.balances.map((balance) => ({
           date: CalendarDate.fromUtcDate(balance.date).value,
@@ -79,37 +69,30 @@ export class SimulationCalculationMapper {
   static toPersistence(
     calculation: SimulationCalculation,
   ): Prisma.SimulationCalculationCreateInput {
-    const { inputs, result } = calculation;
-    const { terms } = inputs;
+    const { investment, result } = calculation;
     const summary = result.maturitySummary;
-    const taxation = result.taxation;
+    const { taxes } = result;
     return {
       id: calculation.id,
       simulation: { connect: { id: calculation.simulationId } },
-      titleType: terms.titleType,
-      issuer: { connect: { id: terms.issuerId } },
-      maturityDate: terms.maturityDate.toUtcDate(),
-      redemptionType: terms.redemption.kind,
-      remunerationType: terms.remuneration.kind,
-      rateValue: terms.remuneration.contractRate.value.toFixed(),
-      ...(inputs.indexCurveId
-        ? { indexCurve: { connect: { id: inputs.indexCurveId } } }
+      ...(investment.indexCurveId
+        ? { indexCurve: { connect: { id: investment.indexCurveId } } }
         : {}),
-      principal: inputs.principal.amount.toFixed(),
-      investmentDate: inputs.investmentDate.toUtcDate(),
+      principal: investment.principal.amount.toFixed(),
+      investmentDate: investment.investmentDate.toUtcDate(),
       methodologyVersion: result.methodologyVersion,
       calculatedAt: calculation.calculatedAt.date,
       grossBalance: summary.grossBalance.amount.toFixed(),
       grossEarnings: summary.grossEarnings.amount.toFixed(),
-      iof: summary.iof.amount.toFixed(),
-      incomeTax: summary.incomeTax.amount.toFixed(),
-      totalTaxes: summary.totalTaxes.amount.toFixed(),
       netBalance: summary.netBalance.amount.toFixed(),
-      holdingPeriodCalendarDays: taxation.holdingPeriodCalendarDays,
-      taxableEarnings: taxation.taxableEarnings.amount.toFixed(),
-      incomeTaxBase: taxation.incomeTaxBase.amount.toFixed(),
-      iofRate: taxation.iofRate?.value.toFixed() ?? null,
-      incomeTaxRate: taxation.incomeTaxRate.value.toFixed(),
+      holdingPeriodCalendarDays: taxes.holdingPeriodCalendarDays,
+      taxableEarnings: taxes.iof.base.amount.toFixed(),
+      iofRate: taxes.iof.rate?.value.toFixed() ?? null,
+      iof: taxes.iof.amount.amount.toFixed(),
+      incomeTaxBase: taxes.incomeTax.base.amount.toFixed(),
+      incomeTaxRate: taxes.incomeTax.rate.value.toFixed(),
+      incomeTax: taxes.incomeTax.amount.amount.toFixed(),
+      totalTaxes: taxes.total.amount.toFixed(),
       balances: {
         createMany: {
           data: result.dailyBalances.map((balance) => ({

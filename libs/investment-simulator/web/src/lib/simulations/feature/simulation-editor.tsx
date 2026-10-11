@@ -7,8 +7,8 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { PageLabel } from '../../ui/page-label';
 import { quietButton, secondaryButton } from '../../ui/styles';
 import type {
-  CalculationInputs,
   CalculationSummary,
+  Investment,
   SimulationOptions,
   SimulationWorkspace,
 } from '../models/simulation.types';
@@ -40,7 +40,7 @@ function SimulationHeading({
   current,
 }: {
   readonly simulation: SavedSimulation | null;
-  readonly current: CalculationInputs | null;
+  readonly current: Investment | null;
 }) {
   if (!simulation || !current) {
     return (
@@ -57,19 +57,24 @@ function SimulationHeading({
       </div>
     );
   }
+  const { terms } = simulation;
   return (
     <div className="max-w-prose">
       <h1
         id="simulation-title"
         className="m-0 text-xl leading-tight font-semibold sm:text-2xl"
       >
-        {current.issuer.name} · {current.titleType}{' '}
-        {remunerationLabel(current.remunerationTerms)}
+        {[
+          terms.issuer?.name,
+          `${terms.titleType} ${remunerationLabel(terms.remunerationTerms)}`,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </h1>
       <p className="mt-2 mb-0 text-muted">
         {formatMoney(current.principal)} de{' '}
         {formatIsoDate(current.investmentDate)} a{' '}
-        {formatIsoDate(current.maturityDate)} ·{' '}
+        {formatIsoDate(terms.maturityDate)} ·{' '}
         {simulation.fromCatalogOffer
           ? 'Termos de uma oferta do catálogo'
           : 'Termos personalizados'}
@@ -122,7 +127,7 @@ export function SimulationEditor({
       <header className="flex flex-wrap items-start justify-between gap-4">
         <SimulationHeading
           simulation={simulation}
-          current={latest?.inputs ?? null}
+          current={latest?.investment ?? null}
         />
         {simulation && (
           <div className="flex flex-wrap gap-2">
@@ -150,7 +155,7 @@ export function SimulationEditor({
         <SimulationFormPanel
           simulation={form}
           options={options}
-          isNew={isNew}
+          savedTerms={simulation?.terms ?? null}
           pending={calculate.pending}
           upToDate={upToDate}
           onCalculate={() => void submit()}
@@ -161,6 +166,7 @@ export function SimulationEditor({
           problem={calculate.problem}
           unsavedEdits={isDirty}
           taxRules={options.taxRules}
+          maturityDate={simulation?.terms.maturityDate ?? null}
         />
       </div>
 

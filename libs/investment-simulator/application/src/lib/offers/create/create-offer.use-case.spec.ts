@@ -34,6 +34,22 @@ function createFixture() {
 }
 
 describe('CreateOfferUseCase', () => {
+  it('creates an offer without an issuer', async () => {
+    const fixture = createFixture();
+
+    const result = await fixture.useCase.execute({
+      titleType: ETitleType.CDB,
+      issuerId: null,
+      maturityDate: CalendarDate.of('2030-05-20'),
+      redemptionTerms: RedemptionTerms.create('DAILY'),
+      remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(fixture.issuerRepository.findById).not.toHaveBeenCalled();
+    expect(fixture.offerRepository.save).toHaveBeenCalled();
+  });
+
   it('validates the issuer, saves the offer and returns its id', async () => {
     const fixture = createFixture();
 

@@ -15,7 +15,7 @@ import {
 export interface OfferPersistenceData {
   readonly id: string;
   readonly titleType: InvestmentTitleType;
-  readonly issuerId: string;
+  readonly issuerId: string | null;
   readonly maturityDate: Date;
   readonly redemptionType: InvestmentRedemptionType;
   readonly remunerationType: InvestmentRemunerationType;

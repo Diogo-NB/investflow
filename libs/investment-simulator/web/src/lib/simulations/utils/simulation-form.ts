@@ -12,12 +12,13 @@ import type {
   RemunerationKind,
 } from '../../offers/models/offer-terms';
 import type {
-  CreateSimulationInput,
   CurveOption,
+  Investment,
   OfferOption,
   RemunerationOption,
-  CalculationInputs,
   SimulationOptions,
+  SimulationTerms,
+  StartSimulationInput,
 } from '../models/simulation.types';
 
 /**
@@ -29,6 +30,7 @@ export interface SimulationFormValues {
   offerId: string;
   principal: string;
   investmentDate: string;
+  // Empty when the terms have no issuer.
   issuerId: string;
   remunerationKind: RemunerationKind;
   // Percentage in the kind's unit: "110" (% do CDI) or "12,5" (% a.a.).
@@ -86,7 +88,7 @@ export function simulationFormSchema(
         return decimal === null || fitsDecimalStorage(decimal);
       }, 'Valor grande demais.'),
       investmentDate: requiredDate,
-      issuerId: z.string().min(1, 'Escolha o emissor.'),
+      issuerId: z.string(),
       remunerationKind: z.enum([
         'PREFIXED',
         'CDI_PERCENTAGE',
@@ -131,29 +133,34 @@ export function simulationFormSchema(
     });
 }
 
+function validatedDecimal(text: string): string {
+  const parsed = parseBrazilianDecimal(text);
+  if (parsed === null) throw new Error('Form values must be validated first');
+  return parsed;
+}
+
 /**
- * Converts validated form values into the API's full-terms payload. The curve
- * is sent only while the chosen kind accepts one (fixed rates have none).
+ * Converts validated form values into the API's start payload. A saved
+ * simulation sends only `investment`; its terms are fixed.
  */
 export function toSimulationInput(
   values: SimulationFormValues,
-): CreateSimulationInput {
-  const decimal = (text: string) => {
-    const parsed = parseBrazilianDecimal(text);
-    if (parsed === null) throw new Error('Form values must be validated first');
-    return parsed;
-  };
+): StartSimulationInput {
   return {
     ...(values.offerId ? { offerId: values.offerId } : {}),
-    principal: decimal(values.principal),
-    investmentDate: values.investmentDate,
-    indexCurveId: values.indexCurveId || null,
-    issuerId: values.issuerId,
-    maturityDate: values.maturityDate,
-    redemptionTerms: { kind: values.redemptionKind },
-    remunerationTerms: {
-      kind: values.remunerationKind,
-      rate: shiftDecimal(decimal(values.rate), -2),
+    terms: {
+      issuerId: values.issuerId || null,
+      maturityDate: values.maturityDate,
+      redemptionTerms: { kind: values.redemptionKind },
+      remunerationTerms: {
+        kind: values.remunerationKind,
+        rate: shiftDecimal(validatedDecimal(values.rate), -2),
+      },
+    },
+    investment: {
+      principal: validatedDecimal(values.principal),
+      investmentDate: values.investmentDate,
+      indexCurveId: values.indexCurveId || null,
     },
   };
 }
@@ -175,7 +182,7 @@ export function blankSimulationValues(
     offerId: '',
     principal: '',
     investmentDate: today,
-    issuerId: options.issuers.length === 1 ? options.issuers[0].id : '',
+    issuerId: '',
     remunerationKind: 'CDI_PERCENTAGE',
     rate: '',
     maturityDate: '',
@@ -185,18 +192,19 @@ export function blankSimulationValues(
 }
 
 export function simulationValues(
-  inputs: CalculationInputs,
+  terms: SimulationTerms,
+  investment: Investment,
 ): SimulationFormValues {
   return {
     offerId: '',
-    principal: toBrazilianInput(inputs.principal),
-    investmentDate: inputs.investmentDate,
-    issuerId: inputs.issuer.id,
-    remunerationKind: inputs.remunerationTerms.kind,
-    rate: toBrazilianInput(shiftDecimal(inputs.remunerationTerms.rate, 2)),
-    maturityDate: inputs.maturityDate,
-    redemptionKind: inputs.redemptionTerms.kind,
-    indexCurveId: inputs.indexCurveId ?? '',
+    principal: toBrazilianInput(investment.principal),
+    investmentDate: investment.investmentDate,
+    issuerId: terms.issuer?.id ?? '',
+    remunerationKind: terms.remunerationTerms.kind,
+    rate: toBrazilianInput(shiftDecimal(terms.remunerationTerms.rate, 2)),
+    maturityDate: terms.maturityDate,
+    redemptionKind: terms.redemptionTerms.kind,
+    indexCurveId: investment.indexCurveId ?? '',
   };
 }
 
@@ -219,7 +227,7 @@ export function offerTermValues(
     remunerationOption(remunerations, kind)?.curves ?? []
   ).some((curve) => curve.id === current.indexCurveId);
   return {
-    issuerId: offer.issuer.id,
+    issuerId: offer.issuer?.id ?? '',
     remunerationKind: kind,
     rate: toBrazilianInput(shiftDecimal(offer.remunerationTerms.rate, 2)),
     maturityDate: offer.maturityDate,
@@ -236,7 +244,7 @@ export function differsFromOffer(
 ): boolean {
   const rate = parseBrazilianDecimal(values.rate);
   return (
-    values.issuerId !== offer.issuer.id ||
+    values.issuerId !== (offer.issuer?.id ?? '') ||
     values.remunerationKind !== offer.remunerationTerms.kind ||
     rate === null ||
     shiftDecimal(rate, -2) !== shiftDecimal(offer.remunerationTerms.rate, 0) ||

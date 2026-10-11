@@ -14,15 +14,18 @@ The offer catalog exposes use cases to create, partially update, and soft
 delete offers. Creation verifies that the referenced issuer exists. Empty or
 identical updates preserve domain values and still persist the aggregate.
 
-`CalculateSimulationUseCase` is the one write path for simulation inputs. It
-verifies the issuer, the optional curve, and, for a new simulation, the source
-catalog offer; calculates the inputs; and only on success creates the
-simulation (on its first calculation) and appends the calculation in the same
-transaction. `DeleteSimulationUseCase` soft deletes an owned simulation.
+`StartSimulationUseCase` verifies the source catalog offer and the issuer when
+given and the optional curve, then saves the simulation and its first
+calculation from `Simulation.start()` in the same transaction.
+`CalculateSimulationUseCase` loads an owned simulation and the optional curve
+and appends the calculation `Simulation.calculate()` returns. Neither saves
+anything when the calculation is rejected. `DeleteSimulationUseCase` soft
+deletes an owned simulation. Offer creation checks the issuer only when one is
+given.
 
 Application behavior is organized as vertical slices under `offers/create`,
-`offers/update`, `offers/delete`, `simulations/calculate`, and
-`simulations/delete`. Contracts and conversion helpers shared by
+`offers/update`, `offers/delete`, `simulations/start`,
+`simulations/calculate`, and `simulations/delete`. Contracts and conversion helpers shared by
 multiple operations live under `offers/shared`; feature-wide ports and errors
 remain at the feature root.
 

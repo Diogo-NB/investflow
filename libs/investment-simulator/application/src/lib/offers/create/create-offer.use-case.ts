@@ -22,8 +22,10 @@ export class CreateOfferUseCase
   async execute(
     command: CreateOfferCommand,
   ): Promise<Result<CreateOfferOutput, AppError>> {
-    const issuerResult = await this.issuerRepository.findById(command.issuerId);
-    if (issuerResult.isErr()) return issuerResult;
+    if (command.issuerId) {
+      const issuer = await this.issuerRepository.findById(command.issuerId);
+      if (issuer.isErr()) return issuer;
+    }
 
     const offer = Offer.create(command);
     const saveResult = await this.offerRepository.save(offer);

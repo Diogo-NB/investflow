@@ -90,10 +90,10 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
     retry: 0,
     // A rejected calculation saves nothing, so the form keeps its edits.
     mutationFn: (values: SimulationFormValues) => {
-      const { offerId, ...input } = toSimulationInput(values);
+      const input = toSimulationInput(values);
       return simulationId === undefined
-        ? createSimulation(fetchFn, { ...input, offerId })
-        : calculateSimulation(fetchFn, simulationId, input);
+        ? createSimulation(fetchFn, input)
+        : calculateSimulation(fetchFn, simulationId, input.investment);
     },
     // Runs while the mutation is still pending, so navigation is not treated
     // as leaving unsaved changes.
@@ -171,9 +171,10 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
     }
     const saved = simulationId !== undefined ? (source.data ?? null) : null;
     const current = source.data?.calculations[0];
-    const initialValues = current
-      ? // A duplicate copies the inputs but becomes a custom simulation.
-        simulationValues(current.inputs)
+    const initialValues =
+      source.data && current
+        ? // A duplicate also starts here, then saves as custom terms.
+          simulationValues(source.data.simulation.terms, current.investment)
       : blankSimulationValues(todayInSaoPaulo(), options.data);
     return {
       status: 'ready',

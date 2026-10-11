@@ -10,7 +10,7 @@ import { ETitleType } from './title-type.enum';
 
 interface OfferProps {
   readonly titleType: ETitleType;
-  readonly issuerId: string;
+  readonly issuerId: string | null;
   maturityDate: CalendarDate;
   redemptionTerms: RedemptionTerms;
   remunerationTerms: RemunerationTerms;
@@ -55,7 +55,7 @@ export class Offer extends AggregateRoot {
     return this.props.titleType;
   }
 
-  get issuerId(): string {
+  get issuerId(): string | null {
     return this.props.issuerId;
   }
 

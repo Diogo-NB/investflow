@@ -9,6 +9,7 @@ import {
   OfferRepository,
   SimulationCalculationRepository,
   SimulationRepository,
+  StartSimulationUseCase,
   UpdateOfferUseCase,
 } from '@investflow/investment-simulator-application';
 import { InvestmentCalculator } from '@investflow/investment-simulator-domain';
@@ -68,6 +69,7 @@ import { IssuerController } from './issuers/http/issuer.controller';
       provide: SimulationCalculationRepository,
       useClass: PrismaSimulationCalculationRepository,
     },
+    StartSimulationUseCase,
     CalculateSimulationUseCase,
     DeleteSimulationUseCase,
     ListSimulationsQueryHandler,

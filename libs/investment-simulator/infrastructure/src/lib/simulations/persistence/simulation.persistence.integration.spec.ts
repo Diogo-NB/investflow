@@ -6,13 +6,13 @@ import {
   IndexCurveInterval,
   IndexValue,
   InvestmentCalculator,
+  InvestmentInputs,
   InvestmentTerms,
   Offer,
   RedemptionTerms,
   RemunerationTerms,
   Simulation,
   SimulationCalculation,
-  SimulationInputs,
 } from '@investflow/investment-simulator-domain';
 import {
   BrazilianBusinessDayCalendar,
@@ -118,10 +118,22 @@ integration('Simulation PostgreSQL persistence', () => {
         Rate.of('1.05'),
       ),
     });
-    const simulation = Simulation.create({
+    const terms = InvestmentTerms.create({
+      titleType: ETitleType.CDB,
+      issuerId,
+      maturityDate: CalendarDate.of('2027-01-04'),
+      redemption: RedemptionTerms.create('AT_MATURITY'),
+      remuneration: RemunerationTerms.create('CDI_PERCENTAGE', Rate.of('1.05')),
+    });
+    const { simulation } = Simulation.start({
       ownerId: simulationOwner,
       sourceOfferId: offer.id,
-    });
+      terms,
+      investment: investmentOf(curve),
+      indexCurve: curve,
+      calculator,
+      calculatedAt: UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
+    }).value;
     for (const save of [
       () => curves.save(curve),
       () => offers.save(offer),
@@ -132,29 +144,24 @@ integration('Simulation PostgreSQL persistence', () => {
     return { simulation, curve };
   }
 
+  function investmentOf(curve: IndexCurve, principal = '10000.123456789') {
+    return InvestmentInputs.create({
+      principal: Money.of(principal),
+      investmentDate: CalendarDate.of('2026-01-02'),
+      indexCurveId: curve.id,
+    });
+  }
+
+  // The simulations above are saved without their first calculation, which
+  // the app never does; each test records the calculations it reads.
   function record(
     { simulation, curve }: Awaited<ReturnType<typeof savedSimulation>>,
     options: { calculatedAt?: string; principal?: string } = {},
   ) {
-    const inputs = SimulationInputs.create({
-      terms: InvestmentTerms.create({
-        titleType: ETitleType.CDB,
-        issuerId,
-        maturityDate: CalendarDate.of('2027-01-04'),
-        redemption: RedemptionTerms.create('AT_MATURITY'),
-        remuneration: RemunerationTerms.create(
-          'CDI_PERCENTAGE',
-          Rate.of('1.05'),
-        ),
-      }),
-      principal: Money.of(options.principal ?? '10000.123456789'),
-      investmentDate: CalendarDate.of('2026-01-02'),
-      indexCurveId: curve.id,
-    });
-    return SimulationCalculation.record({
-      simulation,
-      inputs,
-      result: calculator.calculate(inputs.toScenario(curve).value).value,
+    return simulation.calculate({
+      investment: investmentOf(curve, options.principal),
+      indexCurve: curve,
+      calculator,
       calculatedAt: UtcInstant.ofIso(
         options.calculatedAt ?? '2026-10-10T12:00:00.000Z',
       ),
@@ -187,7 +194,7 @@ integration('Simulation PostgreSQL persistence', () => {
     const loaded = (await calculations.findById(calculation.id)).value;
 
     expect(loaded.simulationId).toBe(saved.simulation.id);
-    expect(loaded.inputs.equals(calculation.inputs)).toBe(true);
+    expect(loaded.investment.equals(calculation.investment)).toBe(true);
     expect(loaded.result.methodologyVersion).toBe(result.methodologyVersion);
     expect(loaded.calculatedAt.equals(calculation.calculatedAt)).toBe(true);
     for (const key of Object.keys(
@@ -232,7 +239,7 @@ integration('Simulation PostgreSQL persistence', () => {
     const duplicated = SimulationCalculation.reconstitute({
       id: calculation.id,
       simulationId: calculation.simulationId,
-      inputs: calculation.inputs,
+      investment: calculation.investment,
       result: {
         ...calculation.result,
         dailyBalances: [
@@ -276,23 +283,25 @@ integration('Simulation PostgreSQL persistence', () => {
     expect(read.simulation).toEqual({
       id: saved.simulation.id,
       fromCatalogOffer: true,
+      terms: {
+        titleType: 'CDB',
+        issuer: { id: issuerId, name: 'Integration Simulation Bank' },
+        maturityDate: '2027-01-04',
+        redemptionTerms: { kind: 'AT_MATURITY' },
+        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+      },
     });
     expect(read.calculations.map((item) => [item.id, item.outdated])).toEqual([
       [second.id, false],
       [first.id, false],
     ]);
-    expect(read.calculations[0].inputs).toMatchObject({
+    expect(read.calculations[0].investment).toEqual({
       principal: '20000',
+      investmentDate: '2026-01-02',
       indexCurveId: saved.curve.id,
-      issuer: { id: issuerId, name: 'Integration Simulation Bank' },
-      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
     });
     expect(read.calculations[1]).toMatchObject({
-      inputs: {
-        principal: '10000.123456789',
-        investmentDate: '2026-01-02',
-        maturityDate: '2027-01-04',
-      },
+      investment: { principal: '10000.123456789' },
       businessDays: first.result.dailyBalances.length,
     });
     const listed = await new ListSimulationsQueryHandler(prisma).execute({
@@ -304,6 +313,8 @@ integration('Simulation PostgreSQL persistence', () => {
       listed.value.items.find((item) => item.id === saved.simulation.id),
     ).toMatchObject({
       fromCatalogOffer: true,
+      issuerName: 'Integration Simulation Bank',
+      maturityDate: '2027-01-04',
       principal: '20000',
       latestCalculation: {
         id: second.id,

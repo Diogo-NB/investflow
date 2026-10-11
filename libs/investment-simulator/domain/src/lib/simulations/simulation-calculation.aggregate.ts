@@ -1,34 +1,27 @@
 import {
   AggregateRoot,
   generateUuid,
-  Result,
   UtcInstant,
 } from '@investflow/shared-domain';
 import { InvestmentCalculation } from '../calculations/investment-calculation.type';
 import { METHODOLOGY_VERSION } from '../calculations/investment-calculator.domain-service';
-import type { Simulation } from './simulation.aggregate';
-import { SimulationDeletedError } from './simulation.error';
-import { SimulationInputs } from './simulation-inputs.vo';
+import { InvestmentInputs } from './investment-inputs.vo';
 
 interface SimulationCalculationProps {
   readonly simulationId: string;
-  readonly inputs: SimulationInputs;
+  readonly investment: InvestmentInputs;
   readonly result: InvestmentCalculation;
   readonly calculatedAt: UtcInstant;
 }
 
-export interface RecordSimulationCalculationProps {
-  readonly simulation: Simulation;
-  readonly inputs: SimulationInputs;
-  readonly result: InvestmentCalculation;
-  readonly calculatedAt: UtcInstant;
-}
+export type RecordSimulationCalculationProps = SimulationCalculationProps;
 
 export type ReconstituteSimulationCalculationProps =
   SimulationCalculationProps & { readonly id: string };
 
-// Immutable and append-only. Index curves are immutable too, so the inputs
-// fully reproduce the result under the recorded methodology.
+// Immutable and append-only. The simulation's fixed terms, this investment and
+// immutable curves reproduce the result under the recorded methodology.
+// Recorded through Simulation, which enforces its own rules first.
 export class SimulationCalculation extends AggregateRoot {
   private constructor(
     id: string,
@@ -37,20 +30,8 @@ export class SimulationCalculation extends AggregateRoot {
     super(id);
   }
 
-  static record(
-    props: RecordSimulationCalculationProps,
-  ): Result<SimulationCalculation, SimulationDeletedError> {
-    if (props.simulation.deletedAt) {
-      return Result.err(new SimulationDeletedError(props.simulation.id));
-    }
-    return Result.ok(
-      new SimulationCalculation(generateUuid(), {
-        simulationId: props.simulation.id,
-        inputs: props.inputs,
-        result: props.result,
-        calculatedAt: props.calculatedAt,
-      }),
-    );
+  static record(props: RecordSimulationCalculationProps): SimulationCalculation {
+    return new SimulationCalculation(generateUuid(), { ...props });
   }
 
   // Takes a plain value so read sides need not load the aggregate.
@@ -69,8 +50,8 @@ export class SimulationCalculation extends AggregateRoot {
     return this.props.simulationId;
   }
 
-  get inputs(): SimulationInputs {
-    return this.props.inputs;
+  get investment(): InvestmentInputs {
+    return this.props.investment;
   }
 
   get result(): InvestmentCalculation {

@@ -3,20 +3,24 @@ import {
   RemunerationTermsCommandInput,
 } from '../../offers/shared/offer-command-input.type';
 
-export interface SimulationInputsCommandInput {
-  readonly principal: string;
-  readonly investmentDate: string;
-  readonly indexCurveId?: string | null;
-  readonly issuerId: string;
+export interface SimulationTermsCommandInput {
+  readonly issuerId?: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: RedemptionTermsCommandInput;
   readonly remunerationTerms: RemunerationTermsCommandInput;
 }
 
-export interface CreateSimulationCommandInput
-  extends SimulationInputsCommandInput {
+export interface InvestmentCommandInput {
+  readonly principal: string;
+  readonly investmentDate: string;
+  readonly indexCurveId?: string | null;
+}
+
+export interface StartSimulationCommandInput {
   // The catalog offer the terms were filled from.
   readonly offerId?: string;
+  readonly terms: SimulationTermsCommandInput;
+  readonly investment: InvestmentCommandInput;
 }
 
 export interface SimulationIdCommandInput {

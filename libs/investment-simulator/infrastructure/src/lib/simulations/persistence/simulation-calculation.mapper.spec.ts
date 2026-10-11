@@ -1,12 +1,12 @@
 import {
   ETitleType,
   InvestmentCalculator,
+  InvestmentInputs,
   InvestmentTerms,
   RedemptionTerms,
   RemunerationTerms,
   Simulation,
   SimulationCalculation,
-  SimulationInputs,
 } from '@investflow/investment-simulator-domain';
 import {
   BrazilianBusinessDayCalendar,
@@ -19,27 +19,25 @@ import { Prisma } from '@prisma/client';
 import { SimulationCalculationMapper } from './simulation-calculation.mapper';
 
 function recordedCalculation(): SimulationCalculation {
-  const inputs = SimulationInputs.create({
+  return Simulation.start({
+    ownerId: 'owner-id',
+    sourceOfferId: null,
     terms: InvestmentTerms.create({
       titleType: ETitleType.CDB,
-      issuerId: 'issuer-id',
+      issuerId: null,
       maturityDate: CalendarDate.of('2026-01-08'),
       redemption: RedemptionTerms.create('DAILY'),
       remuneration: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
     }),
-    principal: Money.of('1000.123456789'),
-    investmentDate: CalendarDate.of('2026-01-02'),
-    indexCurveId: null,
-  });
-  const result = new InvestmentCalculator(
-    new BrazilianBusinessDayCalendar(),
-  ).calculate(inputs.toScenario(null).value).value;
-  return SimulationCalculation.record({
-    simulation: Simulation.create({ ownerId: 'owner-id', sourceOfferId: null }),
-    inputs,
-    result,
+    investment: InvestmentInputs.create({
+      principal: Money.of('1000.123456789'),
+      investmentDate: CalendarDate.of('2026-01-02'),
+      indexCurveId: null,
+    }),
+    indexCurve: null,
+    calculator: new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
     calculatedAt: UtcInstant.ofIso('2026-10-10T12:00:00Z'),
-  }).value;
+  }).value.calculation;
 }
 
 // Mirrors what Prisma returns for the created row.
@@ -49,13 +47,7 @@ function storedRecord(calculation: SimulationCalculation) {
   return {
     id: calculation.id,
     simulationId: calculation.simulationId,
-    titleType: data.titleType,
-    issuerId: calculation.inputs.terms.issuerId,
-    maturityDate: data.maturityDate as Date,
-    redemptionType: data.redemptionType,
-    remunerationType: data.remunerationType,
-    rateValue: decimal(data.rateValue),
-    indexCurveId: calculation.inputs.indexCurveId,
+    indexCurveId: calculation.investment.indexCurveId,
     principal: decimal(data.principal),
     investmentDate: data.investmentDate as Date,
     methodologyVersion: data.methodologyVersion,
@@ -92,14 +84,13 @@ describe('SimulationCalculationMapper', () => {
     expect(data.simulation).toEqual({
       connect: { id: calculation.simulationId },
     });
-    expect(data.issuer).toEqual({ connect: { id: 'issuer-id' } });
     expect(data.indexCurve).toBeUndefined();
     const restored = SimulationCalculationMapper.toDomain(
       storedRecord(calculation),
     );
 
     expect(restored.id).toBe(calculation.id);
-    expect(restored.inputs.equals(calculation.inputs)).toBe(true);
+    expect(restored.investment.equals(calculation.investment)).toBe(true);
     expect(restored.calculatedAt.equals(calculation.calculatedAt)).toBe(true);
     const { result } = calculation;
     expect(restored.result.methodologyVersion).toBe(result.methodologyVersion);
@@ -110,22 +101,21 @@ describe('SimulationCalculationMapper', () => {
         restored.result.maturitySummary[key].equals(result.maturitySummary[key]),
       ).toBe(true);
     }
-    const taxation = restored.result.taxation;
-    expect(taxation.holdingPeriodCalendarDays).toBe(
-      result.taxation.holdingPeriodCalendarDays,
+    const taxes = restored.result.taxes;
+    expect(taxes.holdingPeriodCalendarDays).toBe(
+      result.taxes.holdingPeriodCalendarDays,
     );
-    expect(taxation.taxableEarnings.equals(result.taxation.taxableEarnings)).toBe(
+    expect(taxes.iof.base.equals(result.taxes.iof.base)).toBe(true);
+    expect(taxes.iof.rate?.value.toFixed()).toBe(
+      result.taxes.iof.rate?.value.toFixed(),
+    );
+    expect(taxes.iof.amount.equals(result.taxes.iof.amount)).toBe(true);
+    expect(taxes.incomeTax.base.equals(result.taxes.incomeTax.base)).toBe(true);
+    expect(taxes.incomeTax.rate.equals(result.taxes.incomeTax.rate)).toBe(true);
+    expect(taxes.incomeTax.amount.equals(result.taxes.incomeTax.amount)).toBe(
       true,
     );
-    expect(taxation.incomeTaxBase.equals(result.taxation.incomeTaxBase)).toBe(
-      true,
-    );
-    expect(taxation.iofRate?.value.toFixed()).toBe(
-      result.taxation.iofRate?.value.toFixed(),
-    );
-    expect(taxation.incomeTaxRate.equals(result.taxation.incomeTaxRate)).toBe(
-      true,
-    );
+    expect(taxes.total.equals(result.taxes.total)).toBe(true);
     expect(restored.result.dailyBalances).toHaveLength(
       result.dailyBalances.length,
     );

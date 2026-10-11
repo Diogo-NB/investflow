@@ -71,7 +71,7 @@ describe('useSimulationWorkspace', () => {
     expect(setup.status === 'ready' && setup.simulation).toBeNull();
     expect(setup.status === 'ready' && setup.calculations).toEqual([]);
     expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
-      issuerId: 'issuer',
+      issuerId: '',
       indexCurveId: 'cdi',
       investmentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
@@ -115,13 +115,17 @@ describe('useSimulationWorkspace', () => {
     );
     expect(api.bodies(`POST ${API}/simulations`)).toEqual([
       {
-        principal: '10000',
-        investmentDate: '2026-01-02',
-        indexCurveId: 'cdi',
-        issuerId: 'issuer',
-        maturityDate: '2026-03-02',
-        redemptionTerms: { kind: 'DAILY' },
-        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+        terms: {
+          issuerId: 'issuer',
+          maturityDate: '2026-03-02',
+          redemptionTerms: { kind: 'DAILY' },
+          remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+        },
+        investment: {
+          principal: '10000',
+          investmentDate: '2026-01-02',
+          indexCurveId: 'cdi',
+        },
       },
     ]);
     expect(api.calls()).toContain(`GET ${API}/simulation-workspaces/sim`);
@@ -151,7 +155,7 @@ describe('useSimulationWorkspace', () => {
     expect(result.current.location.pathname).toBe('/simulacoes/nova');
   });
 
-  it('calculates the edited inputs and shows the new latest result', async () => {
+  it('calculates the edited investment under the saved terms and shows the new latest result', async () => {
     const api = fakeApi({
       ...savedRoutes,
       [`POST ${API}/simulations/sim/calculations`]: {
@@ -175,9 +179,9 @@ describe('useSimulationWorkspace', () => {
     );
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(
-      api.bodies(`POST ${API}/simulations/sim/calculations`)[0],
-    ).not.toHaveProperty('offerId');
+    expect(api.bodies(`POST ${API}/simulations/sim/calculations`)).toEqual([
+      { principal: '10000', investmentDate: '2026-01-02', indexCurveId: 'cdi' },
+    ]);
     expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
       `POST ${API}/simulations/sim/calculations`,
     ]);

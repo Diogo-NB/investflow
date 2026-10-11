@@ -366,24 +366,30 @@ it.
 
 ## Simulation workspace behavior
 
-Built 2026-10-10. A simulation is identified by the API's `simulations`
-resource and its inputs live in its calculations ("cálculo"): the latest one is
-the current state, earlier ones are its history.
+Built 2026-10-10. A simulation is one CDB: its terms are fixed when it is
+created. Each calculation ("cálculo") records an investment under those terms;
+the latest one is the current state, earlier ones are its history.
 
 - `/simulacoes` lists the user's simulations, 20 per page (`page` URL
-  parameter, corrected by navigation when stale). Each row shows the issuer and
+  parameter, corrected by navigation when stale). Each row shows the issuer
+  ("Sem emissor" when the terms have none) and
   whether the terms are custom or from a catalog offer, the remuneration, the
   principal, the period, and the net value of the latest calculation, with a
-  textual "Desatualizado" tag when it predates the current methodology. Desktop uses a table; below
-  1024px, labeled rows. The whole row or card opens the simulation: one link
-  per entry, stretched over the table row on desktop.
+  textual "Desatualizado" tag when it predates the current methodology.
+  Desktop uses a table; below 1024px, labeled rows. The whole row or card
+  opens the simulation: one link per entry, stretched over the table row on
+  desktop.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
-  (stacked below 1024px). Inputs: principal, investment date, the CDB terms
-  (issuer, remuneration kind, rate in the kind's unit, maturity, liquidity),
-  and the index curve for indexed kinds. The curve list is filtered by index,
-  auto-selects a sole curve, shows its coverage, and warns when the period may
-  exceed it. Changing the kind clears the rate and the curve. Liquidity
-  defaults to "No vencimento".
+  (stacked below 1024px), split into the offer form and the simulation form:
+  - "Termos do CDB" (offer form): optional issuer ("Sem emissor"), remuneration
+    kind, rate in the kind's unit, maturity, liquidity. Editable on a new
+    simulation; a saved simulation shows them read only, pointing to
+    "Duplicar" for other terms. Changing the kind clears the rate and the
+    curve. Liquidity defaults to "No vencimento".
+  - "Investimento" (simulation form): principal, investment date, and the
+    index curve for indexed kinds. The curve list is filtered by the terms'
+    index, auto-selects a sole curve, shows its coverage, and warns when the
+    period may exceed it.
 - The investment and maturity date pickers grey out weekends and holidays.
   `BusinessDateField` (in the library's `business-calendar/` folder, for any
   screen that needs business days) reads them per year from
@@ -393,9 +399,9 @@ the current state, earlier ones are its history.
 - Terms are typed freely. On a new simulation, a catalog offer can fill them
   ("Preencher com uma oferta"); edits afterwards are flagged with "Restaurar
   termos da oferta". No catalog entry is created by a simulation.
-- One "Calcular" action sends the full inputs and records a calculation
-  (`POST simulations` for a new simulation, `POST simulations/:id/calculations`
-  for a saved one). When nothing changed and the latest calculation is current,
+- One "Calcular" action records a calculation: a new simulation sends its
+  terms and first investment (`POST simulations`), a saved one only the
+  investment (`POST simulations/:id/calculations`). When nothing changed and the latest calculation is current,
   it reads "Resultado atualizado" and is disabled. A rejected calculation saves
   nothing: the form keeps its edits as unsaved changes and the reason appears
   on the responsible field (principal, non-business day, curve coverage,
@@ -423,8 +429,9 @@ the current state, earlier ones are its history.
   takes them from the domain; the browser only finds the applied row by rate.
 - A saved simulation's header offers "Nova simulação" (a blank form at
   `/simulacoes/nova`), "Duplicar" and "Excluir".
-- "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled as custom
-  terms. "Excluir" confirms in an AlertDialog. Unsaved edits are guarded by
+- "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled with the
+  terms and the latest investment, as editable custom terms; it is how rate,
+  maturity and liquidity experiments are made. "Excluir" confirms in an AlertDialog. Unsaved edits are guarded by
   `useBlocker` and `beforeunload`.
 - Rentabilidade (monthly, annualized, total) and "prazo restante" are not
   shown yet; the API does not compute them.
@@ -434,8 +441,8 @@ the current state, earlier ones are its history.
 - Reads are screen-oriented (Backend for Frontend): `simulation-options`
   (issuers, each remuneration kind with its index, curves and calculability,
   and catalog offers flagged as calculable or not), `simulation-workspaces/:id`
-  (the simulation's origin and every calculation summary with its inputs and
-  business days, newest first), and
+  (the simulation's origin and terms, and every calculation summary with its
+  investment and business days, newest first), and
   `simulation-calculations/:id/monthly-balances` (months with their days
   nested), loaded for the selected calculation. The list uses `simulations`.
   Writes are `simulations`, `simulations/:id/calculations`, and

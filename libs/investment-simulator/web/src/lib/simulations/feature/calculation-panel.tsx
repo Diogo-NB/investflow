@@ -17,6 +17,8 @@ interface CalculationPanelProps {
   // The form holds edits that the shown calculation does not include.
   readonly unsavedEdits: boolean;
   readonly taxRules: TaxRules;
+  // The saved simulation's maturity; every calculation shares it.
+  readonly maturityDate: string | null;
 }
 
 type SummaryKey = keyof CalculationSummary['maturitySummary'];
@@ -89,11 +91,13 @@ function StaleNotice({
 
 function CalculationResult({
   calculation,
+  maturityDate,
   history,
   unsavedEdits,
   taxRules,
 }: {
   readonly calculation: CalculationSummary;
+  readonly maturityDate: string;
   readonly history: History;
   readonly unsavedEdits: boolean;
   readonly taxRules: TaxRules;
@@ -133,10 +137,14 @@ function CalculationResult({
             {formatMoney(summary.netBalance)}
           </dd>
         </dl>
-        <TaxExplanationDialog calculation={calculation} rules={taxRules} />
+        <TaxExplanationDialog
+          calculation={calculation}
+          maturityDate={maturityDate}
+          rules={taxRules}
+        />
         <p className="m-0 text-sm text-muted">
-          Aplicação em {formatIsoDate(calculation.inputs.investmentDate)}, vencimento
-          em {formatIsoDate(calculation.inputs.maturityDate)} ·{' '}
+          Aplicação em {formatIsoDate(calculation.investment.investmentDate)},
+          vencimento em {formatIsoDate(maturityDate)} ·{' '}
           {calculation.businessDays} dias úteis. IOF e imposto de renda incidem
           no vencimento. Calculado em {formatInstant(calculation.calculatedAt)}{' '}
           · metodologia {calculation.methodologyVersion}.
@@ -205,6 +213,7 @@ export function CalculationPanel({
   problem,
   unsavedEdits,
   taxRules,
+  maturityDate,
 }: CalculationPanelProps) {
   const calculation = history.selected;
   return (
@@ -222,9 +231,10 @@ export function CalculationPanel({
           <p className="m-0">{problem.message}</p>
         </div>
       )}
-      {calculation ? (
+      {calculation && maturityDate ? (
         <CalculationResult
           calculation={calculation}
+          maturityDate={maturityDate}
           history={history}
           unsavedEdits={unsavedEdits && !history.viewingPast}
           taxRules={taxRules}

@@ -92,15 +92,10 @@ export function calculationSummary(
     calculatedAt: '2026-10-10T12:00:00.000Z',
     methodologyVersion: 'cdb-252-v1',
     outdated: false,
-    inputs: {
+    investment: {
       principal: '10000',
       investmentDate: '2026-01-02',
       indexCurveId: 'cdi',
-      titleType: 'CDB',
-      issuer: { id: 'issuer', name: 'Banco Local' },
-      maturityDate: '2026-03-02',
-      redemptionTerms: { kind: 'DAILY' },
-      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
     },
     businessDays: 40,
     maturitySummary: {
@@ -132,7 +127,17 @@ export function calculationSummary(
 }
 
 export const workspace: SimulationWorkspace = {
-  simulation: { id: 'sim', fromCatalogOffer: false },
+  simulation: {
+    id: 'sim',
+    fromCatalogOffer: false,
+    terms: {
+      titleType: 'CDB',
+      issuer: { id: 'issuer', name: 'Banco Local' },
+      maturityDate: '2026-03-02',
+      redemptionTerms: { kind: 'DAILY' },
+      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+    },
+  },
   calculations: [calculationSummary('calculation')],
 };
 
