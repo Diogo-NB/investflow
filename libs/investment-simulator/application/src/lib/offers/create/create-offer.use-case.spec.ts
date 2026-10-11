@@ -1,82 +1,65 @@
-import {
-  RemunerationTerms,
-  ETitleType,
-  RedemptionTerms,
-} from '@investflow/investment-simulator-domain';
-import { CalendarDate, Rate, Result } from '@investflow/shared-domain';
-import { OfferNotFoundError } from '../offer-not-found.error';
-import { OfferRepository } from '../offer.repository';
+import { ETitleType } from '@investflow/investment-simulator-domain';
+import { EAppErrorCode, Result } from '@investflow/shared-domain';
+import { CreateOfferCommandInput } from '../shared/offer-command-input.type';
+import { offerFixture, USER } from '../shared/offer-fixture';
+import { CreateOfferCommand } from './create-offer.command';
 import { CreateOfferUseCase } from './create-offer.use-case';
 
-const ISSUER_NAME = 'Banco Local';
+function command(
+  overrides: Partial<CreateOfferCommandInput> = {},
+  actorId: string | null = USER,
+) {
+  return CreateOfferCommand.fromRequest(actorId, {
+    titleType: ETitleType.LCI,
+    name: 'LCI prefixada',
+    maturityDate: '2030-05-20',
+    redemptionTerms: { kind: 'AT_MATURITY' },
+    remunerationTerms: { kind: 'PREFIXED', rate: '0.12' },
+    ...overrides,
+  });
+}
 
-function createFixture() {
-  const offerRepository = {
-    findById: jest.fn(),
-    save: jest.fn().mockResolvedValue(Result.ok(undefined)),
-  } as unknown as OfferRepository;
-
-  return {
-    useCase: new CreateOfferUseCase(offerRepository),
-    offerRepository,
-  };
+function setup() {
+  const fixture = offerFixture(jest.fn);
+  const useCase = new CreateOfferUseCase(
+    fixture.offerRepository,
+    fixture.clock,
+  );
+  return { ...fixture, useCase };
 }
 
 describe('CreateOfferUseCase', () => {
-  it('creates an offer without an issuer', async () => {
-    const fixture = createFixture();
+  it.each([USER, null])(
+    'saves an offer owned by %s with its creation event',
+    async (actorId) => {
+      const { useCase, offers, offerRepository } = setup();
+      const savedEvents: string[] = [];
+      jest
+        .mocked(offerRepository.save)
+        .mockImplementationOnce(async (offer) => {
+          savedEvents.push(...offer.getDomainEvents().map((e) => e.eventType));
+          offers.set(offer.id, offer);
+          return Result.ok(undefined);
+        });
 
-    const result = await fixture.useCase.execute({
-      titleType: ETitleType.CDB,
-      issuerName: null,
-      maturityDate: CalendarDate.of('2030-05-20'),
-      redemptionTerms: RedemptionTerms.create('DAILY'),
-      remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
-    });
+      const result = await useCase.execute(command({}, actorId));
 
-    expect(result.isOk()).toBe(true);
-    expect(fixture.offerRepository.save).toHaveBeenCalled();
-  });
+      const offer = offers.get(result.value.offerId);
+      expect(offer?.ownerId).toBe(actorId);
+      expect(offer?.titleType).toBe(ETitleType.LCI);
+      expect(offer?.name).toBe('LCI prefixada');
+      expect(offer?.issuerName).toBeNull();
+      expect(offer?.revision).toBe(1);
+      expect(savedEvents).toEqual(['OfferCreated']);
+    },
+  );
 
-  it('saves the offer with its issuer name and returns its id', async () => {
-    const fixture = createFixture();
+  it('saves nothing for a blank name', async () => {
+    const { useCase, offerRepository } = setup();
 
-    const result = await fixture.useCase.execute({
-      titleType: ETitleType.LCI,
-      issuerName: ISSUER_NAME,
-      maturityDate: CalendarDate.of('2030-05-20'),
-      redemptionTerms: RedemptionTerms.create('DAILY'),
-      remunerationTerms: RemunerationTerms.create(
-        'CDI_PERCENTAGE',
-        Rate.of('105'),
-      ),
-    });
+    const result = await useCase.execute(command({ name: ' ' }));
 
-    expect(result.isOk()).toBe(true);
-    expect(result.value.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(fixture.offerRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: result.value.id,
-        issuerName: ISSUER_NAME,
-      }),
-    );
-  });
-
-  it('propagates save failures', async () => {
-    const fixture = createFixture();
-    const error = new OfferNotFoundError('offer-id');
-    jest
-      .mocked(fixture.offerRepository.save)
-      .mockResolvedValue(Result.err(error));
-
-    const result = await fixture.useCase.execute({
-      titleType: ETitleType.LCA,
-      issuerName: ISSUER_NAME,
-      maturityDate: CalendarDate.of('2030-05-20'),
-      redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-      remunerationTerms: RemunerationTerms.create('IPCA_PLUS', Rate.of('7.5')),
-    });
-
-    expect(result.error).toBe(error);
+    expect(result.error.code).toBe(EAppErrorCode.INVALID_OFFER);
+    expect(offerRepository.save).not.toHaveBeenCalled();
   });
 });

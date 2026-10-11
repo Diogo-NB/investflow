@@ -22,7 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-11, after D1.
+Last updated 2026-10-11, after D2.
 
 Built, on the earlier immutable model:
 
@@ -33,8 +33,8 @@ Built, on the earlier immutable model:
   period.
 - **Results:** the summary, the tax explanation dialog, the balance evolution
   chart with monthly rows, and the calculation history.
-- **Offers:** backend CRUD only; no browser screens.
-  Built for the target model:
+
+Built for the target model:
 
 - **Messaging:** runs locally end to end on EventBridge and SQS emulated by
   Floci (see "Messaging Transport" in
@@ -53,11 +53,21 @@ Built, on the earlier immutable model:
   identifier-only event to the outbox. The seed creates the system curves
   through the same use case with the system actor. The simulation workspace
   picks a curve grouped by origin; no curve screens yet.
+- **Offers:** independent, revisioned `Offer` aggregates on the same model as
+  curves: title type (fixed), name, optional issuer, remuneration and rate,
+  maturity, and liquidity, with an owner (`null` is the system). Variants from
+  one issuer are separate offers, and screens group them by title type and
+  origin; no grouping is stored. The API under `investment-simulator/offers`
+  lists (paginated, `q` matching name or issuer, `titleType`), reads,
+  creates, edits (revision check, `409` on mismatch), duplicates, and deletes
+  offers as the authenticated user, and every change writes an
+  identifier-only event to the outbox. The seed creates the system offers
+  through the use case. The simulation workspace fills its terms from a
+  visible offer grouped by title type and origin; no offer screens yet.
 
 Differs from the target model:
 
-- `Simulation` copies the offer terms; it does not reference a condition.
-- Offers have no groups, owner, or revision.
+- `Simulation` copies the offer terms; it does not reference the offer.
 - Simulation calculations reference a curve directly; deleting one does not
   mark the simulations that use it.
 - `SimulationCalculation` keeps every calculation instead of one current
@@ -69,10 +79,7 @@ redemption.
 
 ## Next Steps
 
-1. D2, which reuses D1's patterns: the actor-carrying commands, the revision
-   guard in the repositories, and the event base class. Decide at its start
-   whether offers keep their group of conditions or follow the curves'
-   single-aggregate model.
+1. D3: simulations reference an offer and a curve and keep one result.
 2. Decide how users enter a curve's intervals before D6 starts (open
    question in the curve specification).
 3. Decide how D4b's batched fan-out writes calculation events before D4b
@@ -84,8 +91,8 @@ redemption.
 | --- | ----------------------------------------------------------------- | ---------------------------------- | ----------- |
 | D0  | Messaging runs locally end to end                                 | —                                  | Done        |
 | D1  | Curves become independent, revisioned, and owned                  | D0                                 | Done        |
-| D2  | Offers become groups of revisioned conditions with owners         | D0                                 | Not started |
-| D3  | Simulations reference a condition and curve; one result           | D1, D2                             | Not started |
+| D2  | Offers become independent, revisioned, and owned                  | D0                                 | Done        |
+| D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Not started |
 | D4a | A simulation's own calculation runs asynchronously                | D3                                 | Not started |
 | D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Not started |
 | D4c | Reconciliation sweep, retries, and "Falha técnica"                | D4b                                | Not started |
@@ -102,42 +109,31 @@ D0 ──┤         ├──► D3 ──► D4a ──► D4b ──► D4c
 
 Recommended order: D0, D1, D2, D3, D4a, D4b, D4c, D5, D6. D0 went first
 because it carried the most infrastructure unknowns and touched no business
-code. D1 and D2 are independent of each other. D6 waits for the pending product decision on how
+code. D2 followed D1's single-aggregate model: offers are not grouped in the
+domain (decision 2026-10-11). D6 waits for the pending product decision on how
 users enter a curve's intervals, which can be made while D1 to D4 are
 built.
 
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
 
-## D2 — Offer groups and conditions
-
-- `Offer` group aggregate (title type, issuer, name, owner) and
-  `OfferCondition` aggregate (remuneration and rate, maturity, liquidity,
-  optional name, owner, revision).
-- Same visibility rules, use cases, events, conflict checks, and seed as the
-  curves (see Current State).
-- The simulation workspace fills terms from a condition.
-
-**Done when** the offer API enforces ownership and revisions, and the current
-workspace can still fill its terms from a condition.
-
 ## D3 — Simulations always use an offer
 
-- `Simulation` drops its copied terms and references a condition, an optional
+- `Simulation` drops its copied terms and references an offer, an optional
   curve, and its investment. All are editable; the simulation has its own
   revision.
-- "Digitar termos" and "Duplicar e ajustar" create a private offer or
-  condition in the same transaction as the simulation.
+- "Digitar termos" and "Duplicar e ajustar" create a private offer in the
+  same transaction as the simulation.
 - `SimulationCalculation` and its history are replaced by one current result
-  recording the simulation, condition, and curve revisions it used and the
+  recording the simulation, offer, and curve revisions it used and the
   methodology version.
 - Calculation stays synchronous in this deliverable, so the change is limited
   to the data model.
-- Workspace: remove the history and the `calculo` URL parameter; add the
-  condition picker grouped by offer with "Duplicar e ajustar" and "Digitar
-  termos"; "Salvar e calcular" sends the revision.
+- Workspace: remove the history and the `calculo` URL parameter; add
+  "Duplicar e ajustar" and "Digitar termos" to the offer picker; "Salvar e
+  calcular" sends the revision.
 
-**Done when** the workspace runs on the new model, and editing a condition or
+**Done when** the workspace runs on the new model, and editing an offer or
 curve is reflected the next time an affected simulation is saved.
 
 ## D4a — Asynchronous calculation of a simulation
@@ -161,9 +157,9 @@ and duplicate or out-of-order deliveries cannot replace a newer result.
 
 ## D4b — Recalculation from premise changes
 
-- Consumers for condition and curve changes mark the affected simulations
+- Consumers for offer and curve changes mark the affected simulations
   `PENDING` and queue them in batches, never in one transaction.
-- Deleting a condition or curve sets its simulations `INVALID` ("Sem oferta,
+- Deleting an offer or curve sets its simulations `INVALID` ("Sem oferta,
   escolha outra" or "Sem curva, escolha outra").
 - A query counting the user's affected simulations, for impact notices.
 - Outbox publishing throughput. The poller publishes one event per
@@ -209,7 +205,7 @@ killed mid-calculation, and a methodology version change all converge to
 ## D5 — Offer screens
 
 Implement "Offer behavior" in the frontend guide under `/ofertas`: grouped
-list, details, condition editor with impact notice and revision conflicts,
+list, details, editor with impact notice and revision conflicts,
 duplicate, and delete. Best after D4b so impact notices have real counts.
 
 **Done when** the recorded offer behavior works against the API and the

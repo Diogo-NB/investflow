@@ -6,133 +6,146 @@ import { GetOfferQueryHandler } from './get-offer.query-handler';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
+const VIEWER = 'user-1';
+const VISIBLE = {
+  deletedAt: null,
+  OR: [{ ownerId: null }, { ownerId: VIEWER }],
+};
+
 const record = {
   id: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
   titleType: 'CDB',
+  name: 'CDB 112% do CDI',
   issuerName: 'Banco Local',
   maturityDate: new Date('2028-12-31T00:00:00Z'),
   redemptionType: 'DAILY',
   remunerationType: 'CDI_PERCENTAGE',
   rateValue: new Prisma.Decimal('1.12345678901234567890123456789'),
+  ownerId: null,
+  revision: 3,
+};
+
+const summary = {
+  id: record.id,
+  titleType: 'CDB',
+  name: record.name,
+  issuerName: record.issuerName,
+  maturityDate: '2028-12-31',
+  redemptionTerms: { kind: 'DAILY' },
+  remunerationTerms: {
+    kind: 'CDI_PERCENTAGE',
+    rate: '1.12345678901234567890123456789',
+  },
+  origin: 'SYSTEM',
+  revision: 3,
 };
 
 function fixture() {
   const findMany = jest.fn().mockResolvedValue([record]);
   const count = jest.fn().mockResolvedValue(21);
-  const findUnique = jest.fn().mockResolvedValue(record);
+  const findFirst = jest.fn().mockResolvedValue(record);
   const prisma = {
-    client: { investmentOffer: { findMany, count, findUnique } },
+    client: { offer: { findMany, count, findFirst } },
   } as unknown as PrismaService;
   return {
     list: new ListOffersQueryHandler(prisma),
     get: new GetOfferQueryHandler(prisma),
     findMany,
     count,
-    findUnique,
+    findFirst,
   };
 }
 
 describe('Offer reads', () => {
-  it('applies identical active/search/title filters to items and count with stable pagination', async () => {
+  it('applies identical visibility, search and title filters to items and count with stable pagination', async () => {
     const f = fixture();
+
     const result = await f.list.execute({
+      viewerId: VIEWER,
       page: 2,
       pageSize: 20,
       q: 'local',
       titleType: 'CDB',
     });
+
     const where = {
-      deletedAt: null,
-      titleType: 'CDB',
-      issuerName: { contains: 'local', mode: 'insensitive' },
+      AND: [
+        VISIBLE,
+        { titleType: 'CDB' },
+        {
+          OR: [
+            { name: { contains: 'local', mode: 'insensitive' } },
+            { issuerName: { contains: 'local', mode: 'insensitive' } },
+          ],
+        },
+      ],
     };
     expect(f.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where,
-        skip: 20,
-        take: 20,
-        orderBy: [{ maturityDate: 'asc' }, { id: 'asc' }],
-      }),
+      expect.objectContaining({ where, skip: 20, take: 20 }),
     );
     expect(f.count).toHaveBeenCalledWith({ where });
-    const page = result.value;
-    expect(page).toMatchObject({ total: 21, page: 2, pageSize: 20 });
-    expect(page.items[0]).toEqual({
-      id: record.id,
-      titleType: 'CDB',
-      issuerName: record.issuerName,
-      maturityDate: '2028-12-31',
-      redemptionTerms: { kind: 'DAILY' },
-      remunerationTerms: {
-        kind: 'CDI_PERCENTAGE',
-        rate: '1.12345678901234567890123456789',
-      },
+    expect(result.value).toMatchObject({ total: 21, page: 2, pageSize: 20 });
+    expect(result.value.items).toEqual([summary]);
+  });
+
+  it("marks the viewer's own offers", async () => {
+    const f = fixture();
+    f.findMany.mockResolvedValue([{ ...record, ownerId: VIEWER }]);
+
+    const result = await f.list.execute({
+      viewerId: VIEWER,
+      page: 1,
+      pageSize: 20,
     });
+
+    expect(result.value.items[0].origin).toBe('OWN');
   });
 
-  it('returns an empty requested page without dropping the matching count', async () => {
+  it('reads only a visible offer and renders tiny decimals without scientific notation', async () => {
     const f = fixture();
-    f.findMany.mockResolvedValue([]);
-    expect(
-      (await f.list.execute({ page: 3, pageSize: 20 })).value,
-    ).toMatchObject({ items: [], total: 21, page: 3 });
-  });
-
-  it('reads only active details and renders tiny decimals without scientific notation', async () => {
-    const f = fixture();
-    f.findUnique.mockResolvedValue({
+    f.findFirst.mockResolvedValue({
       ...record,
       rateValue: new Prisma.Decimal('0.000000000000000000000000000001'),
     });
-    const result = await f.get.execute({ offerId: record.id });
-    expect(f.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: record.id, deletedAt: null },
-      }),
-    );
-    expect(result.value).toEqual({
-      id: record.id,
-      titleType: 'CDB',
-      issuerName: record.issuerName,
-      maturityDate: '2028-12-31',
-      redemptionTerms: { kind: 'DAILY' },
-      remunerationTerms: {
-        kind: 'CDI_PERCENTAGE',
-        rate: '0.000000000000000000000000000001',
-      },
+
+    const result = await f.get.execute({
+      viewerId: VIEWER,
+      offerId: record.id,
     });
-  });
 
-  it('treats absent and deleted records as OFFER_NOT_FOUND', async () => {
-    const f = fixture();
-    f.findUnique.mockResolvedValue(null);
-    expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
-      EAppErrorCode.OFFER_NOT_FOUND,
+    expect(f.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: record.id, ...VISIBLE } }),
+    );
+    expect(result.value.remunerationTerms.rate).toBe(
+      '0.000000000000000000000000000001',
     );
   });
 
-  it('maps database failures into infrastructure errors', async () => {
+  it('treats absent, deleted and invisible records as OFFER_NOT_FOUND', async () => {
+    const f = fixture();
+    f.findFirst.mockResolvedValue(null);
+
+    const result = await f.get.execute({
+      viewerId: VIEWER,
+      offerId: record.id,
+    });
+
+    expect(result.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
+  });
+
+  it('maps database and conversion failures into query errors', async () => {
     const f = fixture();
     f.count.mockRejectedValue(new Error('database'));
-    expect((await f.list.execute({ page: 1, pageSize: 20 })).error.code).toBe(
-      EAppErrorCode.OFFER_QUERY_FAILED,
-    );
-    f.findUnique.mockRejectedValue(new Error('database'));
-    expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
-      EAppErrorCode.OFFER_QUERY_FAILED,
-    );
-  });
+    f.findFirst.mockResolvedValue({ ...record, maturityDate: new Date('x') });
 
-  it('captures date conversion failures inside both query results', async () => {
-    const f = fixture();
-    const invalidRecord = { ...record, maturityDate: new Date('invalid') };
-    f.findMany.mockResolvedValue([invalidRecord]);
-    f.findUnique.mockResolvedValue(invalidRecord);
-    expect((await f.list.execute({ page: 1, pageSize: 20 })).error.code).toBe(
-      EAppErrorCode.OFFER_QUERY_FAILED,
-    );
-    expect((await f.get.execute({ offerId: record.id })).error.code).toBe(
-      EAppErrorCode.OFFER_QUERY_FAILED,
-    );
+    const list = await f.list.execute({
+      viewerId: VIEWER,
+      page: 1,
+      pageSize: 20,
+    });
+    const get = await f.get.execute({ viewerId: VIEWER, offerId: record.id });
+
+    expect(list.error.code).toBe(EAppErrorCode.OFFER_QUERY_FAILED);
+    expect(get.error.code).toBe(EAppErrorCode.OFFER_QUERY_FAILED);
   });
 });

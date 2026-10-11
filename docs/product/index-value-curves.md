@@ -34,7 +34,7 @@ incompleto.
 
 O usuário:
 
-1. Seleciona uma condição de oferta.
+1. Seleciona uma oferta.
 2. Informa a data de aplicação, que pode estar no passado.
 3. Informa o valor inicial.
 4. Seleciona uma curva do índice necessário à remuneração.
@@ -59,20 +59,19 @@ que eles possam ser trocados sem uma regra de negócio específica.
 
 ## Vocabulário
 
-| Conceito          | Significado no simulador                                                                        |
-| ----------------- | ----------------------------------------------------------------------------------------------- |
-| Índice            | Referencial econômico identificado, como CDI, SELIC efetiva ou IPCA.                            |
-| Curva             | Trajetória de valores de um único índice, com nome, descrição opcional, intervalos e dono.      |
-| Convenção         | Significado dos valores: unidade, periodicidade e base de capitalização, quando aplicável.      |
-| Intervalo         | Período declarado ao qual um valor se refere.                                                   |
-| Competência       | Período econômico medido por um índice, como um mês de inflação.                                |
-| Cobertura         | Disponibilidade dos valores necessários para um cálculo específico.                             |
-| Revisão           | Número da curva incrementado a cada alteração salva.                                            |
-| Oferta            | Grupo de condições de um título e emissor.                                                      |
-| Condição          | Remuneração, taxa, vencimento e liquidez de uma oferta.                                         |
-| Simulação         | Hipótese de investir um valor em uma data sob uma condição de oferta e, se indexada, uma curva. |
-| Resultado         | Cálculo atual da simulação, com as revisões das premissas que usou.                             |
-| Rendimento diário | Diferença entre o saldo bruto calculado e o saldo bruto anterior.                               |
+| Conceito          | Significado no simulador                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| Índice            | Referencial econômico identificado, como CDI, SELIC efetiva ou IPCA.                       |
+| Curva             | Trajetória de valores de um único índice, com nome, descrição opcional, intervalos e dono. |
+| Convenção         | Significado dos valores: unidade, periodicidade e base de capitalização, quando aplicável. |
+| Intervalo         | Período declarado ao qual um valor se refere.                                              |
+| Competência       | Período econômico medido por um índice, como um mês de inflação.                           |
+| Cobertura         | Disponibilidade dos valores necessários para um cálculo específico.                        |
+| Revisão           | Número da curva incrementado a cada alteração salva.                                       |
+| Oferta            | Título, emissor, remuneração, taxa, vencimento e liquidez de um investimento.              |
+| Simulação         | Hipótese de investir um valor em uma data sob uma oferta e, se indexada, uma curva.        |
+| Resultado         | Cálculo atual da simulação, com as revisões das premissas que usou.                        |
+| Rendimento diário | Diferença entre o saldo bruto calculado e o saldo bruto anterior.                          |
 
 Uma curva é uma trajetória de premissas do simulador. Não se presume que ela
 seja uma curva de juros a termo extraída de preços de mercado.
@@ -354,7 +353,7 @@ A regra confirmada trata a taxa de um dia útil como a remuneração até o pró
 dia útil e apresenta o saldo correspondente na data final desse período.
 A aplicação e o vencimento devem ser úteis para executar o cálculo; não há
 ajuste automático. Uma simulação com datas não úteis é rejeitada ao ser
-salva; uma condição de oferta editada para um vencimento não útil leva as
+salva; uma oferta editada para um vencimento não útil leva as
 simulações que a usam a "Requer ação".
 
 O cálculo de percentual da SELIC efetiva usa a mesma convenção temporal e a
@@ -388,7 +387,7 @@ Distribuir automaticamente uma variação pelos dias úteis do mês civil é uma
 simplificação insuficiente para afirmar reprodução de um contrato real.
 Precisamos escolher o perfil de atualização por IPCA suportado pelo produto.
 
-| Responsabilidade da curva                    | Responsabilidade das condições da oferta     |
+| Responsabilidade da curva                    | Responsabilidade da oferta                   |
 | -------------------------------------------- | -------------------------------------------- |
 | Valores por competência e convenção.         | Periodicidade da atualização.                |
 | Identidade e revisão da curva.               | Datas de aniversário ou referência.          |
@@ -434,7 +433,7 @@ não é necessária, pois o último intervalo usa a taxa do dia útil anterior.
 
 ## Fluxo de Negócio do Cálculo
 
-1. Identificar a condição de oferta, o investimento e a curva escolhidos, com
+1. Identificar a oferta, o investimento e a curva escolhidos, com
    suas revisões atuais.
 2. Verificar a compatibilidade entre índice, convenção e remuneração.
 3. Determinar as datas ou competências exigidas até o vencimento.
@@ -442,7 +441,7 @@ não é necessária, pois o último intervalo usa a taxa do dia útil anterior.
    registrar o motivo com os períodos descobertos.
 5. Calcular a trajetória bruta e os resultados de todos os dias úteis.
 6. Apurar os tributos e o montante líquido no vencimento.
-7. Substituir o resultado atual, registrando as revisões da condição e da
+7. Substituir o resultado atual, registrando as revisões da oferta e da
    curva usadas e a versão da metodologia, somente se essas entradas não
    forem mais antigas que as do resultado registrado.
 

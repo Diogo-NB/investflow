@@ -25,14 +25,19 @@ import {
 
 export const OWNER_ID = 'owner-id';
 
-export function catalogOffer() {
-  return Offer.create({
-    titleType: ETitleType.CDB,
-    issuerName: 'Banco Local',
-    maturityDate: CalendarDate.of('2030-01-02'),
-    redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-    remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
-  });
+export function catalogOffer(ownerId: string | null = null) {
+  return Offer.create(
+    {
+      ownerId,
+      titleType: ETitleType.CDB,
+      name: 'CDB prefixado',
+      issuerName: 'Banco Local',
+      maturityDate: CalendarDate.of('2030-01-02'),
+      redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
+      remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
+    },
+    UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+  ).value;
 }
 
 export function cdiCurve(ownerId: string | null = null) {

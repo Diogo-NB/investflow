@@ -47,6 +47,9 @@ export const remunerations: RemunerationOption[] = [
 export const selicOffer: OfferOption = {
   id: 'offer',
   titleType: 'CDB',
+  name: 'CDB 100% da SELIC',
+  origin: 'SYSTEM',
+  revision: 1,
   issuerName: 'Outro',
   maturityDate: '2028-12-29',
   redemptionTerms: { kind: 'AT_MATURITY' },

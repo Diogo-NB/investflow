@@ -76,7 +76,7 @@ integration('Simulation PostgreSQL persistence', () => {
         where: { simulation },
       });
       await prisma.client.simulation.deleteMany({ where: simulation });
-      await prisma.client.investmentOffer.deleteMany({ where: { issuerName } });
+      await prisma.client.offer.deleteMany({ where: { issuerName } });
       await prisma.client.curveInterval.deleteMany({
         where: { curveId: { in: curveIds } },
       });
@@ -114,16 +114,21 @@ integration('Simulation PostgreSQL persistence', () => {
       UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
     ).value;
     curveIds.push(curve.id);
-    const offer = Offer.create({
-      titleType: ETitleType.CDB,
-      issuerName,
-      maturityDate: CalendarDate.of('2027-01-04'),
-      redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-      remunerationTerms: RemunerationTerms.create(
-        'CDI_PERCENTAGE',
-        Rate.of('1.05'),
-      ),
-    });
+    const offer = Offer.create(
+      {
+        ownerId: null,
+        titleType: ETitleType.CDB,
+        name: 'CDB 105% do CDI',
+        issuerName,
+        maturityDate: CalendarDate.of('2027-01-04'),
+        redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
+        remunerationTerms: RemunerationTerms.create(
+          'CDI_PERCENTAGE',
+          Rate.of('1.05'),
+        ),
+      },
+      UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
+    ).value;
     const terms = InvestmentTerms.create({
       titleType,
       issuerName,

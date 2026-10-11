@@ -12,7 +12,11 @@ import {
 import { BusinessDateField } from '../../business-calendar/business-date-field';
 import { DecimalInput } from '../../ui/decimal-input';
 import { FormField } from '../../ui/form-field';
-import { SelectField, type SelectOption } from '../../ui/select-field';
+import {
+  SelectField,
+  type SelectGroup,
+  type SelectOption,
+} from '../../ui/select-field';
 import {
   bareInput,
   fieldBox,
@@ -21,6 +25,7 @@ import {
   surface,
 } from '../../ui/styles';
 import type {
+  ContentOrigin,
   OfferOption,
   SimulationOptions,
   SimulationTerms,
@@ -35,6 +40,11 @@ const REDEMPTION_OPTIONS: SelectOption[] = (
 ).map((kind) => ({ value: kind, label: REDEMPTION_LABELS[kind] }));
 
 const NO_OFFER = 'none';
+
+const ORIGIN_LABELS: Record<ContentOrigin, string> = {
+  SYSTEM: 'Do sistema',
+  OWN: 'Minhas',
+};
 
 const legendClass =
   'float-left mb-4 w-full p-0 text-sm font-semibold tracking-wide text-muted uppercase';
@@ -57,17 +67,27 @@ function titleTypeHint(
 function offerOption(offer: OfferOption): SelectOption {
   return {
     value: offer.id,
-    label: [
-      offer.issuerName,
-      `${offer.titleType} ${remunerationLabel(offer.remunerationTerms)}`,
-    ]
-      .filter(Boolean)
-      .join(' · '),
+    label: offer.name,
     detail: offer.unsupportedReason
       ? UNSUPPORTED_LABELS[offer.unsupportedReason]
-      : `Vence em ${formatIsoDate(offer.maturityDate)}`,
+      : [
+          offer.issuerName,
+          remunerationLabel(offer.remunerationTerms),
+          `vence em ${formatIsoDate(offer.maturityDate)}`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
     disabled: offer.unsupportedReason !== null,
   };
+}
+
+function offerGroups(offers: readonly OfferOption[]): SelectGroup[] {
+  const groups = new Map<string, SelectOption[]>();
+  for (const offer of offers) {
+    const label = `${offer.titleType} · ${ORIGIN_LABELS[offer.origin]}`;
+    groups.set(label, [...(groups.get(label) ?? []), offerOption(offer)]);
+  }
+  return [...groups].map(([label, options]) => ({ label, options }));
 }
 
 function OfferPicker({
@@ -112,8 +132,8 @@ function OfferPicker({
           disabled={pending}
           options={[
             { value: NO_OFFER, label: 'Nenhuma: termos personalizados' },
-            ...offers.map(offerOption),
           ]}
+          groups={offerGroups(offers)}
           onValueChange={(value) =>
             simulation.applyOffer(
               offers.find((offer) => offer.id === value) ?? null,
@@ -331,14 +351,9 @@ function InvestmentFieldset({
       ? `Cobertura de ${formatIsoDate(curve.coverage.startDate)} a ${formatIsoDate(curve.coverage.endDate)}.`
       : undefined;
   })();
-  const curveGroups = (
-    [
-      ['SYSTEM', 'Do sistema'],
-      ['OWN', 'Minhas'],
-    ] as const
-  )
-    .map(([origin, label]) => ({
-      label,
+  const curveGroups = (['SYSTEM', 'OWN'] as const)
+    .map((origin) => ({
+      label: ORIGIN_LABELS[origin],
       options: curveOptions
         .filter((option) => option.origin === origin)
         .map((option) => ({

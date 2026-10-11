@@ -5,29 +5,15 @@ import {
   ETitleType,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Rate, UtcInstant } from '@investflow/shared-domain';
-import {
-  InvestmentOffer,
-  InvestmentRedemptionType,
-  InvestmentRemunerationType,
-  InvestmentTitleType,
-} from '@prisma/client';
-
-export interface OfferPersistenceData {
-  readonly id: string;
-  readonly titleType: InvestmentTitleType;
-  readonly issuerName: string | null;
-  readonly maturityDate: Date;
-  readonly redemptionType: InvestmentRedemptionType;
-  readonly remunerationType: InvestmentRemunerationType;
-  readonly rateValue: string;
-  readonly deletedAt: Date | null;
-}
+import { Offer as OfferRecord, Prisma } from '@prisma/client';
 
 export class OfferMapper {
-  static toDomain(record: InvestmentOffer): Offer {
+  static toDomain(record: OfferRecord): Offer {
     return Offer.reconstitute({
       id: record.id,
       titleType: record.titleType as ETitleType,
+      ownerId: record.ownerId,
+      name: record.name,
       issuerName: record.issuerName,
       maturityDate: CalendarDate.fromUtcDate(record.maturityDate).value,
       redemptionTerms: RedemptionTerms.create(record.redemptionType),
@@ -35,21 +21,25 @@ export class OfferMapper {
         record.remunerationType,
         Rate.of(record.rateValue.toString()),
       ),
+      revision: record.revision,
       deletedAt: record.deletedAt
         ? UtcInstant.fromDate(record.deletedAt).value
         : null,
     });
   }
 
-  static toPersistence(offer: Offer): OfferPersistenceData {
+  static toPersistence(offer: Offer): Prisma.OfferUncheckedCreateInput {
     return {
       id: offer.id,
+      ownerId: offer.ownerId,
       titleType: offer.titleType,
+      name: offer.name,
       issuerName: offer.issuerName,
       maturityDate: offer.maturityDate.toUtcDate(),
       redemptionType: offer.redemptionTerms.kind,
       remunerationType: offer.remunerationTerms.kind,
       rateValue: offer.remunerationTerms.contractRate.value.toString(),
+      revision: offer.revision,
       deletedAt: offer.deletedAt?.date ?? null,
     };
   }

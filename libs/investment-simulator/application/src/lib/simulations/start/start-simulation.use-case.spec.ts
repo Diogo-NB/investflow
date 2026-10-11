@@ -191,6 +191,14 @@ describe('StartSimulationUseCase', () => {
       EAppErrorCode.OFFER_NOT_FOUND,
     ],
     [
+      "another user's source offer",
+      (deps: ReturnType<typeof setup>) =>
+        deps.offers.findById.mockResolvedValue(
+          Result.ok(catalogOffer('another-owner')),
+        ),
+      EAppErrorCode.OFFER_NOT_FOUND,
+    ],
+    [
       'curve',
       (deps: ReturnType<typeof setup>) =>
         deps.curves.findById.mockResolvedValue(

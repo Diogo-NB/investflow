@@ -6,6 +6,7 @@ import {
 import { CreateOfferCommand } from './create-offer.command';
 
 const ISSUER_NAME = 'Banco Local';
+const USER = 'user-1';
 
 describe('CreateOfferCommand', () => {
   it.each([
@@ -14,7 +15,8 @@ describe('CreateOfferCommand', () => {
     { kind: 'SELIC_PERCENTAGE' as const, rate: '95' },
     { kind: 'IPCA_PLUS' as const, rate: '7.5' },
   ])('creates $kind terms from a request', (remunerationTerms) => {
-    const command = CreateOfferCommand.fromRequest({
+    const command = CreateOfferCommand.fromRequest(USER, {
+      name: 'Oferta',
       titleType: ETitleType.CDB,
       issuerName: ISSUER_NAME,
       maturityDate: '2030-05-20',
@@ -31,7 +33,8 @@ describe('CreateOfferCommand', () => {
   });
 
   it('preserves decimal precision', () => {
-    const command = CreateOfferCommand.fromRequest({
+    const command = CreateOfferCommand.fromRequest(USER, {
+      name: 'Oferta',
       titleType: ETitleType.LCI,
       issuerName: ISSUER_NAME,
       maturityDate: '2030-05-20',
@@ -50,7 +53,8 @@ describe('CreateOfferCommand', () => {
 
   it('rejects invalid dates and rates', () => {
     expect(() =>
-      CreateOfferCommand.fromRequest({
+      CreateOfferCommand.fromRequest(USER, {
+        name: 'Oferta',
         titleType: ETitleType.LCA,
         issuerName: ISSUER_NAME,
         maturityDate: 'not-a-date',
@@ -60,7 +64,8 @@ describe('CreateOfferCommand', () => {
     ).toThrow(InvalidCalendarDateError);
 
     expect(() =>
-      CreateOfferCommand.fromRequest({
+      CreateOfferCommand.fromRequest(USER, {
+        name: 'Oferta',
         titleType: ETitleType.LCA,
         issuerName: ISSUER_NAME,
         maturityDate: '2030-05-20',

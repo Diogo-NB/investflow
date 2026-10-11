@@ -2,16 +2,22 @@ import 'reflect-metadata';
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
 import { config } from 'dotenv';
-import { Pool } from 'pg';
 import {
   CreateCurveCommand,
   CreateCurveUseCase,
+  CreateOfferCommand,
+  CreateOfferUseCase,
 } from '@investflow/investment-simulator-application';
-import { EEconomicIndex } from '@investflow/investment-simulator-domain';
-import { CurvesModule } from '@investflow/investment-simulator-infrastructure';
+import {
+  EEconomicIndex,
+  ETitleType,
+} from '@investflow/investment-simulator-domain';
+import {
+  CurvesModule,
+  OffersModule,
+} from '@investflow/investment-simulator-infrastructure';
+import { AppError, Result } from '@investflow/shared-domain';
 import {
   ClockModule,
   PrismaModule,
@@ -33,52 +39,52 @@ import { curveRange, curves, offers } from './investment-simulator/fixtures';
 })
 class SeedInfrastructureModule {}
 
-@Module({ imports: [SeedInfrastructureModule, CurvesModule] })
+@Module({ imports: [SeedInfrastructureModule, CurvesModule, OffersModule] })
 class SeedModule {}
 
-async function seedOffers(connectionString: string): Promise<void> {
-  const pool = new Pool({ connectionString });
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-  try {
-    await prisma.$transaction(async (tx) => {
-      for (const offer of offers) {
-        const existingOffer = await tx.investmentOffer.findFirst({
-          where: {
-            issuerName: offer.issuerName,
-            titleType: offer.titleType,
-            redemptionType: offer.redemptionType,
-            remunerationType: offer.remunerationType,
-          },
-        });
-        if (existingOffer) {
-          await tx.investmentOffer.update({
-            where: { id: existingOffer.id },
-            data: offer,
-          });
-        } else {
-          await tx.investmentOffer.create({ data: offer });
-        }
-      }
-    });
-  } finally {
-    try {
-      await prisma.$disconnect();
-    } finally {
-      await pool.end();
-    }
-  }
-}
-
-// System curves go through the use case with the system actor, so they obey
-// the domain rules and raise their events. Existing ones are left untouched.
-async function seedCurves(): Promise<number> {
+// System offers and curves go through the use cases with the system actor, so
+// they obey the domain rules and raise their events. Existing ones, matched by
+// name, are left untouched.
+async function seedSystemContent(): Promise<{
+  offers: number;
+  curves: number;
+}> {
   const app = await NestFactory.createApplicationContext(SeedModule, {
     logger: ['error', 'warn'],
   });
   try {
     const prisma = app.get(PrismaService);
+    const createOffer = app.get(CreateOfferUseCase);
     const createCurve = app.get(CreateCurveUseCase);
-    let created = 0;
+    const run = (execute: () => Promise<Result<unknown, AppError>>) =>
+      prisma.$transaction((tx) =>
+        TransactionContext.run(tx, async () => {
+          const result = await execute();
+          if (result.isErr()) throw result.error;
+        }),
+      );
+
+    let offersCreated = 0;
+    for (const offer of offers) {
+      const existing = await prisma.client.offer.findFirst({
+        where: {
+          ownerId: null,
+          titleType: offer.titleType,
+          name: offer.name,
+          deletedAt: null,
+        },
+      });
+      if (existing) continue;
+
+      const command = CreateOfferCommand.fromRequest(null, {
+        ...offer,
+        titleType: offer.titleType as ETitleType,
+      });
+      await run(() => createOffer.execute(command));
+      offersCreated++;
+    }
+
+    let curvesCreated = 0;
     for (const curve of curves) {
       const existing = await prisma.client.curve.findFirst({
         where: {
@@ -96,15 +102,10 @@ async function seedCurves(): Promise<number> {
         description: curve.description,
         intervals: [{ ...curveRange, value: curve.value }],
       });
-      await prisma.$transaction((tx) =>
-        TransactionContext.run(tx, async () => {
-          const result = await createCurve.execute(command);
-          if (result.isErr()) throw result.error;
-        }),
-      );
-      created++;
+      await run(() => createCurve.execute(command));
+      curvesCreated++;
     }
-    return created;
+    return { offers: offersCreated, curves: curvesCreated };
   } finally {
     await app.close();
   }
@@ -117,10 +118,9 @@ async function main(): Promise<void> {
     throw new Error('DATABASE_URL is required to seed the local database');
   }
 
-  await seedOffers(connectionString);
-  const created = await seedCurves();
+  const created = await seedSystemContent();
   console.log(
-    `Seeded Banco Local, ${offers.length} offers, and ${created} of ${curves.length} system curves for 2024–2028.`,
+    `Seeded ${created.offers} of ${offers.length} system offers and ${created.curves} of ${curves.length} system curves for 2024–2028.`,
   );
 }
 

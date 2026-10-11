@@ -7,6 +7,7 @@ import { Clock, CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import { CurveNotFoundError } from '../../curves/curve-not-found.error';
 import { CurveRepository } from '../../curves/curve.repository';
+import { OfferNotFoundError } from '../../offers/offer-not-found.error';
 import { OfferRepository } from '../../offers/offer.repository';
 import { SimulationCalculationRepository } from '../simulation-calculation.repository';
 import { SimulationRepository } from '../simulation.repository';
@@ -30,10 +31,13 @@ export class StartSimulationUseCase
   async execute(
     command: StartSimulationCommand,
   ): Promise<Result<CalculatedSimulationOutput, AppError>> {
-    // Deleted catalog offers are reported as missing and cannot be a source.
+    // Deleted offers are reported as missing and cannot be a source.
     if (command.sourceOfferId) {
       const offer = await this.offerRepository.findById(command.sourceOfferId);
       if (offer.isErr()) return offer;
+      if (!offer.value.isVisibleTo(command.ownerId)) {
+        return Result.err(new OfferNotFoundError(offer.value.id));
+      }
     }
     const { curveId } = command.investment;
     const curve = curveId

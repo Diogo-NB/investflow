@@ -1,14 +1,10 @@
 import { Module } from '@nestjs/common';
 import {
   CalculateSimulationUseCase,
-  CreateOfferUseCase,
-  DeleteOfferUseCase,
   DeleteSimulationUseCase,
-  OfferRepository,
   SimulationCalculationRepository,
   SimulationRepository,
   StartSimulationUseCase,
-  UpdateOfferUseCase,
 } from '@investflow/investment-simulator-application';
 import { InvestmentCalculator } from '@investflow/investment-simulator-domain';
 import {
@@ -26,28 +22,18 @@ import { SimulationWorkspaceController } from './simulation-workspaces/http/simu
 import { GetSimulationOptionsQueryHandler } from './simulation-workspaces/queries/get-simulation-options.query-handler';
 import { GetSimulationWorkspaceQueryHandler } from './simulation-workspaces/queries/get-simulation-workspace.query-handler';
 import { InvestmentSimulatorController } from './investment-simulator.controller';
-import { OfferController } from './offers/http/offer.controller';
-import { PrismaOfferRepository } from './offers/persistence/prisma-offer.repository';
 import { CurvesModule } from './curves/curves.module';
-import { ListOffersQueryHandler } from './offers/queries/list-offers.query-handler';
-import { GetOfferQueryHandler } from './offers/queries/get-offer.query-handler';
+import { OffersModule } from './offers/offers.module';
 
 @Module({
-  imports: [CurvesModule],
+  imports: [CurvesModule, OffersModule],
   controllers: [
     InvestmentSimulatorController,
-    OfferController,
     SimulationController,
     SimulationWorkspaceController,
     BusinessCalendarController,
   ],
   providers: [
-    { provide: OfferRepository, useClass: PrismaOfferRepository },
-    CreateOfferUseCase,
-    UpdateOfferUseCase,
-    DeleteOfferUseCase,
-    ListOffersQueryHandler,
-    GetOfferQueryHandler,
     { provide: BusinessDayCalendar, useClass: BrazilianBusinessDayCalendar },
     {
       provide: InvestmentCalculator,

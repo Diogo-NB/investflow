@@ -47,6 +47,9 @@ export interface RemunerationOption {
 export interface OfferOption {
   readonly id: string;
   readonly titleType: TitleType;
+  readonly name: string;
+  readonly origin: ContentOrigin;
+  readonly revision: number;
   readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };

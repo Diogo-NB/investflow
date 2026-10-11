@@ -17,9 +17,14 @@ calculator domain service, taxes, and calculation results.
 
 ## Offer catalog
 
-`Offer` stores the contractual conditions available before an application:
-title type, optional issuer name, maturity, redemption, remuneration, and
-optional soft deletion. The issuer is a plain name, not a separate aggregate.
+`Offer` is one aggregate with the same ownership and revision rules as
+`Curve`: the title type (fixed, and through it the methodology and taxation),
+the editable name, optional issuer name, maturity, redemption, and
+remuneration, an owner, a revision, and soft deletion. The issuer is a plain
+name, not a separate aggregate. Variants from one issuer are separate offers;
+grouping them is left to screens. Changes raise `OfferCreated`,
+`OfferChanged`, and `OfferDeleted` carrying only the offer's identity, and a
+stale client revision is `OFFER_REVISION_CONFLICT`.
 
 The catalog model is prepared for CDB, LCI, and LCA titles and for prefixed,
 CDI percentage, Selic percentage, and IPCA-plus remuneration. `RemunerationTerms`

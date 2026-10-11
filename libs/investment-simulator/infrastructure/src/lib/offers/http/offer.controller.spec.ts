@@ -1,197 +1,114 @@
 import {
   CreateOfferUseCase,
   DeleteOfferUseCase,
-  UpdateOfferUseCase,
+  DuplicateOfferUseCase,
+  EditOfferUseCase,
 } from '@investflow/investment-simulator-application';
 import { ETitleType } from '@investflow/investment-simulator-domain';
-import { AppError, EAppErrorCode, Result } from '@investflow/shared-domain';
-import { CreateOfferRequest } from './requests/create-offer.request';
-import { OfferIdRequest } from './requests/offer-id.request';
-import { UpdateOfferRequest } from './requests/update-offer.request';
-import { OfferController } from './offer.controller';
+import { Result } from '@investflow/shared-domain';
+import { GetOfferQueryHandler } from '../queries/get-offer.query-handler';
 import { ListOffersQueryHandler } from '../queries/list-offers.query-handler';
-import {
-  GetOfferOutput,
-  GetOfferQueryHandler,
-} from '../queries/get-offer.query-handler';
-import { ListOffersRequest } from './requests/list-offers.request';
+import { OfferController } from './offer.controller';
+import { CreateOfferRequest } from './requests/create-offer.request';
+import { EditOfferRequest } from './requests/edit-offer.request';
 
 jest.mock('@investflow/shared-infrastructure', () => ({
+  CurrentUser: () => () => undefined,
   IsCalendarDate: () => () => undefined,
   SkipTransaction: () => () => undefined,
 }));
 
+const USER = { userId: 'user-id', email: 'user@example.com' };
 const OFFER_ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
-const ISSUER_NAME = 'Banco Local';
 
-function createFixture() {
-  const createOffer = {
-    execute: jest.fn().mockResolvedValue(Result.ok({ id: OFFER_ID })),
-  } as unknown as CreateOfferUseCase;
-  const updateOffer = {
-    execute: jest.fn().mockResolvedValue(Result.ok(undefined)),
-  } as unknown as UpdateOfferUseCase;
-  const deleteOffer = {
-    execute: jest.fn().mockResolvedValue(Result.ok(undefined)),
-  } as unknown as DeleteOfferUseCase;
-  const offer: GetOfferOutput = {
-    id: OFFER_ID,
-    titleType: ETitleType.CDB,
-    issuerName: ISSUER_NAME,
-    maturityDate: '2028-12-31',
-    redemptionTerms: { kind: 'DAILY' },
-    remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+function handler<T>() {
+  return { execute: jest.fn().mockResolvedValue(Result.ok(undefined)) } as T & {
+    execute: jest.Mock;
   };
-  const listResult = Result.ok({
-    items: [offer],
-    total: 1,
-    page: 1,
-    pageSize: 20,
-  });
-  const getResult = Result.ok(offer);
-  const listOffers = {
-    execute: jest.fn().mockResolvedValue(listResult),
-  } as unknown as ListOffersQueryHandler;
-  const getOffer = {
-    execute: jest.fn().mockResolvedValue(getResult),
-  } as unknown as GetOfferQueryHandler;
+}
+
+function setup() {
+  const create = handler<CreateOfferUseCase>();
+  const edit = handler<EditOfferUseCase>();
+  const duplicate = handler<DuplicateOfferUseCase>();
+  const remove = handler<DeleteOfferUseCase>();
+  const list = handler<ListOffersQueryHandler>();
+  const get = handler<GetOfferQueryHandler>();
   return {
-    controller: new OfferController(
-      createOffer,
-      updateOffer,
-      deleteOffer,
-      listOffers,
-      getOffer,
-    ),
-    createOffer,
-    updateOffer,
-    deleteOffer,
-    listOffers,
-    getOffer,
-    listResult,
-    getResult,
+    controller: new OfferController(create, edit, duplicate, remove, list, get),
+    create,
+    edit,
+    duplicate,
+    remove,
+    list,
+    get,
   };
 }
 
 describe('OfferController', () => {
-  it('delegates reads and returns query results unchanged for the HTTP interceptor', async () => {
-    const fixture = createFixture();
-    const query = new ListOffersRequest();
-    const page = await fixture.controller.list(query);
-    expect(fixture.listOffers.execute).toHaveBeenCalledWith(query);
-    expect(page).toBe(fixture.listResult);
-    const details = await fixture.controller.get({ offerId: OFFER_ID });
-    expect(fixture.getOffer.execute).toHaveBeenCalledWith({
-      offerId: OFFER_ID,
-    });
-    expect(details).toBe(fixture.getResult);
-  });
-  it('returns failed results unchanged for the HTTP interceptor', async () => {
-    const fixture = createFixture();
-    const error = new AppError('Offer not found', {
-      code: EAppErrorCode.OFFER_NOT_FOUND,
-      kind: 'not-found',
-    });
-    const result = Result.err<void>(error);
-    jest.mocked(fixture.deleteOffer.execute).mockResolvedValue(result);
+  it('reads offers visible to the user', async () => {
+    const { controller, list, get } = setup();
 
-    await expect(
-      fixture.controller.delete({ offerId: OFFER_ID }),
-    ).resolves.toBe(result);
-  });
-
-  it('creates an offer and preserves the decimal rate as a string', async () => {
-    const fixture = createFixture();
-    const request = Object.assign(new CreateOfferRequest(), {
-      titleType: ETitleType.LCI,
-      issuerName: ISSUER_NAME,
-      maturityDate: '2030-05-20',
-      redemptionTerms: { kind: 'DAILY' as const },
-      remunerationTerms: {
-        kind: 'CDI_PERCENTAGE' as const,
-        rate: '105.12345678901234567890123456789',
-      },
-    });
-
-    await expect(fixture.controller.create(request)).resolves.toEqual(
-      Result.ok({
-        id: OFFER_ID,
-      }),
-    );
-    const command = jest.mocked(fixture.createOffer.execute).mock.calls[0][0];
-    expect(command.maturityDate.toIsoString()).toBe('2030-05-20');
-    expect(command.redemptionTerms.kind).toBe('DAILY');
-    expect(command.remunerationTerms.kind).toBe('CDI_PERCENTAGE');
-    expect(command.remunerationTerms.contractRate.value.toString()).toBe(
-      '105.12345678901234567890123456789',
-    );
-  });
-
-  it.each([
-    ['PREFIXED', '12'],
-    ['CDI_PERCENTAGE', '105'],
-    ['SELIC_PERCENTAGE', '95'],
-    ['IPCA_PLUS', '7.5'],
-  ] as const)('maps %s remuneration', async (kind, rate) => {
-    const fixture = createFixture();
-    const request = Object.assign(new CreateOfferRequest(), {
+    await controller.list(USER, {
+      page: 2,
+      pageSize: 20,
       titleType: ETitleType.CDB,
-      issuerName: ISSUER_NAME,
-      maturityDate: '2030-05-20',
-      redemptionTerms: { kind: 'AT_MATURITY' as const },
-      remunerationTerms: { kind, rate },
     });
+    await controller.get(USER, { offerId: OFFER_ID });
 
-    await fixture.controller.create(request);
-
-    const command = jest.mocked(fixture.createOffer.execute).mock.calls[0][0];
-    expect(command.remunerationTerms.kind).toBe(kind);
-    expect(command.remunerationTerms.contractRate.value.toString()).toBe(rate);
+    expect(list.execute).toHaveBeenCalledWith({
+      page: 2,
+      pageSize: 20,
+      titleType: ETitleType.CDB,
+      viewerId: USER.userId,
+    });
+    expect(get.execute).toHaveBeenCalledWith({
+      offerId: OFFER_ID,
+      viewerId: USER.userId,
+    });
   });
 
-  it('maps a partial update and returns the use-case result', async () => {
-    const fixture = createFixture();
-    const request = Object.assign(new UpdateOfferRequest(), {
-      maturityDate: '2031-06-21',
-      remunerationTerms: {
-        kind: 'IPCA_PLUS' as const,
-        rate: '7.5',
-      },
-    });
+  it('creates, edits, duplicates and deletes as the user', async () => {
+    const { controller, create, edit, duplicate, remove } = setup();
+    const params = { offerId: OFFER_ID };
 
-    await expect(
-      fixture.controller.update({ offerId: OFFER_ID }, request),
-    ).resolves.toEqual(Result.ok(undefined));
-    expect(fixture.updateOffer.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        offerId: OFFER_ID,
-        remunerationTerms: expect.objectContaining({ kind: 'IPCA_PLUS' }),
+    await controller.create(
+      USER,
+      Object.assign(new CreateOfferRequest(), {
+        titleType: ETitleType.LCA,
+        name: 'LCA 93% do CDI',
+        maturityDate: '2030-05-20',
+        redemptionTerms: { kind: 'AT_MATURITY' },
+        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '0.93' },
       }),
     );
-  });
-
-  it('accepts an empty update', async () => {
-    const fixture = createFixture();
-
-    await fixture.controller.update(
-      { offerId: OFFER_ID },
-      new UpdateOfferRequest(),
+    await controller.edit(
+      USER,
+      params,
+      Object.assign(new EditOfferRequest(), { revision: 4, issuerName: null }),
     );
+    await controller.duplicate(USER, params);
+    await controller.delete(USER, params);
 
-    expect(fixture.updateOffer.execute).toHaveBeenCalledWith({
-      offerId: OFFER_ID,
+    expect(create.execute.mock.calls[0][0]).toMatchObject({
+      actorId: USER.userId,
+      titleType: ETitleType.LCA,
+      name: 'LCA 93% do CDI',
+      issuerName: null,
     });
-  });
-
-  it('deletes an offer and returns the use-case result', async () => {
-    const fixture = createFixture();
-    const params = Object.assign(new OfferIdRequest(), { offerId: OFFER_ID });
-
-    await expect(fixture.controller.delete(params)).resolves.toEqual(
-      Result.ok(undefined),
-    );
-    expect(fixture.deleteOffer.execute).toHaveBeenCalledWith({
+    expect(edit.execute.mock.calls[0][0]).toMatchObject({
+      actorId: USER.userId,
       offerId: OFFER_ID,
+      revision: 4,
+      name: undefined,
+      issuerName: null,
+      maturityDate: undefined,
     });
+    for (const useCase of [duplicate, remove]) {
+      expect(useCase.execute.mock.calls[0][0]).toMatchObject({
+        actorId: USER.userId,
+        offerId: OFFER_ID,
+      });
+    }
   });
 });

@@ -2,7 +2,10 @@ import {
   OfferNotFoundError,
   OfferRepository,
 } from '@investflow/investment-simulator-application';
-import { Offer } from '@investflow/investment-simulator-domain';
+import {
+  Offer,
+  OfferRevisionConflictError,
+} from '@investflow/investment-simulator-domain';
 import { Result } from '@investflow/shared-domain';
 import {
   BaseRepository,
@@ -18,6 +21,10 @@ export class PrismaOfferRepository
   extends BaseRepository<Offer>
   implements OfferRepository
 {
+  // The revision each aggregate had when it was read or last saved; an offer
+  // without one is new.
+  private readonly storedRevisions = new WeakMap<Offer, number>();
+
   constructor(prisma: PrismaService) {
     super(prisma);
   }
@@ -25,34 +32,38 @@ export class PrismaOfferRepository
   async findById(
     id: string,
   ): Promise<Result<Offer, OfferNotFoundError | RepositoryFindError>> {
-    const offerResult = await Result.fromPromise(
+    const result = await Result.fromPromise(
       async () => {
-        const record = await this.prisma.client.investmentOffer.findUnique({
+        const record = await this.prisma.client.offer.findUnique({
           where: { id, deletedAt: null },
         });
-
         return record ? OfferMapper.toDomain(record) : null;
       },
       (error) => new RepositoryFindError('Offer', id, error),
     );
-
-    if (offerResult.isErr()) return offerResult;
-    return offerResult.value
-      ? Result.ok(offerResult.value)
-      : Result.err(new OfferNotFoundError(id));
+    if (result.isErr()) return result;
+    if (!result.value) return Result.err(new OfferNotFoundError(id));
+    this.storedRevisions.set(result.value, result.value.revision);
+    return Result.ok(result.value);
   }
 
   protected async persistAggregate(
     offer: Offer,
     client: TransactionalPrismaClient,
   ): Promise<void> {
-    const data = OfferMapper.toPersistence(offer);
-    const { id, ...update } = data;
+    const stored = this.storedRevisions.get(offer);
+    if (stored === offer.revision) return;
 
-    await client.investmentOffer.upsert({
-      where: { id },
-      create: data,
-      update,
-    });
+    const data = OfferMapper.toPersistence(offer);
+    if (stored === undefined) {
+      await client.offer.create({ data });
+    } else {
+      const { count } = await client.offer.updateMany({
+        where: { id: offer.id, revision: stored },
+        data,
+      });
+      if (count === 0) throw new OfferRevisionConflictError(offer.id, stored);
+    }
+    this.storedRevisions.set(offer, offer.revision);
   }
 }

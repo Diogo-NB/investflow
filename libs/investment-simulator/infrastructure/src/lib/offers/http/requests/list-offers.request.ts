@@ -11,7 +11,7 @@ import {
 import { ETitleType } from '@investflow/investment-simulator-domain';
 import { ListOffersQuery } from '../../queries/list-offers.query-handler';
 
-export class ListOffersRequest implements ListOffersQuery {
+export class ListOffersRequest implements Omit<ListOffersQuery, 'viewerId'> {
   @Type(() => Number)
   @IsInt()
   @Min(1)

@@ -14,8 +14,12 @@ export interface SelectGroup {
   readonly options: readonly SelectOption[];
 }
 
+// Ungrouped options render before the groups.
 type SelectFieldItems =
-  | { readonly options: readonly SelectOption[]; readonly groups?: never }
+  | {
+      readonly options: readonly SelectOption[];
+      readonly groups?: readonly SelectGroup[];
+    }
   | { readonly groups: readonly SelectGroup[]; readonly options?: never };
 
 type SelectFieldProps = ControlProps &
@@ -39,7 +43,10 @@ export function SelectField({
   ref,
   ...control
 }: SelectFieldProps) {
-  const all = groups ? groups.flatMap((group) => group.options) : options;
+  const all = [
+    ...(options ?? []),
+    ...(groups ?? []).flatMap((group) => group.options),
+  ];
   return (
     <Select.Root
       items={all.map(({ value, label }) => ({ value, label }))}
@@ -65,20 +72,19 @@ export function SelectField({
         <Select.Positioner sideOffset={4} className="z-20 outline-none">
           <Select.Popup className="max-h-(--available-height) min-w-(--anchor-width) overflow-y-auto rounded-control border border-border bg-surface py-1 text-fg outline-none">
             <Select.List>
-              {groups
-                ? groups.map((group) => (
-                    <Select.Group key={group.label}>
-                      <Select.GroupLabel className="px-3 pt-2 pb-1 text-sm font-semibold text-muted">
-                        {group.label}
-                      </Select.GroupLabel>
-                      {group.options.map((option) => (
-                        <SelectItem key={option.value} option={option} />
-                      ))}
-                    </Select.Group>
-                  ))
-                : options.map((option) => (
+              {options?.map((option) => (
+                <SelectItem key={option.value} option={option} />
+              ))}
+              {groups?.map((group) => (
+                <Select.Group key={group.label}>
+                  <Select.GroupLabel className="px-3 pt-2 pb-1 text-sm font-semibold text-muted">
+                    {group.label}
+                  </Select.GroupLabel>
+                  {group.options.map((option) => (
                     <SelectItem key={option.value} option={option} />
                   ))}
+                </Select.Group>
+              ))}
             </Select.List>
           </Select.Popup>
         </Select.Positioner>

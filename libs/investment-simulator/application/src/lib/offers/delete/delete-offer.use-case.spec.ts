@@ -1,79 +1,49 @@
-import {
-  RemunerationTerms,
-  Offer,
-  ETitleType,
-  RedemptionTerms,
-} from '@investflow/investment-simulator-domain';
-import { Clock } from '@investflow/shared-application';
-import {
-  CalendarDate,
-  Rate,
-  Result,
-  UtcInstant,
-} from '@investflow/shared-domain';
-import { OfferNotFoundError } from '../offer-not-found.error';
-import { OfferRepository } from '../offer.repository';
+import { EAppErrorCode } from '@investflow/shared-domain';
+import { offerFixture, OTHER_USER, USER } from '../shared/offer-fixture';
+import { DeleteOfferCommand } from './delete-offer.command';
 import { DeleteOfferUseCase } from './delete-offer.use-case';
 
-const OFFER_ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
-const NOW = UtcInstant.ofIso('2026-09-28T15:00:00Z');
-
-function createFixture() {
-  const offer = Offer.reconstitute({
-    deletedAt: null,
-    id: OFFER_ID,
-    titleType: ETitleType.CDB,
-    issuerName: 'Banco Local',
-    maturityDate: CalendarDate.of('2030-05-20'),
-    redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-    remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('12')),
-  });
-  const repository = {
-    findById: jest.fn().mockResolvedValue(Result.ok(offer)),
-    save: jest.fn().mockResolvedValue(Result.ok(undefined)),
-  } as unknown as OfferRepository;
-  const clock = { now: jest.fn(() => NOW) } as unknown as Clock;
-  return {
-    useCase: new DeleteOfferUseCase(repository, clock),
-    repository,
-    clock,
-    offer,
-  };
+function setup() {
+  const fixture = offerFixture(jest.fn);
+  const useCase = new DeleteOfferUseCase(
+    fixture.offerRepository,
+    fixture.clock,
+  );
+  return { ...fixture, useCase };
 }
 
 describe('DeleteOfferUseCase', () => {
-  it('soft deletes at the current instant and saves', async () => {
-    const fixture = createFixture();
+  it.each([USER, null])('deletes an offer owned by %s', async (owner) => {
+    const { useCase, given } = setup();
+    const offer = given(owner);
 
-    const result = await fixture.useCase.execute({ offerId: OFFER_ID });
+    const result = await useCase.execute(
+      DeleteOfferCommand.fromRequest(owner, { offerId: offer.id }),
+    );
 
     expect(result.isOk()).toBe(true);
-    expect(fixture.clock.now).toHaveBeenCalledTimes(1);
-    expect(fixture.offer.deletedAt).toBe(NOW);
-    expect(fixture.repository.save).toHaveBeenCalledWith(fixture.offer);
+    expect(offer.deletedAt).not.toBeNull();
+    expect(offer.revision).toBe(2);
   });
 
-  it('returns not found without reading the clock or saving', async () => {
-    const fixture = createFixture();
-    const error = new OfferNotFoundError(OFFER_ID);
-    jest
-      .mocked(fixture.repository.findById)
-      .mockResolvedValue(Result.err(error));
+  it.each([
+    ['a system offer by a user', null, USER, EAppErrorCode.OFFER_READ_ONLY],
+    [
+      "another user's offer",
+      USER as string | null,
+      OTHER_USER,
+      EAppErrorCode.OFFER_NOT_FOUND,
+    ],
+  ])('refuses %s', async (_, owner, actor, code) => {
+    const { useCase, given, offerRepository } = setup();
+    const offer = given(owner);
 
-    const result = await fixture.useCase.execute({ offerId: OFFER_ID });
+    const result = await useCase.execute(
+      DeleteOfferCommand.fromRequest(actor, { offerId: offer.id }),
+    );
 
-    expect(result.error).toBe(error);
-    expect(fixture.clock.now).not.toHaveBeenCalled();
-    expect(fixture.repository.save).not.toHaveBeenCalled();
-  });
-
-  it('propagates save failures', async () => {
-    const fixture = createFixture();
-    const error = new OfferNotFoundError(OFFER_ID);
-    jest.mocked(fixture.repository.save).mockResolvedValue(Result.err(error));
-
-    const result = await fixture.useCase.execute({ offerId: OFFER_ID });
-
-    expect(result.error).toBe(error);
+    expect(result.error.code).toBe(code);
+    expect(offer.deletedAt).toBeNull();
+    expect(offerRepository.save).not.toHaveBeenCalled();
   });
 });

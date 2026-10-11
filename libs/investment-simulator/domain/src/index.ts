@@ -7,6 +7,8 @@ export * from './lib/curves/curve-interval.vo';
 export * from './lib/curves/curve.error';
 export * from './lib/curves/curve.events';
 export * from './lib/curves/curve.aggregate';
+export * from './lib/offers/offer.error';
+export * from './lib/offers/offer.events';
 export * from './lib/offers/offer.aggregate';
 export * from './lib/calculations/investment-calculation.error';
 export * from './lib/calculations/investment-calculation.type';

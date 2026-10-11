@@ -1,164 +1,209 @@
-import { CalendarDate, Rate, UtcInstant } from '@investflow/shared-domain';
-import { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
+import {
+  CalendarDate,
+  EAppErrorCode,
+  Rate,
+  UtcInstant,
+} from '@investflow/shared-domain';
+import { CreateOfferProps, Offer } from './offer.aggregate';
+import { InvalidOfferError } from './offer.error';
+import { OfferChanged, OfferCreated, OfferDeleted } from './offer.events';
 import { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
+import { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from './title-type.enum';
-import { Offer } from './offer.aggregate';
 
+const AT = UtcInstant.ofIso('2026-10-04T12:00:00Z');
+const LATER = UtcInstant.ofIso('2026-10-05T12:00:00Z');
 const MATURITY = CalendarDate.of('2030-01-02');
-const NEW_MATURITY = CalendarDate.of('2031-02-03');
-const DELETED_AT = UtcInstant.ofIso('2026-09-27T12:00:00Z');
 
-function createOffer() {
-  return Offer.create({
+function props(overrides: Partial<CreateOfferProps> = {}): CreateOfferProps {
+  return {
     titleType: ETitleType.CDB,
-    issuerName: 'Banco Local',
+    ownerId: 'user-1',
+    name: ' CDB 110% do CDI ',
+    issuerName: ' Banco Local ',
     maturityDate: MATURITY,
-    redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-    remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('12')),
+    redemptionTerms: RedemptionTerms.create('DAILY'),
+    remunerationTerms: RemunerationTerms.create(
+      'CDI_PERCENTAGE',
+      Rate.of('1.10'),
+    ),
+    ...overrides,
+  };
+}
+
+function create(overrides: Partial<CreateOfferProps> = {}) {
+  return Offer.create(props(overrides), AT);
+}
+
+function restore(offer: Offer): Offer {
+  return Offer.reconstitute({
+    id: offer.id,
+    titleType: offer.titleType,
+    ownerId: offer.ownerId,
+    name: offer.name,
+    issuerName: offer.issuerName,
+    maturityDate: offer.maturityDate,
+    redemptionTerms: offer.redemptionTerms,
+    remunerationTerms: offer.remunerationTerms,
+    revision: offer.revision,
+    deletedAt: offer.deletedAt,
   });
 }
 
 describe('Offer', () => {
-  it('assigns a new identity to each offer', () => {
-    expect(createOffer().id).not.toBe(createOffer().id);
+  it('creates distinct identities at revision 1, normalizes text and raises a creation event', () => {
+    const first = create().value;
+    const second = create({ issuerName: '  ' }).value;
+
+    expect(first.id).not.toBe(second.id);
+    expect(first.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(first.name).toBe('CDB 110% do CDI');
+    expect(first.issuerName).toBe('Banco Local');
+    expect(second.issuerName).toBeNull();
+    expect(first.revision).toBe(1);
+    expect(first.deletedAt).toBeNull();
+
+    const [event] = first.getDomainEvents();
+    expect(event).toBeInstanceOf(OfferCreated);
+    // Events are notifications: identifiers only, never the offer's terms.
+    expect({ ...event }).toEqual({
+      eventId: expect.any(String),
+      eventType: 'OfferCreated',
+      aggregateType: 'Offer',
+      aggregateId: first.id,
+      context: 'investment-simulator',
+      version: 1,
+      occurredAt: AT,
+    });
   });
 
-  it.each(Object.values(ETitleType))('creates title type %s', (titleType) => {
-    const offer = Offer.create({
-      titleType,
-      issuerName: 'Banco Local',
-      maturityDate: MATURITY,
-      redemptionTerms: RedemptionTerms.create('DAILY'),
-      remunerationTerms: RemunerationTerms.create(
-        'CDI_PERCENTAGE',
-        Rate.of('105'),
-      ),
-    });
+  it('rejects a blank name', () => {
+    const result = create({ name: '   ' });
 
-    expect(offer.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
-    expect(offer.titleType).toBe(titleType);
-    expect(offer.deletedAt).toBeNull();
+    expect(result.error).toBeInstanceOf(InvalidOfferError);
+    expect(result.error.code).toBe(EAppErrorCode.INVALID_OFFER);
+  });
+
+  it('reconstitutes persisted state without raising events', () => {
+    const original = create().value;
+    const offer = restore(original);
+
+    expect(offer.id).toBe(original.id);
+    expect(offer.titleType).toBe(ETitleType.CDB);
+    expect(offer.remunerationTerms).toEqual(original.remunerationTerms);
     expect(offer.getDomainEvents()).toEqual([]);
   });
 
-  it.each<RemunerationTerms>([
-    RemunerationTerms.create('PREFIXED', Rate.of('12')),
-    RemunerationTerms.create('CDI_PERCENTAGE', Rate.of('105')),
-    RemunerationTerms.create('SELIC_PERCENTAGE', Rate.of('90')),
-    RemunerationTerms.create('IPCA_PLUS', Rate.of('7.5')),
-  ])('creates remuneration $kind', (remunerationTerms) => {
-    const offer = Offer.create({
-      titleType: ETitleType.LCI,
-      issuerName: 'Banco Local',
-      maturityDate: MATURITY,
-      redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-      remunerationTerms,
-    });
+  it('decides visibility and ownership, with null as the system', () => {
+    const own = create().value;
+    const system = create({ ownerId: null }).value;
 
-    expect(offer.remunerationTerms).toEqual(remunerationTerms);
+    expect(own.isVisibleTo('user-1')).toBe(true);
+    expect(own.isVisibleTo('user-2')).toBe(false);
+    expect(own.isVisibleTo(null)).toBe(false);
+    expect(own.canBeChangedBy('user-1')).toBe(true);
+    expect(system.isVisibleTo('user-2')).toBe(true);
+    expect(system.canBeChangedBy('user-2')).toBe(false);
+    expect(system.canBeChangedBy(null)).toBe(true);
   });
 
-  it('reconstitutes deleted state', () => {
-    const offer = Offer.reconstitute({
-      id: 'offer-id',
-      titleType: ETitleType.LCA,
+  it("duplicates into the actor's private copy with the same terms", () => {
+    const source = create({ ownerId: null }).value;
+    const copy = source.duplicateFor('user-2', LATER).value;
+
+    expect(copy.id).not.toBe(source.id);
+    expect(copy.ownerId).toBe('user-2');
+    expect(copy.titleType).toBe(source.titleType);
+    expect(copy.name).toBe('CDB 110% do CDI (cópia)');
+    expect(copy.issuerName).toBe(source.issuerName);
+    expect(copy.maturityDate).toBe(source.maturityDate);
+    expect(copy.redemptionTerms).toBe(source.redemptionTerms);
+    expect(copy.remunerationTerms).toBe(source.remunerationTerms);
+    expect(copy.revision).toBe(1);
+    expect(copy.getDomainEvents()).toEqual([expect.any(OfferCreated)]);
+  });
+
+  it('accepts the current revision and reports a conflict otherwise', () => {
+    const offer = create().value;
+
+    expect(offer.assertRevision(1).isOk()).toBe(true);
+    const conflict = offer.assertRevision(2).error;
+    expect(conflict.code).toBe(EAppErrorCode.OFFER_REVISION_CONFLICT);
+    expect(conflict.kind).toBe('conflict');
+  });
+
+  it('edits supplied fields, increments the revision once and raises a change event', () => {
+    const offer = restore(create().value);
+    const remuneration = RemunerationTerms.create('PREFIXED', Rate.of('0.12'));
+
+    const result = offer.edit(
+      {
+        name: 'Prefixado',
+        issuerName: null,
+        maturityDate: CalendarDate.of('2031-02-03'),
+        redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
+        remunerationTerms: remuneration,
+      },
+      LATER,
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(offer.revision).toBe(2);
+    expect(offer.name).toBe('Prefixado');
+    expect(offer.issuerName).toBeNull();
+    expect(offer.maturityDate.toIsoString()).toBe('2031-02-03');
+    expect(offer.redemptionTerms.kind).toBe('AT_MATURITY');
+    expect(offer.remunerationTerms).toBe(remuneration);
+    const [event] = offer.getDomainEvents();
+    expect(event).toBeInstanceOf(OfferChanged);
+    expect(event).toMatchObject({ aggregateId: offer.id, occurredAt: LATER });
+  });
+
+  it.each([
+    {},
+    {
+      name: ' CDB 110% do CDI ',
       issuerName: 'Banco Local',
-      maturityDate: MATURITY,
+      maturityDate: CalendarDate.of('2030-01-02'),
       redemptionTerms: RedemptionTerms.create('DAILY'),
-      remunerationTerms: RemunerationTerms.create('IPCA_PLUS', Rate.of('6')),
-      deletedAt: DELETED_AT,
-    });
-
-    expect(offer.id).toBe('offer-id');
-    expect(offer.deletedAt).toBe(DELETED_AT);
-  });
-
-  it('updates each mutable condition independently', () => {
-    const offer = createOffer();
-    const remuneration = RemunerationTerms.create(
-      'SELIC_PERCENTAGE',
-      Rate.of('95'),
-    );
-
-    expect(offer.updateMaturityDate(NEW_MATURITY)).toBe(offer);
-    expect(offer.updateRedemptionTerms(RedemptionTerms.create('DAILY'))).toBe(
-      offer,
-    );
-    expect(offer.updateRemunerationTerms(remuneration)).toBe(offer);
-
-    expect(offer.maturityDate).toBe(NEW_MATURITY);
-    expect(offer.redemptionTerms).toEqual(RedemptionTerms.create('DAILY'));
-    expect(offer.remunerationTerms).toEqual(remuneration);
-    expect(offer.titleType).toBe(ETitleType.CDB);
-    expect(offer.issuerName).toBe('Banco Local');
-  });
-
-  it('accepts identical updates as successful no-ops', () => {
-    const offer = createOffer();
-    const redemption = offer.redemptionTerms;
-    const remuneration = offer.remunerationTerms;
-
-    expect(offer.updateMaturityDate(MATURITY)).toBe(offer);
-    expect(
-      offer.updateRedemptionTerms(RedemptionTerms.create('AT_MATURITY')),
-    ).toBe(offer);
-    expect(
-      offer.updateRemunerationTerms(
-        RemunerationTerms.create('PREFIXED', Rate.of('12.0')),
+      remunerationTerms: RemunerationTerms.create(
+        'CDI_PERCENTAGE',
+        Rate.of('1.100'),
       ),
-    ).toBe(offer);
-    expect(offer.redemptionTerms).toBe(redemption);
-    expect(offer.remunerationTerms).toBe(remuneration);
+    },
+  ])(
+    'keeps the revision and raises nothing for an empty or identical edit',
+    (edit) => {
+      const offer = restore(create().value);
+
+      expect(offer.edit(edit, LATER).isOk()).toBe(true);
+      expect(offer.revision).toBe(1);
+      expect(offer.getDomainEvents()).toEqual([]);
+    },
+  );
+
+  it('rejects an invalid edit without changing anything', () => {
+    const offer = restore(create().value);
+
+    const result = offer.edit({ name: ' ' }, LATER);
+
+    expect(result.error).toBeInstanceOf(InvalidOfferError);
+    expect(offer.name).toBe('CDB 110% do CDI');
+    expect(offer.revision).toBe(1);
+    expect(offer.getDomainEvents()).toEqual([]);
   });
 
-  it('stores immutable terms directly', () => {
-    const redemption = RedemptionTerms.create('DAILY');
-    const remuneration = RemunerationTerms.create(
-      'CDI_PERCENTAGE',
-      Rate.of('105'),
-    );
-    const offer = Offer.create({
-      titleType: ETitleType.CDB,
-      issuerName: 'Banco Local',
-      maturityDate: MATURITY,
-      redemptionTerms: redemption,
-      remunerationTerms: remuneration,
-    });
+  it('deletes once, incrementing the revision', () => {
+    const offer = restore(create().value);
 
-    expect(offer.redemptionTerms).toBe(redemption);
-    expect(offer.remunerationTerms).toBe(remuneration);
-  });
+    expect(offer.delete(AT)).toBe(offer);
+    offer.delete(LATER);
 
-  it('soft deletes idempotently and preserves the first instant', () => {
-    const offer = createOffer();
-    const later = UtcInstant.ofIso('2026-09-28T12:00:00Z');
-
-    expect(offer.delete(DELETED_AT)).toBe(offer);
-    offer.delete(later);
-
-    expect(offer.deletedAt).toBe(DELETED_AT);
-  });
-
-  it('allows in-memory updates after deletion without restoring the offer', () => {
-    const offer = createOffer().delete(DELETED_AT);
-    const updatedOffers = [
-      offer.updateMaturityDate(NEW_MATURITY),
-      offer.updateRedemptionTerms(RedemptionTerms.create('DAILY')),
-      offer.updateRemunerationTerms(
-        RemunerationTerms.create('IPCA_PLUS', Rate.of('7')),
-      ),
-    ];
-
-    for (const updatedOffer of updatedOffers) {
-      expect(updatedOffer).toBe(offer);
-    }
-    expect(offer.maturityDate).toBe(NEW_MATURITY);
-    expect(offer.redemptionTerms).toEqual(RedemptionTerms.create('DAILY'));
-    expect(offer.remunerationTerms).toEqual(
-      RemunerationTerms.create('IPCA_PLUS', Rate.of('7')),
-    );
-    expect(offer.deletedAt).toBe(DELETED_AT);
+    expect(offer.deletedAt).toBe(AT);
+    expect(offer.revision).toBe(2);
+    const events = offer.getDomainEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toBeInstanceOf(OfferDeleted);
+    expect(events[0]).toMatchObject({ aggregateId: offer.id, occurredAt: AT });
   });
 });

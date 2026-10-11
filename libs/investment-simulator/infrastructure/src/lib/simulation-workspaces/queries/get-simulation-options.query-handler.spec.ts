@@ -39,11 +39,14 @@ function setup() {
   const offer = (id: string, titleType: string, remunerationType: string) => ({
     id,
     titleType,
+    name: `Oferta ${id}`,
     issuerName: 'Banco Local',
     maturityDate: date('2028-12-31'),
     redemptionType: 'DAILY',
     remunerationType,
     rateValue: new Prisma.Decimal('1.10'),
+    ownerId: id === 'lci' ? VIEWER : null,
+    revision: 2,
   });
   const offers = [
     offer('cdb', 'CDB', 'CDI_PERCENTAGE'),
@@ -52,7 +55,7 @@ function setup() {
   ];
   const client = {
     curve: { findMany: jest.fn().mockResolvedValue(curves) },
-    investmentOffer: { findMany: jest.fn().mockResolvedValue(offers) },
+    offer: { findMany: jest.fn().mockResolvedValue(offers) },
   };
   return {
     client,
@@ -113,14 +116,17 @@ describe('GetSimulationOptionsQueryHandler', () => {
     ]);
   });
 
-  it('flags catalog offers the calculator cannot price', async () => {
+  it('lists visible offers and flags those the calculator cannot price', async () => {
     const { client, handler } = setup();
 
     const { offers } = (await handler.execute({ viewerId: VIEWER })).value;
 
-    expect(client.investmentOffer.findMany).toHaveBeenCalledWith(
+    expect(client.offer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { deletedAt: null },
+        where: {
+          deletedAt: null,
+          OR: [{ ownerId: null }, { ownerId: VIEWER }],
+        },
       }),
     );
     expect(client.curve.findMany).toHaveBeenCalledWith(
@@ -136,7 +142,14 @@ describe('GetSimulationOptionsQueryHandler', () => {
       ['ipca', EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED],
       ['lci', null],
     ]);
+    expect(offers.map((offer) => offer.origin)).toEqual([
+      'SYSTEM',
+      'SYSTEM',
+      'OWN',
+    ]);
     expect(offers[0]).toMatchObject({
+      name: 'Oferta cdb',
+      revision: 2,
       maturityDate: '2028-12-31',
       redemptionTerms: { kind: 'DAILY' },
       remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },

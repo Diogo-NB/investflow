@@ -45,7 +45,7 @@ atualizarem quando as premissas mudam.
 Ofertas, curvas e simulações são deliberadamente editáveis, e as simulações
 reagem às mudanças das ofertas e curvas que usam:
 
-- Editar uma condição de oferta ou uma curva recalcula todas as
+- Editar uma oferta ou uma curva recalcula todas as
   simulações que usam o item editado. Não há cópia congelada das premissas.
 - O recálculo é assíncrono. Uma simulação pode estar aguardando cálculo,
   calculando, atualizada, impedida por uma regra de negócio ou com falha
@@ -57,10 +57,10 @@ reagem às mudanças das ofertas e curvas que usam:
   resultado atual; não há histórico de cálculos.
 - A interface deixa claro, antes de salvar ou excluir, que a mudança afeta as
   simulações que usam o item, e quantas são.
-- Quem quiser preservar uma condição ou uma curva antes de alterá-la usa
+- Quem quiser preservar uma oferta ou uma curva antes de alterá-la usa
   "Duplicar" e edita a cópia.
 
-Cada condição de oferta e cada curva tem um número de revisão,
+Cada oferta e cada curva tem um número de revisão,
 incrementado a cada alteração salva. A revisão identifica quais premissas um
 resultado usou e revela quando ele ficou desatualizado. Cada alteração também
 gera um evento que identifica o item alterado e leva ao recálculo das
@@ -70,32 +70,18 @@ simulações afetadas.
 
 ### Ofertas
 
-Uma oferta reúne um grupo e suas condições:
+Uma oferta tem título (CDB, LCI ou LCA), nome, emissor opcional, remuneração e
+taxa, data de vencimento e liquidez. O título não muda depois da criação, pois
+determina a metodologia e a tributação. Ofertas parecidas, como "CDB 110% do
+CDI" e "CDB 120% do CDI" do mesmo emissor, são ofertas distintas, cada uma
+independente e editável por seu dono.
 
-- **Oferta** (grupo): título (CDB, LCI ou LCA), emissor opcional e nome. Título
-  e emissor não mudam depois da criação; são compartilhados por todas as
-  condições do grupo.
-- **Condição**: remuneração e taxa, data de vencimento e liquidez. Pode ter um
-  nome; sem nome, é identificada pelos próprios termos. Cada condição é
-  independente e editável por seu dono.
-
-Comportamento:
-
-- Criar, consultar, editar e excluir ofertas privadas e suas condições. O dono
-  pode renomear uma oferta privada; excluí-la exclui suas condições.
-- "Duplicar" uma condição cria outra condição no mesmo grupo, privada do
-  usuário. Duplicar uma condição do sistema coloca a cópia privada dentro da
-  oferta do sistema: o usuário vê ali as condições do sistema e as suas, e os
-  demais usuários não veem a cópia.
-- Criar uma oferta a partir do zero cria um novo grupo privado com sua
-  primeira condição.
-- Uma oferta nunca fica vazia. Excluir a última condição de uma oferta privada
-  exclui a oferta, e a confirmação avisa isso.
-- Quando o sistema remove uma oferta que contém cópias privadas de usuários,
-  ela é desativada em vez de excluída: suas condições do sistema são
-  excluídas, ela não aceita novas condições e continua visível somente para os
-  donos das cópias, até que a última seja excluída.
-- A interface apresenta as condições agrupadas sob sua oferta.
+- Criar, consultar, editar e excluir ofertas privadas.
+- "Duplicar" uma oferta, inclusive do sistema, cria uma oferta privada do
+  usuário com os mesmos termos, para ser editada sem afetar a original.
+- Excluir uma oferta não afeta suas cópias.
+- A interface apresenta as ofertas agrupadas por título e por origem (do
+  sistema ou minhas). O agrupamento é apenas apresentação.
 
 ### Curvas
 
@@ -134,20 +120,20 @@ documentação de curvas.
 - Comparar duas ou mais simulações lado a lado.
 - "Duplicar" uma simulação cria outra com as mesmas escolhas, para comparação.
 
-Uma simulação sempre usa uma condição de oferta. Ela é composta por:
+Uma simulação sempre usa uma oferta. Ela é composta por:
 
-- a condição de oferta escolhida;
+- a oferta escolhida;
 - a curva, quando a remuneração é indexada; ela deve ser do mesmo índice da
   remuneração;
 - o valor inicial;
 - a data de aplicação.
 
-Todos esses itens são editáveis. Termos diferentes significam outra condição:
-na tela da simulação, "Duplicar e ajustar" cria uma condição privada no mesmo
-grupo a partir da condição escolhida, e "Digitar termos" cria uma oferta
-privada com sua primeira condição. A nova oferta ou condição é criada junto com
-a simulação: se a solicitação for rejeitada, nada é criado. Condições do
-sistema não podem ser editadas, somente duplicadas.
+Todos esses itens são editáveis. Termos diferentes significam outra oferta:
+na tela da simulação, "Duplicar e ajustar" cria uma oferta privada a partir da
+oferta escolhida, e "Digitar termos" cria uma oferta privada com os termos
+digitados. A nova oferta é criada junto com a simulação: se a solicitação for
+rejeitada, nada é criado. Ofertas do sistema não podem ser editadas, somente
+duplicadas.
 
 Tipos de remuneração: prefixado, pós-fixado por CDI ou SELIC efetiva, ou
 híbrido por IPCA. A data de resgate antecipado, quando permitida pela liquidez,
@@ -167,13 +153,13 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   cálculo; o resultado chega de forma assíncrona.
 - A validação imediata cobre o que depende apenas das entradas e das
   referências escolhidas: valor inicial positivo, dias úteis, prazo mínimo,
-  compatibilidade entre remuneração e índice, e condição e curva existentes e
+  compatibilidade entre remuneração e índice, e oferta e curva existentes e
   visíveis para o usuário.
-- Alterar ou excluir uma condição ou uma curva, ou mudar a versão da
+- Alterar ou excluir uma oferta ou uma curva, ou mudar a versão da
   metodologia de um título, agenda o recálculo de todas as simulações
   afetadas.
 - Cada simulação tem um único resultado atual: o investimento usado, a versão
-  da metodologia, as revisões da condição e da curva usadas, o instante do
+  da metodologia, as revisões da oferta e da curva usadas, o instante do
   cálculo, o resumo no vencimento, a apuração dos tributos (prazo em dias
   corridos, base, alíquota e valor do IOF ou isenção, base, alíquota e valor do
   IR) e a trajetória diária bruta. Um novo cálculo bem sucedido substitui o
@@ -190,10 +176,10 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
 
 - "Requer ação" exibe o motivo: falta de cobertura da curva (com os
   períodos descobertos), curva excluída ("Sem curva, escolha outra"),
-  condição excluída ("Sem oferta, escolha outra"), data que não é dia útil,
+  oferta excluída ("Sem oferta, escolha outra"), data que não é dia útil,
   prazo mínimo não atendido ou índice incompatível. Exceto a falta de cobertura,
   esses motivos também rejeitam a solicitação ao salvar; aparecem aqui quando
-  uma condição ou uma curva muda ou é excluída depois de a simulação ter sido
+  uma oferta ou uma curva muda ou é excluída depois de a simulação ter sido
   salva. "Requer ação" vale para
   as entradas atuais: quando o usuário ou o dono da premissa a corrige, a
   simulação volta a aguardar cálculo.
@@ -289,7 +275,7 @@ PDF/CSV ficam fora do escopo.
 - A contagem exclui a data inicial e inclui a data final.
 - O cálculo exige aplicação e vencimento em dias úteis, sem ajuste automático.
   Uma simulação com data de aplicação ou vencimento fora de dia útil é
-  rejeitada ao ser salva. Uma condição de oferta pode ser salva com vencimento
+  rejeitada ao ser salva. Uma oferta pode ser salva com vencimento
   em qualquer data; as simulações que a usam passam a "Requer ação".
 - Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
   extraordinárias de calendário ficam fora do MVP.
@@ -426,8 +412,7 @@ validada antes da implementação.
   cada simulação.
 - Recalcular de forma assíncrona e confiável: toda alteração aceita leva ao
   recálculo das simulações afetadas, mesmo após falhas temporárias.
-- Gerar um evento a cada criação, edição ou exclusão de ofertas, condições e
-  curvas. O registro e a consulta da auditoria dessas alterações
+- Gerar um evento a cada criação, edição ou exclusão de ofertas e curvas. O registro e a consulta da auditoria dessas alterações
   (revisão e o que mudou) ficam adiados.
 - Autenticar por token.
 - Interface em português, responsiva e acessível.

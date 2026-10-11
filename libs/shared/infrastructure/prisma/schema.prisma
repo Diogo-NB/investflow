@@ -30,26 +30,30 @@ enum InvestmentRemunerationType {
   @@map("investment_remuneration_type")
 }
 
-model InvestmentOffer {
-  id               String                     @id @default(uuid()) @db.Uuid
+model Offer {
+  id               String                     @id @db.Uuid
+  ownerId          String?                    @map("owner_id")
   titleType        InvestmentTitleType        @map("title_type")
+  name             String
   issuerName       String?                    @map("issuer_name")
   maturityDate     DateTime                   @map("maturity_date") @db.Date
   redemptionType   InvestmentRedemptionType   @map("redemption_type")
   remunerationType InvestmentRemunerationType @map("remuneration_type")
   rateValue        Decimal                    @map("rate_value") @db.Decimal(65, 30)
+  revision         Int
   deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
   simulations      Simulation[]
 
-  @@map("investment_offer")
+  @@index([ownerId])
+  @@map("offer")
 }
 
 model Simulation {
   id               String                     @id @db.Uuid
   ownerId          String                     @map("owner_id")
-  // The catalog offer the terms were filled from; null for typed terms.
+  // The offer the terms were filled from; null for typed terms.
   sourceOfferId    String?                    @map("source_offer_id") @db.Uuid
   titleType        InvestmentTitleType        @map("title_type")
   issuerName       String?                    @map("issuer_name")
@@ -60,7 +64,7 @@ model Simulation {
   deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  sourceOffer      InvestmentOffer?           @relation(fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceOffer      Offer?                     @relation(fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   calculations     SimulationCalculation[]
 
   @@index([ownerId])

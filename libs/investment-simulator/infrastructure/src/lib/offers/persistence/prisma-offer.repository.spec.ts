@@ -1,8 +1,8 @@
 import {
-  RemunerationTerms,
-  Offer,
   ETitleType,
+  Offer,
   RedemptionTerms,
+  RemunerationTerms,
 } from '@investflow/investment-simulator-domain';
 import {
   CalendarDate,
@@ -13,13 +13,12 @@ import {
 import {
   PrismaService,
   RepositoryFindError,
-  RepositorySaveError,
 } from '@investflow/shared-infrastructure';
 import {
-  InvestmentOffer,
   InvestmentRedemptionType,
   InvestmentRemunerationType,
   InvestmentTitleType,
+  Offer as OfferRecord,
   Prisma,
 } from '@prisma/client';
 import { PrismaOfferRepository } from './prisma-offer.repository';
@@ -27,154 +26,148 @@ import { PrismaOfferRepository } from './prisma-offer.repository';
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
 const ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
-const ISSUER_NAME = 'Banco Local';
+const AT = UtcInstant.ofIso('2026-10-11T12:00:00Z');
 
-function createFixture() {
-  const findUnique = jest.fn();
-  const upsert = jest.fn().mockResolvedValue(undefined);
-  const createMany = jest.fn();
-  const client = {
-    investmentOffer: { findUnique, upsert },
-    outboxEvent: { createMany },
+function fixture() {
+  const offer = {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   };
+  const outboxEvent = { createMany: jest.fn() };
   return {
+    offer,
+    outboxEvent,
     repository: new PrismaOfferRepository({
-      client,
+      client: { offer, outboxEvent },
     } as unknown as PrismaService),
-    findUnique,
-    upsert,
-    createMany,
   };
 }
 
-function record(overrides: Partial<InvestmentOffer> = {}): InvestmentOffer {
+function record(): OfferRecord {
   return {
     id: ID,
-    titleType: InvestmentTitleType.CDB,
-    issuerName: ISSUER_NAME,
+    ownerId: 'user-id',
+    titleType: InvestmentTitleType.LCI,
+    name: 'LCI 95% do CDI',
+    issuerName: null,
     maturityDate: new Date('2030-05-20T00:00:00Z'),
     redemptionType: InvestmentRedemptionType.AT_MATURITY,
-    remunerationType: InvestmentRemunerationType.PREFIXED,
-    rateValue: new Prisma.Decimal('12'),
+    remunerationType: InvestmentRemunerationType.CDI_PERCENTAGE,
+    rateValue: new Prisma.Decimal('0.123456789012345678901234567891'),
+    revision: 3,
     deletedAt: null,
-    createdAt: new Date('2026-01-01T00:00:00Z'),
-    updatedAt: new Date('2026-01-01T00:00:00Z'),
-    ...overrides,
+    createdAt: new Date('2026-10-01T12:00:00Z'),
+    updatedAt: new Date('2026-10-01T12:00:00Z'),
   };
-}
-
-function offer() {
-  return Offer.reconstitute({
-    deletedAt: null,
-    id: ID,
-    titleType: ETitleType.CDB,
-    issuerName: ISSUER_NAME,
-    maturityDate: CalendarDate.of('2030-05-20'),
-    redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-    remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('12')),
-  });
 }
 
 describe('PrismaOfferRepository', () => {
-  it('finds only an active offer and maps it', async () => {
-    const fixture = createFixture();
-    fixture.findUnique.mockResolvedValue(record());
+  it('loads an active offer with its terms and all decimal digits', async () => {
+    const test = fixture();
+    test.offer.findUnique.mockResolvedValue(record());
 
-    const result = await fixture.repository.findById(ID);
+    const offer = (await test.repository.findById(ID)).value;
 
-    expect(result.isOk()).toBe(true);
-    expect(result.value.id).toBe(ID);
-    expect(fixture.findUnique).toHaveBeenCalledWith({
+    expect(test.offer.findUnique).toHaveBeenCalledWith({
       where: { id: ID, deletedAt: null },
     });
-  });
-
-  it('returns OfferNotFoundError for absent or deleted offers', async () => {
-    const fixture = createFixture();
-    fixture.findUnique.mockResolvedValue(null);
-
-    const result = await fixture.repository.findById(ID);
-
-    expect(result.isErr()).toBe(true);
-    expect(result.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
-  });
-
-  it('wraps Prisma and mapper read failures', async () => {
-    const prismaFailure = createFixture();
-    prismaFailure.findUnique.mockRejectedValue(new Error('read failed'));
-    const mapperFailure = createFixture();
-    mapperFailure.findUnique.mockResolvedValue(
-      record({ rateValue: new Prisma.Decimal(0) }),
+    expect(offer.titleType).toBe(ETitleType.LCI);
+    expect(offer.ownerId).toBe('user-id');
+    expect(offer.name).toBe('LCI 95% do CDI');
+    expect(offer.issuerName).toBeNull();
+    expect(offer.maturityDate.toIsoString()).toBe('2030-05-20');
+    expect(offer.redemptionTerms.kind).toBe('AT_MATURITY');
+    expect(offer.remunerationTerms.kind).toBe('CDI_PERCENTAGE');
+    expect(offer.remunerationTerms.contractRate.value.toString()).toBe(
+      '0.123456789012345678901234567891',
     );
-
-    const results = await Promise.all([
-      prismaFailure.repository.findById(ID),
-      mapperFailure.repository.findById(ID),
-    ]);
-
-    for (const result of results) {
-      expect(result.isErr()).toBe(true);
-      expect(result.error).toBeInstanceOf(RepositoryFindError);
-    }
+    expect(offer.revision).toBe(3);
   });
 
-  it('upserts every domain field and does not write an empty outbox', async () => {
-    const fixture = createFixture();
+  it('reports a missing offer and wraps read failures', async () => {
+    const missing = fixture();
+    missing.offer.findUnique.mockResolvedValue(null);
+    const failing = fixture();
+    failing.offer.findUnique.mockRejectedValue(new Error('read'));
 
-    const result = await fixture.repository.save(offer());
-
-    expect(result.isOk()).toBe(true);
-    expect(fixture.upsert).toHaveBeenCalledWith({
-      where: { id: ID },
-      create: {
-        id: ID,
-        titleType: InvestmentTitleType.CDB,
-        issuerName: ISSUER_NAME,
-        maturityDate: new Date('2030-05-20T00:00:00.000Z'),
-        redemptionType: InvestmentRedemptionType.AT_MATURITY,
-        remunerationType: InvestmentRemunerationType.PREFIXED,
-        rateValue: '12',
-        deletedAt: null,
-      },
-      update: {
-        titleType: InvestmentTitleType.CDB,
-        issuerName: ISSUER_NAME,
-        maturityDate: new Date('2030-05-20T00:00:00.000Z'),
-        redemptionType: InvestmentRedemptionType.AT_MATURITY,
-        remunerationType: InvestmentRemunerationType.PREFIXED,
-        rateValue: '12',
-        deletedAt: null,
-      },
-    });
-    expect(fixture.createMany).not.toHaveBeenCalled();
+    expect((await missing.repository.findById(ID)).error.code).toBe(
+      EAppErrorCode.OFFER_NOT_FOUND,
+    );
+    expect((await failing.repository.findById(ID)).error).toBeInstanceOf(
+      RepositoryFindError,
+    );
   });
 
-  it('persists deletedAt and subsequently treats the offer as not found', async () => {
-    const fixture = createFixture();
-    const deletedAt = UtcInstant.ofIso('2026-09-27T12:00:00Z');
-    const deletedOffer = offer().delete(deletedAt);
+  it('inserts a new offer with its creation event', async () => {
+    const test = fixture();
+    const offer = Offer.create(
+      {
+        ownerId: null,
+        titleType: ETitleType.CDB,
+        name: 'CDB prefixado',
+        maturityDate: CalendarDate.of('2030-05-20'),
+        redemptionTerms: RedemptionTerms.create('DAILY'),
+        remunerationTerms: RemunerationTerms.create(
+          'PREFIXED',
+          Rate.of('0.12'),
+        ),
+      },
+      AT,
+    ).value;
 
-    expect((await fixture.repository.save(deletedOffer)).isOk()).toBe(true);
-    expect(fixture.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: expect.objectContaining({ deletedAt: deletedAt.date }),
-        update: expect.objectContaining({ deletedAt: deletedAt.date }),
+    expect((await test.repository.save(offer)).isOk()).toBe(true);
+
+    expect(test.offer.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: offer.id,
+        ownerId: null,
+        name: 'CDB prefixado',
+        rateValue: '0.12',
+        revision: 1,
       }),
-    );
-
-    fixture.findUnique.mockResolvedValue(null);
-    const result = await fixture.repository.findById(ID);
-    expect(result.isErr()).toBe(true);
-    expect(result.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
+    });
+    expect(test.offer.updateMany).not.toHaveBeenCalled();
+    expect(test.outboxEvent.createMany).toHaveBeenCalledTimes(1);
   });
 
-  it('maps write failures to RepositorySaveError', async () => {
-    const fixture = createFixture();
-    fixture.upsert.mockRejectedValue(new Error('write failed'));
+  it('updates from the revision it read', async () => {
+    const test = fixture();
+    test.offer.findUnique.mockResolvedValue(record());
+    const offer = (await test.repository.findById(ID)).value;
+    offer.edit({ name: 'LCI 96% do CDI' }, AT);
 
-    const result = await fixture.repository.save(offer());
+    expect((await test.repository.save(offer)).isOk()).toBe(true);
 
-    expect(result.isErr()).toBe(true);
-    expect(result.error).toBeInstanceOf(RepositorySaveError);
+    expect(test.offer.updateMany).toHaveBeenCalledWith({
+      where: { id: ID, revision: 3 },
+      data: expect.objectContaining({ name: 'LCI 96% do CDI', revision: 4 }),
+    });
+    expect(test.offer.create).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing for an unchanged offer', async () => {
+    const test = fixture();
+    test.offer.findUnique.mockResolvedValue(record());
+    const offer = (await test.repository.findById(ID)).value;
+
+    expect((await test.repository.save(offer)).isOk()).toBe(true);
+
+    expect(test.offer.updateMany).not.toHaveBeenCalled();
+    expect(test.offer.create).not.toHaveBeenCalled();
+  });
+
+  it('reports a conflict when another writer changed the revision', async () => {
+    const test = fixture();
+    test.offer.findUnique.mockResolvedValue(record());
+    test.offer.updateMany.mockResolvedValue({ count: 0 });
+    const offer = (await test.repository.findById(ID)).value;
+    offer.edit({ name: 'Outra' }, AT);
+
+    const result = await test.repository.save(offer);
+
+    expect(result.error.code).toBe(EAppErrorCode.OFFER_REVISION_CONFLICT);
+    expect(result.error.kind).toBe('conflict');
+    expect(test.outboxEvent.createMany).not.toHaveBeenCalled();
   });
 });

@@ -1,44 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { QueryHandler } from '@investflow/shared-application';
-import { CalendarDate, Result } from '@investflow/shared-domain';
+import { Result } from '@investflow/shared-domain';
 import { OfferNotFoundError } from '@investflow/investment-simulator-application';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { OfferQueryError } from './offer-query.error';
-import { Prisma } from '@prisma/client';
+import {
+  OfferSummary,
+  offerSummarySelect,
+  toOfferSummary,
+  visibleOfferWhere,
+} from './offer-projection';
 
 export interface GetOfferQuery {
+  readonly viewerId: string;
   readonly offerId: string;
 }
 
-export interface GetOfferOutput {
-  readonly id: string;
-  readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly issuerName: string | null;
-  readonly maturityDate: string;
-  readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
-  readonly remunerationTerms: {
-    readonly kind:
-      | 'PREFIXED'
-      | 'IPCA_PLUS'
-      | 'CDI_PERCENTAGE'
-      | 'SELIC_PERCENTAGE';
-    readonly rate: string;
-  };
-}
-
-const offerSelect = {
-  id: true,
-  titleType: true,
-  issuerName: true,
-  maturityDate: true,
-  redemptionType: true,
-  remunerationType: true,
-  rateValue: true,
-} satisfies Prisma.InvestmentOfferSelect;
-
-type OfferRecord = Prisma.InvestmentOfferGetPayload<{
-  select: typeof offerSelect;
-}>;
+export type GetOfferOutput = OfferSummary;
 
 @Injectable()
 export class GetOfferQueryHandler
@@ -46,40 +24,22 @@ export class GetOfferQueryHandler
 {
   constructor(private readonly prisma: PrismaService) {}
 
-  async execute({
-    offerId,
-  }: GetOfferQuery): Promise<
-    Result<GetOfferOutput, OfferNotFoundError | OfferQueryError>
-  > {
+  async execute(
+    query: GetOfferQuery,
+  ): Promise<Result<GetOfferOutput, OfferNotFoundError | OfferQueryError>> {
     const result = await Result.fromPromise(
       async () => {
-        const record = await this.prisma.client.investmentOffer.findUnique({
-          where: { id: offerId, deletedAt: null },
-          select: offerSelect,
+        const record = await this.prisma.client.offer.findFirst({
+          where: { id: query.offerId, ...visibleOfferWhere(query.viewerId) },
+          select: offerSummarySelect,
         });
-        return record ? this.toOutput(record) : null;
+        return record ? toOfferSummary(record) : null;
       },
       (cause) => new OfferQueryError(cause),
     );
     if (result.isErr()) return result;
     return result.value
       ? Result.ok(result.value)
-      : Result.err(new OfferNotFoundError(offerId));
-  }
-
-  private toOutput(record: OfferRecord): GetOfferOutput {
-    return {
-      id: record.id,
-      titleType: record.titleType,
-      issuerName: record.issuerName,
-      maturityDate: CalendarDate.fromUtcDate(
-        record.maturityDate,
-      ).value.toIsoString(),
-      redemptionTerms: { kind: record.redemptionType },
-      remunerationTerms: {
-        kind: record.remunerationType,
-        rate: record.rateValue.toFixed(),
-      },
-    };
+      : Result.err(new OfferNotFoundError(query.offerId));
   }
 }

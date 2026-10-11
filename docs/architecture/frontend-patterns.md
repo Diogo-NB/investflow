@@ -383,14 +383,14 @@ it.
 Recorded 2026-10-11 for the redesigned model. The screens built on 2026-10-10
 implement the earlier model (fixed terms, "Calcular" recording one calculation
 per click, and a calculation history); they are reworked to this behavior. A
-simulation always uses an offer condition, plus a curve when its
+simulation always uses an offer, plus a curve when its
 remuneration is indexed, and holds the principal and investment date. All of
 them are editable. Its single result is recalculated asynchronously whenever
 any of them changes.
 
 - `/simulacoes` lists the user's simulations, 20 per page (`page` URL
   parameter, corrected by navigation when stale). Each row shows the offer
-  (issuer, or "Sem emissor") and condition, the remuneration, the curve
+  (name and issuer, or "Sem emissor"), the remuneration, the curve
   when indexed, the principal, the period, the net value of the last
   successful result, and a textual status tag unless the result is up to date
   ("Aguardando cálculo", "Calculando", "Requer ação", "Falha técnica"). Desktop
@@ -398,19 +398,19 @@ any of them changes.
   simulation: one link per entry, stretched over the table row on desktop.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
   (stacked below 1024px):
-  - "Oferta": the condition, chosen from the offers visible to the user
-    (system and own) grouped by offer, with the title type hinted with its
-    income-tax treatment and minimum term from the options query. "Duplicar e
-    ajustar" opens the condition's terms as an editable copy that becomes a
-    private condition in the same offer; "Digitar termos" creates a private
-    offer (title type, optional issuer, name) with its first condition. Either
-    is created together with the simulation when it is saved. The user's own
-    chosen condition can also be edited in place, with the offer editor's
-    impact notice; a system condition offers only "Duplicar e ajustar".
+  - "Oferta": chosen from the offers visible to the user (system and own)
+    grouped by title type and origin ("CDB · Do sistema", "CDB · Minhas"),
+    with the title type hinted with its income-tax treatment and minimum term
+    from the options query. "Duplicar e ajustar" opens the offer's terms as an
+    editable copy that becomes a private offer; "Digitar termos" creates a
+    private offer (title type, optional issuer, name, terms). Either is created
+    together with the simulation when it is saved. The user's own chosen offer
+    can also be edited in place, with the offer editor's impact notice; a
+    system offer offers only "Duplicar e ajustar".
     Changing the remuneration kind clears the rate and the curve. Liquidity
     defaults to "No vencimento".
   - "Investimento": principal, investment date, and the curve for indexed
-    kinds. The curve list is filtered by the condition's index and grouped by
+    kinds. The curve list is filtered by the offer's index and grouped by
     origin ("Do sistema", "Minhas"), auto-selects a sole curve, shows its
     coverage, and warns when the period may exceed it.
 - The investment and maturity date pickers grey out weekends and holidays.
@@ -422,7 +422,7 @@ any of them changes.
 - "Salvar e calcular" sends the simulation (with its revision when editing) and
   is disabled when nothing changed. A rejected request saves nothing: the form
   keeps its edits as unsaved changes and the reason appears on the responsible
-  field (principal, non-business day, minimum term, index, missing condition
+  field (principal, non-business day, minimum term, index, missing offer
   or curve). A revision conflict says the simulation changed elsewhere and
   offers to reload. An accepted new simulation opens its own page, already
   waiting for its calculation.
@@ -433,7 +433,7 @@ any of them changes.
   predating the changes; a simulation that never succeeded shows only the
   status.
   - "Requer ação" shows the reason with its recovery: choose another curve
-    or condition when one was deleted ("Sem curva, escolha outra", "Sem
+    or offer when one was deleted ("Sem curva, escolha outra", "Sem
     oferta, escolha outra"), or fix the field. A coverage gap names the first
     gap the API reports ("A curva não tem valores entre 02/01/2029 e
     28/12/2029 e em mais 2 períodos"); the domain groups consecutive missing
@@ -462,56 +462,52 @@ any of them changes.
 - A saved simulation's header offers "Nova simulação" (a blank form at
   `/simulacoes/nova`), "Duplicar" and "Excluir".
 - "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled with the same
-  condition, curve and investment, for side-by-side comparison. "Excluir"
+  offer, curve and investment, for side-by-side comparison. "Excluir"
   confirms in an AlertDialog and says the deletion is permanent. Unsaved edits
   are guarded by `useBlocker` and `beforeunload`.
 - Rentabilidade (monthly, annualized, total) and "prazo restante" are not
   shown yet; their definition is a pending product decision.
 - Reads are screen-oriented (Backend for Frontend): the options query (title
-  types, remuneration kinds with their index, visible offers grouped with their
-  conditions and calculability, visible curves with their origin and
+  types, remuneration kinds with their index, visible offers with their origin
+  and calculability, visible curves with their origin and
   coverage), the workspace query (the simulation's references and
   investment, its status with any reason, and the last successful result with
   the inputs it was computed from), and the monthly balances of the current
   result. The list has its own query. Writes create (optionally with a new
-  private offer or condition), edit with the revision, delete, and retry a
+  private offer), edit with the revision, delete, and retry a
   failed calculation.
 
 ## Offer behavior
 
-Recorded 2026-10-11. Not implemented in the browser. An offer is a group (title
-type, optional issuer, name, owner) with conditions (remuneration and rate,
-maturity, liquidity, optional name, owner, revision). User content is private
-and editable; system content is visible to everyone and read only.
+Recorded 2026-10-11. Not implemented in the browser. An offer has a title type
+(fixed after creation), a name, an optional issuer, remuneration and rate,
+maturity, liquidity, an owner, and a revision. User content is private and
+editable; system content is visible to everyone and read only. Offers are
+independent; the screens group them, and no grouping is stored.
 
-- Routes under `/ofertas`: list, offer details, create, and condition editor.
-  Each loads lazily. Confirmation dialogs load on demand.
-- The list shows the offers visible to the user with their visible conditions
-  grouped beneath them, and a textual origin ("Sistema" or "Minha"). Filters
-  are the `q` (offer name or issuer), `titleType`, and `page` URL parameters. A
-  submitted search or changed type resets to page 1. These parameters carry
-  through to detail and editor links and back to the list. The page size is
-  fixed at 20. Obsolete reads are canceled. A stale page beyond the last page
-  is corrected through navigation.
-- Details show the offer's fixed fields and each condition's exact terms in a
-  grouped definition list. Own conditions offer "Editar", "Duplicar" and
-  "Excluir"; system conditions offer "Duplicar", which adds a private
-  condition to the same offer. An own offer can be renamed and deleted, which
-  deletes its conditions. A missing or deleted record has its own state.
-- Deleting confirms in an AlertDialog that states the deletion is permanent,
+- Routes under `/ofertas`: list, details, create, and editor. Each loads
+  lazily. Confirmation dialogs load on demand.
+- The list shows the offers visible to the user grouped by title type and
+  origin ("Do sistema", "Minhas"), each with its name, issuer, and terms.
+  Filters are the `q` (name or issuer), `titleType`, and `page` URL
+  parameters. A submitted search or changed type resets to page 1. These
+  parameters carry through to detail and editor links and back to the list.
+  The page size is fixed at 20. Obsolete reads are canceled. A stale page
+  beyond the last page is corrected through navigation.
+- Details show the offer's exact terms in a definition list. Own offers offer
+  "Editar", "Duplicar" and "Excluir"; system offers offer "Duplicar", which
+  creates a private copy. A missing or deleted record has its own state.
+- Deleting confirms in an AlertDialog that states the deletion is permanent and
   how many of the user's simulations will require a new choice ("Sem oferta,
-  escolha outra"), and, for the last condition of a private offer, that the
-  offer is deleted with it. A retired system offer appears only while the user
-  still has conditions in it, marked as no longer offered by the system.
-- The condition editor initializes from one snapshot. Title type and issuer
-  are displayed as fixed information. Changing the remuneration kind clears
-  the rate, because its unit changed. Before saving, it states how many of the
-  user's simulations will be recalculated. The PATCH sends the edited revision
-  and only changed fields. A revision conflict says the condition changed
-  elsewhere and keeps the user's input until they reload. A successful save
-  clears the dirty baseline before redirecting to a fresh detail read. A
-  failed detail read after save is a read failure, not permission to repeat
-  the write.
+  escolha outra").
+- The editor initializes from one snapshot. The title type is displayed as
+  fixed information. Changing the remuneration kind clears the rate, because
+  its unit changed. Before saving, it states how many of the user's
+  simulations will be recalculated. The PATCH sends the edited revision and
+  only changed fields. A revision conflict says the offer changed elsewhere
+  and keeps the user's input until they reload. A successful save clears the
+  dirty baseline before redirecting to a fresh detail read. A failed detail
+  read after save is a read failure, not permission to repeat the write.
 - Pure helpers shift decimal strings to convert percentages and fractions. They
   reject zero, invalid input, and values outside Decimal(65,30) storage.
   Calendar validation and `dd/mm/aaaa` display never construct local-time
@@ -537,7 +533,7 @@ grouping is stored. Visibility and ownership follow Offer behavior.
   only "Duplicar".
 - The editor edits the name, description, and intervals; rates are typed as
   percentages. The interval input design is a pending product decision (see
-  the curve specification). It follows the condition editor's impact notice,
+  the curve specification). It follows the offer editor's impact notice,
   revision conflict, and save rules.
 - Deleting a curve states how many of the user's simulations will require a
   new choice ("Sem curva, escolha outra"). Its copies are not affected.

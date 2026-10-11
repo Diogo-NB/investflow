@@ -1,56 +1,54 @@
-import type { Prisma } from '@prisma/client';
-
 // The last business day of 2028, so offers calculate without edits.
 const offerDefaults = {
-  maturityDate: new Date('2028-12-29T00:00:00.000Z'),
+  maturityDate: '2028-12-29',
   issuerName: 'Banco Local',
-  deletedAt: null,
 } as const;
 
+// Each is a system offer.
 export const offers = [
   {
     ...offerDefaults,
     titleType: 'CDB',
-    redemptionType: 'DAILY',
-    remunerationType: 'CDI_PERCENTAGE',
-    rateValue: '1.10',
+    name: 'CDB 110% do CDI',
+    redemptionTerms: { kind: 'DAILY' },
+    remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.10' },
   },
   {
     ...offerDefaults,
     titleType: 'CDB',
-    redemptionType: 'DAILY',
-    remunerationType: 'SELIC_PERCENTAGE',
-    rateValue: '1.00',
+    name: 'CDB 100% da SELIC',
+    redemptionTerms: { kind: 'DAILY' },
+    remunerationTerms: { kind: 'SELIC_PERCENTAGE', rate: '1.00' },
   },
   {
     ...offerDefaults,
     titleType: 'LCI',
-    redemptionType: 'AT_MATURITY',
-    remunerationType: 'PREFIXED',
-    rateValue: '0.12',
+    name: 'LCI prefixada 12%',
+    redemptionTerms: { kind: 'AT_MATURITY' },
+    remunerationTerms: { kind: 'PREFIXED', rate: '0.12' },
   },
   {
     ...offerDefaults,
     titleType: 'LCI',
-    redemptionType: 'AT_MATURITY',
-    remunerationType: 'CDI_PERCENTAGE',
-    rateValue: '0.95',
+    name: 'LCI 95% do CDI',
+    redemptionTerms: { kind: 'AT_MATURITY' },
+    remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '0.95' },
   },
   {
     ...offerDefaults,
     titleType: 'LCA',
-    redemptionType: 'AT_MATURITY',
-    remunerationType: 'CDI_PERCENTAGE',
-    rateValue: '0.93',
+    name: 'LCA 93% do CDI',
+    redemptionTerms: { kind: 'AT_MATURITY' },
+    remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '0.93' },
   },
   {
     ...offerDefaults,
     titleType: 'LCA',
-    redemptionType: 'AT_MATURITY',
-    remunerationType: 'IPCA_PLUS',
-    rateValue: '0.06',
+    name: 'LCA IPCA + 6%',
+    redemptionTerms: { kind: 'AT_MATURITY' },
+    remunerationTerms: { kind: 'IPCA_PLUS', rate: '0.06' },
   },
-] satisfies Prisma.InvestmentOfferUncheckedCreateInput[];
+] as const;
 
 // Snapshot as of 2026-10-05; seeding never fetches market data.
 // Effective SELIC and DI: https://www.anbima.com.br/informacoes/indicadores/

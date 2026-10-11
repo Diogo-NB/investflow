@@ -10,9 +10,8 @@ import {
   UnsupportedCalculationCode,
 } from '@investflow/investment-simulator-domain';
 import { QueryHandler } from '@investflow/shared-application';
-import { CalendarDate, Result } from '@investflow/shared-domain';
+import { Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
-import { Prisma } from '@prisma/client';
 import {
   CurveSummary,
   curveSummaryOrder,
@@ -20,6 +19,13 @@ import {
   toCurveSummary,
   visibleCurveWhere,
 } from '../../curves/queries/curve-projection';
+import {
+  OfferSummary,
+  offerSummaryOrder,
+  offerSummarySelect,
+  toOfferSummary,
+  visibleOfferWhere,
+} from '../../offers/queries/offer-projection';
 import { SimulationWorkspaceQueryError } from './simulation-workspace-query.error';
 
 type EEconomicIndex = 'CDI' | 'SELIC' | 'IPCA';
@@ -59,18 +65,10 @@ export interface GetSimulationOptionsOutput {
       }[];
     };
   };
-  readonly offers: readonly {
-    readonly id: string;
-    readonly titleType: TitleType;
-    readonly issuerName: string | null;
-    readonly maturityDate: string;
-    readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
-    readonly remunerationTerms: {
-      readonly kind: RemunerationKind;
-      readonly rate: string;
-    };
+  // Visible offers.
+  readonly offers: readonly (OfferSummary & {
     readonly unsupportedReason: UnsupportedCalculationCode | null;
-  }[];
+  })[];
 }
 
 const REMUNERATION_KINDS: readonly RemunerationKind[] = [
@@ -105,20 +103,6 @@ const TAX_RULES: GetSimulationOptionsOutput['taxRules'] = {
   },
 };
 
-const offerSelect = {
-  id: true,
-  titleType: true,
-  issuerName: true,
-  maturityDate: true,
-  redemptionType: true,
-  remunerationType: true,
-  rateValue: true,
-} satisfies Prisma.InvestmentOfferSelect;
-
-type OfferRecord = Prisma.InvestmentOfferGetPayload<{
-  select: typeof offerSelect;
-}>;
-
 @Injectable()
 export class GetSimulationOptionsQueryHandler
   implements QueryHandler<GetSimulationOptionsQuery, GetSimulationOptionsOutput>
@@ -138,14 +122,10 @@ export class GetSimulationOptionsQueryHandler
             select: curveSummarySelect,
             orderBy: curveSummaryOrder,
           }),
-          this.prisma.client.investmentOffer.findMany({
-            where: { deletedAt: null },
-            select: offerSelect,
-            orderBy: [
-              { issuerName: 'asc' },
-              { maturityDate: 'asc' },
-              { id: 'asc' },
-            ],
+          this.prisma.client.offer.findMany({
+            where: visibleOfferWhere(query.viewerId),
+            select: offerSummarySelect,
+            orderBy: offerSummaryOrder,
           }),
         ]);
         return {
@@ -163,32 +143,16 @@ export class GetSimulationOptionsQueryHandler
                 : [],
             };
           }),
-          offers: offers.map((offer) => this.toOfferOption(offer)),
+          offers: offers.map((record) => ({
+            ...toOfferSummary(record),
+            unsupportedReason: InvestmentCalculator.unsupportedReason(
+              record.remunerationType,
+            ),
+          })),
           taxRules: TAX_RULES,
         };
       },
       (cause) => new SimulationWorkspaceQueryError(cause),
     );
-  }
-
-  private toOfferOption(
-    record: OfferRecord,
-  ): GetSimulationOptionsOutput['offers'][number] {
-    return {
-      id: record.id,
-      titleType: record.titleType,
-      issuerName: record.issuerName,
-      maturityDate: CalendarDate.fromUtcDate(
-        record.maturityDate,
-      ).value.toIsoString(),
-      redemptionTerms: { kind: record.redemptionType },
-      remunerationTerms: {
-        kind: record.remunerationType,
-        rate: record.rateValue.toFixed(),
-      },
-      unsupportedReason: InvestmentCalculator.unsupportedReason(
-        record.remunerationType,
-      ),
-    };
   }
 }
