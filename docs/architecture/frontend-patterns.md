@@ -11,17 +11,22 @@ Nx. Status:
    with them.
 2. Done (reordered 2026-10-10, because running simulations is what users need
    most): `investment-simulator-web` as an `@nx/react` library with the
-   simulation workspace under `/simulacoes` (see Simulation workspace
-   behavior). It brought TanStack Query, React Hook Form, Zod, Base UI, the
-   date field, and confirmation dialogs.
-3. Next: the offer list and details, then the offer editor, mounted under
-   `/ofertas` by the same route factory.
+   simulation workspace under `/simulacoes`, built on the earlier immutable
+   model (fixed terms and a calculation history). It brought TanStack Query,
+   React Hook Form, Zod, Base UI, the date field, and confirmation dialogs.
+3. Next, after the backend redesign of 2026-10-11 (mutable premises and
+   asynchronous recalculation, see `project-structure.md`): the offer screens
+   under `/ofertas` and the curve screens under `/curvas`, mounted by the same
+   route factory, then the simulation workspace reworked to its recorded
+   behavior.
 4. Finally: full verification (see Testing and verification).
 
 Each step keeps `pnpm check` green. The Keycloak realm doesn't change; API
-additions are recorded with the feature that needs them. Rebuild features from the recorded behavior (App shell and
-authentication behavior, Offer CRUD behavior) and design them as idiomatic
-React. Don't transliterate earlier implementations or their structure.
+additions are recorded with the feature that needs them. Build features from
+the recorded behavior (App shell and authentication behavior, Simulation
+workspace behavior, Offer behavior, Curve behavior) and design them as
+idiomatic React. Don't transliterate earlier implementations or their
+structure.
 
 ## Stability policy
 
@@ -76,7 +81,7 @@ InvestFlow's frontend is a client-rendered authenticated SPA. Opening `/`
 requires Keycloak login and then shows a Portuguese welcome page, the
 authenticated identity, and logout. Unmatched browser routes redirect to `/`.
 The welcome page and the header link to each mounted context feature
-(`/simulacoes`; the offer CRUD under `/ofertas` comes next). The bounded context owns its
+(`/simulacoes`; offers under `/ofertas` and curves under `/curvas` come next). The bounded context owns its
 business requests and presentation.
 
 ```text
@@ -135,7 +140,7 @@ interface InvestmentSimulatorDeps {
 
 The app passes its bearer-attaching `authorizedFetch` and spreads the result
 into its shell routes. The factory returns top-level paths (`simulacoes`, later
-`ofertas`), and each page module loads through route `lazy`. The library puts `deps` in its own internal
+`ofertas` and `curvas`), and each page module loads through route `lazy`. The library puts `deps` in its own internal
 context, which its API adapters read. Features never import Keycloak or app
 modules, and they use relative `/api` URLs.
 
@@ -375,117 +380,158 @@ it.
 
 ## Simulation workspace behavior
 
-Built 2026-10-10. A simulation is one title (CDB, LCI or LCA): its terms are fixed when it is
-created. Each calculation ("cálculo") records an investment under those terms;
-the latest one is the current state, earlier ones are its history.
+Recorded 2026-10-11 for the redesigned model. The screens built on 2026-10-10
+implement the earlier model (fixed terms, "Calcular" recording one calculation
+per click, and a calculation history); they are reworked to this behavior. A
+simulation always uses an offer condition, plus a curve scenario when its
+remuneration is indexed, and holds the principal and investment date. All of
+them are editable. Its single result is recalculated asynchronously whenever
+any of them changes.
 
 - `/simulacoes` lists the user's simulations, 20 per page (`page` URL
-  parameter, corrected by navigation when stale). Each row shows the issuer
-  ("Sem emissor" when the terms have none) and
-  whether the terms are custom or from a catalog offer, the remuneration, the
-  principal, the period, and the net value of the latest calculation, with a
-  textual "Desatualizado" tag when it predates the current methodology.
-  Desktop uses a table; below 1024px, labeled rows. The whole row or card
-  opens the simulation: one link per entry, stretched over the table row on
-  desktop.
+  parameter, corrected by navigation when stale). Each row shows the offer
+  (issuer, or "Sem emissor") and condition, the remuneration, the scenario
+  when indexed, the principal, the period, the net value of the last
+  successful result, and a textual status tag unless the result is up to date
+  ("Aguardando cálculo", "Calculando", "Requer ação", "Falha técnica"). Desktop
+  uses a table; below 1024px, labeled rows. The whole row or card opens the
+  simulation: one link per entry, stretched over the table row on desktop.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
-  (stacked below 1024px), split into the offer form and the simulation form:
-  - "Termos do título" (offer form): title type, hinted with its income-tax
-    treatment and minimum term from the options query (the API enforces the
-    minimum term; the form does not repeat it), optional free-text issuer name (blank means "Sem emissor"), remuneration
-    kind, rate in the kind's unit, maturity, liquidity. Editable on a new
-    simulation; a saved simulation shows them read only, pointing to
-    "Duplicar" for other terms. Changing the kind clears the rate and the
-    curve. Liquidity defaults to "No vencimento".
-  - "Investimento" (simulation form): principal, investment date, and the
-    index curve for indexed kinds. The curve list is filtered by the terms'
-    index, auto-selects a sole curve, shows its coverage, and warns when the
-    period may exceed it.
+  (stacked below 1024px):
+  - "Oferta": the condition, chosen from the offers visible to the user
+    (system and own) grouped by offer, with the title type hinted with its
+    income-tax treatment and minimum term from the options query. "Duplicar e
+    ajustar" opens the condition's terms as an editable copy that becomes a
+    private condition in the same offer; "Digitar termos" creates a private
+    offer (title type, optional issuer, name) with its first condition. Either
+    is created together with the simulation when it is saved. The user's own
+    chosen condition can also be edited in place, with the offer editor's
+    impact notice; a system condition offers only "Duplicar e ajustar".
+    Changing the remuneration kind clears the rate and the scenario. Liquidity
+    defaults to "No vencimento".
+  - "Investimento": principal, investment date, and the curve scenario for
+    indexed kinds. The scenario list is filtered by the condition's index and
+    grouped by curve, auto-selects a sole scenario, shows its coverage, and
+    warns when the period may exceed it.
 - The investment and maturity date pickers grey out weekends and holidays.
   `BusinessDateField` (in the library's `business-calendar/` folder, for any
   screen that needs business days) reads them per year from
   `GET business-calendar/non-business-days?year=`; the browser holds no
-  holiday rules. Typed dates are not blocked; the calculation still rejects a
+  holiday rules. Typed dates are not blocked; the request rejects a
   non-business day on its field.
-- Terms are typed freely. On a new simulation, a catalog offer can fill them
-  ("Preencher com uma oferta"); edits afterwards are flagged with "Restaurar
-  termos da oferta". No catalog entry is created by a simulation.
-- One "Calcular" action records a calculation: a new simulation sends its
-  terms and first investment (`POST simulations`), a saved one only the
-  investment (`POST simulations/:id/calculations`). When nothing changed and the latest calculation is current,
-  it reads "Resultado atualizado" and is disabled. A rejected calculation saves
-  nothing: the form keeps its edits as unsaved changes and the reason appears
-  on the responsible field (principal, non-business day, curve coverage,
-  deleted curve, period) and in the results panel. A new simulation stays on
-  `/simulacoes/nova` until its first calculation succeeds, then opens its own
-  page.
-- A curve coverage rejection names the first gap the API reports ("A curva
-  não tem valores entre 02/01/2029 e 28/12/2029 e em mais 2 períodos"). The
-  domain groups consecutive missing rate references into ranges
-  (`missingRanges`); the browser only phrases them.
+- "Salvar e calcular" sends the simulation (with its revision when editing) and
+  is disabled when nothing changed. A rejected request saves nothing: the form
+  keeps its edits as unsaved changes and the reason appears on the responsible
+  field (principal, non-business day, minimum term, index, missing condition
+  or scenario). A revision conflict says the simulation changed elsewhere and
+  offers to reload. An accepted new simulation opens its own page, already
+  waiting for its calculation.
+- Status: the results panel always shows the calculation status in a live
+  region. While the status is "Aguardando cálculo" or "Calculando", the
+  workspace query refetches on an interval and stops once it settles. Until the
+  status is up to date, the panel shows the last successful result marked as
+  predating the changes; a simulation that never succeeded shows only the
+  status.
+  - "Requer ação" shows the reason with its recovery: choose another scenario
+    or condition when one was deleted ("Sem curva, escolha outra", "Sem
+    oferta, escolha outra"), or fix the field. A coverage gap names the first
+    gap the API reports ("O cenário não tem valores entre 02/01/2029 e
+    28/12/2029 e em mais 2 períodos"); the domain groups consecutive missing
+    rate references into ranges and the browser only phrases them.
+  - "Falha técnica" explains that the system will retry and offers "Tentar
+    novamente".
 - Results: the net value at maturity, then principal, gross balance, gross
   earnings, IOF, income tax, total taxes and net value, with the dates,
   business days, calculation instant in São Paulo time and the methodology
-  version. "Evolução do saldo" and "Histórico de cálculos" are disclosures; a
-  past calculation is selected with the `calculo` URL parameter.
+  version. "Evolução do saldo" is a disclosure.
 - "Evolução do saldo" opens with an area chart of each month's closing gross
   balance (compact BRL axis; the tooltip shows the exact closing balance and
-  accumulated earnings), then lists one row per month (business days, the month's
-  earnings, accumulated earnings and the closing gross balance). Each month's
-  button (`aria-expanded`) reveals that month's business days beneath it.
+  accumulated earnings), then lists one row per month (business days, the
+  month's earnings, accumulated earnings and the closing gross balance). Each
+  month's button (`aria-expanded`) reveals that month's business days beneath
+  it.
 - Taxes: the IOF and income-tax rows name the applied rate ("IOF · isento pelo
   prazo", "Imposto de renda · 22,5%", or "Imposto de renda · isento" for LCI
   and LCA, whose dialog section explains the exemption without a bracket
-  table). "Como os tributos foram calculados"
-  (with an info icon) opens a short Base UI Dialog: the holding period, then
-  for IOF and income tax one sentence on the rule, the formula string the API
-  writes from the calculation's recorded values (shown as is), and the table with the applied row marked
-  "seu caso" (not by color alone). Rates and tables come from the API, which
-  takes them from the domain; the browser only finds the applied row by rate.
+  table). "Como os tributos foram calculados" (with an info icon) opens a short
+  Base UI Dialog: the holding period, then for IOF and income tax one sentence
+  on the rule, the formula string the API writes from the result's recorded
+  values (shown as is), and the table with the applied row marked "seu caso"
+  (not by color alone). Rates and tables come from the API, which takes them
+  from the domain; the browser only finds the applied row by rate.
 - A saved simulation's header offers "Nova simulação" (a blank form at
   `/simulacoes/nova`), "Duplicar" and "Excluir".
-- "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled with the
-  terms and the latest investment, as editable custom terms; it is how rate,
-  maturity and liquidity experiments are made. "Excluir" confirms in an AlertDialog. Unsaved edits are guarded by
-  `useBlocker` and `beforeunload`.
+- "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled with the same
+  condition, scenario and investment, for side-by-side comparison. "Excluir"
+  confirms in an AlertDialog and says the deletion is permanent. Unsaved edits
+  are guarded by `useBlocker` and `beforeunload`.
 - Rentabilidade (monthly, annualized, total) and "prazo restante" are not
-  shown yet; the API does not compute them.
-- "Desatualizado" on a calculation means the methodology changed since it was
-  computed; the results panel also flags unsaved form edits. Older
-  calculations are earlier versions, not stale ones.
-- Reads are screen-oriented (Backend for Frontend): `simulation-options`
-  (title types, each remuneration kind with its index, curves and calculability,
-  and catalog offers flagged as calculable or not), `simulation-workspaces/:id`
-  (the simulation's origin and terms, and every calculation summary with its
-  investment and business days, newest first), and
-  `simulation-calculations/:id/monthly-balances` (months with their days
-  nested), loaded for the selected calculation. The list uses `simulations`.
-  Writes are `simulations`, `simulations/:id/calculations`, and
-  `DELETE simulations/:id`.
+  shown yet; their definition is a pending product decision.
+- Reads are screen-oriented (Backend for Frontend): the options query (title
+  types, remuneration kinds with their index, visible offers grouped with their
+  conditions and calculability, visible curves grouped with their scenarios
+  and coverage), the workspace query (the simulation's references and
+  investment, its status with any reason, and the last successful result with
+  the inputs it was computed from), and the monthly balances of the current
+  result. The list has its own query. Writes create (optionally with a new
+  private offer or condition), edit with the revision, delete, and retry a
+  failed calculation.
 
-## Offer CRUD behavior
+## Offer behavior
 
-The browser CRUD isn't implemented right now. When it's rebuilt, it must
-provide these behaviors without change.
+Recorded 2026-10-11. Not implemented in the browser. An offer is a group (title
+type, optional issuer, name, owner) with conditions (remuneration and rate,
+maturity, liquidity, optional name, owner, revision). User content is private
+and editable; system content is visible to everyone and read only.
 
-- Routes under `/ofertas`: list, details, create, and edit. Each loads lazily.
-  Confirmation dialogs load on demand.
-- List filters are the `q` (issuer name), `titleType`, and `page` URL
-  parameters. A submitted search or changed type resets to page 1. These
-  parameters carry through to detail and editor links and back to the list.
-  The page size is fixed at 20. Obsolete reads are canceled. A stale page
-  beyond the last page is corrected through navigation.
-- Details show a grouped definition list with exact terms. Delete asks for
-  confirmation, and a missing or deleted record has its own state.
-- The editor initializes from one snapshot. Issuer and title are displayed as
-  immutable information. Changing the remuneration kind clears the rate,
-  because its unit changed. PATCH includes only changed mutable fields. A
-  successful save clears the dirty baseline before redirecting to a fresh
-  detail read. A failed detail read after save is a read failure, not
-  permission to repeat the write.
+- Routes under `/ofertas`: list, offer details, create, and condition editor.
+  Each loads lazily. Confirmation dialogs load on demand.
+- The list shows the offers visible to the user with their visible conditions
+  grouped beneath them, and a textual origin ("Sistema" or "Minha"). Filters
+  are the `q` (offer name or issuer), `titleType`, and `page` URL parameters. A
+  submitted search or changed type resets to page 1. These parameters carry
+  through to detail and editor links and back to the list. The page size is
+  fixed at 20. Obsolete reads are canceled. A stale page beyond the last page
+  is corrected through navigation.
+- Details show the offer's fixed fields and each condition's exact terms in a
+  grouped definition list. Own conditions offer "Editar", "Duplicar" and
+  "Excluir"; system conditions offer "Duplicar", which adds a private
+  condition to the same offer. An own offer can be renamed and deleted, which
+  deletes its conditions. A missing or deleted record has its own state.
+- Deleting confirms in an AlertDialog that states the deletion is permanent
+  and how many of the user's simulations will require a new choice ("Sem
+  oferta, escolha outra").
+- The condition editor initializes from one snapshot. Title type and issuer
+  are displayed as fixed information. Changing the remuneration kind clears
+  the rate, because its unit changed. Before saving, it states how many of the
+  user's simulations will be recalculated. The PATCH sends the edited revision
+  and only changed fields. A revision conflict says the condition changed
+  elsewhere and keeps the user's input until they reload. A successful save
+  clears the dirty baseline before redirecting to a fresh detail read. A
+  failed detail read after save is a read failure, not permission to repeat
+  the write.
 - Pure helpers shift decimal strings to convert percentages and fractions. They
   reject zero, invalid input, and values outside Decimal(65,30) storage.
   Calendar validation and `dd/mm/aaaa` display never construct local-time
   instants.
 - Browser and API verification uses dedicated test offers. It doesn't reset
   local databases or change Keycloak accounts.
+
+## Curve behavior
+
+Recorded 2026-10-11. Not implemented in the browser. A curve is a group (index,
+which fixes the value convention, name, owner) with scenarios (name, optional
+description, intervals with values, owner, revision). Visibility, ownership,
+duplication and deletion follow Offer behavior.
+
+- Routes under `/curvas`: list, curve details, create, and scenario editor.
+  Each loads lazily.
+- The list shows the curves visible to the user with their visible scenarios
+  grouped beneath them, filterable by index, with each scenario's origin and
+  coverage (first and last dates, and whether it has gaps).
+- The scenario editor edits the name, description, and intervals; rates are
+  typed as percentages. The interval input design is a pending product
+  decision (see the curve specification). It follows the condition editor's
+  impact notice, revision conflict, and save rules.
+- Deleting a scenario states how many of the user's simulations will require
+  a new choice ("Sem curva, escolha outra").

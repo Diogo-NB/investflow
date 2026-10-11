@@ -1,6 +1,6 @@
 ---
 name: investflow-react
-description: Implement, review, or refactor the React + Vite frontend in the InvestFlow Nx workspace, including rebuilding the offer CRUD. Use for routes, pages, components, hooks, forms, browser API clients, TanStack Query, UI state, Base UI or Tailwind styling, Keycloak in the browser, frontend tests, or decisions about splitting web libraries. Do not use for backend-only NestJS work.
+description: Implement, review, or refactor the React + Vite frontend in the InvestFlow Nx workspace, including the simulation, offer, and curve screens. Use for routes, pages, components, hooks, forms, browser API clients, TanStack Query, UI state, Base UI or Tailwind styling, Keycloak in the browser, frontend tests, or decisions about splitting web libraries. Do not use for backend-only NestJS work.
 ---
 
 # InvestFlow React
@@ -12,7 +12,7 @@ the boundaries that make it safe to grow.
 
 Read `docs/architecture/frontend-patterns.md` before any frontend change. It
 records the decision, the pinned stack, the status sequence, and the recorded
-app-shell and offer CRUD behavior. Then inspect `apps/web`, the affected
+app-shell, simulation workspace, offer, and curve behavior. Then inspect `apps/web`, the affected
 `libs/<context>/web` project, `DESIGN.md`, the relevant `project.json` files,
 and the root ESLint boundary rules.
 

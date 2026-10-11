@@ -19,99 +19,112 @@ calcular seu rendimento durante o tempo. Um único CDI ou IPCA informado para to
 prazo não representa mudanças de cenário nem permite comparar diferentes
 expectativas para o mesmo investimento.
 
-A curva descreve essa trajetória. Podem existir várias curvas para o mesmo
-índice, como uma trajetória base e alternativas otimista e pessimista. Esses
+A curva reúne essas trajetórias. Cada trajetória é um cenário, como uma
+trajetória base e alternativas otimista e pessimista do mesmo índice. Esses
 nomes identificam premissas escolhidas para o experimento; não representam
-garantia de retorno ou classificação obrigatória das curvas.
+garantia de retorno ou classificação obrigatória dos cenários.
 
-O produto precisa reproduzir os resultados mesmo depois de o usuário criar
-uma nova trajetória a partir de uma curva existente.
-Também precisa reconhecer quando os dados escolhidos não cobrem o período
-necessário, em vez de produzir silenciosamente um resultado incompleto.
+O usuário ajusta seus cenários ao longo do tempo, e o sistema mantém cenários
+públicos atualizados. As simulações que usam um cenário acompanham essas
+mudanças. O produto também precisa reconhecer quando os dados escolhidos não
+cobrem o período necessário, em vez de produzir silenciosamente um resultado
+incompleto.
 
 ## Uso Pretendido
 
 O usuário:
 
-1. Seleciona uma oferta.
+1. Seleciona uma condição de oferta.
 2. Informa a data de aplicação, que pode estar no passado.
 3. Informa o valor inicial.
-4. Seleciona uma curva compatível com o índice necessário à remuneração.
-5. Executa a simulação e consulta os resultados de todos os dias úteis.
+4. Seleciona um cenário de uma curva do índice necessário à remuneração.
+5. Salva a simulação e acompanha seu resultado, calculado de forma assíncrona,
+   com os valores de todos os dias úteis.
+
+Quando o cenário muda, a simulação é recalculada e o resultado passa a refletir
+os novos valores.
 
 O horizonte deste recorte termina no vencimento da oferta. Resgate antecipado
 e recebimentos antes do vencimento estão fora deste escopo, mesmo quando a
 oferta possui liquidez diária.
 
 O investimento prefixado não necessita de uma curva de índice para remunerar
-o capital: sua taxa vem da oferta. A curva é necessária quando o cálculo
+o capital: sua taxa vem da oferta. O cenário é necessário quando o cálculo
 depende de um índice. O conjunto exato de modalidades inicialmente suportadas
 continua subordinado ao PRD e às pendências deste documento.
 
-A escolha de uma curva de SELIC não substitui automaticamente uma curva de
-CDI exigida pela oferta. A disponibilidade de diferentes índices não significa
+A escolha de um cenário de SELIC não substitui automaticamente um cenário de
+CDI exigido pela oferta. A disponibilidade de diferentes índices não significa
 que eles possam ser trocados sem uma regra de negócio específica.
 
 ## Vocabulário
 
-| Conceito          | Significado no simulador                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------ |
-| Índice            | Referencial econômico identificado, como CDI, SELIC efetiva ou IPCA.                       |
-| Curva             | Trajetória identificada de valores de um único índice.                                     |
-| Convenção         | Significado dos valores: unidade, periodicidade e base de capitalização, quando aplicável. |
-| Intervalo         | Período declarado ao qual um valor se refere.                                              |
-| Competência       | Período econômico medido por um índice, como um mês de inflação.                           |
-| Cobertura         | Disponibilidade dos valores necessários para um cálculo específico.                        |
-| Oferta            | Condições de remuneração e prazo do investimento escolhido.                                |
-| Simulação         | Hipótese de investir um valor em uma data sob termos digitados ou copiados de uma oferta.  |
-| Cálculo           | Registro imutável do resultado da simulação com as curvas e premissas selecionadas.        |
-| Rendimento diário | Diferença entre o saldo bruto calculado e o saldo bruto anterior.                          |
+| Conceito          | Significado no simulador                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| Índice            | Referencial econômico identificado, como CDI, SELIC efetiva ou IPCA.                             |
+| Curva             | Grupo de cenários de um único índice, com nome e dono.                                           |
+| Cenário           | Trajetória de valores de uma curva, com nome, descrição opcional e intervalos.                   |
+| Convenção         | Significado dos valores: unidade, periodicidade e base de capitalização, quando aplicável.       |
+| Intervalo         | Período declarado ao qual um valor se refere.                                                    |
+| Competência       | Período econômico medido por um índice, como um mês de inflação.                                 |
+| Cobertura         | Disponibilidade dos valores necessários para um cálculo específico.                              |
+| Revisão           | Número do cenário incrementado a cada alteração salva.                                           |
+| Oferta            | Grupo de condições de um título e emissor.                                                       |
+| Condição          | Remuneração, taxa, vencimento e liquidez de uma oferta.                                          |
+| Simulação         | Hipótese de investir um valor em uma data sob uma condição de oferta e, se indexada, um cenário. |
+| Resultado         | Cálculo atual da simulação, com as revisões das premissas que usou.                              |
+| Rendimento diário | Diferença entre o saldo bruto calculado e o saldo bruto anterior.                                |
 
-Uma curva é uma trajetória de premissas do simulador. Não se presume que ela
-seja uma curva de juros a termo extraída de preços de mercado.
+Um cenário é uma trajetória de premissas do simulador. Não se presume que ele
+seja uma curva de juros a termo extraída de preços de mercado. Nas seções
+sobre intervalos, convenções e cobertura, os valores e intervalos de "uma
+curva" são os de um de seus cenários.
 
 ## Decisões Confirmadas
 
-| Decisão                      | Regra                                                                                           |
-| ---------------------------- | ----------------------------------------------------------------------------------------------- |
-| Representação por intervalos | Os valores possuem início e fim explícitos.                                                     |
-| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção. |
-| Convenção única              | Uma curva inteira utiliza uma única convenção de valores.                                       |
-| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                |
-| Imutabilidade                | Cada alteração cria outra curva com outro identificador; a original permanece preservada.       |
-| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                        |
-| Cadastro incompleto          | Lacunas são permitidas, mas a curva precisa ter pelo menos um intervalo.                        |
-| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                            |
-| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                |
-| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.           |
-| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                           |
-| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                        |
+| Decisão                      | Regra                                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Representação por intervalos | Os valores possuem início e fim explícitos.                                                              |
+| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.          |
+| Convenção única              | Todos os cenários de uma curva utilizam a convenção do seu índice.                                       |
+| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                         |
+| Curva e cenários             | A curva fixa o índice; cada cenário é independente e editável.                                           |
+| Edição                       | Editar um cenário altera o próprio cenário, incrementa sua revisão e recalcula as simulações que o usam. |
+| Visibilidade                 | Cenários de usuários são privados; cenários do sistema são públicos e somente leitura para usuários.     |
+| Duplicação                   | Duplicar cria um cenário privado na mesma curva, inclusive em curvas do sistema.                         |
+| Exclusão                     | Excluir é definitivo para o usuário; simulações que usavam o cenário passam a "Requer ação".             |
+| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                                 |
+| Cadastro incompleto          | Lacunas são permitidas, mas o cenário precisa ter pelo menos um intervalo.                               |
+| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                                     |
+| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                         |
+| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.                    |
+| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                    |
+| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                 |
 
 As regras exatas do CDI e do híbrido foram objeto de pesquisa de mercado
 solicitada durante a definição do produto. O CDI e as pendências do IPCA estão
 detalhados adiante.
 
-## Identidade e Responsabilidades da Curva
+## Curva, Cenários e Responsabilidades
 
-A curva possui identidade própria, independente de ofertas e simulações.
-Ela organiza valores de um índice segundo uma convenção e permite que o
-usuário escolha uma trajetória reconhecível e preserve suas premissas.
+A curva possui identidade própria, independente de ofertas e simulações. Ela
+fixa o índice e, por ele, a convenção que interpreta os valores de todos os
+seus cenários. Cada cenário tem identidade própria dentro da curva.
 
-Informações conceituais necessárias:
+| Curva (grupo)                           | Cenário                                |
+| --------------------------------------- | -------------------------------------- |
+| Identidade e nome.                      | Identidade, nome e descrição opcional. |
+| Índice e convenção, fixos após criação. | Intervalos e valores editáveis.        |
+| Dono: um usuário ou o sistema.          | Dono e revisão.                        |
 
-- identidade e nome da curva;
-- índice representado;
-- convenção derivada do índice para interpretar os valores;
-- descrição opcional das premissas;
-- intervalos e valores imutáveis.
+Os cenários de uma curva compartilham tudo o que não é editável e são
+apresentados agrupados sob ela. O nome de uma curva privada pode ser alterado
+por seu dono; o índice nunca muda. Mudar o índice significa criar outra curva.
 
-A curva não possui o valor investido, o percentual do CDI contratado, a taxa
-fixa da oferta, o vencimento do investimento ou suas regras tributárias. Uma
-mesma curva pode alimentar várias hipóteses com resultados diferentes.
-
-A curva é uma unidade de negócio independente. Nome, descrição, índice,
-convenção e intervalos permanecem imutáveis depois da criação. Renomear,
-alterar uma premissa ou corrigir um valor significa criar outra curva.
+A curva e o cenário não possuem o valor investido, o percentual do CDI
+contratado, a taxa fixa da oferta, o vencimento do investimento ou suas regras
+tributárias. Um mesmo cenário pode alimentar várias simulações com resultados
+diferentes.
 
 ## Intervalos e Significado dos Valores
 
@@ -198,7 +211,7 @@ diferentes de valores explicitamente informados como zero.
 
 ## Cobertura e Dados Ausentes
 
-Cobertura é verificada para a curva escolhida, os dados exigidos pela oferta
+Cobertura é verificada para o cenário escolhido, os dados exigidos pela oferta
 e o calendário utilizado. Ter um primeiro e um último valor não comprova
 cobertura de todo o intervalo entre eles.
 
@@ -213,8 +226,7 @@ cobertura de todo o intervalo entre eles.
 
 Uma lacuna não deve ser preenchida automaticamente com zero, com o último
 valor conhecido ou com uma interpolação. O período descoberto deve ser
-identificado para que o usuário possa criar uma curva corrigida ou escolher
-outra curva. O cálculo deverá determinar as referências necessárias; a curva
+identificado para que o usuário possa corrigir o cenário ou escolher outro. O cálculo deverá determinar as referências necessárias; a curva
 não escolhe dias úteis nem competências defasadas por conta própria. A forma
 de verificar o conjunto de referências será refinada em uma etapa posterior.
 
@@ -233,58 +245,71 @@ Uma curva possui valores até sexta-feira, 02/10/2026, e a partir de
 segunda-feira, 05/10/2026. A ausência de taxas para sábado e domingo não
 constitui uma lacuna de juros para a capitalização por dias úteis.
 
-### Curvas Incompletas
+### Cenários Incompletos
 
-É permitido cadastrar uma curva com lacunas, desde que tenha pelo menos um
-intervalo. Sua suficiência é verificada quando ela for usada. Uma referência
-necessária ausente impede o cálculo e deve constar do diagnóstico de cobertura.
+É permitido cadastrar um cenário com lacunas, desde que tenha pelo menos um
+intervalo. Sua suficiência é verificada a cada cálculo que o usa. Uma
+referência necessária ausente impede o cálculo e deve constar do diagnóstico
+de cobertura.
 
-Uma mesma curva pode servir a uma simulação curta e não servir a outra
-mais longa. Portanto, sua suficiência não deve ser presumida como uma
-característica permanente e universal da curva.
+Um mesmo cenário pode servir a uma simulação curta e não servir a outra mais
+longa, e uma edição pode mudar essa suficiência. Portanto, ela não deve ser
+presumida como uma característica permanente e universal do cenário.
 
 Para o IPCA, as competências exigidas podem anteceder a data da aplicação,
 conforme a defasagem contratual. Uma busca simples por datas dentro do
 período investido não basta para verificar a cobertura de inflação.
 
-## Imutabilidade e Reprodução
+## Visibilidade e Propriedade
 
-Cada curva identifica um conteúdo definitivo. A decisão inicial de manter
-revisões foi substituída pela criação de novas curvas imutáveis. Cada
-alteração recebe outro identificador e preserva a curva original.
+| Origem  | Visível para                    | Edição e exclusão                                       |
+| ------- | ------------------------------- | ------------------------------------------------------- |
+| Usuário | Somente o usuário que a criou.  | Pelo dono.                                              |
+| Sistema | Todos os usuários autenticados. | Somente por processos do sistema, nunca pela interface. |
 
-Exemplo:
+- Criar uma curva a partir do zero cria uma curva privada com seu primeiro
+  cenário.
+- Duplicar um cenário cria um cenário privado na mesma curva. Em uma curva do
+  sistema, o usuário vê os cenários do sistema e os seus; os demais usuários
+  não veem a cópia. O nome e o índice da curva do sistema continuam fora do
+  controle do usuário.
+- Uma curva privada contém somente cenários de seu dono.
+- Uma simulação só usa cenários visíveis para seu dono. Um cenário privado de
+  outro usuário é tratado como inexistente.
 
-1. O cálculo A usa a curva CDI base, identificada por X.
-2. O usuário cria outra curva, identificada por Y, com valores ajustados.
-3. O cálculo A continua vinculado à curva X.
-4. Um novo cálculo pode selecionar Y para comparar resultados.
+## Edição, Revisões e Reação
 
-O identificador da curva é suficiente para identificar seu conteúdo
-preservado. O cálculo fixa esse identificador e não troca suas premissas
-automaticamente quando outra curva é criada. Gravar novamente uma curva com um
-identificador já existente preserva o conteúdo originalmente armazenado. A
-exclusão lógica altera apenas o estado de disponibilidade da curva.
+Editar um cenário altera o próprio cenário: o identificador permanece e a
+revisão é incrementada a cada alteração salva. Nome, descrição e intervalos são
+editáveis; dividir, substituir ou unir intervalos é uma edição como as demais.
 
-A reprodução completa também depende da hipótese da simulação, dos termos
-da oferta, do calendário e das regras de cálculo utilizados. Preservar a curva
-é necessário, mas não suficiente para preservar todos esses elementos. Por
-isso, cada cálculo registrado fixa a curva, uma cópia dos termos da oferta, o
-valor inicial, a data de aplicação e a versão da metodologia, além dos
-resultados calculados.
+- Cada resultado registra a revisão do cenário que usou. Um resultado cuja
+  revisão difere da revisão atual está desatualizado e é recalculado.
+- O recálculo é assíncrono. Entre a edição e o novo resultado, a simulação
+  exibe o último resultado bem sucedido com seu estado (ver o PRD).
+- Uma edição que retira cobertura necessária leva as simulações afetadas a
+  "Requer ação", com os períodos descobertos. Corrigir o cenário ou escolher
+  outro as devolve ao cálculo.
+- Antes de salvar, a interface informa quantas simulações do usuário serão
+  recalculadas. Quem quiser preservar a trajetória anterior duplica o cenário
+  antes de editá-lo.
+- Cada alteração gera um evento com a revisão e o que mudou. Cenários do
+  sistema mantidos por processos de importação geram os mesmos eventos, e as
+  simulações de todos os usuários que os usam são recalculadas.
 
-### Exclusão Lógica
+Resultados passados não são reproduzíveis: o produto não preserva a trajetória
+anterior de um cenário editado nem os resultados calculados com ela.
 
-A curva pode ser excluída logicamente, seguindo o comportamento das ofertas.
-Ela registra o instante da primeira exclusão. Repetir a exclusão não altera
-esse instante, o identificador, as premissas ou os intervalos.
+### Exclusão
 
-Curvas excluídas deixam de ser encontradas na consulta normal por identidade
-e não podem ser usadas em novos cálculos, mesmo por simulações cujos cálculos
-anteriores as usaram. A exclusão preserva o conteúdo armazenado: cálculos
-registrados antes da exclusão continuam consultáveis com seus resultados
-originais. Restauração e exclusão física não fazem parte desta
-etapa.
+Excluir um cenário é definitivo para o usuário, mesmo que o armazenamento
+mantenha um registro técnico. Excluir uma curva privada exclui seus cenários.
+
+O cenário excluído deixa de ser encontrado e não pode ser escolhido. As
+simulações que o usavam passam a "Requer ação" com o motivo "Sem curva,
+escolha outra" e mantêm o último resultado bem sucedido, identificado como
+anterior à exclusão, até que o usuário escolha outro cenário. Restauração e
+exclusão física não fazem parte desta etapa.
 
 ## Histórico e Projeções
 
@@ -332,8 +357,9 @@ conciliar a data de referência da taxa com a data do saldo apresentado.
 A regra confirmada trata a taxa de um dia útil como a remuneração até o próximo
 dia útil e apresenta o saldo correspondente na data final desse período.
 A aplicação e o vencimento devem ser úteis para executar o cálculo; não há
-ajuste automático. Hipóteses com datas não úteis podem ser cadastradas, mas
-o calculador retorna um erro explícito.
+ajuste automático. Uma simulação com datas não úteis é rejeitada ao ser
+salva; uma condição de oferta editada para um vencimento não útil leva as
+simulações que a usam a "Requer ação".
 
 O cálculo de percentual da SELIC efetiva usa a mesma convenção temporal e a
 mesma aplicação do percentual sobre a taxa diária equivalente. Exige uma curva
@@ -369,7 +395,7 @@ Precisamos escolher o perfil de atualização por IPCA suportado pelo produto.
 | Responsabilidade da curva                    | Responsabilidade das condições da oferta     |
 | -------------------------------------------- | -------------------------------------------- |
 | Valores por competência e convenção.         | Periodicidade da atualização.                |
-| Identidade das premissas imutáveis.          | Datas de aniversário ou referência.          |
+| Identidade e revisão do cenário.             | Datas de aniversário ou referência.          |
 | Cobertura das competências solicitadas.      | Defasagem e critérios de proporcionalização. |
 | Trajetória histórica ou projetada declarada. | Parcela fixa da remuneração e sua base.      |
 
@@ -412,60 +438,60 @@ não é necessária, pois o último intervalo usa a taxa do dia útil anterior.
 
 ## Fluxo de Negócio do Cálculo
 
-1. Identificar os termos, o investimento e a curva escolhidos.
-2. Fixar o identificador da curva imutável usada neste cálculo.
-3. Verificar a compatibilidade entre índice, convenção e remuneração.
-4. Determinar as datas ou competências exigidas até o vencimento.
-5. Verificar toda a cobertura; se faltar algum dado, impedir o cálculo.
-6. Calcular a trajetória bruta e os resultados de todos os dias úteis.
-7. Apurar os tributos e o montante líquido no vencimento.
-8. Preservar a identificação das premissas usadas para consultar e reproduzir
-   o resultado.
+1. Identificar a condição de oferta, o investimento e o cenário escolhidos, com
+   suas revisões atuais.
+2. Verificar a compatibilidade entre índice, convenção e remuneração.
+3. Determinar as datas ou competências exigidas até o vencimento.
+4. Verificar toda a cobertura; se faltar algum dado, impedir o cálculo e
+   registrar o motivo com os períodos descobertos.
+5. Calcular a trajetória bruta e os resultados de todos os dias úteis.
+6. Apurar os tributos e o montante líquido no vencimento.
+7. Substituir o resultado atual, registrando as revisões da condição e do
+   cenário usadas e a versão da metodologia, somente se essas entradas não
+   forem mais antigas que as do resultado registrado.
 
-Uma curva incompatível e uma curva sem cobertura suficiente são motivos
+Uma curva incompatível e um cenário sem cobertura suficiente são motivos
 distintos para impedir o cálculo. O usuário deve conseguir identificar qual
-condição precisa corrigir. Consultar um resultado existente não deve fazê-lo
-passar silenciosamente para outra curva.
+condição precisa corrigir. Um cálculo nunca troca silenciosamente o cenário
+escolhido por outro.
 
-## Regras de Consistência da Curva
+## Regras de Consistência
 
 - Início e fim inclusivos, com início menor ou igual ao fim.
-- Ausência de sobreposição entre trechos de uma curva, mesmo quando seus
+- Ausência de sobreposição entre trechos de um cenário, mesmo quando seus
   valores são iguais; cada referência necessária resolve para um único valor.
-- Identificação explícita da competência em curvas de inflação.
-- Cadastro permitido de curvas incompletas com pelo menos um intervalo,
+- Identificação explícita da competência em cenários de inflação.
+- Cadastro permitido de cenários incompletos com pelo menos um intervalo,
   com diagnóstico de cobertura por cálculo.
-- Índice e convenção estáveis na identidade da curva; uma mudança de
-  significado originaria outra curva.
-- Preservação das curvas usadas mesmo se uma curva deixar de ser oferecida
-  para novos cálculos.
-
-Dividir, substituir ou unir intervalos produz outra curva. Essas operações
-precisam preservar o significado da trajetória que o usuário pretende criar.
+- Índice e convenção fixos na curva; uma mudança de significado origina outra
+  curva.
+- Revisão do cenário sempre crescente; uma alteração salva nunca reutiliza uma
+  revisão.
 
 ## Pendências de Produto
 
 | Pendência                 | O que precisa ser decidido                                                                                     |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Perfil contratual do IPCA | Definir atualização, aniversário, defasagem, proporcionalização e tratamento das extremidades do investimento. |
-| Reprodução após exclusão  | Definir o acesso às curvas excluídas por simulações que já utilizavam suas premissas preservadas.              |
 | Histórico e projeções     | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários.      |
-| Escolha e reprodução      | Definir o fluxo de seleção e a vinculação da curva imutável à simulação e ao cálculo.                          |
+| Cadastro de intervalos    | Definir a interface de cadastro e edição dos intervalos de um cenário.                                         |
 
 A decisão de impedir cálculo sem cobertura não é reaberta por essas
-pendências. Interpolação, prolongamento e substituição automática de curvas
+pendências. Interpolação, prolongamento e substituição automática de cenários
 não estão autorizados como comportamento implícito.
 
 ## Fora do Escopo Atual
 
 - Detalhamento técnico de classes, APIs e persistência neste documento.
-- Importação automática de séries de fontes externas.
+- Processos de importação automática de séries de fontes externas; o modelo
+  já admite curvas do sistema mantidas por eles.
 - Construção automática de previsões ou curvas a termo.
 - Preenchimento automático de dados ausentes.
 - Substituição automática de um índice por outro.
 - Resgate, recebimento antecipado e reinvestimento.
+- Reprodução de resultados calculados com trajetórias anteriores.
 - Reprodução do conjunto de informações disponíveis em cada data histórica.
 - Definição completa do agregado de carteira.
 
-A comparação de trajetórias otimista e pessimista motiva essa preparação,
-mas não exige implementar agora um fluxo específico de comparação de cenários.
+A comparação de cenários otimista e pessimista motiva essa preparação, mas não
+exige implementar agora um fluxo específico de comparação de cenários.

@@ -3,14 +3,15 @@
 PRD condensado para consulta sob demanda. Descreve produto e regras de negócio;
 não define arquitetura de software.
 
-O contexto de negócio, as decisões confirmadas e as pendências das curvas
-estão detalhados em [Curvas de Valores dos Índices](./index-value-curves.md).
+O contexto de negócio e as regras das curvas estão detalhados em
+[Curvas de Valores dos Índices](./index-value-curves.md).
 
 ## Visão
 
 Simulador educacional para planejar e comparar investimentos brasileiros de
-renda fixa. O MVP cobre CDB, LCI e LCA e permite persistir portfólios e
-simulações.
+renda fixa. O MVP cobre CDB, LCI e LCA e permite manter ofertas, curvas de
+índices, portfólios e simulações. Os resultados acompanham as premissas: quando
+uma oferta ou uma curva muda, as simulações que a usam são recalculadas.
 
 O produto não executa transações financeiras reais.
 
@@ -18,7 +19,8 @@ O produto não executa transações financeiras reais.
 
 Investidores iniciantes precisam estimar rendimento líquido considerando prazo,
 tributos, índices e liquidez. Calculadoras existentes frequentemente não
-permitem persistir portfólios, comparar cenários ou reproduzir simulações.
+permitem manter portfólios, comparar cenários ou ver os resultados se
+atualizarem quando as premissas mudam.
 
 ## Usuário e Acesso
 
@@ -26,8 +28,79 @@ permitem persistir portfólios, comparar cenários ou reproduzir simulações.
 - Contas são provisionadas previamente por administradores.
 - Autocadastro não faz parte do MVP.
 - Cada usuário acessa somente seus próprios portfólios e simulações.
+- Ofertas e curvas são privadas ou do sistema:
+  - criadas por um usuário são visíveis somente para ele, que pode editá-las e
+    excluí-las;
+  - criadas pelo sistema (carga inicial ou processos automáticos) são visíveis
+    para todos os usuários autenticados e não podem ser editadas nem excluídas
+    por usuários.
+- Uma simulação só pode usar ofertas e curvas visíveis para seu dono.
+
+## Modelo de Atualização
+
+Ofertas, curvas e simulações são deliberadamente editáveis, e as simulações
+reagem às mudanças das ofertas e curvas que usam:
+
+- Editar uma condição de oferta ou um cenário de curva recalcula todas as
+  simulações que o usam. Não há cópia congelada das premissas.
+- O recálculo é assíncrono. Uma simulação pode estar aguardando cálculo,
+  calculando, atualizada, impedida por uma regra de negócio ou com falha
+  técnica (ver [Cálculos de Simulação](#cálculos-de-simulação)). Esses estados
+  fazem parte do produto e são sempre exibidos.
+- Excluir é definitivo do ponto de vista do usuário: o item deixa de existir
+  para ele, mesmo que o armazenamento mantenha um registro técnico.
+- Resultados passados não são reproduzíveis. Cada simulação tem um único
+  resultado atual; não há histórico de cálculos.
+- A interface deixa claro, antes de salvar ou excluir, que a mudança afeta as
+  simulações que usam o item, e quantas são.
+- Quem quiser preservar uma condição ou um cenário antes de alterá-lo usa
+  "Duplicar" e edita a cópia.
+
+Cada condição de oferta e cada cenário de curva tem um número de revisão,
+incrementado a cada alteração salva. A revisão identifica quais premissas um
+resultado usou e revela quando ele ficou desatualizado. Cada alteração também
+gera um evento com a revisão e o que mudou, base da auditoria.
 
 ## Escopo do MVP
+
+### Ofertas
+
+Uma oferta reúne um grupo e suas condições:
+
+- **Oferta** (grupo): título (CDB, LCI ou LCA), emissor opcional e nome. Título
+  e emissor não mudam depois da criação; são compartilhados por todas as
+  condições do grupo.
+- **Condição**: remuneração e taxa, data de vencimento e liquidez. Pode ter um
+  nome; sem nome, é identificada pelos próprios termos. Cada condição é
+  independente e editável por seu dono.
+
+Comportamento:
+
+- Criar, consultar, editar e excluir ofertas privadas e suas condições. O dono
+  pode renomear uma oferta privada; excluí-la exclui suas condições.
+- "Duplicar" uma condição cria outra condição no mesmo grupo, privada do
+  usuário. Duplicar uma condição do sistema coloca a cópia privada dentro da
+  oferta do sistema: o usuário vê ali as condições do sistema e as suas, e os
+  demais usuários não veem a cópia.
+- Criar uma oferta a partir do zero cria um novo grupo privado com sua
+  primeira condição.
+- A interface apresenta as condições agrupadas sob sua oferta.
+
+### Curvas
+
+Uma curva reúne um grupo e seus cenários:
+
+- **Curva** (grupo): índice (CDI, SELIC efetiva ou IPCA), que determina a
+  convenção dos valores, e nome. O índice não muda depois da criação.
+- **Cenário**: nome, descrição opcional e intervalos com valores, como "Base",
+  "Otimista" ou "Pessimista". Cada cenário é independente e editável por seu
+  dono.
+
+Grupos privados, duplicação, visibilidade e exclusão seguem as mesmas regras
+das ofertas. Valores de usuários são informados manualmente; curvas do sistema
+vêm da carga inicial e, futuramente, de processos de importação. A falta de
+cobertura necessária impede o cálculo. As regras dos intervalos estão na
+documentação de curvas.
 
 ### Portfólios
 
@@ -35,83 +108,92 @@ permitem persistir portfólios, comparar cenários ou reproduzir simulações.
 - Nome e descrição identificam um portfólio.
 - Um portfólio agrupa múltiplas simulações de títulos bancários.
 - Comparar portfólios por valores agregados e rentabilidade média.
+- O estado de um portfólio deriva do estado de suas simulações: em
+  atualização enquanto alguma aguarda cálculo ou calcula, e com pendência
+  enquanto alguma está impedida ou com falha. Os totais usam o último
+  resultado bem sucedido de cada simulação.
 
 ### Simulações de Títulos Bancários
 
 - Criar, consultar, editar e excluir simulações.
 - Comparar duas ou mais simulações lado a lado.
-- Executar experimentos alterando valor e data de aplicação em uma simulação, e
-  taxa, percentual do CDI e vencimento em simulações duplicadas.
+- "Duplicar" uma simulação cria outra com as mesmas escolhas, para comparação.
 
-Dados de entrada:
+Uma simulação sempre usa uma condição de oferta. Ela é composta por:
 
-- valor inicial;
-- data de aplicação;
-- título: CDB, LCI ou LCA;
-- data de vencimento ou prazo;
-- tipo: prefixado, pós-fixado por CDI ou SELIC efetiva, ou híbrido por IPCA;
-- taxa fixa, percentual do CDI ou SELIC e/ou IPCA, conforme o tipo;
-- liquidez diária ou somente no vencimento;
-- data de resgate antecipado, quando permitida.
+- a condição de oferta escolhida;
+- o cenário de curva, quando a remuneração é indexada; ele deve ser do mesmo
+  índice da remuneração;
+- o valor inicial;
+- a data de aplicação.
 
-CDI, SELIC efetiva e IPCA são informados manualmente e armazenados com data de referência.
-Esses valores compõem curvas selecionáveis, com intervalos explícitos,
-convenção única e conteúdo imutável. Alterações criam outra curva com outro
-identificador. Podem existir várias curvas para o
-mesmo índice. A falta de cobertura necessária impede o cálculo.
+Todos esses itens são editáveis. Termos diferentes significam outra condição:
+na tela da simulação, "Duplicar e ajustar" cria uma condição privada no mesmo
+grupo a partir da condição escolhida, e "Digitar termos" cria uma oferta
+privada com sua primeira condição. A nova oferta ou condição é criada junto com
+a simulação: se a solicitação for rejeitada, nada é criado. Condições do
+sistema não podem ser editadas, somente duplicadas.
 
-No recorte atual das curvas, o cálculo produz a trajetória bruta de todos
-os dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem
-somente no resumo do vencimento. A funcionalidade geral de resgate antecipado
-descrita neste PRD permanece fora desse recorte.
+Tipos de remuneração: prefixado, pós-fixado por CDI ou SELIC efetiva, ou
+híbrido por IPCA. A data de resgate antecipado, quando permitida pela liquidez,
+segue fora do recorte atual dos cálculos.
 
 O calculador inicial suporta CDB, LCI e LCA prefixados, por percentual do CDI
 ou por percentual da SELIC efetiva. IPCA permanece previsto no produto, mas seu
-cálculo fica adiado até a definição do perfil contratual.
-
-Uma simulação representa um título: seus termos (título, emissor, remuneração e
-taxa, vencimento e liquidez) são definidos ao criá-la e não mudam depois. Os termos
-podem ser digitados livremente ou preenchidos a partir de uma oferta do
-catálogo e então ajustados antes do primeiro cálculo. A simulação guarda uma
-cópia dos termos; termos digitados não criam ofertas no catálogo, e alterar ou
-excluir a oferta não muda as simulações. A simulação registra a oferta de
-origem quando foi preenchida a partir de uma. O emissor é opcional.
-
-Experimentos com valor aplicado, data de aplicação e curva acontecem dentro da
-simulação, a cada cálculo. Experimentos com taxa, percentual do índice,
-vencimento ou liquidez criam outra simulação ("Duplicar"), comparável lado a
-lado com a original.
+cálculo fica adiado até a definição do perfil contratual. No recorte atual, o
+cálculo produz a trajetória bruta de todos os dias úteis até o vencimento, sem
+recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
 
 ### Cálculos de Simulação
 
-- O cálculo é executado por comando explícito do usuário ("Calcular"). Na
-  criação, envia os termos e o primeiro investimento; depois, apenas o
-  investimento (valor aplicado, data de aplicação e curva). Não há salvamento
-  separado.
-- Uma simulação passa a existir com seu primeiro cálculo bem sucedido. Cada
-  cálculo bem sucedido é registrado como um registro imutável e somente
-  acrescentado, contendo o investimento usado (valor inicial, data de
-  aplicação e curva), a versão da metodologia, o instante do cálculo, o resumo
-  no vencimento, a apuração dos tributos (prazo em dias corridos, base,
-  alíquota e valor do IOF ou isenção, base, alíquota e valor do IR) e a
-  trajetória diária bruta. Os termos fixos da simulação completam as entradas.
-- O investimento atual de uma simulação é o do seu cálculo mais recente; os
-  anteriores formam o histórico da simulação.
-- A curva escolhida é registrada quando a remuneração é indexada; ela deve ser
-  do mesmo índice da remuneração e não pode estar excluída.
+- Criar ou editar uma simulação valida a solicitação e a aceita ou rejeita
+  imediatamente. Uma solicitação rejeitada não salva nada e informa o motivo
+  no campo responsável. Uma solicitação aceita salva a simulação e agenda seu
+  cálculo; o resultado chega de forma assíncrona.
+- A validação imediata cobre o que depende apenas das entradas e das
+  referências escolhidas: valor inicial positivo, dias úteis, prazo mínimo,
+  compatibilidade entre remuneração e índice, e condição e cenário existentes
+  e visíveis para o usuário.
+- Alterar ou excluir uma condição ou um cenário, ou mudar a versão da
+  metodologia de um título, agenda o recálculo de todas as simulações
+  afetadas.
+- Cada simulação tem um único resultado atual: o investimento usado, a versão
+  da metodologia, as revisões da condição e do cenário usados, o instante do
+  cálculo, o resumo no vencimento, a apuração dos tributos (prazo em dias
+  corridos, base, alíquota e valor do IOF ou isenção, base, alíquota e valor do
+  IR) e a trajetória diária bruta. Um novo cálculo bem sucedido substitui o
+  anterior.
+- O estado do cálculo de uma simulação é sempre um destes:
+
+  | Estado             | Significado                                                                   | Quem age                                   |
+  | ------------------ | ----------------------------------------------------------------------------- | ------------------------------------------ |
+  | Aguardando cálculo | As entradas mudaram e o cálculo está agendado.                                | Sistema                                    |
+  | Calculando         | O cálculo está em execução.                                                   | Sistema                                    |
+  | Atualizado         | O resultado corresponde às entradas, revisões e metodologia atuais.           | —                                          |
+  | Requer ação        | Uma regra de negócio impede o cálculo; o motivo é exibido.                    | Usuário                                    |
+  | Falha técnica      | O cálculo falhou por erro do sistema depois das novas tentativas automáticas. | Sistema; usuário pode pedir nova tentativa |
+
+- "Requer ação" exibe o motivo: falta de cobertura do cenário (com os
+  períodos descobertos), cenário excluído ("Sem curva, escolha outra"),
+  condição excluída ("Sem oferta, escolha outra"), data que não é dia útil,
+  prazo mínimo não atendido ou índice incompatível. Ele vale para as entradas
+  atuais: quando o usuário ou o dono da premissa a corrige, a simulação volta a
+  aguardar cálculo.
+- Enquanto não está atualizada, a simulação exibe o último resultado bem
+  sucedido, identificado como anterior às alterações, junto com seu estado.
+  Uma simulação que nunca teve cálculo bem sucedido exibe somente o estado.
+- Uma simulação cujo resultado não corresponde às revisões atuais de suas
+  premissas, sem cálculo agendado ou em execução, é recalculada
+  automaticamente pelo sistema. Nenhuma alteração fica sem cálculo por perda de
+  uma notificação interna.
 - A tela de resultado mostra a alíquota aplicada ao lado de cada tributo e, sob
   demanda, explica o cálculo de forma breve: a regra de cada tributo, a conta
   com os valores do cálculo e as tabelas de IOF e IR com a faixa aplicada
   destacada.
-- Falhas de cálculo são devolvidas ao usuário e nada é registrado: nem o
-  cálculo nem as entradas rejeitadas. O usuário corrige as entradas e calcula
-  novamente.
-- Um cálculo é apresentado como desatualizado quando a metodologia vigente
-  difere da registrada.
 - Cada título tem sua própria versão da metodologia (`cdb-252-v1`,
   `lci-252-v1`, `lca-252-v1`), que muda sempre que fórmulas, convenções,
   tributação ou o calendário alterarem os valores calculados daquele título.
-- Cálculos de simulações excluídas deixam de ser consultáveis.
+- Resultados de simulações excluídas deixam de ser consultáveis.
 
 ### Resultados
 
@@ -124,13 +206,15 @@ Por simulação:
 - montante líquido;
 - rentabilidade mensal, anualizada e total;
 - prazo restante;
-- data de vencimento.
+- data de vencimento;
+- estado do cálculo.
 
 Por portfólio:
 
 - soma dos valores aplicáveis;
 - rentabilidade média;
-- comparação agregada entre portfólios.
+- comparação agregada entre portfólios;
+- estado derivado das simulações.
 
 No MVP, apresentar resultados em tabelas simples; a evolução do saldo de uma
 simulação também tem um gráfico. Os demais gráficos e a exportação para
@@ -186,7 +270,9 @@ PDF/CSV ficam fora do escopo.
   no domínio compartilhado.
 - A contagem exclui a data inicial e inclui a data final.
 - O cálculo exige aplicação e vencimento em dias úteis, sem ajuste automático.
-  A hipótese pode ser cadastrada com outras datas, mas não pode ser calculada.
+  Uma simulação com data de aplicação ou vencimento fora de dia útil é
+  rejeitada ao ser salva. Uma condição de oferta pode ser salva com vencimento
+  em qualquer data; as simulações que a usam passam a "Requer ação".
 - Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
   extraordinárias de calendário ficam fora do MVP.
 
@@ -318,10 +404,14 @@ validada antes da implementação.
 
 ## Requisitos Não Funcionais
 
-- Persistir portfólios, simulações, cálculos e índices com data de referência.
-- Manter histórico suficiente para reproduzir simulações.
+- Persistir ofertas, curvas, portfólios, simulações e o resultado atual de
+  cada simulação.
+- Recalcular de forma assíncrona e confiável: toda alteração aceita leva ao
+  recálculo das simulações afetadas, mesmo após falhas temporárias.
+- Gerar um evento com a revisão e a alteração realizada a cada criação,
+  edição ou exclusão de ofertas, condições, curvas e cenários. A consulta de
+  auditoria a partir desses eventos fica adiada.
 - Autenticar por token.
-- Registrar alterações de parâmetros e cálculos de simulações para auditoria.
 - Interface em português, responsiva e acessível.
 - Permitir futura internacionalização.
 
@@ -329,7 +419,9 @@ validada antes da implementação.
 
 - transações financeiras reais;
 - autocadastro;
-- atualização automática de CDI, IPCA ou Selic;
+- reprodução de resultados passados e histórico de cálculos;
+- consulta de auditoria das alterações;
+- edição de ofertas e curvas do sistema por usuários;
 - gráficos além da evolução do saldo;
 - exportação PDF/CSV;
 - aportes recorrentes e reinvestimento automático;
@@ -341,8 +433,11 @@ validada antes da implementação.
 
 ## Evolução Futura
 
-- Importar índices de fontes como Banco Central, ANBIMA ou BrasilAPI.
-- Armazenar histórico de índices para simulações retrospectivas.
+- Notificar o usuário em tempo real quando resultados de suas simulações mudam,
+  por exemplo quando novos valores chegam a uma curva do sistema.
+- Importar índices de fontes como Banco Central, ANBIMA ou BrasilAPI para
+  manter as curvas do sistema.
+- Consultar a auditoria das alterações de ofertas e curvas.
 - Suportar Tesouro Direto, debêntures, CRI e CRA.
 - Comparar rendimento líquido entre diferentes tipos de título.
 - Exibir rentabilidade real descontada pelo IPCA.
@@ -364,4 +459,7 @@ validada antes da implementação.
   mínimos de LCI e LCA indexadas a índice de preços.
 - Validar regra de agregação para portfólios com vencimentos diferentes.
 - Definir significado e cálculo da rentabilidade média do portfólio.
+- Definir a rentabilidade mensal, anualizada e total da simulação (bruta ou
+  líquida e a forma de anualização) e o prazo restante.
 - Definir comportamento após vencimento e eventual resgate.
+- Definir a interface de cadastro dos intervalos de um cenário.

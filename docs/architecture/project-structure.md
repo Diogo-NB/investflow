@@ -31,7 +31,7 @@ apps/api
 
 apps/web
 └── Keycloak authentication, shell, and welcome page
-    └── lazy context routes (offer routes being rebuilt in libs/investment-simulator/web)
+    └── lazy context routes from libs/investment-simulator/web (simulations; offers and curves next)
 ```
 
 `apps/api` is the system composition root. It chooses the contexts deployed in
@@ -89,9 +89,9 @@ projects plus an optional browser presentation project:
   types. Its public API exposes route definitions for a browser app to compose.
 
 `apps/web` is the browser composition root. It owns authentication, the shell,
-and a welcome page. Offer CRUD belongs in the lazy-loaded
-`libs/investment-simulator/web` project, which is being rebuilt, and uses
-relative `/api` requests. The development server proxies
+and a welcome page. Simulation, offer, and curve screens belong in the
+lazy-loaded `libs/investment-simulator/web` project, which uses relative `/api`
+requests. The development server proxies
 those requests to `http://localhost:3000`; production hosting must route them
 to the independently deployed NestJS API.
 
@@ -367,6 +367,100 @@ Exception (2026-10-10): a calculation's tax explanation formulas (such as
 the values the domain recorded, so the screen shows them as they are. The
 projection only formats; the domain decides every value and the tax rules.
 
+## Mutable Premises And Asynchronous Recalculation
+
+Decision dated 2026-10-11: offers and index curves are deliberately mutable,
+simulations always reference them, and results are recalculated
+asynchronously when anything they depend on changes. This replaces the
+earlier immutable model (copied offer terms, immutable curves, and an
+append-only calculation history kept for reproducibility). Product rules are in
+`docs/product/investment-simulator-prd.md` and
+`docs/product/index-value-curves.md`.
+
+**Status:** decided, not implemented. The code still implements the earlier
+model: `Simulation` stores copied terms, `IndexCurve` is immutable,
+`SimulationCalculation` keeps every calculation, offers and curves have no
+owner, and no domain event is emitted or consumed. Implementation order:
+ownership and groups, revisioned offer conditions and curve scenarios,
+asynchronous recalculation, then the browser screens.
+
+### Model
+
+- Offers and curves are each a group plus members. The group is its own
+  aggregate holding the fields members share and cannot change (offer: title
+  type and issuer; curve: index, and through it the value convention), a name,
+  and an owner. Each member (offer condition, curve scenario) is a separate
+  aggregate holding the editable fields, its owner, and a `revision`. Editing a
+  member never touches its siblings, so only simulations that use that member
+  are recalculated.
+- Ownership is the Keycloak `sub` (`AuthenticatedUser.userId`); `null` means
+  system-owned. Users read their own content plus system content and change
+  only their own. System content is written by seed and import processes
+  through application use cases, never through HTTP. No application roles are
+  needed. A private member may belong to a system group (a user's duplicate),
+  so visibility is decided per member.
+- A simulation references one offer condition, an optional curve scenario, and
+  holds its investment (principal and investment date). Editing any of those
+  increments the simulation's own `revision`. A reference to a member that is
+  not visible to the simulation's owner is treated as not found.
+- `revision` starts at 1 and increments on every persisted change. Commands
+  that change a member or a simulation carry the revision the client edited;
+  a mismatch is a conflict, so concurrent edits (two tabs, a user and an
+  import job) never overwrite each other silently.
+- Every change to an offer, condition, curve, or scenario raises a past-tense
+  domain event carrying the new revision and the changed fields' previous and
+  new values, persisted through the transactional outbox (see
+  `$investflow-eventing`).
+
+### Recalculation
+
+A simulation has one current result. It stores what it was computed from: the
+simulation revision, the condition revision, the scenario revision, and the
+methodology version. The target is read from the current references, not
+copied, so it can never drift from them.
+
+| Status        | Meaning                                                                     |
+| ------------- | --------------------------------------------------------------------------- |
+| `PENDING`     | The target differs from the stored result and a calculation is queued.      |
+| `CALCULATING` | A worker claimed the calculation with a lease (`claimedUntil`).             |
+| `CALCULATED`  | The stored result matches the target.                                       |
+| `INVALID`     | A business rule blocks the target; the reason code and metadata are stored. |
+| `FAILED`      | A technical failure exhausted the queue's retries.                          |
+
+- **Requests validate synchronously, then calculate asynchronously.** Creating
+  or editing a simulation validates input and references in the request
+  (principal, business days, minimum term, index compatibility, visibility),
+  persists the simulation as `PENDING`, and raises an event in the same
+  transaction. Coverage is checked only by the calculation. Nothing is
+  calculated inside the request, so calculation cost is not bounded by request
+  timeouts.
+- **Fan-out.** Changing or deleting a condition or scenario marks every
+  simulation that references it `PENDING` and queues their calculations in
+  batches. A system scenario update can reach every user's simulations, so
+  fan-out must never load them all into one transaction.
+- **Calculation.** A consumer claims a `PENDING` simulation (or one whose lease
+  expired), calculates from current state, not from the event payload, and
+  writes the outcome.
+- **Monotonic writes.** An outcome is written only when its inputs are not
+  older than the stored ones: compare the simulation revision first, then the
+  condition and scenario revisions (at the same simulation revision the
+  references are the same members, so their revisions are comparable), then
+  the methodology version. Late, duplicate, or out-of-order deliveries
+  therefore cannot replace a newer result, and consumers stay idempotent.
+- **`INVALID` is scoped to its target.** It records the inputs it was decided
+  for; any change to the target returns the simulation to `PENDING`. A deleted
+  condition or scenario sets `INVALID` with its own reason code.
+- **Reconciliation.** A periodic sweep queues simulations whose stored inputs
+  differ from the target with no calculation queued or running, whose lease
+  expired, or that are `FAILED` past a cooldown. Events make recalculation
+  fast; the sweep guarantees it converges after lost events, crashed workers,
+  dead-lettered messages, and methodology version changes.
+- **Reads** return the last successful result together with the status and
+  the inputs it was computed from, so the screen can show "recalculating" or
+  "requires action" over the previous values. The browser refreshes while a
+  simulation is `PENDING` or `CALCULATING`; real-time push is future work.
+- A portfolio's status is derived from its simulations' statuses at read time.
+
 ## Persistence Mappers
 
 Persistence mappers convert ORM records into domain objects and domain objects
@@ -515,6 +609,26 @@ a year's weekends and holidays on every request.
     invalidate cached years instead of serving stale dates.
   - Tests cover cache hits, the headers, and invalidation on a rules version
     change.
+
+### Durable audit of premise changes (deferred 2026-10-11)
+
+Every change to an offer, condition, curve, or scenario raises a domain event
+with the new revision and the changed fields' previous and new values (see
+Mutable Premises And Asynchronous Recalculation).
+
+- **Today:** nothing emits these events yet. Once they exist, they reach only
+  the outbox, which is a delivery mechanism: its rows are published and may be
+  cleaned up, so it is not an audit trail.
+- **Why deferred:** audit is a low-priority requirement; the events carry
+  enough information to build it later without changing the aggregates.
+- **Done means:**
+  - Each change is kept in a durable audit store (an `audit_entry` row written
+    in the same transaction as the change, or by a dedicated consumer), with
+    the aggregate, revision, actor (user or system), instant, and changed
+    fields.
+  - Outbox cleanup cannot remove audit history.
+  - Users can read the history of the offers and curves they can see.
+  - Tests cover recording, ordering by revision, and visibility.
 
 ### Shared compute-once helper for in-call caches (deferred 2026-10-10)
 
