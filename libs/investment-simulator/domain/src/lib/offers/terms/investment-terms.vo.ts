@@ -5,7 +5,7 @@ import { RemunerationTerms } from './remuneration/remuneration-terms.vo';
 
 export interface InvestmentTermsProps {
   readonly titleType: ETitleType;
-  readonly issuerId: string | null;
+  readonly issuerName: string | null;
   readonly maturityDate: CalendarDate;
   readonly redemption: RedemptionTerms;
   readonly remuneration: RemunerationTerms;
@@ -24,8 +24,8 @@ export class InvestmentTerms extends ValueObject<InvestmentTerms> {
     return this.props.titleType;
   }
 
-  get issuerId(): string | null {
-    return this.props.issuerId;
+  get issuerName(): string | null {
+    return this.props.issuerName;
   }
 
   get maturityDate(): CalendarDate {
@@ -43,7 +43,7 @@ export class InvestmentTerms extends ValueObject<InvestmentTerms> {
   equals(other: InvestmentTerms): boolean {
     return (
       this.titleType === other.titleType &&
-      this.issuerId === other.issuerId &&
+      this.issuerName === other.issuerName &&
       this.maturityDate.equals(other.maturityDate) &&
       this.redemption.equals(other.redemption) &&
       this.remuneration.equals(other.remuneration)

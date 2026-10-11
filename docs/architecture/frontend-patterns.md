@@ -383,7 +383,7 @@ the latest one is the current state, earlier ones are its history.
   (stacked below 1024px), split into the offer form and the simulation form:
   - "Termos do título" (offer form): title type, hinted with its income-tax
     treatment and minimum term from the options query (the API enforces the
-    minimum term; the form does not repeat it), optional issuer ("Sem emissor"), remuneration
+    minimum term; the form does not repeat it), optional free-text issuer name (blank means "Sem emissor"), remuneration
     kind, rate in the kind's unit, maturity, liquidity. Editable on a new
     simulation; a saved simulation shows them read only, pointing to
     "Duplicar" for other terms. Changing the kind clears the rate and the
@@ -443,7 +443,7 @@ the latest one is the current state, earlier ones are its history.
   computed; the results panel also flags unsaved form edits. Older
   calculations are earlier versions, not stale ones.
 - Reads are screen-oriented (Backend for Frontend): `simulation-options`
-  (issuers, each remuneration kind with its index, curves and calculability,
+  (title types, each remuneration kind with its index, curves and calculability,
   and catalog offers flagged as calculable or not), `simulation-workspaces/:id`
   (the simulation's origin and terms, and every calculation summary with its
   investment and business days, newest first), and

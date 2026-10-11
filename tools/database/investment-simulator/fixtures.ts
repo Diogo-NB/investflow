@@ -1,12 +1,9 @@
 import type { Prisma } from '@prisma/client';
 
-export const issuer = {
-  name: 'Banco Local',
-} satisfies Prisma.InvestmentIssuerCreateInput;
-
 // The last business day of 2028, so offers calculate without edits.
 const offerDefaults = {
   maturityDate: new Date('2028-12-29T00:00:00.000Z'),
+  issuerName: 'Banco Local',
   deletedAt: null,
 } as const;
 
@@ -53,7 +50,7 @@ export const offers = [
     remunerationType: 'IPCA_PLUS',
     rateValue: '0.06',
   },
-] satisfies Omit<Prisma.InvestmentOfferUncheckedCreateInput, 'issuerId'>[];
+] satisfies Prisma.InvestmentOfferUncheckedCreateInput[];
 
 // Snapshot as of 2026-10-05; seeding never fetches market data.
 // Effective SELIC and DI: https://www.anbima.com.br/informacoes/indicadores/

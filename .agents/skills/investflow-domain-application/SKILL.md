@@ -32,7 +32,7 @@ placement, public contracts, or project boundaries.
 ## Feature-first organization
 
 - Use the same plural business-feature root across all bounded-context layers,
-  such as `offers` or `issuers`. Do not organize domain by technical type while
+  such as `offers` or `simulations`. Do not organize domain by technical type while
   application is organized by feature.
 - Keep a cohesive domain feature shallow under `domain/src/lib/<feature>`:
   co-locate its aggregate, entities, value objects, domain errors, and focused

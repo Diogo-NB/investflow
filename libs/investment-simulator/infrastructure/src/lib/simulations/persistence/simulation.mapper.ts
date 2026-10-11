@@ -18,7 +18,7 @@ export interface SimulationPersistenceData {
   readonly ownerId: string;
   readonly sourceOfferId: string | null;
   readonly titleType: InvestmentTitleType;
-  readonly issuerId: string | null;
+  readonly issuerName: string | null;
   readonly maturityDate: Date;
   readonly redemptionType: InvestmentRedemptionType;
   readonly remunerationType: InvestmentRemunerationType;
@@ -34,7 +34,7 @@ export class SimulationMapper {
       sourceOfferId: record.sourceOfferId,
       terms: InvestmentTerms.create({
         titleType: record.titleType as ETitleType,
-        issuerId: record.issuerId,
+        issuerName: record.issuerName,
         maturityDate: CalendarDate.fromUtcDate(record.maturityDate).value,
         redemption: RedemptionTerms.create(record.redemptionType),
         remuneration: RemunerationTerms.create(
@@ -55,7 +55,7 @@ export class SimulationMapper {
       ownerId: simulation.ownerId,
       sourceOfferId: simulation.sourceOfferId,
       titleType: terms.titleType,
-      issuerId: terms.issuerId,
+      issuerName: terms.issuerName,
       maturityDate: terms.maturityDate.toUtcDate(),
       redemptionType: terms.redemption.kind,
       remunerationType: terms.remuneration.kind,

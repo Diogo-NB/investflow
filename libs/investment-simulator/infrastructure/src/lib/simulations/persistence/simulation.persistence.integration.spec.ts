@@ -48,7 +48,7 @@ integration('Simulation PostgreSQL persistence', () => {
   let curves: PrismaIndexCurveRepository;
   let simulations: PrismaSimulationRepository;
   let calculations: PrismaSimulationCalculationRepository;
-  const issuerId = generateUuid();
+  const issuerName = `Integration Simulation Bank ${generateUuid()}`;
   const ownerId = `owner-${generateUuid()}`;
   // Other tests leave simulations without calculations, which the app never
   // creates, so the list is read for an owner of its own.
@@ -64,9 +64,6 @@ integration('Simulation PostgreSQL persistence', () => {
     curves = new PrismaIndexCurveRepository(prisma);
     simulations = new PrismaSimulationRepository(prisma);
     calculations = new PrismaSimulationCalculationRepository(prisma);
-    await prisma.client.investmentIssuer.create({
-      data: { id: issuerId, name: 'Integration Simulation Bank' },
-    });
   });
 
   afterAll(async () => {
@@ -79,14 +76,13 @@ integration('Simulation PostgreSQL persistence', () => {
         where: { simulation },
       });
       await prisma.client.simulation.deleteMany({ where: simulation });
-      await prisma.client.investmentOffer.deleteMany({ where: { issuerId } });
+      await prisma.client.investmentOffer.deleteMany({ where: { issuerName } });
       await prisma.client.indexCurveInterval.deleteMany({
         where: { curveId: { in: curveIds } },
       });
       await prisma.client.indexCurve.deleteMany({
         where: { id: { in: curveIds } },
       });
-      await prisma.client.investmentIssuer.delete({ where: { id: issuerId } });
     } finally {
       await prisma.onModuleDestroy();
     }
@@ -113,7 +109,7 @@ integration('Simulation PostgreSQL persistence', () => {
     curveIds.push(curve.id);
     const offer = Offer.create({
       titleType: ETitleType.CDB,
-      issuerId,
+      issuerName,
       maturityDate: CalendarDate.of('2027-01-04'),
       redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
       remunerationTerms: RemunerationTerms.create(
@@ -123,7 +119,7 @@ integration('Simulation PostgreSQL persistence', () => {
     });
     const terms = InvestmentTerms.create({
       titleType,
-      issuerId,
+      issuerName,
       maturityDate: CalendarDate.of('2027-01-04'),
       redemption: RedemptionTerms.create('AT_MATURITY'),
       remuneration: RemunerationTerms.create('CDI_PERCENTAGE', Rate.of('1.05')),
@@ -303,7 +299,7 @@ integration('Simulation PostgreSQL persistence', () => {
       fromCatalogOffer: true,
       terms: {
         titleType: 'CDB',
-        issuer: { id: issuerId, name: 'Integration Simulation Bank' },
+        issuerName,
         maturityDate: '2027-01-04',
         redemptionTerms: { kind: 'AT_MATURITY' },
         remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
@@ -331,7 +327,7 @@ integration('Simulation PostgreSQL persistence', () => {
       listed.value.items.find((item) => item.id === saved.simulation.id),
     ).toMatchObject({
       fromCatalogOffer: true,
-      issuerName: 'Integration Simulation Bank',
+      issuerName,
       maturityDate: '2027-01-04',
       principal: '20000',
       latestCalculation: {

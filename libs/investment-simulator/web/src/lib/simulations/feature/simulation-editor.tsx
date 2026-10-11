@@ -65,7 +65,7 @@ function SimulationHeading({
         className="m-0 text-xl leading-tight font-semibold sm:text-2xl"
       >
         {[
-          terms.issuer?.name,
+          terms.issuerName,
           `${terms.titleType} ${remunerationLabel(terms.remunerationTerms)}`,
         ]
           .filter(Boolean)

@@ -57,8 +57,8 @@ describe('Simulation', () => {
         .code,
     ).toBe(EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID);
     expect(
-      start({ investment: investment({ investmentDate: '2026-01-03' }) })
-        .error.code,
+      start({ investment: investment({ investmentDate: '2026-01-03' }) }).error
+        .code,
     ).toBe(EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY);
   });
 
@@ -92,9 +92,9 @@ describe('Simulation', () => {
     });
 
     expect(started.value.calculation.investment.indexCurveId).toBe(curve.id);
-    expect(
-      start({ kind: 'CDI_PERCENTAGE' }).error.code,
-    ).toBe(EAppErrorCode.INVESTMENT_CURVE_REQUIRED);
+    expect(start({ kind: 'CDI_PERCENTAGE' }).error.code).toBe(
+      EAppErrorCode.INVESTMENT_CURVE_REQUIRED,
+    );
   });
 
   it('refuses a curve other than the referenced one', () => {
@@ -143,7 +143,7 @@ describe('Simulation', () => {
     });
 
     expect(simulation.id).toBe('simulation-id');
-    expect(simulation.terms.issuerId).toBeNull();
+    expect(simulation.terms.issuerName).toBeNull();
     expect(simulation.deletedAt).toBe(CALCULATED_AT);
   });
 });

@@ -44,7 +44,7 @@ export interface RemunerationOption {
 export interface OfferOption {
   readonly id: string;
   readonly titleType: TitleType;
-  readonly issuer: { readonly id: string; readonly name: string } | null;
+  readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };
   readonly remunerationTerms: RemunerationTerms;
@@ -79,7 +79,6 @@ export interface TitleTypeOption {
 
 export interface SimulationOptions {
   readonly titleTypes: readonly TitleTypeOption[];
-  readonly issuers: readonly { readonly id: string; readonly name: string }[];
   readonly remunerations: readonly RemunerationOption[];
   readonly offers: readonly OfferOption[];
   readonly taxRules: TaxRules;
@@ -128,7 +127,7 @@ export interface CalculationTaxes {
 
 export interface SimulationTerms {
   readonly titleType: TitleType;
-  readonly issuer: { readonly id: string; readonly name: string } | null;
+  readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };
   readonly remunerationTerms: RemunerationTerms;
@@ -171,7 +170,7 @@ export interface MonthlyBalance {
 
 export interface SimulationTermsInput {
   readonly titleType: TitleType;
-  readonly issuerId: string | null;
+  readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: RedemptionKind };
   readonly remunerationTerms: RemunerationTerms;

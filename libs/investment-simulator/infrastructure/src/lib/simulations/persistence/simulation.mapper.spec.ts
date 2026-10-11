@@ -6,7 +6,7 @@ const record = {
   ownerId: 'owner-id',
   sourceOfferId: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
   titleType: 'CDB' as const,
-  issuerId: null,
+  issuerName: null,
   maturityDate: new Date('2028-01-03T00:00:00.000Z'),
   redemptionType: 'DAILY' as const,
   remunerationType: 'CDI_PERCENTAGE' as const,
@@ -20,7 +20,7 @@ describe('SimulationMapper', () => {
   it('round-trips every stored field, including terms without an issuer', () => {
     const simulation = SimulationMapper.toDomain(record);
 
-    expect(simulation.terms.issuerId).toBeNull();
+    expect(simulation.terms.issuerName).toBeNull();
     expect(simulation.terms.maturityDate.toIsoString()).toBe('2028-01-03');
     expect(simulation.deletedAt?.toISOString()).toBe(
       '2026-10-11T12:00:00.000Z',
@@ -30,7 +30,7 @@ describe('SimulationMapper', () => {
       ownerId: record.ownerId,
       sourceOfferId: record.sourceOfferId,
       titleType: 'CDB',
-      issuerId: null,
+      issuerName: null,
       maturityDate: record.maturityDate,
       redemptionType: 'DAILY',
       remunerationType: 'CDI_PERCENTAGE',

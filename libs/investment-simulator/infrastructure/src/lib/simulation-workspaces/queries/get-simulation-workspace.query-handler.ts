@@ -18,7 +18,7 @@ export interface GetSimulationWorkspaceQuery {
 
 export interface SimulationTermsOutput {
   readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly issuer: { readonly id: string; readonly name: string } | null;
+  readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
   readonly remunerationTerms: {
@@ -136,7 +136,7 @@ const workspaceSelect = {
   id: true,
   sourceOfferId: true,
   titleType: true,
-  issuer: { select: { id: true, name: true } },
+  issuerName: true,
   maturityDate: true,
   redemptionType: true,
   remunerationType: true,
@@ -192,7 +192,7 @@ export class GetSimulationWorkspaceQueryHandler
         fromCatalogOffer: record.sourceOfferId !== null,
         terms: {
           titleType: record.titleType,
-          issuer: record.issuer,
+          issuerName: record.issuerName,
           maturityDate: CalendarDate.fromUtcDate(
             record.maturityDate,
           ).value.toIsoString(),

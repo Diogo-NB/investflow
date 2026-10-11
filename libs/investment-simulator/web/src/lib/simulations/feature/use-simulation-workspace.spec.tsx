@@ -16,7 +16,7 @@ const values: SimulationFormValues = {
   principal: '10.000',
   investmentDate: '2026-01-02',
   titleType: 'LCI',
-  issuerId: 'issuer',
+  issuerName: 'Banco Local',
   remunerationKind: 'CDI_PERCENTAGE',
   rate: '105',
   maturityDate: '2026-03-02',
@@ -73,7 +73,7 @@ describe('useSimulationWorkspace', () => {
     expect(setup.status === 'ready' && setup.calculations).toEqual([]);
     expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
       titleType: 'CDB',
-      issuerId: '',
+      issuerName: '',
       indexCurveId: 'cdi',
       investmentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     });
@@ -119,7 +119,7 @@ describe('useSimulationWorkspace', () => {
       {
         terms: {
           titleType: 'LCI',
-          issuerId: 'issuer',
+          issuerName: 'Banco Local',
           maturityDate: '2026-03-02',
           redemptionTerms: { kind: 'DAILY' },
           remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },

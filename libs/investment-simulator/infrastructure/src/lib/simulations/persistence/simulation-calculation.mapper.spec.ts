@@ -27,7 +27,7 @@ function recordedCalculation(
     sourceOfferId: null,
     terms: InvestmentTerms.create({
       titleType,
-      issuerId: null,
+      issuerName: null,
       maturityDate: CalendarDate.of(maturityDate),
       redemption: RedemptionTerms.create('DAILY'),
       remuneration: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),

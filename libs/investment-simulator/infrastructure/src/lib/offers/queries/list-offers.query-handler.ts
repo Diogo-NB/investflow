@@ -16,7 +16,7 @@ export interface ListOffersQuery {
 export interface OfferListItem {
   readonly id: string;
   readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly issuer: { readonly id: string; readonly name: string } | null;
+  readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
   readonly remunerationTerms: {
@@ -34,7 +34,7 @@ export type ListOffersOutput = PaginatedResult<OfferListItem>;
 const offerSelect = {
   id: true,
   titleType: true,
-  issuer: { select: { id: true, name: true } },
+  issuerName: true,
   maturityDate: true,
   redemptionType: true,
   remunerationType: true,
@@ -60,7 +60,7 @@ export class ListOffersQueryHandler
           deletedAt: null,
           ...(query.titleType ? { titleType: query.titleType } : {}),
           ...(query.q
-            ? { issuer: { name: { contains: query.q, mode: 'insensitive' } } }
+            ? { issuerName: { contains: query.q, mode: 'insensitive' } }
             : {}),
         };
         const [records, total] = await Promise.all([
@@ -88,7 +88,7 @@ export class ListOffersQueryHandler
     return {
       id: record.id,
       titleType: record.titleType,
-      issuer: record.issuer,
+      issuerName: record.issuerName,
       maturityDate: CalendarDate.fromUtcDate(
         record.maturityDate,
       ).value.toIsoString(),

@@ -32,8 +32,8 @@ export interface SimulationFormValues {
   principal: string;
   investmentDate: string;
   titleType: TitleType;
-  // Empty when the terms have no issuer.
-  issuerId: string;
+  // Blank when the terms have no issuer.
+  issuerName: string;
   remunerationKind: RemunerationKind;
   // Percentage in the kind's unit: "110" (% do CDI) or "12,5" (% a.a.).
   rate: string;
@@ -91,7 +91,7 @@ export function simulationFormSchema(
       }, 'Valor grande demais.'),
       investmentDate: requiredDate,
       titleType: z.enum(['CDB', 'LCI', 'LCA']),
-      issuerId: z.string(),
+      issuerName: z.string().max(100, 'Use até 100 caracteres.'),
       remunerationKind: z.enum([
         'PREFIXED',
         'CDI_PERCENTAGE',
@@ -153,7 +153,7 @@ export function toSimulationInput(
     ...(values.offerId ? { offerId: values.offerId } : {}),
     terms: {
       titleType: values.titleType,
-      issuerId: values.issuerId || null,
+      issuerName: values.issuerName.trim() || null,
       maturityDate: values.maturityDate,
       redemptionTerms: { kind: values.redemptionKind },
       remunerationTerms: {
@@ -187,7 +187,7 @@ export function blankSimulationValues(
     principal: '',
     investmentDate: today,
     titleType: 'CDB',
-    issuerId: '',
+    issuerName: '',
     remunerationKind: 'CDI_PERCENTAGE',
     rate: '',
     maturityDate: '',
@@ -205,7 +205,7 @@ export function simulationValues(
     principal: toBrazilianInput(investment.principal),
     investmentDate: investment.investmentDate,
     titleType: terms.titleType,
-    issuerId: terms.issuer?.id ?? '',
+    issuerName: terms.issuerName ?? '',
     remunerationKind: terms.remunerationTerms.kind,
     rate: toBrazilianInput(shiftDecimal(terms.remunerationTerms.rate, 2)),
     maturityDate: terms.maturityDate,
@@ -222,7 +222,7 @@ export function offerTermValues(
 ): Pick<
   SimulationFormValues,
   | 'titleType'
-  | 'issuerId'
+  | 'issuerName'
   | 'remunerationKind'
   | 'rate'
   | 'maturityDate'
@@ -235,7 +235,7 @@ export function offerTermValues(
   ).some((curve) => curve.id === current.indexCurveId);
   return {
     titleType: offer.titleType,
-    issuerId: offer.issuer?.id ?? '',
+    issuerName: offer.issuerName ?? '',
     remunerationKind: kind,
     rate: toBrazilianInput(shiftDecimal(offer.remunerationTerms.rate, 2)),
     maturityDate: offer.maturityDate,
@@ -253,7 +253,7 @@ export function differsFromOffer(
   const rate = parseBrazilianDecimal(values.rate);
   return (
     values.titleType !== offer.titleType ||
-    values.issuerId !== (offer.issuer?.id ?? '') ||
+    values.issuerName.trim() !== (offer.issuerName ?? '') ||
     values.remunerationKind !== offer.remunerationTerms.kind ||
     rate === null ||
     shiftDecimal(rate, -2) !== shiftDecimal(offer.remunerationTerms.rate, 0) ||

@@ -30,21 +30,10 @@ enum InvestmentRemunerationType {
   @@map("investment_remuneration_type")
 }
 
-model InvestmentIssuer {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String
-  offers      InvestmentOffer[]
-  simulations Simulation[]
-  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
-
-  @@map("investment_issuer")
-}
-
 model InvestmentOffer {
   id               String                     @id @default(uuid()) @db.Uuid
   titleType        InvestmentTitleType        @map("title_type")
-  issuerId         String?                    @map("issuer_id") @db.Uuid
+  issuerName       String?                    @map("issuer_name")
   maturityDate     DateTime                   @map("maturity_date") @db.Date
   redemptionType   InvestmentRedemptionType   @map("redemption_type")
   remunerationType InvestmentRemunerationType @map("remuneration_type")
@@ -52,10 +41,8 @@ model InvestmentOffer {
   deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  issuer           InvestmentIssuer?          @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   simulations      Simulation[]
 
-  @@index([issuerId])
   @@map("investment_offer")
 }
 
@@ -65,7 +52,7 @@ model Simulation {
   // The catalog offer the terms were filled from; null for typed terms.
   sourceOfferId    String?                    @map("source_offer_id") @db.Uuid
   titleType        InvestmentTitleType        @map("title_type")
-  issuerId         String?                    @map("issuer_id") @db.Uuid
+  issuerName       String?                    @map("issuer_name")
   maturityDate     DateTime                   @map("maturity_date") @db.Date
   redemptionType   InvestmentRedemptionType   @map("redemption_type")
   remunerationType InvestmentRemunerationType @map("remuneration_type")
@@ -74,7 +61,6 @@ model Simulation {
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
   sourceOffer      InvestmentOffer?           @relation(fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  issuer           InvestmentIssuer?          @relation(fields: [issuerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   calculations     SimulationCalculation[]
 
   @@index([ownerId])

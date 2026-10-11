@@ -6,7 +6,6 @@ import {
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
-import { IssuerRepository } from '../../issuers/issuer.repository';
 import { OfferRepository } from '../../offers/offer.repository';
 import { SimulationCalculationRepository } from '../simulation-calculation.repository';
 import { SimulationRepository } from '../simulation.repository';
@@ -22,7 +21,6 @@ export class StartSimulationUseCase
     private readonly simulationRepository: SimulationRepository,
     private readonly calculationRepository: SimulationCalculationRepository,
     private readonly offerRepository: OfferRepository,
-    private readonly issuerRepository: IssuerRepository,
     private readonly indexCurveRepository: IndexCurveRepository,
     private readonly calculator: InvestmentCalculator,
     private readonly clock: Clock,
@@ -35,11 +33,6 @@ export class StartSimulationUseCase
     if (command.sourceOfferId) {
       const offer = await this.offerRepository.findById(command.sourceOfferId);
       if (offer.isErr()) return offer;
-    }
-    const { issuerId } = command.terms;
-    if (issuerId) {
-      const issuer = await this.issuerRepository.findById(issuerId);
-      if (issuer.isErr()) return issuer;
     }
     const { indexCurveId } = command.investment;
     const curve = indexCurveId

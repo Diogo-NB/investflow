@@ -9,7 +9,7 @@ Consumers import its public API through
 `@investflow/investment-simulator-domain`.
 
 Source is organized by plural business feature. Cohesive domain types stay
-shallow within `src/lib/offers`, `src/lib/issuers`, `src/lib/simulations`,
+shallow within `src/lib/offers`, `src/lib/simulations`,
 and `src/lib/calculations` instead of being split across global aggregate,
 value-object, and error folders. Simulations own the user's simulations and
 their recorded calculations; calculations own the calculation scenario, the
@@ -17,9 +17,9 @@ calculator domain service, taxes, and calculation results.
 
 ## Offer catalog
 
-`Issuer` identifies the institution that issues an investment. `Offer` stores
-the contractual conditions available before an application: title type,
-issuer, maturity, redemption, remuneration, and optional soft deletion.
+`Offer` stores the contractual conditions available before an application:
+title type, optional issuer name, maturity, redemption, remuneration, and
+optional soft deletion. The issuer is a plain name, not a separate aggregate.
 
 The catalog model is prepared for CDB, LCI, and LCA titles and for prefixed,
 CDI percentage, Selic percentage, and IPCA-plus remuneration. `RemunerationTerms`
@@ -52,7 +52,7 @@ from lookups and report them as not found.
 ## Simulation inputs
 
 `InvestmentTerms` holds the contractual terms of the title being simulated (title
-type, optional issuer ID, maturity, redemption, and remuneration) by value,
+type, optional issuer name, maturity, redemption, and remuneration) by value,
 independent of the offer catalog. Filling the terms from a catalog offer copies
 them, so later catalog edits or deletions never change a simulation.
 

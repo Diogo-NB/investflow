@@ -5,7 +5,7 @@ import {
 } from '@investflow/shared-domain';
 import { CreateOfferCommand } from './create-offer.command';
 
-const ISSUER_ID = '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e';
+const ISSUER_NAME = 'Banco Local';
 
 describe('CreateOfferCommand', () => {
   it.each([
@@ -16,7 +16,7 @@ describe('CreateOfferCommand', () => {
   ])('creates $kind terms from a request', (remunerationTerms) => {
     const command = CreateOfferCommand.fromRequest({
       titleType: ETitleType.CDB,
-      issuerId: ISSUER_ID,
+      issuerName: ISSUER_NAME,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'AT_MATURITY' },
       remunerationTerms,
@@ -33,7 +33,7 @@ describe('CreateOfferCommand', () => {
   it('preserves decimal precision', () => {
     const command = CreateOfferCommand.fromRequest({
       titleType: ETitleType.LCI,
-      issuerId: ISSUER_ID,
+      issuerName: ISSUER_NAME,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'DAILY' },
       remunerationTerms: {
@@ -52,7 +52,7 @@ describe('CreateOfferCommand', () => {
     expect(() =>
       CreateOfferCommand.fromRequest({
         titleType: ETitleType.LCA,
-        issuerId: ISSUER_ID,
+        issuerName: ISSUER_NAME,
         maturityDate: 'not-a-date',
         redemptionTerms: { kind: 'DAILY' },
         remunerationTerms: { kind: 'PREFIXED', rate: '12' },
@@ -62,7 +62,7 @@ describe('CreateOfferCommand', () => {
     expect(() =>
       CreateOfferCommand.fromRequest({
         titleType: ETitleType.LCA,
-        issuerId: ISSUER_ID,
+        issuerName: ISSUER_NAME,
         maturityDate: '2030-05-20',
         redemptionTerms: { kind: 'DAILY' },
         remunerationTerms: { kind: 'PREFIXED', rate: 'invalid' },

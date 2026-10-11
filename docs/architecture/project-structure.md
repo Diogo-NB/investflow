@@ -128,7 +128,7 @@ not pulled into the API artifact.
 ## Folder Taxonomy
 
 Organize every bounded-context layer feature-first. The first directory below
-`src/lib` is a stable, plural business feature such as `offers` or `issuers`.
+`src/lib` is a stable, plural business feature such as `offers` or `simulations`.
 Do not make one layer type-first while adjacent layers are feature-first.
 
 Each layer applies its own structure below that common feature root:
@@ -348,7 +348,7 @@ In practice:
 - Keep outputs plain data under the usual contract rules: ISO dates, exact
   decimal strings, stable codes, and enums.
 - This applies to reads. Commands and use cases stay shaped by the domain.
-  Generic lookups (for example, the issuer list) remain fine when a screen
+  Generic lookups (for example, the offer list) remain fine when a screen
   uses them as they are; add a screen query when the screen needs shaping or
   composition.
 
@@ -527,7 +527,7 @@ More calculators and curve conversions are expected to need the same pattern.
 - **Why deferred:** one call site does not justify a shared utility yet.
 - **Done means:**
   - `@investflow/shared-domain` exports a `getOrInsertComputed(map, key,
-    compute)` function in a capability folder (such as `collections/`),
+compute)` function in a capability folder (such as `collections/`),
     shaped like the TC39 `Map.prototype.getOrInsertComputed` proposal so it
     can be replaced by the native method once Node ships it.
   - The caller keeps owning the map, its lifetime (one calculation, never a

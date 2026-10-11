@@ -13,7 +13,13 @@ import { BusinessDateField } from '../../business-calendar/business-date-field';
 import { DecimalInput } from '../../ui/decimal-input';
 import { FormField } from '../../ui/form-field';
 import { SelectField, type SelectOption } from '../../ui/select-field';
-import { primaryButton, quietButton, surface } from '../../ui/styles';
+import {
+  bareInput,
+  fieldBox,
+  primaryButton,
+  quietButton,
+  surface,
+} from '../../ui/styles';
 import type {
   OfferOption,
   SimulationOptions,
@@ -29,7 +35,6 @@ const REDEMPTION_OPTIONS: SelectOption[] = (
 ).map((kind) => ({ value: kind, label: REDEMPTION_LABELS[kind] }));
 
 const NO_OFFER = 'none';
-const NO_ISSUER = 'none';
 
 const legendClass =
   'float-left mb-4 w-full p-0 text-sm font-semibold tracking-wide text-muted uppercase';
@@ -53,7 +58,7 @@ function offerOption(offer: OfferOption): SelectOption {
   return {
     value: offer.id,
     label: [
-      offer.issuer?.name,
+      offer.issuerName,
       `${offer.titleType} ${remunerationLabel(offer.remunerationTerms)}`,
     ]
       .filter(Boolean)
@@ -180,37 +185,21 @@ function TermsFieldset({
           </FormField>
         )}
       />
-      <Controller
-        control={form.control}
-        name="issuerId"
-        render={({ field, fieldState }) => (
-          <FormField
-            label="Emissor (opcional)"
-            error={fieldState.error?.message}
-          >
-            {(control) => (
-              <SelectField
-                {...control}
-                ref={field.ref}
-                value={field.value || NO_ISSUER}
-                placeholder="Sem emissor"
-                disabled={pending}
-                options={[
-                  { value: NO_ISSUER, label: 'Sem emissor' },
-                  ...options.issuers.map(({ id, name }) => ({
-                    value: id,
-                    label: name,
-                  })),
-                ]}
-                onValueChange={(value) =>
-                  field.onChange(value === NO_ISSUER ? '' : value)
-                }
-                onBlur={field.onBlur}
-              />
-            )}
-          </FormField>
+      <FormField label="Emissor (opcional)" error={errors.issuerName?.message}>
+        {(control) => (
+          <div className={fieldBox}>
+            <input
+              {...control}
+              {...form.register('issuerName')}
+              type="text"
+              maxLength={100}
+              placeholder="Sem emissor"
+              disabled={pending}
+              className={bareInput}
+            />
+          </div>
         )}
-      />
+      </FormField>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <Controller
           control={form.control}
@@ -294,7 +283,7 @@ function TermsFieldset({
 
 function TermsSummary({ terms }: { readonly terms: SimulationTerms }) {
   const rows: [string, string][] = [
-    ['Emissor', terms.issuer?.name ?? 'Sem emissor'],
+    ['Emissor', terms.issuerName ?? 'Sem emissor'],
     [
       'Remuneração',
       `${terms.titleType} ${remunerationLabel(terms.remunerationTerms)}`,

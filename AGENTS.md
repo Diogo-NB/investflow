@@ -69,7 +69,7 @@ frontend testing policy.
   `docs/architecture/project-structure.md`; check it before touching an area
   it names, and remove an item when it ships.
 - Organize bounded-context source feature-first in every layer. Use plural
-  feature roots such as `offers` and `issuers`, then apply layer-specific
+  feature roots such as `offers` and `simulations`, then apply layer-specific
   structure below them: shallow domain models, application operation slices,
   and infrastructure boundary folders such as `http` and `persistence`.
 - Organize shared projects capability-first by the same rule. Use cohesive

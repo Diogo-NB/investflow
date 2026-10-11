@@ -20,7 +20,7 @@ import {
 
 const offer = {
   ...selicOffer,
-  issuer: { id: 'issuer', name: 'Banco Local' },
+  issuerName: 'Banco Local',
   redemptionTerms: { kind: 'DAILY' as const },
   remunerationTerms: { kind: 'CDI_PERCENTAGE' as const, rate: '1.10' },
 };
@@ -30,7 +30,7 @@ const valid: SimulationFormValues = {
   principal: '10.000,50',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
-  issuerId: 'issuer',
+  issuerName: 'Banco Local',
   remunerationKind: 'CDI_PERCENTAGE',
   rate: '110',
   maturityDate: '2026-03-02',
@@ -53,7 +53,7 @@ describe('simulation form', () => {
     expect(toSimulationInput(valid)).toEqual({
       terms: {
         titleType: 'CDB',
-        issuerId: 'issuer',
+        issuerName: 'Banco Local',
         maturityDate: '2026-03-02',
         redemptionTerms: { kind: 'DAILY' },
         remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
@@ -90,10 +90,17 @@ describe('simulation form', () => {
   });
 
   it('sends terms without an issuer', () => {
-    expect(errors({ ...valid, issuerId: '' })).toEqual({});
-    expect(toSimulationInput({ ...valid, issuerId: '' }).terms.issuerId).toBe(
-      null,
-    );
+    expect(errors({ ...valid, issuerName: '  ' })).toEqual({});
+    expect(
+      toSimulationInput({ ...valid, issuerName: '  ' }).terms.issuerName,
+    ).toBeNull();
+  });
+
+  it('sends the trimmed issuer name', () => {
+    expect(
+      toSimulationInput({ ...valid, issuerName: ' Banco Local ' }).terms
+        .issuerName,
+    ).toBe('Banco Local');
   });
 
   it('explains every invalid input in Portuguese', () => {
@@ -125,7 +132,7 @@ describe('simulation form', () => {
     expect(blankSimulationValues('2026-10-10', options)).toMatchObject({
       investmentDate: '2026-10-10',
       titleType: 'CDB',
-      issuerId: '',
+      issuerName: '',
       remunerationKind: 'CDI_PERCENTAGE',
       redemptionKind: 'AT_MATURITY',
       indexCurveId: 'cdi',
@@ -153,7 +160,7 @@ describe('simulation form', () => {
     };
     expect(filled).toMatchObject({
       titleType: 'CDB',
-      issuerId: 'issuer',
+      issuerName: 'Banco Local',
       rate: '110',
       maturityDate: '2028-12-29',
       indexCurveId: 'cdi',

@@ -34,7 +34,7 @@ module composition, host responsibilities, or library boundaries.
 ## Feature-first organization
 
 - Use the same plural business-feature root as domain and application, such as
-  `offers` or `issuers`.
+  `offers` or `simulations`.
 - Group adapters by boundary below that feature:
   `infrastructure/src/lib/<feature>/http` owns controllers, request DTOs, HTTP
   validators, and presenters; `<feature>/persistence` owns repositories and

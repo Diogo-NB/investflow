@@ -14,8 +14,6 @@ import {
 } from '@investflow/shared-domain';
 import { IndexCurveNotFoundError } from '../../index-curves/index-curve-not-found.error';
 import { IndexCurveRepository } from '../../index-curves/index-curve.repository';
-import { IssuerNotFoundError } from '../../issuers/issuer-not-found.error';
-import { IssuerRepository } from '../../issuers/issuer.repository';
 import { OfferNotFoundError } from '../../offers/offer-not-found.error';
 import { OfferRepository } from '../../offers/offer.repository';
 import { SimulationCalculationRepository } from '../simulation-calculation.repository';
@@ -24,7 +22,6 @@ import {
   catalogOffer,
   cdiCurve,
   investmentRequest,
-  issuer,
   OWNER_ID,
   termsRequest,
 } from '../shared/simulation-fixture';
@@ -46,10 +43,6 @@ function setup() {
     findById: jest.fn().mockResolvedValue(Result.ok(catalogOffer())),
     save: jest.fn(),
   } as unknown as jest.Mocked<OfferRepository>;
-  const issuers = {
-    findById: jest.fn().mockResolvedValue(Result.ok(issuer())),
-    save: jest.fn(),
-  } as unknown as jest.Mocked<IssuerRepository>;
   const curves = {
     findById: jest.fn(),
     save: jest.fn(),
@@ -59,12 +52,11 @@ function setup() {
     simulations,
     calculations,
     offers,
-    issuers,
     curves,
     new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
     clock,
   );
-  return { simulations, calculations, offers, issuers, curves, useCase };
+  return { simulations, calculations, offers, curves, useCase };
 }
 
 function command(
@@ -85,7 +77,7 @@ describe('StartSimulationCommand', () => {
       offerId: 'offer-id',
       terms: termsRequest({
         titleType: ETitleType.LCI,
-        issuerId: undefined,
+        issuerName: undefined,
         remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
       }),
       investment: investmentRequest({ indexCurveId: 'curve-id' }),
@@ -93,7 +85,7 @@ describe('StartSimulationCommand', () => {
 
     expect(started.sourceOfferId).toBe('offer-id');
     expect(started.terms.titleType).toBe(ETitleType.LCI);
-    expect(started.terms.issuerId).toBeNull();
+    expect(started.terms.issuerName).toBeNull();
     expect(started.terms.maturityDate.toIsoString()).toBe('2030-01-02');
     expect(started.terms.remuneration.kind).toBe('CDI_PERCENTAGE');
     expect(started.investment.principal.equals(Money.of('1000'))).toBe(true);
@@ -112,7 +104,7 @@ describe('StartSimulationUseCase', () => {
       .calls[0][0] as SimulationCalculation;
     expect(simulation.ownerId).toBe(OWNER_ID);
     expect(simulation.sourceOfferId).toBe('offer-id');
-    expect(simulation.terms.issuerId).toBe('issuer-id');
+    expect(simulation.terms.issuerName).toBe('Banco Local');
     expect(calculation.simulationId).toBe(simulation.id);
     expect(calculation.calculatedAt).toBe(NOW);
     expect(result.value).toEqual({
@@ -122,17 +114,16 @@ describe('StartSimulationUseCase', () => {
   });
 
   it('starts without an issuer or a source offer', async () => {
-    const { offers, issuers, simulations, useCase } = setup();
+    const { offers, simulations, useCase } = setup();
 
     const result = await useCase.execute(
-      command({ terms: termsRequest({ issuerId: null }) }),
+      command({ terms: termsRequest({ issuerName: null }) }),
     );
 
     expect(result.isOk()).toBe(true);
     expect(offers.findById).not.toHaveBeenCalled();
-    expect(issuers.findById).not.toHaveBeenCalled();
     expect(
-      (simulations.save.mock.calls[0][0] as Simulation).terms.issuerId,
+      (simulations.save.mock.calls[0][0] as Simulation).terms.issuerName,
     ).toBeNull();
   });
 
@@ -198,14 +189,6 @@ describe('StartSimulationUseCase', () => {
           Result.err(new OfferNotFoundError('offer-id')),
         ),
       EAppErrorCode.OFFER_NOT_FOUND,
-    ],
-    [
-      'issuer',
-      (deps: ReturnType<typeof setup>) =>
-        deps.issuers.findById.mockResolvedValue(
-          Result.err(new IssuerNotFoundError('issuer-id')),
-        ),
-      EAppErrorCode.ISSUER_NOT_FOUND,
     ],
     [
       'curve',

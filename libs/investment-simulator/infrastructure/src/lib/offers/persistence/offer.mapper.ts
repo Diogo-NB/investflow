@@ -15,7 +15,7 @@ import {
 export interface OfferPersistenceData {
   readonly id: string;
   readonly titleType: InvestmentTitleType;
-  readonly issuerId: string | null;
+  readonly issuerName: string | null;
   readonly maturityDate: Date;
   readonly redemptionType: InvestmentRedemptionType;
   readonly remunerationType: InvestmentRemunerationType;
@@ -28,7 +28,7 @@ export class OfferMapper {
     return Offer.reconstitute({
       id: record.id,
       titleType: record.titleType as ETitleType,
-      issuerId: record.issuerId,
+      issuerName: record.issuerName,
       maturityDate: CalendarDate.fromUtcDate(record.maturityDate).value,
       redemptionTerms: RedemptionTerms.create(record.redemptionType),
       remunerationTerms: RemunerationTerms.create(
@@ -45,7 +45,7 @@ export class OfferMapper {
     return {
       id: offer.id,
       titleType: offer.titleType,
-      issuerId: offer.issuerId,
+      issuerName: offer.issuerName,
       maturityDate: offer.maturityDate.toUtcDate(),
       redemptionType: offer.redemptionTerms.kind,
       remunerationType: offer.remunerationTerms.kind,

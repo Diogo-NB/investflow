@@ -15,7 +15,7 @@ import {
 import { OfferMapper } from './offer.mapper';
 
 const ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
-const ISSUER_ID = '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e';
+const ISSUER_NAME = 'Banco Local';
 
 function persistenceRecord(
   overrides: Partial<InvestmentOffer> = {},
@@ -23,7 +23,7 @@ function persistenceRecord(
   return {
     id: ID,
     titleType: InvestmentTitleType.CDB,
-    issuerId: ISSUER_ID,
+    issuerName: ISSUER_NAME,
     maturityDate: new Date('2030-05-20T00:00:00.000Z'),
     redemptionType: InvestmentRedemptionType.AT_MATURITY,
     remunerationType: InvestmentRemunerationType.PREFIXED,
@@ -98,7 +98,7 @@ describe('OfferMapper', () => {
     const offer = Offer.reconstitute({
       id: ID,
       titleType: ETitleType.CDB,
-      issuerId: ISSUER_ID,
+      issuerName: ISSUER_NAME,
       maturityDate: CalendarDate.of('2030-05-20'),
       redemptionTerms: RedemptionTerms.create('DAILY'),
       remunerationTerms: RemunerationTerms.create(

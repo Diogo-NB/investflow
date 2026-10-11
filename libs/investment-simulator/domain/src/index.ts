@@ -5,7 +5,6 @@ export * from './lib/index-curves/index-value.vo';
 export * from './lib/index-curves/index-curve-interval.vo';
 export * from './lib/index-curves/index-curve.error';
 export * from './lib/index-curves/index-curve.aggregate';
-export * from './lib/issuers/issuer.aggregate';
 export * from './lib/offers/offer.aggregate';
 export * from './lib/calculations/investment-calculation.error';
 export * from './lib/calculations/investment-calculation.type';

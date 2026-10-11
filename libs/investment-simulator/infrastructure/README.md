@@ -27,7 +27,6 @@ authenticated clients; there is no per-user offer ownership or new role model.
 | ------ | -------------------------------------- | ---------------------------------- |
 | GET    | `/offers`                              | `{ items, total, page, pageSize }` |
 | GET    | `/offers/:offerId`                     | Offer details                      |
-| GET    | `/issuers`                             | `{ id, name }[]`                   |
 | POST   | `/offers`                              | 201 `{ id }`                       |
 | PATCH  | `/offers/:offerId`                     | 204, no body                       |
 | DELETE | `/offers/:offerId`                     | 204, no body                       |
@@ -38,7 +37,6 @@ List accepts `page` (default 1), `pageSize` (default 20, maximum 100), `q`
 to keep database offsets within the signed integer range for every allowed page
 size. Invalid query/UUID input returns 400. An out-of-range valid page returns an
 empty array and the matching total. Sort is maturity ascending, then ID ascending.
-Issuer sort is name ascending, then ID ascending, including issuers with no offers.
 
 The list handler's output uses `PaginatedResult<Item>` imported from
 `@investflow/shared-types`. The frontend uses an independently declared
@@ -51,7 +49,7 @@ List entries and details have this shape:
 {
   "id": "offer UUID",
   "titleType": "CDB",
-  "issuer": { "id": "issuer UUID", "name": "Banco Local" },
+  "issuerName": "Banco Local",
   "maturityDate": "2028-12-31",
   "redemptionTerms": { "kind": "DAILY" },
   "remunerationTerms": { "kind": "CDI_PERCENTAGE", "rate": "1.1" }
@@ -63,25 +61,25 @@ scientific notation: `1.1` is 110% of CDI; `0.12` is 12% annually. No persistenc
 timestamps/deletion fields or ORM values escape the query handlers. Offer reads and
 counts exclude soft-deleted records; missing/deleted details return 404 with
 `OFFER_NOT_FOUND`. Infrastructure read failures return 500 with
-`OFFER_QUERY_FAILED` or `ISSUER_QUERY_FAILED` through the existing error envelope.
+`OFFER_QUERY_FAILED` through the existing error envelope.
 
 Read handlers query Prisma directly and do not load aggregates or extend command
 repository ports. Their GET methods skip the global command transaction. Results
 are unwrapped by the existing global interceptor; no success envelope is added.
 
 Each handler owns its explicit output contract and any private `toOutput()`
-mapping in its query-handler file: `GetOfferOutput`,
-`ListOffersOutput`/`OfferListItem`, and `ListIssuersOutput`/`IssuerListItem`.
+mapping in its query-handler file: `GetOfferOutput` and
+`ListOffersOutput`/`OfferListItem`.
 Offer handlers serialize calendar dates and decimal rates while mapping records
-inside `Result.fromPromise()`. The issuer selection already matches its output
-and needs no mapper. Controllers return these Results directly. List and detail
+inside `Result.fromPromise()`. Controllers return these Results directly. List and detail
 contracts can evolve independently; a presenter is only needed for a distinct
 transport representation. Command-side persistence mappers remain unchanged.
 
-Creation takes `titleType`, `issuerId`, `maturityDate`, `redemptionTerms`, and
-`remunerationTerms`, and requires an existing issuer. PATCH takes optional
+Creation takes `titleType`, `issuerName`, `maturityDate`, `redemptionTerms`, and
+`remunerationTerms`; `issuerName` is optional free text (trimmed, blank means
+none, maximum 100 characters). PATCH takes optional
 `maturityDate`, `redemptionTerms`, and `remunerationTerms`; it rejects changes to
-`titleType` and `issuerId`. DELETE retains the existing clock-driven soft deletion.
+`titleType` and `issuerName`. DELETE retains the existing clock-driven soft deletion.
 No new business restrictions, schema migrations, or identity changes are required.
 
 ## Building

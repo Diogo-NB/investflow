@@ -39,7 +39,6 @@ const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_PERIOD_INVALID: 'maturityDate',
   INVESTMENT_PRINCIPAL_INVALID: 'principal',
   INVESTMENT_REMUNERATION_UNSUPPORTED: 'remunerationKind',
-  ISSUER_NOT_FOUND: 'issuerId',
 };
 
 function problemField(error: ApiError): SimulationField | null {
@@ -139,7 +138,10 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
   // Rendered pending state lags a double click; this guard does not.
   const calculating = useRef(false);
 
-  function run(values: SimulationFormValues, callbacks: CalculateCallbacks = {}) {
+  function run(
+    values: SimulationFormValues,
+    callbacks: CalculateCallbacks = {},
+  ) {
     if (calculating.current) return;
     calculating.current = true;
     calculate.mutate(values, {
@@ -175,7 +177,7 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
       source.data && current
         ? // A duplicate also starts here, then saves as custom terms.
           simulationValues(source.data.simulation.terms, current.investment)
-      : blankSimulationValues(todayInSaoPaulo(), options.data);
+        : blankSimulationValues(todayInSaoPaulo(), options.data);
     return {
       status: 'ready',
       simulation: saved?.simulation ?? null,

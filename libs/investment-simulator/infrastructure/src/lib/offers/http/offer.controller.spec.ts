@@ -22,7 +22,7 @@ jest.mock('@investflow/shared-infrastructure', () => ({
 }));
 
 const OFFER_ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
-const ISSUER_ID = '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e';
+const ISSUER_NAME = 'Banco Local';
 
 function createFixture() {
   const createOffer = {
@@ -37,7 +37,7 @@ function createFixture() {
   const offer: GetOfferOutput = {
     id: OFFER_ID,
     titleType: ETitleType.CDB,
-    issuer: { id: ISSUER_ID, name: 'Banco Local' },
+    issuerName: ISSUER_NAME,
     maturityDate: '2028-12-31',
     redemptionTerms: { kind: 'DAILY' },
     remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
@@ -104,7 +104,7 @@ describe('OfferController', () => {
     const fixture = createFixture();
     const request = Object.assign(new CreateOfferRequest(), {
       titleType: ETitleType.LCI,
-      issuerId: ISSUER_ID,
+      issuerName: ISSUER_NAME,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'DAILY' as const },
       remunerationTerms: {
@@ -136,7 +136,7 @@ describe('OfferController', () => {
     const fixture = createFixture();
     const request = Object.assign(new CreateOfferRequest(), {
       titleType: ETitleType.CDB,
-      issuerId: ISSUER_ID,
+      issuerName: ISSUER_NAME,
       maturityDate: '2030-05-20',
       redemptionTerms: { kind: 'AT_MATURITY' as const },
       remunerationTerms: { kind, rate },

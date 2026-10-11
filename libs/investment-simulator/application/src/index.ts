@@ -1,8 +1,6 @@
 export {};
 export * from './lib/index-curves/index-curve.repository';
 export * from './lib/index-curves/index-curve-not-found.error';
-export * from './lib/issuers/issuer-not-found.error';
-export * from './lib/issuers/issuer.repository';
 export * from './lib/offers/create/create-offer.command';
 export * from './lib/offers/create/create-offer.use-case';
 export * from './lib/offers/delete/delete-offer.command';

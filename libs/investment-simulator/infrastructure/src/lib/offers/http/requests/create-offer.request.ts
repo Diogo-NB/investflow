@@ -1,9 +1,10 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDefined,
   IsEnum,
   IsOptional,
-  IsUUID,
+  IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { CreateOfferCommandInput } from '@investflow/investment-simulator-application';
@@ -18,9 +19,13 @@ export class CreateOfferRequest implements CreateOfferCommandInput {
   @IsEnum(ETitleType)
   titleType!: ETitleType;
 
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
   @IsOptional()
-  @IsUUID()
-  issuerId?: string | null;
+  @IsString()
+  @MaxLength(100)
+  issuerName?: string | null;
 
   @IsCalendarDate()
   maturityDate!: string;

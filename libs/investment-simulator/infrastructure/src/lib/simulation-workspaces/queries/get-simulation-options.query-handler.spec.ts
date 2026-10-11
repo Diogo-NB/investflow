@@ -8,7 +8,6 @@ jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 const date = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 function setup() {
-  const issuers = [{ id: 'issuer', name: 'Banco Local' }];
   const curves = [
     {
       id: 'cdi',
@@ -24,7 +23,7 @@ function setup() {
   const offer = (id: string, titleType: string, remunerationType: string) => ({
     id,
     titleType,
-    issuer: issuers[0],
+    issuerName: 'Banco Local',
     maturityDate: date('2028-12-31'),
     redemptionType: 'DAILY',
     remunerationType,
@@ -36,7 +35,6 @@ function setup() {
     offer('lci', 'LCI', 'PREFIXED'),
   ];
   const client = {
-    investmentIssuer: { findMany: jest.fn().mockResolvedValue(issuers) },
     indexCurve: { findMany: jest.fn().mockResolvedValue(curves) },
     investmentOffer: { findMany: jest.fn().mockResolvedValue(offers) },
   };
@@ -87,7 +85,7 @@ describe('GetSimulationOptionsQueryHandler', () => {
   it('flags catalog offers the calculator cannot price', async () => {
     const { client, handler } = setup();
 
-    const { offers, issuers } = (await handler.execute()).value;
+    const { offers } = (await handler.execute()).value;
 
     expect(client.investmentOffer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -97,7 +95,6 @@ describe('GetSimulationOptionsQueryHandler', () => {
     expect(client.indexCurve.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { deletedAt: null } }),
     );
-    expect(issuers).toEqual([{ id: 'issuer', name: 'Banco Local' }]);
     expect(offers.map((offer) => [offer.id, offer.unsupportedReason])).toEqual([
       ['cdb', null],
       ['ipca', EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED],

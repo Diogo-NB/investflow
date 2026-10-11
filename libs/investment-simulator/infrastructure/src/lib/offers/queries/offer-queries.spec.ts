@@ -9,7 +9,7 @@ jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 const record = {
   id: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
   titleType: 'CDB',
-  issuer: { id: 'issuer-id', name: 'Banco Local' },
+  issuerName: 'Banco Local',
   maturityDate: new Date('2028-12-31T00:00:00Z'),
   redemptionType: 'DAILY',
   remunerationType: 'CDI_PERCENTAGE',
@@ -44,7 +44,7 @@ describe('Offer reads', () => {
     const where = {
       deletedAt: null,
       titleType: 'CDB',
-      issuer: { name: { contains: 'local', mode: 'insensitive' } },
+      issuerName: { contains: 'local', mode: 'insensitive' },
     };
     expect(f.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -60,7 +60,7 @@ describe('Offer reads', () => {
     expect(page.items[0]).toEqual({
       id: record.id,
       titleType: 'CDB',
-      issuer: record.issuer,
+      issuerName: record.issuerName,
       maturityDate: '2028-12-31',
       redemptionTerms: { kind: 'DAILY' },
       remunerationTerms: {
@@ -93,7 +93,7 @@ describe('Offer reads', () => {
     expect(result.value).toEqual({
       id: record.id,
       titleType: 'CDB',
-      issuer: record.issuer,
+      issuerName: record.issuerName,
       maturityDate: '2028-12-31',
       redemptionTerms: { kind: 'DAILY' },
       remunerationTerms: {

@@ -13,7 +13,7 @@ const initialValues: SimulationFormValues = {
   principal: '10.000',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
-  issuerId: 'issuer',
+  issuerName: 'Banco Local',
   remunerationKind: 'CDI_PERCENTAGE',
   rate: '105',
   maturityDate: '2026-03-02',
@@ -60,7 +60,7 @@ describe('useSimulationForm', () => {
     expect(result.current.values).toMatchObject({
       offerId: 'offer',
       principal: '10.000',
-      issuerId: 'other-issuer',
+      issuerName: 'Outro',
       remunerationKind: 'SELIC_PERCENTAGE',
       rate: '100',
       maturityDate: '2028-12-29',

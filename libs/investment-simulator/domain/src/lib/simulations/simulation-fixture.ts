@@ -44,11 +44,11 @@ export function cdiCurve(): IndexCurve {
 
 export function terms(
   kind: RemunerationKind = 'PREFIXED',
-  issuerId: string | null = 'issuer-id',
+  issuerName: string | null = 'Banco Local',
 ): InvestmentTerms {
   return InvestmentTerms.create({
     titleType: ETitleType.CDB,
-    issuerId,
+    issuerName,
     maturityDate: CalendarDate.of('2026-01-06'),
     redemption: RedemptionTerms.create('AT_MATURITY'),
     remuneration: RemunerationTerms.create(

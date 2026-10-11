@@ -34,7 +34,6 @@ export interface GetSimulationOptionsOutput {
     readonly incomeTaxExempt: boolean;
     readonly minimumTermMonths: number | null;
   }[];
-  readonly issuers: readonly { readonly id: string; readonly name: string }[];
   readonly remunerations: readonly {
     readonly kind: RemunerationKind;
     readonly index: EEconomicIndex | null;
@@ -60,7 +59,7 @@ export interface GetSimulationOptionsOutput {
   readonly offers: readonly {
     readonly id: string;
     readonly titleType: TitleType;
-    readonly issuer: { readonly id: string; readonly name: string } | null;
+    readonly issuerName: string | null;
     readonly maturityDate: string;
     readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
     readonly remunerationTerms: {
@@ -117,7 +116,7 @@ const curveSelect = {
 const offerSelect = {
   id: true,
   titleType: true,
-  issuer: { select: { id: true, name: true } },
+  issuerName: true,
   maturityDate: true,
   redemptionType: true,
   remunerationType: true,
@@ -140,11 +139,7 @@ export class GetSimulationOptionsQueryHandler
   > {
     return Result.fromPromise(
       async () => {
-        const [issuers, curves, offers] = await Promise.all([
-          this.prisma.client.investmentIssuer.findMany({
-            select: { id: true, name: true },
-            orderBy: [{ name: 'asc' }, { id: 'asc' }],
-          }),
+        const [curves, offers] = await Promise.all([
           // Deleted curves cannot be linked to simulations.
           this.prisma.client.indexCurve.findMany({
             where: { deletedAt: null },
@@ -155,7 +150,7 @@ export class GetSimulationOptionsQueryHandler
             where: { deletedAt: null },
             select: offerSelect,
             orderBy: [
-              { issuer: { name: 'asc' } },
+              { issuerName: 'asc' },
               { maturityDate: 'asc' },
               { id: 'asc' },
             ],
@@ -163,7 +158,6 @@ export class GetSimulationOptionsQueryHandler
         ]);
         return {
           titleTypes: TITLE_TYPES,
-          issuers,
           remunerations: REMUNERATION_KINDS.map((kind) => {
             const index = RemunerationTerms.requiredIndex(kind);
             return {
@@ -208,7 +202,7 @@ export class GetSimulationOptionsQueryHandler
     return {
       id: record.id,
       titleType: record.titleType,
-      issuer: record.issuer,
+      issuerName: record.issuerName,
       maturityDate: CalendarDate.fromUtcDate(
         record.maturityDate,
       ).value.toIsoString(),

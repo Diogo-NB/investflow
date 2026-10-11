@@ -11,7 +11,7 @@ const DELETED_AT = UtcInstant.ofIso('2026-09-27T12:00:00Z');
 function createOffer() {
   return Offer.create({
     titleType: ETitleType.CDB,
-    issuerId: 'issuer-id',
+    issuerName: 'Banco Local',
     maturityDate: MATURITY,
     redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
     remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('12')),
@@ -26,7 +26,7 @@ describe('Offer', () => {
   it.each(Object.values(ETitleType))('creates title type %s', (titleType) => {
     const offer = Offer.create({
       titleType,
-      issuerId: 'issuer-id',
+      issuerName: 'Banco Local',
       maturityDate: MATURITY,
       redemptionTerms: RedemptionTerms.create('DAILY'),
       remunerationTerms: RemunerationTerms.create(
@@ -51,7 +51,7 @@ describe('Offer', () => {
   ])('creates remuneration $kind', (remunerationTerms) => {
     const offer = Offer.create({
       titleType: ETitleType.LCI,
-      issuerId: 'issuer-id',
+      issuerName: 'Banco Local',
       maturityDate: MATURITY,
       redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
       remunerationTerms,
@@ -64,7 +64,7 @@ describe('Offer', () => {
     const offer = Offer.reconstitute({
       id: 'offer-id',
       titleType: ETitleType.LCA,
-      issuerId: 'issuer-id',
+      issuerName: 'Banco Local',
       maturityDate: MATURITY,
       redemptionTerms: RedemptionTerms.create('DAILY'),
       remunerationTerms: RemunerationTerms.create('IPCA_PLUS', Rate.of('6')),
@@ -92,7 +92,7 @@ describe('Offer', () => {
     expect(offer.redemptionTerms).toEqual(RedemptionTerms.create('DAILY'));
     expect(offer.remunerationTerms).toEqual(remuneration);
     expect(offer.titleType).toBe(ETitleType.CDB);
-    expect(offer.issuerId).toBe('issuer-id');
+    expect(offer.issuerName).toBe('Banco Local');
   });
 
   it('accepts identical updates as successful no-ops', () => {
@@ -121,7 +121,7 @@ describe('Offer', () => {
     );
     const offer = Offer.create({
       titleType: ETitleType.CDB,
-      issuerId: 'issuer-id',
+      issuerName: 'Banco Local',
       maturityDate: MATURITY,
       redemptionTerms: redemption,
       remunerationTerms: remuneration,

@@ -49,7 +49,7 @@ const simulationSelect = {
   sourceOfferId: true,
   maturityDate: true,
   titleType: true,
-  issuer: { select: { name: true } },
+  issuerName: true,
   remunerationType: true,
   rateValue: true,
   calculations: {
@@ -120,7 +120,7 @@ export class ListSimulationsQueryHandler
         record.maturityDate,
       ).value.toIsoString(),
       titleType: record.titleType,
-      issuerName: record.issuer?.name ?? null,
+      issuerName: record.issuerName,
       remunerationTerms: {
         kind: record.remunerationType,
         rate: record.rateValue.toFixed(),

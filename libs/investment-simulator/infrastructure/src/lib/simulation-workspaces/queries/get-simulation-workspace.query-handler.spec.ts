@@ -41,12 +41,12 @@ function setup(record: unknown) {
     handler.execute({ ownerId: 'owner-id', simulationId });
 }
 
-function workspace(calculations: unknown[], issuer: unknown = null) {
+function workspace(calculations: unknown[]) {
   return {
     id: 'simulation-id',
     sourceOfferId: null,
     titleType: 'CDB',
-    issuer,
+    issuerName: null,
     maturityDate: date('2026-03-02'),
     redemptionType: 'AT_MATURITY',
     remunerationType: 'CDI_PERCENTAGE',
@@ -64,7 +64,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
       fromCatalogOffer: false,
       terms: {
         titleType: 'CDB',
-        issuer: null,
+        issuerName: null,
         maturityDate: '2026-03-02',
         redemptionTerms: { kind: 'AT_MATURITY' },
         remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
@@ -108,17 +108,6 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
         },
       },
     ]);
-  });
-
-  it('names the issuer when the terms have one', async () => {
-    const result = await setup(
-      workspace([calculation()], { id: 'issuer-id', name: 'Banco Local' }),
-    )();
-
-    expect(result.value.simulation.terms.issuer).toEqual({
-      id: 'issuer-id',
-      name: 'Banco Local',
-    });
   });
 
   it('flags calculations made under another methodology', async () => {

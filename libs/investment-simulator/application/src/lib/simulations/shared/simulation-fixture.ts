@@ -6,7 +6,6 @@ import {
   IndexCurveInterval,
   IndexValue,
   InvestmentTerms,
-  Issuer,
   Offer,
   RedemptionTerms,
   RemunerationKind,
@@ -28,15 +27,11 @@ export const OWNER_ID = 'owner-id';
 export function catalogOffer() {
   return Offer.create({
     titleType: ETitleType.CDB,
-    issuerId: 'issuer-id',
+    issuerName: 'Banco Local',
     maturityDate: CalendarDate.of('2030-01-02'),
     redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
     remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
   });
-}
-
-export function issuer() {
-  return Issuer.create({ name: 'Banco' });
 }
 
 export function cdiCurve() {
@@ -62,7 +57,7 @@ export function ownedSimulation(kind: RemunerationKind = 'PREFIXED') {
     sourceOfferId: null,
     terms: InvestmentTerms.create({
       titleType: ETitleType.CDB,
-      issuerId: null,
+      issuerName: null,
       maturityDate: CalendarDate.of('2026-02-02'),
       redemption: RedemptionTerms.create('AT_MATURITY'),
       remuneration: RemunerationTerms.create(
@@ -79,7 +74,7 @@ export function termsRequest(
 ): SimulationTermsCommandInput {
   return {
     titleType: ETitleType.CDB,
-    issuerId: 'issuer-id',
+    issuerName: 'Banco Local',
     maturityDate: '2030-01-02',
     redemptionTerms: { kind: 'AT_MATURITY' },
     remunerationTerms: { kind: 'PREFIXED', rate: '0.12' },

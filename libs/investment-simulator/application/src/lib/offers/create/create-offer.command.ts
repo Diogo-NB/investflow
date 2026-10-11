@@ -9,7 +9,7 @@ import { CreateOfferCommandInput } from '../shared/offer-command-input.type';
 export class CreateOfferCommand {
   private constructor(
     readonly titleType: ETitleType,
-    readonly issuerId: string | null,
+    readonly issuerName: string | null,
     readonly maturityDate: CalendarDate,
     readonly redemptionTerms: RedemptionTerms,
     readonly remunerationTerms: RemunerationTerms,
@@ -18,7 +18,7 @@ export class CreateOfferCommand {
   static fromRequest(request: CreateOfferCommandInput): CreateOfferCommand {
     return new CreateOfferCommand(
       request.titleType,
-      request.issuerId ?? null,
+      request.issuerName ?? null,
       CalendarDate.of(request.maturityDate),
       RedemptionTerms.create(request.redemptionTerms.kind),
       RemunerationTerms.create(

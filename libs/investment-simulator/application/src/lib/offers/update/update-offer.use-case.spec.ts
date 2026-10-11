@@ -16,7 +16,7 @@ function offer() {
     deletedAt: null,
     id: OFFER_ID,
     titleType: ETitleType.CDB,
-    issuerId: '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e',
+    issuerName: 'Banco Local',
     maturityDate: CalendarDate.of('2030-05-20'),
     redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
     remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('12')),

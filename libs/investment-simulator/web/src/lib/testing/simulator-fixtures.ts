@@ -46,7 +46,7 @@ export const remunerations: RemunerationOption[] = [
 export const selicOffer: OfferOption = {
   id: 'offer',
   titleType: 'CDB',
-  issuer: { id: 'other-issuer', name: 'Outro' },
+  issuerName: 'Outro',
   maturityDate: '2028-12-29',
   redemptionTerms: { kind: 'AT_MATURITY' },
   remunerationTerms: { kind: 'SELIC_PERCENTAGE', rate: '1' },
@@ -82,7 +82,6 @@ export const options: SimulationOptions = {
     { titleType: 'LCI', incomeTaxExempt: true, minimumTermMonths: 9 },
     { titleType: 'LCA', incomeTaxExempt: true, minimumTermMonths: 9 },
   ],
-  issuers: [{ id: 'issuer', name: 'Banco Local' }],
   remunerations,
   offers: [selicOffer],
   taxRules,
@@ -137,7 +136,7 @@ export const workspace: SimulationWorkspace = {
     fromCatalogOffer: false,
     terms: {
       titleType: 'CDB',
-      issuer: { id: 'issuer', name: 'Banco Local' },
+      issuerName: 'Banco Local',
       maturityDate: '2026-03-02',
       redemptionTerms: { kind: 'DAILY' },
       remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },

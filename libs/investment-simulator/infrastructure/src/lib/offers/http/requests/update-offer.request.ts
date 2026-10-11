@@ -11,8 +11,8 @@ export class UpdateOfferRequest implements UpdateOfferCommandInput {
   @IsEmpty({ message: 'titleType cannot be updated' })
   titleType?: unknown;
 
-  @IsEmpty({ message: 'issuerId cannot be updated' })
-  issuerId?: unknown;
+  @IsEmpty({ message: 'issuerName cannot be updated' })
+  issuerName?: unknown;
 
   @IsOptional()
   @IsCalendarDate()

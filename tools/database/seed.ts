@@ -2,12 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { config } from 'dotenv';
 import { Pool } from 'pg';
-import {
-  curveRange,
-  curves,
-  issuer,
-  offers,
-} from './investment-simulator/fixtures';
+import { curveRange, curves, offers } from './investment-simulator/fixtures';
 
 async function main(): Promise<void> {
   config();
@@ -21,29 +16,22 @@ async function main(): Promise<void> {
 
   try {
     await prisma.$transaction(async (tx) => {
-      const existingIssuer = await tx.investmentIssuer.findFirst({
-        where: { name: issuer.name },
-      });
-      const seededIssuer =
-        existingIssuer ?? (await tx.investmentIssuer.create({ data: issuer }));
-
       for (const offer of offers) {
         const existingOffer = await tx.investmentOffer.findFirst({
           where: {
-            issuerId: seededIssuer.id,
+            issuerName: offer.issuerName,
             titleType: offer.titleType,
             redemptionType: offer.redemptionType,
             remunerationType: offer.remunerationType,
           },
         });
-        const data = { ...offer, issuerId: seededIssuer.id };
         if (existingOffer) {
           await tx.investmentOffer.update({
             where: { id: existingOffer.id },
-            data,
+            data: offer,
           });
         } else {
-          await tx.investmentOffer.create({ data });
+          await tx.investmentOffer.create({ data: offer });
         }
       }
 

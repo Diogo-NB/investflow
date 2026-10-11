@@ -123,8 +123,8 @@ These are hardcoded local simulation fixtures; seeding makes no market-data
 requests and does not update rates based on the current date.
 
 Run `pnpm db:seed` to restore sample data without resetting the databases.
-Prisma generates UUIDs when records are created. Reruns match the issuer by
-name, offers by issuer/title/redemption/remuneration, and curves by name/index.
+Prisma generates UUIDs when records are created. Reruns match offers by
+issuer name/title/redemption/remuneration, and curves by name/index.
 In one transaction, the seed restores rates, maturity dates, descriptions, and
 soft-deleted offers and curves, replacing intervals only for matching curves.
 Those matching fields identify the local fixtures; changing them causes a new

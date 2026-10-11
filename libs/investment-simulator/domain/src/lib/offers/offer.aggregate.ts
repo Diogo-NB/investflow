@@ -10,7 +10,7 @@ import { ETitleType } from './title-type.enum';
 
 interface OfferProps {
   readonly titleType: ETitleType;
-  readonly issuerId: string | null;
+  readonly issuerName: string | null;
   maturityDate: CalendarDate;
   redemptionTerms: RedemptionTerms;
   remunerationTerms: RemunerationTerms;
@@ -32,7 +32,7 @@ export class Offer extends AggregateRoot {
   static create(props: CreateOfferProps): Offer {
     return new Offer(generateUuid(), {
       titleType: props.titleType,
-      issuerId: props.issuerId,
+      issuerName: props.issuerName,
       maturityDate: props.maturityDate,
       redemptionTerms: props.redemptionTerms,
       remunerationTerms: props.remunerationTerms,
@@ -43,7 +43,7 @@ export class Offer extends AggregateRoot {
   static reconstitute(props: ReconstituteOfferProps): Offer {
     return new Offer(props.id, {
       titleType: props.titleType,
-      issuerId: props.issuerId,
+      issuerName: props.issuerName,
       maturityDate: props.maturityDate,
       redemptionTerms: props.redemptionTerms,
       remunerationTerms: props.remunerationTerms,
@@ -55,8 +55,8 @@ export class Offer extends AggregateRoot {
     return this.props.titleType;
   }
 
-  get issuerId(): string | null {
-    return this.props.issuerId;
+  get issuerName(): string | null {
+    return this.props.issuerName;
   }
 
   get maturityDate(): CalendarDate {

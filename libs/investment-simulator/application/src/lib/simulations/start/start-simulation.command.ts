@@ -25,7 +25,7 @@ export class StartSimulationCommand {
       request.offerId ?? null,
       InvestmentTerms.create({
         titleType: terms.titleType,
-        issuerId: terms.issuerId ?? null,
+        issuerName: terms.issuerName ?? null,
         maturityDate: CalendarDate.of(terms.maturityDate),
         redemption: RedemptionTerms.create(terms.redemptionTerms.kind),
         remuneration: RemunerationTerms.create(

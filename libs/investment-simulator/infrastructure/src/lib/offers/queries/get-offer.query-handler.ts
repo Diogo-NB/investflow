@@ -13,7 +13,7 @@ export interface GetOfferQuery {
 export interface GetOfferOutput {
   readonly id: string;
   readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly issuer: { readonly id: string; readonly name: string } | null;
+  readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
   readonly remunerationTerms: {
@@ -29,7 +29,7 @@ export interface GetOfferOutput {
 const offerSelect = {
   id: true,
   titleType: true,
-  issuer: { select: { id: true, name: true } },
+  issuerName: true,
   maturityDate: true,
   redemptionType: true,
   remunerationType: true,
@@ -71,7 +71,7 @@ export class GetOfferQueryHandler
     return {
       id: record.id,
       titleType: record.titleType,
-      issuer: record.issuer,
+      issuerName: record.issuerName,
       maturityDate: CalendarDate.fromUtcDate(
         record.maturityDate,
       ).value.toIsoString(),

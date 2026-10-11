@@ -209,8 +209,8 @@ budget. API pruning excludes browser dependencies.
 Chromium checks pass at 320, 375, 768, and 1440 pixels and 200% zoom for the home,
 list, create, detail, edit, and delete-dialog layouts. Checks cover route focus,
 dialog keyboard/Escape behavior, reduced motion, filter history, stale pages,
-empty/failed issuer lookup, invalid input, unsaved-change confirmation, write
-failure/retry, exact rates, immutable identification, and missing/deleted records.
+invalid input, unsaved-change confirmation, write failure/retry, exact rates,
+immutable identification, and missing/deleted records.
 Axe-core reports no WCAG A/AA violations across these screens and their checked
 error/confirmation states; this does not establish full WCAG conformance.
 

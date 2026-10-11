@@ -6,7 +6,7 @@ import {
 
 export interface SimulationTermsCommandInput {
   readonly titleType: ETitleType;
-  readonly issuerId?: string | null;
+  readonly issuerName?: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: RedemptionTermsCommandInput;
   readonly remunerationTerms: RemunerationTermsCommandInput;

@@ -60,7 +60,7 @@ function startRequest() {
     offerId: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
     terms: {
       titleType: ETitleType.LCA,
-      issuerId: '6f1c1c55-61a1-4e3f-9b8a-1d1d6a9b2f10',
+      issuerName: 'Banco Local',
       maturityDate: '2028-01-03',
       redemptionTerms: { kind: 'DAILY' as const },
       remunerationTerms: { kind: 'CDI_PERCENTAGE' as const, rate: '1.1' },
@@ -105,7 +105,7 @@ describe('SimulationController', () => {
     expect(started.ownerId).toBe(USER.userId);
     expect(started.sourceOfferId).toBe(request.offerId);
     expect(started.terms.titleType).toBe(ETitleType.LCA);
-    expect(started.terms.issuerId).toBe(request.terms.issuerId);
+    expect(started.terms.issuerName).toBe(request.terms.issuerName);
     expect(started.investment.principal.amount.toString()).toBe('1000.5');
     const calculated = fixture.calculate.execute.mock.calls[0][0];
     expect(calculated.simulationId).toBe(SIMULATION_ID);
