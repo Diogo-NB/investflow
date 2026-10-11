@@ -35,12 +35,17 @@ Built, on the earlier immutable model:
 - **Offers:** backend CRUD only; no browser screens.
 - **Index curves:** domain, persistence, and the reads used by the simulation
   workspace; curves are created only by the seed.
+
+Built for the target model:
+
 - **Messaging:** runs locally end to end on EventBridge and SQS emulated by
   Floci (see "Messaging Transport" in
   [Project Structure](../architecture/project-structure.md)). The outbox
-  poller publishes to the `investflow` bus, and consumers are plain classes
-  that the host binds to their queues; no domain event is emitted or consumed
-  yet.
+  poller publishes to the `investflow` bus every second, backs a failed event
+  off on its own (up to 5 minutes) and pauses during broker outages; events
+  above the 200 KB outbox payload limit fail at save time. Consumers are plain
+  classes that the host binds to their queues. No domain event is emitted or
+  consumed yet.
 
 Differs from the target model:
 
@@ -88,9 +93,9 @@ D0 ──┤         ├──► D3 ──► D4a ──► D4b ──► D4c
 Recommended order: D0, D1, D2, D3, D4a, D4b, D4c, D5, D6. D0 went first
 because it carried the most infrastructure unknowns, touched no business code,
 and D1 and D2 are the first deliverables to emit events. D1 and D2 are
-independent of each other. D6 waits for
-the pending product decision on how users enter a scenario's intervals, which
-can be made while D1 to D4 are built.
+independent of each other. D6 waits for the pending product decision on how
+users enter a scenario's intervals, which can be made while D1 to D4 are
+built.
 
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
@@ -173,6 +178,12 @@ and duplicate or out-of-order deliveries cannot replace a newer result.
 - Deleting a condition or scenario sets its simulations `INVALID` ("Sem oferta,
   escolha outra" or "Sem curva, escolha outra").
 - A query counting the user's affected simulations, for impact notices.
+- Outbox publishing throughput. The poller publishes one event per
+  EventBridge call, sequentially, so it sustains roughly 20 to 50 events per
+  second, and after a full batch it waits for the next tick. A system scenario
+  edit can queue thousands of calculations. Batch entries per `PutEvents` call
+  (up to 10, checking each entry's result), mark a batch with one update, and
+  poll again immediately when a batch was full.
 
 **Open decision, settle before starting:** how batched fan-out writes its
 calculation events. Events are written to the outbox only by

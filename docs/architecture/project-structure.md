@@ -688,6 +688,21 @@ Mutable Premises And Asynchronous Recalculation).
   - Users can read the history of the offers and curves they can see.
   - Tests cover recording, ordering by revision, and visibility.
 
+### Single active outbox poller (deferred 2026-10-11)
+
+`OutboxPollerService` runs in every process that imports `OutboxModule`.
+
+- **Today:** one API instance runs, and an in-process flag keeps polls from
+  overlapping. Rows are not claimed, so two instances would fetch and publish
+  the same events. Consumers deduplicate, so nothing is processed twice, but
+  every event would be published twice.
+- **Why deferred:** nothing runs more than one instance yet.
+- **Done means:**
+  - Before a second API instance (or another host with `OutboxModule`) runs,
+    only one poller publishes at a time, for example by taking a PostgreSQL
+    advisory lock per poll, or rows are claimed with a lease.
+  - Tests cover two pollers against one outbox publishing each event once.
+
 ### Shared compute-once helper for in-call caches (deferred 2026-10-10)
 
 `InvestmentCalculator` caches daily accrual factors per rate in a local `Map`
