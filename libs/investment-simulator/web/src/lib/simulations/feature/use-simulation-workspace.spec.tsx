@@ -121,7 +121,7 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, undefined, '/simulacoes/nova');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(typed));
+    act(() => result.current.hook.save.run(typed, 0));
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/simulacoes/sim'),
@@ -161,7 +161,7 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, undefined, '/simulacoes/nova');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values, { onProblem }));
+    act(() => result.current.hook.save.run(values, 3, { onProblem }));
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toEqual({
@@ -173,21 +173,21 @@ describe('useSimulationWorkspace', () => {
     expect(result.current.location.pathname).toBe('/simulacoes/nova');
   });
 
-  it('saves an edit with the revision it was read at', async () => {
+  it("saves an edit with its form's revision and reports the next one", async () => {
     const api = fakeApi({
       ...savedRoutes,
-      [`PATCH ${API}/simulations/sim`]: undefined,
+      [`PATCH ${API}/simulations/sim`]: { revision: 3 },
     });
     const onSaved = vi.fn();
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values, { onSaved }));
+    act(() => result.current.hook.save.run(values, 2, { onSaved }));
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(values));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(values, 3));
     expect(api.bodies(`PATCH ${API}/simulations/sim`)).toEqual([
       {
-        revision: 3,
+        revision: 2,
         offer: { id: 'cdi-offer' },
         investment: {
           principal: '10000',
@@ -222,7 +222,7 @@ describe('useSimulationWorkspace', () => {
         expect(result.current.hook.setup.status).toBe('ready'),
       );
 
-      act(() => result.current.hook.save.run(input, { onProblem, onSaved }));
+      act(() => result.current.hook.save.run(input, 3, { onProblem, onSaved }));
 
       await waitFor(() => expect(onProblem).toHaveBeenCalled());
       expect(onProblem.mock.calls[0][0]).toMatchObject({ field });
@@ -241,21 +241,71 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values));
+    act(() => result.current.hook.save.run(values, 3));
     await waitFor(() =>
       expect(result.current.hook.save.problem).toMatchObject({
         conflict: true,
         field: null,
       }),
     );
-    act(() => result.current.hook.save.reload());
-
-    await waitFor(() => expect(result.current.hook.save.problem).toBeNull());
-    expect(
+    const reads = () =>
       api
         .calls()
-        .filter((call) => call === `GET ${API}/simulation-workspaces/sim`),
-    ).toHaveLength(2);
+        .filter((call) => call === `GET ${API}/simulation-workspaces/sim`)
+        .length;
+    const before = reads();
+    await act(() => result.current.hook.save.reload());
+
+    expect(result.current.hook.save.problem).toBeNull();
+    expect(reads()).toBe(before + 1);
+    const setup = result.current.hook.setup;
+    expect(setup.status === 'ready' && setup.loadGeneration).toBe(1);
+  });
+
+  it('reads an open simulation again every few seconds without restarting the editor', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const api = fakeApi(savedRoutes);
+      const { result } = render(api, 'sim', '/simulacoes/sim');
+      await waitFor(() =>
+        expect(result.current.hook.setup.status).toBe('ready'),
+      );
+      const reads = () =>
+        api
+          .calls()
+          .filter((call) => call === `GET ${API}/simulation-workspaces/sim`)
+          .length;
+      const before = reads();
+
+      await act(() => vi.advanceTimersByTimeAsync(3000));
+
+      await waitFor(() => expect(reads()).toBe(before + 1));
+      const setup = result.current.hook.setup;
+      expect(setup.status === 'ready' && setup.loadGeneration).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('queues the calculation again and reads the new status', async () => {
+    const api = fakeApi({
+      ...savedRoutes,
+      [`POST ${API}/simulations/sim/recalculate`]: undefined,
+    });
+    const { result } = render(api, 'sim', '/simulacoes/sim');
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+    const before = api.calls().length;
+
+    act(() => result.current.hook.recalculate.run());
+    act(() => result.current.hook.recalculate.run());
+
+    await waitFor(() =>
+      expect(api.calls().slice(before)).toEqual([
+        `POST ${API}/simulations/sim/recalculate`,
+        `GET ${API}/simulation-workspaces/sim`,
+      ]),
+    );
+    expect(result.current.hook.recalculate.failed).toBe(false);
   });
 
   it('explains a network failure without exposing it', async () => {
@@ -269,7 +319,7 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values, { onProblem }));
+    act(() => result.current.hook.save.run(values, 3, { onProblem }));
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toEqual({
@@ -286,14 +336,14 @@ describe('useSimulationWorkspace', () => {
       ...savedRoutes,
       [`PATCH ${API}/simulations/sim`]: () =>
         new Promise((resolve) => {
-          release = () => resolve(undefined);
+          release = () => resolve({ revision: 3 });
         }),
     });
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values));
-    act(() => result.current.hook.save.run(values));
+    act(() => result.current.hook.save.run(values, 3));
+    act(() => result.current.hook.save.run(values, 3));
     await waitFor(() =>
       expect(api.calls()).toContain(`PATCH ${API}/simulations/sim`),
     );

@@ -16,7 +16,7 @@ export class DeleteSimulationUseCase
   async execute(
     command: DeleteSimulationCommand,
   ): Promise<Result<void, AppError>> {
-    const simulation = await this.simulationRepository.findById(
+    const simulation = await this.simulationRepository.findOwned(
       command.simulationId,
       command.ownerId,
     );

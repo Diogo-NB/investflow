@@ -1,10 +1,15 @@
 import {
+  ESimulationCalculationCauseKind,
+  ESimulationCalculationStatus,
   InvestmentInputs,
   Simulation,
+  SimulationCalculation,
   SimulationResult,
 } from '@investflow/investment-simulator-domain';
 import {
+  AppErrorMetadata,
   CalendarDate,
+  EAppErrorCode,
   Money,
   Rate,
   UtcInstant,
@@ -12,6 +17,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 export const simulationInclude = {
+  calculation: true,
   result: { include: { balances: { orderBy: { date: 'asc' } } } },
 } satisfies Prisma.SimulationInclude;
 
@@ -20,9 +26,11 @@ export type SimulationRecord = Prisma.SimulationGetPayload<{
 }>;
 
 type SimulationResultRecord = NonNullable<SimulationRecord['result']>;
+type SimulationCalculationRecord = NonNullable<SimulationRecord['calculation']>;
 
 export interface SimulationPersistenceData {
   readonly simulation: Prisma.SimulationUncheckedCreateInput;
+  readonly calculation: Prisma.SimulationCalculationUncheckedCreateInput;
   readonly result: Omit<
     Prisma.SimulationResultUncheckedCreateInput,
     'balances'
@@ -46,6 +54,7 @@ export class SimulationMapper {
         curveId: record.curveId,
       }),
       revision: record.revision,
+      calculation: SimulationMapper.calculationToDomain(record.calculation),
       result: record.result
         ? SimulationMapper.resultToDomain(record.result)
         : null,
@@ -68,6 +77,10 @@ export class SimulationMapper {
         revision: simulation.revision,
         deletedAt: simulation.deletedAt?.date ?? null,
       },
+      calculation: SimulationMapper.calculationToPersistence(
+        simulation.id,
+        simulation.calculation,
+      ),
       result: result
         ? SimulationMapper.resultToPersistence(simulation.id, result)
         : null,
@@ -79,6 +92,55 @@ export class SimulationMapper {
         accumulatedGrossEarnings:
           balance.accumulatedGrossEarnings.amount.toFixed(),
       })),
+    };
+  }
+
+  // Every simulation is saved with its calculation row.
+  private static calculationToDomain(
+    record: SimulationCalculationRecord | null,
+  ): SimulationCalculation {
+    if (!record) throw new Error('Simulation without a calculation row');
+    return SimulationCalculation.reconstitute({
+      status: record.status as ESimulationCalculationStatus,
+      changedAt: UtcInstant.fromDate(record.changedAt).value,
+      cause: {
+        kind: record.causeKind as ESimulationCalculationCauseKind,
+        refId: record.causeRefId,
+        actorId: record.causeActorId,
+      },
+      inputs: {
+        simulationRevision: record.simulationRevision,
+        offerRevision: record.offerRevision,
+        curveRevision: record.curveRevision,
+      },
+      reason: record.reasonCode
+        ? {
+            code: record.reasonCode as EAppErrorCode,
+            metadata: (record.reasonMetadata ?? {}) as AppErrorMetadata,
+          }
+        : null,
+    });
+  }
+
+  private static calculationToPersistence(
+    simulationId: string,
+    calculation: SimulationCalculation,
+  ): SimulationPersistenceData['calculation'] {
+    const { cause, inputs, reason } = calculation;
+    return {
+      simulationId,
+      status: calculation.status,
+      changedAt: calculation.changedAt.date,
+      causeKind: cause.kind,
+      causeRefId: cause.refId,
+      causeActorId: cause.actorId,
+      simulationRevision: inputs.simulationRevision,
+      offerRevision: inputs.offerRevision,
+      curveRevision: inputs.curveRevision,
+      reasonCode: reason?.code ?? null,
+      reasonMetadata: reason
+        ? (reason.metadata as Prisma.InputJsonObject)
+        : Prisma.DbNull,
     };
   }
 

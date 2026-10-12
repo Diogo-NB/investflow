@@ -49,6 +49,10 @@ export function simulationOptionsQuery(fetchFn: FetchFn) {
   });
 }
 
+// How often an open simulation is read again, so calculations finished in the
+// background and changes made elsewhere appear.
+export const WORKSPACE_REFRESH_MS = 3000;
+
 export function simulationWorkspaceQuery(fetchFn: FetchFn, id: string) {
   return queryOptions({
     queryKey: simulationKeys.workspace(id),
@@ -91,9 +95,16 @@ export function editSimulation(
   id: string,
   input: SimulationInput & { readonly revision: number },
 ) {
-  return requestJson<void>(fetchFn, `${BASE}/simulations/${id}`, {
-    method: 'PATCH',
-    ...jsonBody(input),
+  return requestJson<{ revision: number }>(
+    fetchFn,
+    `${BASE}/simulations/${id}`,
+    { method: 'PATCH', ...jsonBody(input) },
+  );
+}
+
+export function recalculateSimulation(fetchFn: FetchFn, id: string) {
+  return requestJson<void>(fetchFn, `${BASE}/simulations/${id}/recalculate`, {
+    method: 'POST',
   });
 }
 

@@ -1,8 +1,29 @@
+import {
+  ESimulationCalculationCauseKind,
+  ESimulationCalculationStatus,
+} from '@investflow/investment-simulator-domain';
+import { EAppErrorCode } from '@investflow/shared-domain';
 import { Prisma } from '@prisma/client';
 import { SimulationMapper, SimulationRecord } from './simulation.mapper';
 
 const id = 'a1d7a2a4-7c39-4b8e-9a8f-0d6c1f0b2f11';
 const decimal = (value: string) => new Prisma.Decimal(value);
+
+const calculation: NonNullable<SimulationRecord['calculation']> = {
+  simulationId: id,
+  status: 'INVALID',
+  changedAt: new Date('2026-10-11T12:00:00.000Z'),
+  causeKind: 'CURVE_CHANGED',
+  causeRefId: 'c51b8f16-2b90-4d24-a2f9-5923eb77c16c',
+  causeActorId: 'owner-id',
+  simulationRevision: 3,
+  offerRevision: 4,
+  curveRevision: 6,
+  reasonCode: 'INVESTMENT_CURVE_COVERAGE_MISSING',
+  reasonMetadata: {
+    missingRanges: [{ start: '2026-01-05', end: '2026-01-05' }],
+  },
+};
 
 const record: SimulationRecord = {
   id,
@@ -15,6 +36,7 @@ const record: SimulationRecord = {
   deletedAt: new Date('2026-10-11T12:00:00.000Z'),
   createdAt: new Date('2026-10-10T12:00:00.000Z'),
   updatedAt: new Date('2026-10-10T12:00:00.000Z'),
+  calculation,
   result: {
     simulationId: id,
     simulationRevision: 2,
@@ -70,6 +92,7 @@ describe('SimulationMapper', () => {
       revision: 3,
       deletedAt: record.deletedAt,
     });
+    expect(data.calculation).toEqual(calculation);
     expect(data.result).toMatchObject({
       simulationId: id,
       offerRevision: 4,
@@ -88,6 +111,46 @@ describe('SimulationMapper', () => {
         accumulatedGrossEarnings: '9.876543210987654321098765432109',
       },
     ]);
+  });
+
+  it('maps the calculation state with its cause and reason', () => {
+    const { calculation } = SimulationMapper.toDomain(record);
+
+    expect(calculation.status).toBe(ESimulationCalculationStatus.INVALID);
+    expect(calculation.changedAt.toISOString()).toBe(
+      '2026-10-11T12:00:00.000Z',
+    );
+    expect(calculation.cause).toEqual({
+      kind: ESimulationCalculationCauseKind.CURVE_CHANGED,
+      refId: record.curveId,
+      actorId: 'owner-id',
+    });
+    expect(calculation.inputs).toEqual({
+      simulationRevision: 3,
+      offerRevision: 4,
+      curveRevision: 6,
+    });
+    expect(calculation.reason).toEqual({
+      code: EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
+      metadata: { missingRanges: [{ start: '2026-01-05', end: '2026-01-05' }] },
+    });
+  });
+
+  it('stores no reason outside INVALID', () => {
+    const simulation = SimulationMapper.toDomain({
+      ...record,
+      calculation: {
+        ...calculation,
+        status: 'PENDING',
+        reasonCode: null,
+        reasonMetadata: null,
+      },
+    });
+
+    expect(simulation.calculation.reason).toBeNull();
+    expect(
+      SimulationMapper.toPersistence(simulation).calculation,
+    ).toMatchObject({ reasonCode: null, reasonMetadata: Prisma.DbNull });
   });
 
   it('maps a simulation without a result', () => {

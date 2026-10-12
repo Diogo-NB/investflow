@@ -1,27 +1,35 @@
 import { Injectable } from '@nestjs/common';
-import { InvestmentCalculator } from '@investflow/investment-simulator-domain';
+import {
+  ESimulationCalculationCauseKind,
+  SimulationCalculationService,
+} from '@investflow/investment-simulator-domain';
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import { SimulationRepository } from '../simulation.repository';
 import { SimulationPremisesService } from '../shared/simulation-premises.service';
 import { EditSimulationCommand } from './edit-simulation.command';
 
-// Saving also recalculates, so the result follows the current offer and curve.
+export interface EditSimulationOutput {
+  readonly revision: number;
+}
+
+// Saving always queues a calculation, so the result follows the current offer
+// and curve even when nothing changed.
 @Injectable()
 export class EditSimulationUseCase
-  implements CommandHandler<EditSimulationCommand, void>
+  implements CommandHandler<EditSimulationCommand, EditSimulationOutput>
 {
   constructor(
     private readonly simulationRepository: SimulationRepository,
     private readonly premises: SimulationPremisesService,
-    private readonly calculator: InvestmentCalculator,
+    private readonly calculation: SimulationCalculationService,
     private readonly clock: Clock,
   ) {}
 
   async execute(
     command: EditSimulationCommand,
-  ): Promise<Result<void, AppError>> {
-    const found = await this.simulationRepository.findById(
+  ): Promise<Result<EditSimulationOutput, AppError>> {
+    const found = await this.simulationRepository.findOwned(
       command.simulationId,
       command.ownerId,
     );
@@ -35,18 +43,27 @@ export class EditSimulationUseCase
       command.investment.curveId,
     );
     if (premises.isErr()) return premises;
+    const valid = this.calculation.validate(
+      command.investment,
+      premises.value.offer,
+      premises.value.curve,
+    );
+    if (valid.isErr()) return valid;
 
-    const edited = current.value.edit({
-      investment: command.investment,
-      offer: premises.value.offer,
-      curve: premises.value.curve,
-      calculator: this.calculator,
-      calculatedAt: this.clock.now(),
-    });
+    const edited = current.value.edit(
+      { offerId: premises.value.offer.id, investment: command.investment },
+      {
+        kind: ESimulationCalculationCauseKind.SIMULATION_EDITED,
+        refId: null,
+        actorId: command.ownerId,
+      },
+      this.clock.now(),
+    );
     if (edited.isErr()) return edited;
 
     const offerSaved = await this.premises.saveNewOffer(premises.value);
     if (offerSaved.isErr()) return offerSaved;
-    return this.simulationRepository.save(edited.value);
+    const saved = await this.simulationRepository.save(edited.value);
+    return saved.map(() => ({ revision: edited.value.revision }));
   }
 }

@@ -33,7 +33,8 @@ export interface SimulationListItem {
       | 'SELIC_PERCENTAGE';
     readonly rate: string;
   };
-  // Null until the first successful calculation.
+  readonly calculationStatus: 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
+  // The last successful calculation; null until the first one.
   readonly result: {
     readonly calculatedAt: string;
     readonly outdated: boolean;
@@ -60,6 +61,7 @@ const simulationSelect = {
     },
   },
   curve: { select: { revision: true } },
+  calculation: { select: { status: true } },
   result: {
     select: {
       simulationRevision: true,
@@ -113,7 +115,10 @@ export class ListSimulationsQueryHandler
   }
 
   private toOutput(record: SimulationRecord): SimulationListItem {
-    const { offer, result } = record;
+    const { offer, result, calculation } = record;
+    if (!calculation) {
+      throw new Error(`Simulation ${record.id} without a calculation row`);
+    }
     return {
       id: record.id,
       offerName: offer.name,
@@ -130,6 +135,7 @@ export class ListSimulationsQueryHandler
         kind: offer.remunerationType,
         rate: offer.rateValue.toFixed(),
       },
+      calculationStatus: calculation.status,
       result: result
         ? {
             calculatedAt: result.calculatedAt.toISOString(),

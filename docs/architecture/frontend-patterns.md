@@ -16,8 +16,8 @@ Nx. Status:
    Reworked with D3 (see `docs/product/implementation-roadmap.md`): a
    simulation references an offer, chosen or created with "Duplicar e
    ajustar" or "Digitar termos", keeps one result, and "Salvar e calcular"
-   sends its revision. The calculation status and its refetching arrive with
-   asynchronous calculation.
+   sends its revision. With D4a the workspace shows the calculation status and
+   polls it.
 3. Next, after the backend redesign of 2026-10-11 (mutable premises and
    asynchronous recalculation, see `project-structure.md`): the offer screens
    under `/ofertas` and the curve screens under `/curvas`, mounted by the same
@@ -386,9 +386,10 @@ it.
 
 Recorded 2026-10-11 for the redesigned model. Built so far: the offer choice,
 "Duplicar e ajustar", "Digitar termos", one current result marked
-"Desatualizado" when its premises changed, and "Salvar e calcular" with the
-revision, calculating synchronously. Not built yet: the calculation status and
-its refetching, impact notices, and editing an own offer in place. A
+"Desatualizado" when its premises changed, "Salvar e calcular" with the
+revision, and the calculation status with its polling, "Tentar novamente",
+and the list's status tags. Not built yet: impact notices and editing an own
+offer in place. A
 simulation always uses an offer, plus a curve when its
 remuneration is indexed, and holds the principal and investment date. All of
 them are editable. Its single result is recalculated asynchronously whenever
@@ -438,7 +439,10 @@ any of them changes.
   whatever the status, so finished calculations, edits from another tab, and
   premise changes all appear without special cases; TanStack Query pauses it
   while the tab is hidden and refetches on focus. A refetch updates the status
-  and result panels, never fields with unsaved edits. The monthly balances
+  and result panels, never the form: the editor is keyed by the simulation and
+  each reload, not by revision, and saves with the revision it was loaded or
+  last saved at (`PATCH` answers the new one). A poll showing a newer revision
+  offers "Recarregar". The monthly balances
   query includes the result's `calculatedAt` in its key, so it refetches once
   per new result and never on an ordinary poll. Until the status is up to
   date, the panel shows the last successful result marked as predating the

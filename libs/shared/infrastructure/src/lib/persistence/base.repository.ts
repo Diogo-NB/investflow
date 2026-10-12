@@ -22,7 +22,7 @@ export abstract class BaseRepository<T extends AggregateRoot> {
         await this.persistAggregate(aggregate, client);
         await this.outbox.append(client, outboxRows);
 
-        aggregate.clearDomainEvents();
+        aggregate.markPersisted();
       },
       (error) =>
         error instanceof AppError

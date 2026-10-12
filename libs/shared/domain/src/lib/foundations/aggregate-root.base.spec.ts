@@ -1,4 +1,5 @@
 import { AggregateRoot } from './aggregate-root.base';
+import { Revision } from './revision';
 import { DomainEvent } from './domain-event.contract';
 import { UtcInstant } from '../dates/utc-instant.vo';
 import { generateUuid } from '../identity/generate-uuid';
@@ -25,6 +26,17 @@ class TestAggregate extends AggregateRoot {
 
   doSomething(payload: string, at: UtcInstant = OCCURRED_AT): this {
     this.apply(new TestEvent(payload, at));
+    return this;
+  }
+}
+
+class RevisionedAggregate extends AggregateRoot {
+  constructor(revision: Revision) {
+    super('revisioned-id', revision);
+  }
+
+  change(): this {
+    this.revisionTracker.increment();
     return this;
   }
 }
@@ -68,15 +80,33 @@ describe('AggregateRoot', () => {
     expect(aggregate.id).toBe('test-id');
   });
 
-  describe('clearDomainEvents()', () => {
+  describe('markPersisted()', () => {
     it('empties the event list', () => {
       aggregate.doSomething('first');
-      aggregate.clearDomainEvents();
+      aggregate.markPersisted();
       expect(aggregate.getDomainEvents()).toHaveLength(0);
     });
 
     it('is safe to call when no events exist', () => {
-      expect(() => aggregate.clearDomainEvents()).not.toThrow();
+      expect(() => aggregate.markPersisted()).not.toThrow();
+    });
+  });
+
+  describe('revision', () => {
+    it('starts the next revision once persisted', () => {
+      const aggregate = new RevisionedAggregate(Revision.restore(2));
+
+      aggregate.change().change();
+      expect(aggregate.revision).toBe(3);
+
+      aggregate.markPersisted().change();
+      expect(aggregate.revision).toBe(4);
+    });
+
+    it('stays at 1 for an aggregate that does not track it', () => {
+      aggregate.markPersisted();
+
+      expect(aggregate.revision).toBe(1);
     });
   });
 });

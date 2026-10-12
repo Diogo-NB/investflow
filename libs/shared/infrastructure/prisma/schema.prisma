@@ -64,6 +64,7 @@ model Simulation {
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   offer          Offer             @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   curve          Curve?            @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  calculation    SimulationCalculation?
   result         SimulationResult?
 
   @@index([ownerId])
@@ -74,6 +75,51 @@ model Simulation {
 
 // The current result, replaced by each successful calculation, with the
 // revisions and methodology it was calculated from.
+enum SimulationCalculationStatus {
+  PENDING
+  CALCULATED
+  INVALID
+  FAILED
+
+  @@map("simulation_calculation_status")
+}
+
+enum SimulationCalculationCauseKind {
+  CREATED
+  SIMULATION_EDITED
+  OFFER_CHANGED
+  OFFER_DELETED
+  CURVE_CHANGED
+  CURVE_DELETED
+  METHODOLOGY_CHANGED
+  RETRY_REQUESTED
+
+  @@map("simulation_calculation_cause_kind")
+}
+
+// The current calculation state of a simulation; no history is kept.
+model SimulationCalculation {
+  simulationId       String                         @id @map("simulation_id") @db.Uuid
+  status             SimulationCalculationStatus
+  changedAt          DateTime                       @map("changed_at") @db.Timestamptz(3)
+  causeKind          SimulationCalculationCauseKind @map("cause_kind")
+  // The offer or curve whose change queued the calculation.
+  causeRefId         String?                        @map("cause_ref_id") @db.Uuid
+  // Null for system processes.
+  causeActorId       String?                        @map("cause_actor_id")
+  // The inputs the status applies to; outcomes are written only while the
+  // simulation revision still matches.
+  simulationRevision Int                            @map("simulation_revision")
+  offerRevision      Int?                           @map("offer_revision")
+  curveRevision      Int?                           @map("curve_revision")
+  // Only for INVALID.
+  reasonCode         String?                        @map("reason_code")
+  reasonMetadata     Json?                          @map("reason_metadata")
+  simulation         Simulation                     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("simulation_calculation")
+}
+
 model SimulationResult {
   simulationId              String                    @id @map("simulation_id") @db.Uuid
   simulationRevision        Int                       @map("simulation_revision")

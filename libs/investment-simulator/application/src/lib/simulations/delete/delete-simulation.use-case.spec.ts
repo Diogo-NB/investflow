@@ -11,7 +11,7 @@ const NOW = UtcInstant.ofIso('2026-10-10T12:00:00Z');
 function setup() {
   const simulation = ownedSimulation();
   const simulations = {
-    findById: jest.fn().mockResolvedValue(Result.ok(simulation)),
+    findOwned: jest.fn().mockResolvedValue(Result.ok(simulation)),
     save: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as jest.Mocked<SimulationRepository>;
   const clock = { now: () => NOW } as unknown as Clock;
@@ -40,7 +40,7 @@ describe('DeleteSimulationUseCase', () => {
   it("looks up the requester's simulation and stops when it is missing", async () => {
     const { simulation, simulations, useCase } = setup();
     const error = new SimulationNotFoundError(simulation.id);
-    simulations.findById.mockResolvedValue(Result.err(error));
+    simulations.findOwned.mockResolvedValue(Result.err(error));
 
     const result = await useCase.execute(
       DeleteSimulationCommand.fromRequest('someone-else', {
@@ -48,7 +48,7 @@ describe('DeleteSimulationUseCase', () => {
       }),
     );
 
-    expect(simulations.findById).toHaveBeenCalledWith(
+    expect(simulations.findOwned).toHaveBeenCalledWith(
       simulation.id,
       'someone-else',
     );

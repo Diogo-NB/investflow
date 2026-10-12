@@ -5,11 +5,10 @@ result is recalculated when anything it depends on changes. Read this first;
 the rules behind it are in "Messaging Transport" and "Mutable Premises And
 Asynchronous Recalculation" in [Project Structure](./project-structure.md).
 
-> **Status.** The event transport (outbox, EventBridge, SQS, consumers) is
-> built. The recalculation flow is designed and is being built in D4a (a
-> simulation's own calculation) and D4b (offer and curve changes); see the
-> [roadmap](../product/implementation-roadmap.md). Until D4a ships,
-> simulations still calculate inside the request.
+> **Status.** The event transport (outbox, EventBridge, SQS, consumers) and a
+> simulation's own asynchronous calculation (D4a) are built. Recalculation
+> after offer and curve changes (D4b, walkthroughs 5 and 6) is designed but
+> not built; see the [roadmap](../product/implementation-roadmap.md).
 
 ## In One Picture
 
@@ -158,17 +157,17 @@ Work" in [Project Structure](./project-structure.md).
 
 ### Who Does What
 
-| Layer          | Piece                                       | Responsibility                                                                                                                   |
-| -------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Domain         | `Simulation`                                | Sets `PENDING` with a cause and raises `SimulationCalculationRequested`; accepts an outcome only for its current revision.       |
-| Domain         | `SimulationCalculationService`              | `validate()`: the rules checked in the request. `calculate()`: a `CALCULATED` or `INVALID` outcome; throws on technical failure. |
-| Domain         | `InvestmentCalculator`                      | `check()`: supported remuneration and business days. `calculate()`: the numbers, including curve coverage.                       |
-| Application    | Create, edit, retry use cases               | Check visibility, validate, save.                                                                                                |
-| Application    | `CalculateSimulationUseCase`                | Load current state, calculate, record, save; a conflict is a discard.                                                            |
-| Infrastructure | `SimulationCalculationConsumer`             | `@OnEvent('SimulationCalculationRequested')`, throws on technical failure so SQS retries.                                        |
-| Infrastructure | Dead-letter consumer                        | Sets `FAILED` while the simulation is still `PENDING`.                                                                           |
-| Infrastructure | Repository                                  | Conditional update of `simulation_calculation` on the revisions read.                                                            |
-| SQS            | `simulation-calculations` queue and its DLQ | One worker per message, redelivery, retries, giving up.                                                                          |
+| Layer          | Piece                                       | Responsibility                                                                                                                                                         |
+| -------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain         | `Simulation`                                | Sets `PENDING` with a cause and raises `SimulationCreated`, `SimulationEdited`, or `SimulationCalculationRequested`; accepts an outcome only for its current revision. |
+| Domain         | `SimulationCalculationService`              | `validate()`: the rules checked in the request. `calculate()`: a `CALCULATED` or `INVALID` outcome; throws on technical failure.                                       |
+| Domain         | `InvestmentCalculator`                      | `check()`: supported remuneration and business days. `calculate()`: the numbers, including curve coverage.                                                             |
+| Application    | Create, edit, retry use cases               | Check visibility, validate, save.                                                                                                                                      |
+| Application    | `CalculateSimulationUseCase`                | Load current state, calculate, record, save; a conflict is a discard.                                                                                                  |
+| Infrastructure | `SimulationCalculationConsumer`             | One `@OnEvent` per event above, all calculating; throws on technical failure so SQS retries.                                                                           |
+| Infrastructure | Dead-letter consumer                        | Sets `FAILED` while the simulation is still `PENDING`.                                                                                                                 |
+| Infrastructure | Repository                                  | Conditional update of `simulation_calculation` on the revisions read.                                                                                                  |
+| SQS            | `simulation-calculations` queue and its DLQ | One worker per message, redelivery, retries, giving up.                                                                                                                |
 
 ### Walkthrough 1: Saving a Simulation
 
@@ -184,8 +183,8 @@ sequenceDiagram
   B->>A: PATCH /simulations/:id (revision 2)
   A->>A: SimulationCalculationService.validate()
   Note over A: a broken rule returns 4xx on its field and saves nothing
-  A->>DB: revision 3, PENDING (SIMULATION_EDITED, this user), outbox row
-  A-->>B: 200 with status PENDING
+  A->>DB: revision 3, PENDING (SIMULATION_EDITED, this user), SimulationEdited in the outbox
+  A-->>B: 200 with the new revision (calculation PENDING)
   DB-->>Q: outbox poller and EventBridge deliver the event
   Q-->>W: receive (hidden from other workers for 30 s)
   W->>DB: processed_events row, load simulation, offer, curve
@@ -214,7 +213,7 @@ sequenceDiagram
   Q-->>W: receive m1 (for revision 3)
   W->>DB: load revision 3
   B->>A: PATCH (revision 3)
-  A->>DB: revision 4, PENDING, outbox row m2
+  A->>DB: revision 4, PENDING, SimulationEdited m2 in the outbox
   W->>DB: save where simulation_revision = 3
   DB-->>W: 0 rows: the row now applies to revision 4
   W->>Q: discard the outcome, delete m1
@@ -251,13 +250,15 @@ sequenceDiagram
   Q-->>D: 5th failure moves m1 to the dead-letter queue
   D->>DB: markCalculationFailed() while still PENDING
   B->>A: poll returns FAILED ("Falha técnica")
-  B->>A: Tentar novamente
-  A->>DB: PENDING (RETRY_REQUESTED), new outbox row
+  B->>A: POST /simulations/:id/recalculate (Tentar novamente)
+  A->>DB: PENDING (RETRY_REQUESTED), SimulationCalculationRequested in the outbox
 ```
 
-If a newer message is already in flight when the dead-letter consumer runs,
-the screen may show "Falha técnica" briefly before that calculation replaces
-it.
+The dead-letter consumer writes `FAILED` only while the row is still
+`PENDING` for the revision it read, so it never replaces an outcome written
+meanwhile. If a newer message for the same revision is already in flight (a
+retry, or saving without changes), the screen may show "Falha técnica" briefly
+before that calculation replaces it.
 
 ### Walkthrough 5: An Offer or Curve Is Edited (D4b)
 
@@ -340,23 +341,26 @@ sequenceDiagram
 
 - Polling pauses while the tab is hidden and refetches on focus (TanStack
   Query defaults).
-- A refetch updates the status and result panels, never fields with unsaved
-  edits; a stale revision still gets `409` on save.
+- A refetch updates the status and result panels, never the form: the editor
+  keeps the revision it was loaded or last saved at (`PATCH` answers the new
+  one) and sends it, so a change made elsewhere is a `409` on save. When a
+  poll shows a newer revision, the screen offers to reload.
 - If polling load ever shows up, an `ETag` with `304` can be added to the same
   endpoint without client changes. Real-time push is future work.
 
 ## Where the Code Lives
 
-| Piece                                         | Path                                                                              |
-| --------------------------------------------- | --------------------------------------------------------------------------------- |
-| Outbox writer and poller, broker port         | `libs/shared/infrastructure/src/lib/messaging/outbox`                             |
-| EventBridge adapter                           | `libs/shared/infrastructure/src/lib/messaging/eventbridge`                        |
-| `EventDispatcher`, `@OnEvent`                 | `libs/shared/infrastructure/src/lib/messaging/consumers`                          |
-| `SqsEventListener`, `SqsConsumersModule`      | `libs/shared/infrastructure/src/lib/messaging/sqs`                                |
-| Queues, rules, dead-letter queues             | `infra/floci/init/provision.sh`                                                   |
-| Offer and curve events                        | `libs/investment-simulator/domain/src/lib/offers`, `.../curves`                   |
-| Simulation, calculation service (D4a)         | `libs/investment-simulator/domain/src/lib/simulations`                            |
-| Calculation use case and consumers (D4a, D4b) | `libs/investment-simulator/application` and `infrastructure`, under `simulations` |
+| Piece                                     | Path                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| Outbox writer and poller, broker port     | `libs/shared/infrastructure/src/lib/messaging/outbox`                    |
+| EventBridge adapter                       | `libs/shared/infrastructure/src/lib/messaging/eventbridge`               |
+| `EventDispatcher`, `@OnEvent`             | `libs/shared/infrastructure/src/lib/messaging/consumers`                 |
+| `SqsEventListener`, `SqsConsumersModule`  | `libs/shared/infrastructure/src/lib/messaging/sqs`                       |
+| Queues, rules, dead-letter queues         | `infra/floci/init/provision.sh`                                          |
+| Offer and curve events                    | `libs/investment-simulator/domain/src/lib/offers`, `.../curves`          |
+| Simulation, calculation service           | `libs/investment-simulator/domain/src/lib/simulations`                   |
+| Calculation, failure, and retry use cases | `libs/investment-simulator/application/src/lib/simulations`              |
+| Calculation and dead-letter consumers     | `libs/investment-simulator/infrastructure/src/lib/simulations/messaging` |
 
 ## Adding a New Consumer
 

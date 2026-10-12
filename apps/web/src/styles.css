@@ -52,7 +52,17 @@
   --color-accent-soft: oklch(0.9527 0.0124 157);
   --color-success: oklch(0.4567 0.0802 164.05);
   --color-warning: oklch(0.5027 0.0968 77.98);
+  --color-warning-soft: oklch(0.9648 0.0283 86.6);
   --color-error: oklch(0.4984 0.1543 27.96);
+  --color-error-soft: oklch(0.9589 0.0188 22.3);
+  --animate-fade-in: fade-in 300ms ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.25rem);
+    }
+  }
 }
 
 @layer base {

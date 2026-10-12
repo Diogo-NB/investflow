@@ -10,6 +10,8 @@ import {
   RemunerationTerms,
   InvestmentInputs,
   Simulation,
+  SimulationCalculation,
+  ESimulationCalculationCauseKind,
 } from '@investflow/investment-simulator-domain';
 import {
   CalendarDate,
@@ -38,6 +40,25 @@ export function catalogOffer(ownerId: string | null = null) {
   ).value;
 }
 
+// Matures after the fixture curve's last value.
+export function uncoveredCdiOffer() {
+  return Offer.create(
+    {
+      ownerId: null,
+      titleType: ETitleType.CDB,
+      name: 'CDB CDI',
+      issuerName: 'Banco Local',
+      maturityDate: CalendarDate.of('2031-01-02'),
+      redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
+      remunerationTerms: RemunerationTerms.create(
+        'CDI_PERCENTAGE',
+        Rate.of('1'),
+      ),
+    },
+    UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+  ).value;
+}
+
 export function cdiCurve(ownerId: string | null = null) {
   return Curve.create(
     {
@@ -58,8 +79,12 @@ export function cdiCurve(ownerId: string | null = null) {
   ).value;
 }
 
-// Reconstituted, as repositories return it, at revision 1 without a result.
-export function ownedSimulation(offerId = 'offer-id') {
+// Reconstituted, as repositories return it, at revision 1 waiting for its
+// first calculation.
+export function ownedSimulation(
+  offerId = 'offer-id',
+  curveId: string | null = null,
+) {
   return Simulation.reconstitute({
     id: 'simulation-id',
     ownerId: OWNER_ID,
@@ -67,9 +92,18 @@ export function ownedSimulation(offerId = 'offer-id') {
     investment: InvestmentInputs.create({
       principal: Money.of('1000'),
       investmentDate: CalendarDate.of('2026-01-02'),
-      curveId: null,
+      curveId,
     }),
     revision: 1,
+    calculation: SimulationCalculation.pending(
+      {
+        kind: ESimulationCalculationCauseKind.CREATED,
+        refId: null,
+        actorId: OWNER_ID,
+      },
+      1,
+      UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+    ),
     result: null,
     deletedAt: null,
   });

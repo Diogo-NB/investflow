@@ -1,5 +1,8 @@
 import {
+  ESimulationCalculationCauseKind,
+  ESimulationCalculationStatus,
   InvestmentCalculator,
+  SimulationCalculationService,
   Offer,
 } from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
@@ -33,7 +36,7 @@ function setup() {
   const offer = catalogOffer();
   const simulation = ownedSimulation(offer.id);
   const simulations = {
-    findById: jest.fn().mockResolvedValue(Result.ok(simulation)),
+    findOwned: jest.fn().mockResolvedValue(Result.ok(simulation)),
     save: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as jest.Mocked<SimulationRepository>;
   const offers = {
@@ -48,7 +51,9 @@ function setup() {
   const useCase = new EditSimulationUseCase(
     simulations,
     new SimulationPremisesService(offers, curves, clock),
-    new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+    new SimulationCalculationService(
+      new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+    ),
     clock,
   );
   return { offer, simulation, simulations, offers, useCase };
@@ -71,20 +76,29 @@ function command(
 }
 
 describe('EditSimulationUseCase', () => {
-  it("recalculates with the offer's current revision", async () => {
+  it('queues a calculation even when nothing changed', async () => {
     const { offer, simulation, simulations, useCase } = setup();
-    offer.edit({ name: 'Renomeada' }, NOW);
 
     const result = await useCase.execute(command(offer.id));
 
-    expect(result.isOk()).toBe(true);
-    expect(simulations.findById).toHaveBeenCalledWith(
+    expect(result.value).toEqual({ revision: 1 });
+    expect(simulations.findOwned).toHaveBeenCalledWith(
       'simulation-id',
       OWNER_ID,
     );
     expect(simulations.save).toHaveBeenCalledWith(simulation);
-    expect(simulation.revision).toBe(1);
-    expect(simulation.result?.inputs.offerRevision).toBe(2);
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(simulation.calculation.cause).toEqual({
+      kind: ESimulationCalculationCauseKind.SIMULATION_EDITED,
+      refId: null,
+      actorId: OWNER_ID,
+    });
+    expect(simulation.calculation.changedAt).toBe(NOW);
+    expect(
+      simulation.getDomainEvents().map(({ eventType }) => eventType),
+    ).toEqual(['SimulationEdited']);
   });
 
   it('applies a new investment', async () => {
@@ -97,6 +111,7 @@ describe('EditSimulationUseCase', () => {
     );
 
     expect(simulation.revision).toBe(2);
+    expect(simulation.calculation.inputs.simulationRevision).toBe(2);
     expect(simulation.investment.principal.equals(Money.of('2500'))).toBe(true);
   });
 
@@ -122,7 +137,7 @@ describe('EditSimulationUseCase', () => {
     expect(simulations.save).not.toHaveBeenCalled();
   });
 
-  it('saves nothing when the calculation is rejected', async () => {
+  it('saves nothing when validation rejects it', async () => {
     const { offer, simulation, simulations, offers, useCase } = setup();
 
     const result = await useCase.execute(
@@ -143,7 +158,7 @@ describe('EditSimulationUseCase', () => {
     [
       'simulation',
       (deps: ReturnType<typeof setup>) =>
-        deps.simulations.findById.mockResolvedValue(
+        deps.simulations.findOwned.mockResolvedValue(
           Result.err(new SimulationNotFoundError('simulation-id')),
         ),
       EAppErrorCode.SIMULATION_NOT_FOUND,

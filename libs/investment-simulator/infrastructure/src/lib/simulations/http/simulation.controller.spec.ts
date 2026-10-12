@@ -3,6 +3,7 @@ import {
   CreateSimulationUseCase,
   DeleteSimulationUseCase,
   EditSimulationUseCase,
+  RecalculateSimulationUseCase,
 } from '@investflow/investment-simulator-application';
 import { Result } from '@investflow/shared-domain';
 import { ListSimulationMonthlyBalancesQueryHandler } from '../queries/list-simulation-monthly-balances.query-handler';
@@ -32,13 +33,22 @@ function createFixture() {
   const create = handler<CreateSimulationUseCase>();
   const edit = handler<EditSimulationUseCase>();
   const remove = handler<DeleteSimulationUseCase>();
+  const recalculate = handler<RecalculateSimulationUseCase>();
   const list = handler<ListSimulationsQueryHandler>();
   const balances = handler<ListSimulationMonthlyBalancesQueryHandler>();
   return {
-    controller: new SimulationController(create, edit, remove, list, balances),
+    controller: new SimulationController(
+      create,
+      edit,
+      remove,
+      recalculate,
+      list,
+      balances,
+    ),
     create,
     edit,
     remove,
+    recalculate,
     list,
     balances,
   };
@@ -98,6 +108,9 @@ describe('SimulationController', () => {
       }),
     );
     await fixture.controller.delete(USER, { simulationId: SIMULATION_ID });
+    await fixture.controller.recalculate(USER, {
+      simulationId: SIMULATION_ID,
+    });
 
     const created = fixture.create.execute.mock.calls[0][0];
     expect(created.ownerId).toBe(USER.userId);
@@ -113,10 +126,11 @@ describe('SimulationController', () => {
       offer: { kind: 'existing', offerId: OFFER_ID },
     });
     expect(edited.investment.curveId).toBe(INVESTMENT.curveId);
-    const deleted = fixture.remove.execute.mock.calls[0][0];
-    expect(deleted).toMatchObject({
-      ownerId: USER.userId,
-      simulationId: SIMULATION_ID,
-    });
+    for (const owned of [fixture.remove, fixture.recalculate]) {
+      expect(owned.execute.mock.calls[0][0]).toMatchObject({
+        ownerId: USER.userId,
+        simulationId: SIMULATION_ID,
+      });
+    }
   });
 });

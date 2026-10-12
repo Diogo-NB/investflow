@@ -209,6 +209,20 @@ describe('Curve', () => {
     expect(curve.getDomainEvents()).toEqual([]);
   });
 
+  it('gives all changes before a save one revision, and a new one after it', () => {
+    const fresh = create().value;
+    fresh.edit({ name: 'Renomeada' }, AT);
+    expect(fresh.revision).toBe(1);
+
+    const curve = restore(fresh);
+    curve.edit({ name: 'CDI otimista' }, AT);
+    curve.delete(LATER);
+    expect(curve.revision).toBe(2);
+
+    curve.markPersisted().edit({ name: 'CDI base' }, LATER);
+    expect(curve.revision).toBe(3);
+  });
+
   it('deletes once, incrementing the revision and preserving its content', () => {
     const curve = restore(create().value);
     expect(curve.delete(AT)).toBe(curve);

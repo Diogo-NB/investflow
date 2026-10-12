@@ -165,6 +165,12 @@ export const workspace: SimulationWorkspace = {
     deleted: false,
   },
   curve: { id: 'cdi', name: 'CDI Local', deleted: false },
+  calculation: {
+    status: 'CALCULATED',
+    changedAt: '2026-10-10T12:00:00.000Z',
+    cause: { kind: 'SIMULATION_EDITED', refId: null },
+    reason: null,
+  },
   result: simulationResult(),
 };
 

@@ -22,7 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-12, after D3 and the D4 design.
+Last updated 2026-10-12, after D4a.
 
 Built for the target model:
 
@@ -32,8 +32,8 @@ Built for the target model:
   poller publishes to the `investflow` bus every second, backs a failed event
   off on its own (up to 5 minutes) and pauses during broker outages; events
   above the 200 KB outbox payload limit fail at save time. Consumers are plain
-  classes that the host binds to their queues. No domain event is consumed
-  yet.
+  classes that the host binds to their queues; the API binds the simulation
+  calculation consumer and its dead-letter consumer.
 - **Curves:** independent, revisioned `Curve` aggregates with owners; `null`
   is the system. Alternatives of an index ("CDI base", "CDI otimista") are
   separate curves, and screens group them by index and origin; no grouping
@@ -60,22 +60,36 @@ Built for the target model:
   of a new private offer, created in the same transaction as the simulation.
   CDB, LCI, and LCA with prefixed, CDI, or effective SELIC remuneration on the
   252 business-day convention, with IOF, income tax, and the LCI/LCA
-  exemption; a calculation is rejected when the chosen curve does not cover
-  the period.
+  exemption.
+- **Asynchronous calculation (D4a):** saving validates every rule except
+  curve coverage on the request's fields, stores the calculation `PENDING`
+  with its cause in `simulation_calculation`, and raises `SimulationCreated`
+  or `SimulationEdited`; `PATCH` answers the new revision. The
+  `simulation-calculations` consumer calculates through
+  `SimulationCalculationService` and records `CALCULATED` or `INVALID` (an
+  uncovered period, a deleted offer or curve) with a write conditional on the
+  simulation revision, discarding stale outcomes. Its dead-letter consumer
+  records `FAILED` over a calculation still `PENDING`, and
+  `POST simulations/:id/recalculate` ("Tentar novamente") queues it again
+  with `SimulationCalculationRequested`. The consumer handles all three
+  events.
 - **Results:** one current result per simulation, recording the simulation,
   offer, and curve revisions and the methodology version it used. Reads flag
   it "Desatualizado" when any of them changed, including a deleted offer or
-  curve; saving recalculates it from the current premises. The workspace shows
-  the summary, the tax explanation dialog, and the balance evolution chart
-  with monthly rows.
+  curve; saving queues a calculation from the current premises. The workspace
+  polls every 3 seconds and shows the status and its cause ("Calculando",
+  "Atualizado", "Requer ação" with the reason, "Falha técnica" with "Tentar
+  novamente") over the last result, the summary, the tax explanation dialog,
+  and the balance evolution chart with monthly rows; the list tags rows that
+  are not up to date.
 
 Differs from the target model:
 
-- Calculation runs inside the request that saves the simulation; there is no
-  calculation status, and editing or deleting an offer or curve does not
-  recalculate the simulations that use it until they are saved again.
-- A deleted offer or curve is reported on the simulation's screen, but the
-  simulation is not marked "Requer ação".
+- Editing or deleting an offer or curve does not queue the simulations that
+  use it; they are flagged "Desatualizado" until saved again (D4b).
+- The worker's guard covers only the simulation revision: an outcome
+  calculated from an older offer or curve revision can land after a newer
+  one, and is then shown as "Desatualizado" (D4b adds those revisions).
 
 Not started and outside this roadmap: portfolios, simulation return rates and
 remaining term, side-by-side comparison, IPCA calculation, and early
@@ -83,13 +97,10 @@ redemption.
 
 ## Next Steps
 
-1. D4a: a simulation's own calculation runs asynchronously. The design was
-   settled on 2026-10-12; the walkthrough is in
-   [Event Flow](../architecture/event-flow.md).
+1. Decide how D4b's batched fan-out writes calculation events (open decision
+   in its section), then build D4b.
 2. Decide how users enter a curve's intervals before D6 starts (open
    question in the curve specification).
-3. Decide how D4b's batched fan-out writes calculation events before D4b
-   starts (open decision in its section).
 
 ## Overview
 
@@ -99,7 +110,7 @@ redemption.
 | D1  | Curves become independent, revisioned, and owned                  | D0                                 | Done        |
 | D2  | Offers become independent, revisioned, and owned                  | D0                                 | Done        |
 | D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Done        |
-| D4a | A simulation's own calculation runs asynchronously                | D3                                 | Not started |
+| D4a | A simulation's own calculation runs asynchronously                | D3                                 | Done        |
 | D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Not started |
 | D5  | Offer screens (`/ofertas`)                                        | D2; best after D4b                 | Not started |
 | D6  | Curve screens (`/curvas`)                                         | D1 and the interval-input decision | Not started |
@@ -128,51 +139,10 @@ methodology version change moved to D4b.
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
 
-## D4a — Asynchronous calculation of a simulation
-
-The flow, its diagrams, and every failure case are in
-[Event Flow](../architecture/event-flow.md); the rules are in "Recalculation"
-in [Project Structure](../architecture/project-structure.md).
-
-- A `SimulationCalculation` value object on `Simulation`, persisted in a 1:1
-  `simulation_calculation` table: status (`PENDING`, `CALCULATED`, `INVALID`,
-  `FAILED`), `changedAt`, the cause of the last queuing (kind, offer or curve
-  id, actor), the simulation, offer, and curve revisions it applies to, and,
-  for `INVALID`, the reason code and metadata. No transition history.
-- Creating, editing, and "Tentar novamente" set `PENDING` with their cause
-  and raise `SimulationCalculationRequested` in the same transaction. The
-  request still validates synchronously through
-  `SimulationCalculationService.validate()` (every rule except curve
-  coverage) and calculates nothing. Saving without changes queues the
-  calculation again, which is how premise edits are picked up until D4b.
-- `SimulationCalculationService` (domain service) replaces
-  `Simulation.calculateAt`. `validate()` builds the `InvestmentScenario` and
-  calls a new `InvestmentCalculator.check()` (unsupported remuneration and
-  business days, extracted from the start of `calculate()`). `calculate()`
-  returns a `CALCULATED` or `INVALID` outcome and throws on technical
-  failures. `Simulation.recordCalculation()` accepts an outcome only for its
-  current revision and keeps the cause.
-- The calculation consumer gets the `simulation-calculations` queue through
-  `consumer_queue` in `infra/floci/init/provision.sh`, and the API binds it
-  with `SqsConsumersModule.register`. It loads current state, calculates, and
-  saves with a conditional update on the simulation revision the calculation
-  row applies to. A conflict means a newer message exists: the outcome is
-  discarded and the message acknowledged. SQS provides exclusivity, crash
-  recovery, and retries; there are no leases or claims.
-- A consumer bound to the dead-letter queue sets `FAILED` while the
-  simulation is still `PENDING`.
-- Workspace: status and cause in a live region ("Calculando", "Atualizado",
-  "Requer ação", "Falha técnica" with "Tentar novamente"). The details query
-  polls about every 3 seconds whatever the status, paused while the tab is
-  hidden; the monthly balances query is keyed by the result's `calculatedAt`;
-  the last successful result is marked as predating the changes.
-
-**Done when** saving returns immediately, the result arrives asynchronously,
-duplicate or late deliveries cannot replace a newer result, a crashed worker's
-message is calculated by another, and repeated technical failures end in
-"Falha técnica" with a working "Tentar novamente".
-
 ## D4b — Recalculation from premise changes
+
+The flow is in walkthroughs 5 and 6 of
+[Event Flow](../architecture/event-flow.md).
 
 - Offer and curve events carry the actor id, so fan-out can record who
   caused a recalculation.

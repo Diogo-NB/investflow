@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { todayInSaoPaulo } from '../../dates/calendar-date';
 import { ApiError } from '../../http/api-error';
@@ -8,9 +8,11 @@ import {
   createSimulation,
   deleteSimulation,
   editSimulation,
+  recalculateSimulation,
   simulationKeys,
   simulationOptionsQuery,
   simulationWorkspaceQuery,
+  WORKSPACE_REFRESH_MS,
 } from '../api/simulation-api';
 import {
   blankSimulationValues,
@@ -35,7 +37,6 @@ const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_CURVE_REQUIRED: 'curveId',
   INVESTMENT_CURVE_INCOMPATIBLE: 'curveId',
   INVESTMENT_CURVE_UNAVAILABLE: 'curveId',
-  INVESTMENT_CURVE_COVERAGE_MISSING: 'curveId',
   CURVE_NOT_FOUND: 'curveId',
   OFFER_NOT_FOUND: 'offerId',
   INVALID_OFFER: 'offerName',
@@ -86,7 +87,8 @@ function describeProblem(
 }
 
 export interface SaveCallbacks {
-  onSaved?(values: SimulationFormValues): void;
+  // revision is the one the next edit must send.
+  onSaved?(values: SimulationFormValues, revision: number): void;
   onProblem?(problem: SaveProblem): void;
 }
 
@@ -100,28 +102,43 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
   const sourceId = simulationId ?? templateId;
 
   const options = useQuery(simulationOptionsQuery(fetchFn));
+  // Polled whatever the calculation status; TanStack Query pauses the
+  // interval while the tab is hidden and refetches on focus.
   const source = useQuery({
     ...simulationWorkspaceQuery(fetchFn, sourceId ?? ''),
     enabled: sourceId !== null,
+    refetchInterval: simulationId !== undefined && WORKSPACE_REFRESH_MS,
   });
+  // Bumped after a reload so the editor restarts from the version read; polls
+  // never restart it, so unsaved edits survive them.
+  const [loadGeneration, setLoadGeneration] = useState(0);
 
   const save = useMutation({
     retry: 0,
-    // A rejected request saves nothing, so the form keeps its edits.
-    mutationFn: async (values: SimulationFormValues) => {
+    // A rejected request saves nothing, so the form keeps its edits. An edit
+    // sends the revision its form started from, never a polled one, so a
+    // change made elsewhere is reported as a conflict.
+    mutationFn: async ({
+      values,
+      revision,
+    }: {
+      values: SimulationFormValues;
+      revision: number;
+    }) => {
       const input = toSimulationInput(values);
       if (simulationId === undefined) {
-        return (await createSimulation(fetchFn, input)).simulationId;
+        const created = await createSimulation(fetchFn, input);
+        return { savedId: created.simulationId, revision: 1 };
       }
-      await editSimulation(fetchFn, simulationId, {
+      const edited = await editSimulation(fetchFn, simulationId, {
         ...input,
-        revision: source.data?.simulation.revision ?? 0,
+        revision,
       });
-      return simulationId;
+      return { savedId: simulationId, revision: edited.revision };
     },
     // Runs while the mutation is still pending, so navigation is not treated
     // as leaving unsaved changes.
-    onSuccess: async (savedId) => {
+    onSuccess: async ({ savedId }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: simulationKeys.lists() }),
         // A new private offer joins the options.
@@ -131,7 +148,7 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
         }),
       ]);
       if (simulationId === undefined) {
-        // Load the new page's data first so it opens with the result.
+        // Load the new page's data first so it opens with its status.
         await queryClient.prefetchQuery(
           simulationWorkspaceQuery(fetchFn, savedId),
         );
@@ -153,27 +170,49 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
     },
   });
 
-  // Rendered pending state lags a double click; this guard does not.
-  const saving = useRef(false);
+  const recalculate = useMutation({
+    retry: 0,
+    mutationFn: () => recalculateSimulation(fetchFn, simulationId ?? ''),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: simulationKeys.workspace(simulationId ?? ''),
+      }),
+  });
 
-  function run(values: SimulationFormValues, callbacks: SaveCallbacks = {}) {
+  // Rendered pending state lags a double click; these guards do not.
+  const saving = useRef(false);
+  const requesting = useRef(false);
+
+  function run(
+    values: SimulationFormValues,
+    revision: number,
+    callbacks: SaveCallbacks = {},
+  ) {
     if (saving.current) return;
     saving.current = true;
-    save.mutate(values, {
-      onSuccess: () => {
-        if (simulationId !== undefined) callbacks.onSaved?.(values);
+    save.mutate(
+      { values, revision },
+      {
+        onSuccess: (saved) => {
+          if (simulationId !== undefined) {
+            callbacks.onSaved?.(values, saved.revision);
+          }
+        },
+        onError: (error) =>
+          callbacks.onProblem?.(describeProblem(error, values.offerMode)),
+        onSettled: () => {
+          saving.current = false;
+        },
       },
-      onError: (error) =>
-        callbacks.onProblem?.(describeProblem(error, values.offerMode)),
-      onSettled: () => {
-        saving.current = false;
-      },
-    });
+    );
   }
 
   const problem: SaveProblem | null =
     !save.isPending && save.error
-      ? describeProblem(save.error, save.variables?.offerMode ?? 'existing')
+      ? describeProblem(
+          save.error,
+          save.variables?.values.offerMode ?? 'existing',
+        )
       : null;
 
   const setup = (() => {
@@ -194,6 +233,7 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
       : blankSimulationValues(todayInSaoPaulo(), options.data);
     return {
       status: 'ready',
+      loadGeneration,
       workspace: saved,
       initialValues,
       options: options.data,
@@ -212,10 +252,24 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
       pending: save.isPending,
       problem,
       // Loads the version saved elsewhere; the editor restarts from it.
-      reload: () => {
+      reload: async () => {
         save.reset();
-        void source.refetch();
+        await source.refetch();
+        setLoadGeneration((generation) => generation + 1);
       },
+    },
+    recalculate: {
+      run: () => {
+        if (requesting.current) return;
+        requesting.current = true;
+        recalculate.mutate(undefined, {
+          onSettled: () => {
+            requesting.current = false;
+          },
+        });
+      },
+      pending: recalculate.isPending,
+      failed: recalculate.isError,
     },
     remove: {
       run: () => {

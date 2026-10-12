@@ -16,11 +16,11 @@ export function SimulationWorkspacePage() {
   if (setup.status === 'ready') {
     return (
       <SimulationEditor
-        // A new editor for each simulation and each saved revision, so the
-        // form starts from the values saved, including ones saved elsewhere.
+        // A new editor for each simulation and each reload. Not per revision:
+        // polling must never discard unsaved edits.
         key={
           setup.workspace
-            ? `${setup.workspace.simulation.id}:${setup.workspace.simulation.revision}`
+            ? `${setup.workspace.simulation.id}:${setup.loadGeneration}`
             : `new:${searchParams.get(TEMPLATE_PARAM) ?? ''}`
         }
         saved={setup.workspace}

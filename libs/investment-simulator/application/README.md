@@ -14,19 +14,28 @@ The offer catalog exposes use cases to create, partially update, and soft
 delete offers. The issuer is an optional free-text name. Empty or
 identical updates preserve domain values and still persist the aggregate.
 
-`StartSimulationUseCase` verifies the source catalog offer when given and the
-optional curve, then saves the simulation and its first
-calculation from `Simulation.start()` in the same transaction.
-`CalculateSimulationUseCase` loads an owned simulation and the optional curve
-and appends the calculation `Simulation.calculate()` returns. Neither saves
-anything when the calculation is rejected. `DeleteSimulationUseCase` soft
-deletes an owned simulation.
+## Simulation commands
 
-Application behavior is organized as vertical slices under `offers/create`,
-`offers/update`, `offers/delete`, `simulations/start`,
-`simulations/calculate`, and `simulations/delete`. Contracts and conversion helpers shared by
-multiple operations live under `offers/shared`; feature-wide ports and errors
-remain at the feature root.
+Create and edit resolve the offer (an existing visible one or typed terms for a
+new private offer) and the optional curve, validate them with
+`SimulationCalculationService.validate()`, and save the simulation waiting for
+its calculation; nothing is calculated in the request and nothing is saved when
+validation fails. Edit returns the new revision. `RecalculateSimulationUseCase`
+queues the calculation again ("Tentar novamente"). User commands read through
+`SimulationRepository.findOwned()`.
+
+`CalculateSimulationUseCase` runs for each queued calculation: it reads the
+current simulation, offer, and curve, records the outcome, and saves it. A
+deleted simulation or an outcome made stale by a newer change succeeds without
+effect so the message is acknowledged; a deleted offer or curve is recorded as
+an invalid outcome; any other error is returned so the queue retries.
+`FailSimulationCalculationUseCase` marks a calculation still pending as failed
+once the queue gives up.
+
+Application behavior is organized as vertical slices per operation, such as
+`offers/create`, `simulations/edit`, and `simulations/calculate`. Contracts
+shared by multiple operations live under `<feature>/shared`; feature-wide ports
+and errors remain at the feature root.
 
 ## Building
 

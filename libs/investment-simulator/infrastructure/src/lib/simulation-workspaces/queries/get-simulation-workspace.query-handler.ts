@@ -68,6 +68,31 @@ export interface SimulationResultSummary {
   };
 }
 
+export interface SimulationCalculationOutput {
+  readonly status: 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
+  readonly changedAt: string;
+  // Why the calculation was last queued; refId is the offer or curve that
+  // changed.
+  readonly cause: {
+    readonly kind:
+      | 'CREATED'
+      | 'SIMULATION_EDITED'
+      | 'OFFER_CHANGED'
+      | 'OFFER_DELETED'
+      | 'CURVE_CHANGED'
+      | 'CURVE_DELETED'
+      | 'METHODOLOGY_CHANGED'
+      | 'RETRY_REQUESTED';
+    readonly refId: string | null;
+  };
+  // Only for INVALID: the stable error code and its details, such as the
+  // uncovered curve ranges.
+  readonly reason: {
+    readonly code: string;
+    readonly metadata: Record<string, unknown>;
+  } | null;
+}
+
 export interface GetSimulationWorkspaceOutput {
   readonly simulation: {
     readonly id: string;
@@ -81,7 +106,8 @@ export interface GetSimulationWorkspaceOutput {
     readonly name: string;
     readonly deleted: boolean;
   } | null;
-  // Null until the first successful calculation.
+  readonly calculation: SimulationCalculationOutput;
+  // The last successful calculation; null until the first one.
   readonly result: SimulationResultSummary | null;
 }
 
@@ -142,6 +168,16 @@ const workspaceSelect = {
   curveId: true,
   offer: { select: { ...offerSummarySelect, deletedAt: true } },
   curve: { select: { id: true, name: true, revision: true, deletedAt: true } },
+  calculation: {
+    select: {
+      status: true,
+      changedAt: true,
+      causeKind: true,
+      causeRefId: true,
+      reasonCode: true,
+      reasonMetadata: true,
+    },
+  },
   result: { select: resultSelect },
 } satisfies Prisma.SimulationSelect;
 
@@ -184,7 +220,10 @@ export class GetSimulationWorkspaceQueryHandler
   }
 
   private toOutput(record: WorkspaceRecord): GetSimulationWorkspaceOutput {
-    const { offer, curve } = record;
+    const { offer, curve, calculation } = record;
+    if (!calculation) {
+      throw new Error(`Simulation ${record.id} without a calculation row`);
+    }
     return {
       simulation: {
         id: record.id,
@@ -201,6 +240,20 @@ export class GetSimulationWorkspaceQueryHandler
       curve: curve
         ? { id: curve.id, name: curve.name, deleted: curve.deletedAt !== null }
         : null,
+      calculation: {
+        status: calculation.status,
+        changedAt: calculation.changedAt.toISOString(),
+        cause: { kind: calculation.causeKind, refId: calculation.causeRefId },
+        reason: calculation.reasonCode
+          ? {
+              code: calculation.reasonCode,
+              metadata: (calculation.reasonMetadata ?? {}) as Record<
+                string,
+                unknown
+              >,
+            }
+          : null,
+      },
       result: record.result
         ? this.toResultSummary(
             record.result,

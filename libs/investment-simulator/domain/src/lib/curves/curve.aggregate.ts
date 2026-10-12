@@ -1,8 +1,9 @@
 import {
-  AggregateRoot,
   CalendarDate,
+  AggregateRoot,
   generateUuid,
   Result,
+  Revision,
   UtcInstant,
 } from '@investflow/shared-domain';
 import { CurveInterval } from './curve-interval.vo';
@@ -23,12 +24,15 @@ export interface CurveContent {
   readonly intervals: readonly CurveInterval[];
 }
 
-interface CurveProps extends CurveContent {
-  // Never changes; it fixes the value convention.
+// Changed only by behavior methods; readonly fields never change.
+interface CurveProps {
+  // Fixes the value convention.
   readonly index: EEconomicIndex;
   readonly ownerId: string | null;
-  readonly revision: number;
-  readonly deletedAt: UtcInstant | null;
+  name: string;
+  description: string | null;
+  intervals: readonly CurveInterval[];
+  deletedAt: UtcInstant | null;
 }
 
 export type CreateCurveProps = Pick<
@@ -36,16 +40,20 @@ export type CreateCurveProps = Pick<
   'index' | 'ownerId' | 'name' | 'intervals'
 > & { readonly description?: string | null };
 
-export type ReconstituteCurveProps = CurveProps & { readonly id: string };
+export type ReconstituteCurveProps = CurveProps & {
+  readonly id: string;
+  readonly revision: number;
+};
 
 export type CurveEdit = Partial<CurveContent>;
 
 export class Curve extends AggregateRoot {
   private constructor(
     id: string,
-    private props: CurveProps,
+    private readonly props: CurveProps,
+    revision: Revision,
   ) {
-    super(id);
+    super(id, revision);
   }
 
   static create(
@@ -60,22 +68,26 @@ export class Curve extends AggregateRoot {
     const invalid = Curve.validate(props.index, content);
     if (invalid) return Result.err(invalid);
 
-    const curve = new Curve(generateUuid(), {
-      ...content,
-      index: props.index,
-      ownerId: props.ownerId,
-      revision: 1,
-      deletedAt: null,
-    });
+    const curve = new Curve(
+      generateUuid(),
+      {
+        ...content,
+        index: props.index,
+        ownerId: props.ownerId,
+        deletedAt: null,
+      },
+      Revision.initial(),
+    );
     return Result.ok(curve.apply(new CurveCreated(curve.id, occurredAt)));
   }
 
   static reconstitute(props: ReconstituteCurveProps): Curve {
-    const { id, ...state } = props;
-    return new Curve(id, {
-      ...state,
-      intervals: sortIntervals(state.intervals),
-    });
+    const { id, revision, ...state } = props;
+    return new Curve(
+      id,
+      { ...state, intervals: sortIntervals(state.intervals) },
+      Revision.restore(revision),
+    );
   }
 
   get index(): EEconomicIndex {
@@ -102,10 +114,6 @@ export class Curve extends AggregateRoot {
     return [...this.props.intervals];
   }
 
-  get revision(): number {
-    return this.props.revision;
-  }
-
   get deletedAt(): UtcInstant | null {
     return this.props.deletedAt;
   }
@@ -119,7 +127,7 @@ export class Curve extends AggregateRoot {
   }
 
   assertRevision(expected: number): Result<this, CurveRevisionConflictError> {
-    return expected === this.props.revision
+    return expected === this.revision
       ? Result.ok(this)
       : Result.err(new CurveRevisionConflictError(this.id, expected));
   }
@@ -158,21 +166,17 @@ export class Curve extends AggregateRoot {
 
     if (this.isUnchanged(content)) return Result.ok(this);
 
-    this.props = {
-      ...this.props,
-      ...content,
-      revision: this.props.revision + 1,
-    };
+    this.props.name = content.name;
+    this.props.description = content.description;
+    this.props.intervals = content.intervals;
+    this.revisionTracker.increment();
     return Result.ok(this.apply(new CurveChanged(this.id, occurredAt)));
   }
 
   delete(at: UtcInstant): this {
     if (this.props.deletedAt) return this;
-    this.props = {
-      ...this.props,
-      deletedAt: at,
-      revision: this.props.revision + 1,
-    };
+    this.props.deletedAt = at;
+    this.revisionTracker.increment();
     return this.apply(new CurveDeleted(this.id, at));
   }
 

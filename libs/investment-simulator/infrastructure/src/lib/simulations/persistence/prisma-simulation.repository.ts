@@ -3,7 +3,10 @@ import {
   SimulationRepository,
 } from '@investflow/investment-simulator-application';
 import {
+  ESimulationCalculationStatus,
   Simulation,
+  SimulationCalculation,
+  SimulationCalculationStaleError,
   SimulationResult,
   SimulationRevisionConflictError,
 } from '@investflow/investment-simulator-domain';
@@ -15,10 +18,16 @@ import {
   TransactionalPrismaClient,
 } from '@investflow/shared-infrastructure';
 import { Injectable } from '@nestjs/common';
-import { simulationInclude, SimulationMapper } from './simulation.mapper';
+import { Prisma } from '@prisma/client';
+import {
+  simulationInclude,
+  SimulationMapper,
+  SimulationPersistenceData,
+} from './simulation.mapper';
 
 interface StoredState {
   readonly revision: number;
+  readonly calculation: SimulationCalculation;
   readonly result: SimulationResult | null;
 }
 
@@ -35,30 +44,27 @@ export class PrismaSimulationRepository
     super(prisma);
   }
 
-  async findById(
+  findById(
+    id: string,
+  ): Promise<
+    Result<Simulation, SimulationNotFoundError | RepositoryFindError>
+  > {
+    return this.find(id, {});
+  }
+
+  findOwned(
     id: string,
     ownerId: string,
   ): Promise<
     Result<Simulation, SimulationNotFoundError | RepositoryFindError>
   > {
-    const result = await Result.fromPromise(
-      async () => {
-        const record = await this.prisma.client.simulation.findUnique({
-          where: { id, ownerId, deletedAt: null },
-          include: simulationInclude,
-        });
-        return record ? SimulationMapper.toDomain(record) : null;
-      },
-      (error) => new RepositoryFindError('Simulation', id, error),
-    );
-    if (result.isErr()) return result;
-    if (!result.value) return Result.err(new SimulationNotFoundError(id));
-    this.remember(result.value);
-    return Result.ok(result.value);
+    return this.find(id, { ownerId });
   }
 
-  // Checks the stored revision even when only the result changed, so a
-  // recalculation never lands on a simulation edited elsewhere.
+  // A request (PENDING) always replaces the calculation row, after the usual
+  // revision check on the simulation. An outcome is written only while the
+  // row still applies to the simulation revision it was calculated for, and
+  // never touches the simulation row.
   protected async persistAggregate(
     simulation: Simulation,
     client: TransactionalPrismaClient,
@@ -68,6 +74,12 @@ export class PrismaSimulationRepository
 
     if (stored === undefined) {
       await client.simulation.create({ data: data.simulation });
+      await client.simulationCalculation.create({ data: data.calculation });
+    } else if (
+      simulation.calculation !== stored.calculation &&
+      !simulation.calculation.isPending
+    ) {
+      await this.recordOutcome(client, data, stored);
     } else {
       const { count } = await client.simulation.updateMany({
         where: { id: simulation.id, revision: stored.revision },
@@ -78,6 +90,14 @@ export class PrismaSimulationRepository
           simulation.id,
           stored.revision,
         );
+      }
+      if (simulation.calculation !== stored.calculation) {
+        const { simulationId, ...calculation } = data.calculation;
+        await client.simulationCalculation.upsert({
+          where: { simulationId },
+          create: data.calculation,
+          update: calculation,
+        });
       }
     }
 
@@ -96,9 +116,59 @@ export class PrismaSimulationRepository
     this.remember(simulation);
   }
 
+  // A failure is recorded only over a calculation still waiting: a late
+  // dead-letter delivery must not replace an outcome written meanwhile.
+  private async recordOutcome(
+    client: TransactionalPrismaClient,
+    data: SimulationPersistenceData,
+    stored: StoredState,
+  ): Promise<void> {
+    const { simulationId, ...calculation } = data.calculation;
+    const { simulationRevision } = stored.calculation.inputs;
+    const { count } = await client.simulationCalculation.updateMany({
+      where: {
+        simulationId,
+        simulationRevision,
+        ...(calculation.status === ESimulationCalculationStatus.FAILED && {
+          status: ESimulationCalculationStatus.PENDING,
+        }),
+      },
+      data: calculation,
+    });
+    if (count === 0) {
+      throw new SimulationCalculationStaleError(
+        simulationId,
+        simulationRevision,
+      );
+    }
+  }
+
+  private async find(
+    id: string,
+    scope: Prisma.SimulationWhereInput,
+  ): Promise<
+    Result<Simulation, SimulationNotFoundError | RepositoryFindError>
+  > {
+    const result = await Result.fromPromise(
+      async () => {
+        const record = await this.prisma.client.simulation.findFirst({
+          where: { ...scope, id, deletedAt: null },
+          include: simulationInclude,
+        });
+        return record ? SimulationMapper.toDomain(record) : null;
+      },
+      (error) => new RepositoryFindError('Simulation', id, error),
+    );
+    if (result.isErr()) return result;
+    if (!result.value) return Result.err(new SimulationNotFoundError(id));
+    this.remember(result.value);
+    return Result.ok(result.value);
+  }
+
   private remember(simulation: Simulation): void {
     this.storedStates.set(simulation, {
       revision: simulation.revision,
+      calculation: simulation.calculation,
       result: simulation.result,
     });
   }

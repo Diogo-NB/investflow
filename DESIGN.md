@@ -71,7 +71,15 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
 | Accent foreground | `1 0 0`                | `#ffffff` |
 | Accent container  | `0.9527 0.0124 157`    | `#e9f2ec` |
 | Warning           | `0.5027 0.0968 77.98`  | `#825c14` |
+| Warning container | `0.9648 0.0283 86.6`   | `#fcf3de` |
 | Error             | `0.4984 0.1543 27.96`  | `#a9342c` |
+| Error container   | `0.9589 0.0188 22.3`   | `#feedec` |
+
+State containers tint status cards and tags: progress and success use the
+accent container, "Requer ação" and "Desatualizado" the warning container,
+"Falha técnica" and save failures the error container, each with a border of
+its state color at reduced opacity and its title in the state color. Body text
+on them stays the foreground color.
 
 ## Spacing, surfaces, and controls
 
@@ -111,7 +119,9 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
   preview. Changing kind clears the rate to avoid carrying different units.
 - Simulation list: compact heading and primary "Nova simulação"; one white
   result surface with the net value at maturity right-aligned in tabular
-  figures and a textual "Desatualizado" tag in the warning token.
+  figures and a status tag ("Calculando" with a spinning icon, "Requer ação",
+  "Falha técnica", "Desatualizado") with an icon and text on its state
+  container.
 - Simulation workspace: an inputs surface (about 26rem, sticky on desktop)
   beside the results. "Termos do título" comes first, as a fieldset on a new
   simulation and as a muted definition list on a saved one; "Investimento"
@@ -133,11 +143,27 @@ in OKLCH; the hex equivalents document the intended sRGB colors.
 
 ## Motion, iconography, imagery, and dark mode
 
-Only direct control feedback is needed, with no ripple effects; reduced motion
-suppresses control transitions. There are no page-entry transitions, animated
-status indicators, icon fonts, illustration assets, or dark theme. Home navigation
-uses a text arrow rather than adding an icon set. The brand
-square is text and CSS, not an image.
+Motion is limited to state feedback, with no ripple effects or page-entry
+transitions:
+
+- A refresh icon spins while work is in progress: "Calculando" (workspace
+  card and list tag) and "Salvando…", and on "Tentar novamente" while it is
+  being requested.
+- Status cards and a newly arrived result fade in (`animate-fade-in`, 300 ms,
+  a 4px rise), replayed when the status or the result's `calculatedAt`
+  changes.
+- While a recalculation is pending, the previous figures recede to 60%
+  opacity.
+
+All animation is `motion-safe:`, and the global reduced-motion reset also
+zeroes durations; a still refresh icon keeps its meaning.
+
+Icons are inline SVGs in `libs/investment-simulator/web/src/lib/ui/icons.tsx`
+(20px grid, 1.6 stroke, `currentColor`, `aria-hidden`): refresh, check circle,
+alert triangle, and x circle, plus the existing info and calendar icons. They
+accompany text and never carry state alone. There is no icon package, icon
+font, illustration asset, or dark theme. Home navigation uses a text arrow. The
+brand square is text and CSS, not an image.
 
 ## Accessibility
 
@@ -176,7 +202,10 @@ These are the visual source of truth, projected into Tailwind's CSS theme.
   --color-accent-soft: oklch(0.9527 0.0124 157);
   --color-success: oklch(0.4567 0.0802 164.05);
   --color-warning: oklch(0.5027 0.0968 77.98);
+  --color-warning-soft: oklch(0.9648 0.0283 86.6);
   --color-error: oklch(0.4984 0.1543 27.96);
+  --color-error-soft: oklch(0.9589 0.0188 22.3);
+  --animate-fade-in: fade-in 300ms ease-out;
 }
 ```
 
@@ -233,6 +262,12 @@ setup. That account was left unchanged, so the real authenticated return remains
 unverified until setup is completed.
 
 ## Changelog
+
+- 2026-10-12: calculation status gets color, icons, and motion. Added warning
+  and error containers, an inline SVG icon set, a spinning refresh icon for
+  in-progress work, a fade-in for status changes and new results, and colored
+  list status tags. Text on the new containers keeps at least 5.4:1. Replaces
+  the earlier "no animated status indicators, no icon set" rule.
 
 - 2026-10-10: rebuilt the shell and welcome page in React + Vite and moved
   interaction primitives to Base UI. The welcome page has no feature cards until

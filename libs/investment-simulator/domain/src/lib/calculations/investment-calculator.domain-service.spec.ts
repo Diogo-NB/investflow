@@ -265,6 +265,41 @@ describe('InvestmentCalculator domain service', () => {
     ).toBe(EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY);
   });
 
+  describe('check', () => {
+    it('accepts a supported scenario on business days without reading rates', () => {
+      expect(
+        calculator
+          .check(
+            scenario({
+              kind: 'CDI_PERCENTAGE',
+              end: '2026-03-06',
+              curve: curve(EEconomicIndex.CDI),
+            }),
+          )
+          .isOk(),
+      ).toBe(true);
+    });
+
+    it('rejects non-business dates and unsupported remuneration', () => {
+      expect(calculator.check(scenario({ start: '2026-01-03' })).error).toEqual(
+        expect.objectContaining({
+          code: EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY,
+          metadata: { field: 'investmentDate', date: '2026-01-03' },
+        }),
+      );
+      expect(
+        calculator.check(scenario({ end: '2026-01-10' })).error.metadata,
+      ).toEqual({ field: 'maturityDate', date: '2026-01-10' });
+      const ipca = curve(EEconomicIndex.IPCA, [
+        ['2026-01-01', '2026-01-31', '0.01'],
+      ]);
+      expect(
+        calculator.check(scenario({ kind: 'IPCA_PLUS', curve: ipca })).error
+          .code,
+      ).toBe(EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED);
+    });
+  });
+
   it.each([
     [ETitleType.LCI, 'lci-252-v1'],
     [ETitleType.LCA, 'lca-252-v1'],

@@ -34,7 +34,7 @@ export function offerFixture(spy: Spy) {
     }),
     save: spy(async (offer: Offer) => {
       offers.set(offer.id, offer);
-      offer.clearDomainEvents();
+      offer.markPersisted();
       return Result.ok(undefined);
     }),
   } satisfies OfferRepository;
@@ -57,7 +57,7 @@ export function offerFixture(spy: Spy) {
         ),
       },
       NOW,
-    ).value.clearDomainEvents();
+    ).value.markPersisted();
     offers.set(offer.id, offer);
     return offer;
   }

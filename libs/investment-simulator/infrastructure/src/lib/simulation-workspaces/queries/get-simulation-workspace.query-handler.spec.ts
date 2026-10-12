@@ -48,6 +48,7 @@ function workspace(
     result?: unknown;
     offer?: Partial<Record<string, unknown>>;
     curve?: Partial<Record<string, unknown>>;
+    calculation?: Partial<Record<string, unknown>>;
     revision?: number;
   } = {},
 ) {
@@ -78,11 +79,47 @@ function workspace(
       deletedAt: null,
       ...overrides.curve,
     },
+    calculation: {
+      status: 'CALCULATED',
+      changedAt: new Date('2026-10-10T12:00:00.000Z'),
+      causeKind: 'SIMULATION_EDITED',
+      causeRefId: null,
+      reasonCode: null,
+      reasonMetadata: null,
+      ...overrides.calculation,
+    },
     result: overrides.result === undefined ? result() : overrides.result,
   };
 }
 
 describe('GetSimulationWorkspaceQueryHandler', () => {
+  it('reports why a calculation cannot run with its details', async () => {
+    const output = await setup(
+      workspace({
+        calculation: {
+          status: 'INVALID',
+          causeKind: 'CREATED',
+          reasonCode: 'INVESTMENT_CURVE_COVERAGE_MISSING',
+          reasonMetadata: {
+            missingRanges: [{ start: '2026-02-02', end: '2026-02-27' }],
+          },
+        },
+      }),
+    )();
+
+    expect(output.value.calculation).toEqual({
+      status: 'INVALID',
+      changedAt: '2026-10-10T12:00:00.000Z',
+      cause: { kind: 'CREATED', refId: null },
+      reason: {
+        code: 'INVESTMENT_CURVE_COVERAGE_MISSING',
+        metadata: {
+          missingRanges: [{ start: '2026-02-02', end: '2026-02-27' }],
+        },
+      },
+    });
+  });
+
   it('renders the simulation, its premises and result as plain read data', async () => {
     const output = await setup(workspace())();
 
@@ -111,6 +148,12 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
       id: 'curve-id',
       name: 'CDI base',
       deleted: false,
+    });
+    expect(output.value.calculation).toEqual({
+      status: 'CALCULATED',
+      changedAt: '2026-10-10T12:00:00.000Z',
+      cause: { kind: 'SIMULATION_EDITED', refId: null },
+      reason: null,
     });
     expect(output.value.result).toEqual({
       calculatedAt: '2026-10-10T12:00:00.000Z',

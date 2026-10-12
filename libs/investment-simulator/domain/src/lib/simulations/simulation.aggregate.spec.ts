@@ -1,156 +1,254 @@
-import {
-  DomainError,
-  EAppErrorCode,
-  Money,
-  UtcInstant,
-} from '@investflow/shared-domain';
-import { Curve } from '../curves/curve.aggregate';
+import { EAppErrorCode, Money, UtcInstant } from '@investflow/shared-domain';
+import { InvestmentCalculationError } from '../calculations/investment-calculation.error';
 import { Offer } from '../offers/offer.aggregate';
 import { InvestmentInputs } from './investment-inputs.vo';
+import {
+  ESimulationCalculationCauseKind,
+  ESimulationCalculationStatus,
+  SimulationCalculation,
+  SimulationCalculationOutcome,
+} from './simulation-calculation.vo';
 import { Simulation } from './simulation.aggregate';
+import { SimulationCreated } from './simulation.events';
 import {
   CALCULATED_AT,
-  calculator,
-  cdiCurve,
+  calculationService,
+  cause,
   investment,
   offer,
 } from './simulation-fixture';
 
 const LATER = UtcInstant.ofIso('2026-10-11T12:00:00Z');
+const EDITED = cause(ESimulationCalculationCauseKind.SIMULATION_EDITED);
 
 function create(
-  options: { offer?: Offer; investment?: InvestmentInputs; curve?: Curve } = {},
-) {
-  return Simulation.create({
-    ownerId: 'owner-id',
-    offer: options.offer ?? offer(),
-    investment: options.investment ?? investment(),
-    curve: options.curve ?? null,
-    calculator,
-    calculatedAt: CALCULATED_AT,
-  });
-}
-
-function edit(
-  simulation: Simulation,
   options: { offer?: Offer; investment?: InvestmentInputs } = {},
 ) {
-  return simulation.edit({
-    offer: options.offer ?? offer(),
-    investment: options.investment ?? simulation.investment,
-    curve: null,
-    calculator,
-    calculatedAt: LATER,
-  });
+  const simulation = Simulation.create(
+    {
+      ownerId: 'owner-id',
+      offerId: (options.offer ?? offer()).id,
+      investment: options.investment ?? investment(),
+    },
+    cause(),
+    CALCULATED_AT,
+  );
+  simulation.markPersisted();
+  return simulation;
+}
+
+function calculated(simulation: Simulation, chosen: Offer = offer()) {
+  return calculationService.calculate(simulation, chosen, null, LATER);
+}
+
+function invalid(simulationRevision: number): SimulationCalculationOutcome {
+  return {
+    kind: 'INVALID',
+    inputs: { simulationRevision, offerRevision: 1, curveRevision: 1 },
+    reason: new InvestmentCalculationError(
+      EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
+      'Sem cobertura.',
+      { missing: [] },
+    ),
+  };
 }
 
 describe('Simulation', () => {
-  it('is created at revision 1 with the result of its premises', () => {
+  it('is created at revision 1 waiting for its calculation', () => {
     const chosen = offer();
 
-    const simulation = create({ offer: chosen }).value;
+    const simulation = Simulation.create(
+      { ownerId: 'owner-id', offerId: chosen.id, investment: investment() },
+      cause(),
+      CALCULATED_AT,
+    );
 
     expect(simulation.ownerId).toBe('owner-id');
     expect(simulation.offerId).toBe(chosen.id);
-    expect(simulation.investment.equals(investment())).toBe(true);
     expect(simulation.revision).toBe(1);
-    expect(simulation.deletedAt).toBeNull();
-    expect(simulation.result?.inputs).toEqual({
+    expect(simulation.result).toBeNull();
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(simulation.calculation.cause).toEqual(cause());
+    expect(simulation.calculation.changedAt).toBe(CALCULATED_AT);
+    expect(simulation.calculation.inputs.simulationRevision).toBe(1);
+    const events = simulation.getDomainEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toBeInstanceOf(SimulationCreated);
+    expect(events[0].aggregateId).toBe(simulation.id);
+  });
+
+  it('increments its revision and queues a calculation when edited', () => {
+    const simulation = create();
+    const other = offer();
+
+    simulation.edit(
+      { offerId: other.id, investment: investment() },
+      EDITED,
+      LATER,
+    );
+
+    expect(simulation.offerId).toBe(other.id);
+    expect(simulation.revision).toBe(2);
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(simulation.calculation.cause).toEqual(EDITED);
+    expect(simulation.calculation.inputs.simulationRevision).toBe(2);
+    expect(
+      simulation.getDomainEvents().map(({ eventType }) => eventType),
+    ).toEqual(['SimulationEdited']);
+  });
+
+  it('queues a calculation without a new revision when nothing changed', () => {
+    const chosen = offer();
+    const simulation = create({ offer: chosen });
+    simulation.recordCalculation(calculated(simulation, chosen), LATER);
+
+    simulation.edit(
+      { offerId: chosen.id, investment: investment() },
+      EDITED,
+      LATER,
+    );
+
+    expect(simulation.revision).toBe(1);
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(
+      simulation.getDomainEvents().map(({ eventType }) => eventType),
+    ).toEqual(['SimulationEdited']);
+  });
+
+  it('queues a calculation on request', () => {
+    const simulation = create();
+    const retry = cause(ESimulationCalculationCauseKind.RETRY_REQUESTED);
+
+    simulation.markCalculationFailed(LATER);
+    simulation.requestCalculation(retry, LATER);
+
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(simulation.calculation.cause).toEqual(retry);
+    expect(
+      simulation.getDomainEvents().map(({ eventType }) => eventType),
+    ).toEqual(['SimulationCalculationRequested']);
+  });
+
+  it('records a calculated outcome and keeps its cause', () => {
+    const simulation = create();
+    const outcome = calculated(simulation);
+
+    expect(simulation.recordCalculation(outcome, LATER).isOk()).toBe(true);
+
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.CALCULATED,
+    );
+    expect(simulation.calculation.cause).toEqual(cause());
+    expect(simulation.calculation.changedAt).toBe(LATER);
+    expect(simulation.calculation.inputs).toEqual({
       simulationRevision: 1,
       offerRevision: 1,
       curveRevision: null,
-      methodologyVersion: 'cdb-252-v1',
     });
-    expect(simulation.result?.calculatedAt).toBe(CALCULATED_AT);
-    expect(
-      simulation.result?.calculation.dailyBalances.at(-1)?.date.toIsoString(),
-    ).toBe('2026-01-06');
-  });
-
-  it('is not created when its calculation is rejected', () => {
-    expect(
-      create({ investment: investment({ principal: Money.of('0') }) }).error
-        .code,
-    ).toBe(EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID);
-    expect(
-      create({ investment: investment({ investmentDate: '2026-01-03' }) }).error
-        .code,
-    ).toBe(EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY);
-  });
-
-  it('records the curve revision for indexed remuneration', () => {
-    const curve = cdiCurve();
-
-    const simulation = create({
-      offer: offer('CDI_PERCENTAGE'),
-      investment: investment({ curveId: curve.id }),
-      curve,
-    }).value;
-
-    expect(simulation.result?.inputs.curveRevision).toBe(curve.revision);
-    expect(create({ offer: offer('CDI_PERCENTAGE') }).error.code).toBe(
-      EAppErrorCode.INVESTMENT_CURVE_REQUIRED,
+    expect(outcome.kind === 'CALCULATED' && simulation.result).toBe(
+      outcome.kind === 'CALCULATED' && outcome.result,
     );
   });
 
-  it('refuses a curve other than the referenced one', () => {
-    expect(() =>
-      create({
-        offer: offer('CDI_PERCENTAGE'),
-        investment: investment({ curveId: 'other-curve' }),
-        curve: cdiCurve(),
-      }),
-    ).toThrow(DomainError);
-  });
-
-  it('increments its revision when the offer or investment changes', () => {
-    const simulation = create().value;
-    const other = offer();
-
-    edit(simulation, { offer: other });
-    expect(simulation.offerId).toBe(other.id);
-    expect(simulation.revision).toBe(2);
-
-    edit(simulation, {
-      offer: other,
-      investment: investment({ principal: Money.of('2000') }),
-    });
-    expect(simulation.revision).toBe(3);
-    expect(simulation.result?.inputs.simulationRevision).toBe(3);
-    expect(
-      simulation.result?.calculation.maturitySummary.principal.equals(
-        Money.of('2000'),
-      ),
-    ).toBe(true);
-  });
-
-  it('recalculates without a new revision when nothing changed', () => {
-    const chosen = offer();
-    const simulation = create({ offer: chosen }).value;
-    chosen.edit({ name: 'Renomeada' }, LATER);
-
-    edit(simulation, { offer: chosen });
-
-    expect(simulation.revision).toBe(1);
-    expect(simulation.result?.inputs.offerRevision).toBe(2);
-    expect(simulation.result?.calculatedAt).toBe(LATER);
-  });
-
-  it('keeps its state when an edit is rejected', () => {
-    const simulation = create().value;
+  it('keeps the last result when an outcome is invalid', () => {
+    const simulation = create();
+    simulation.recordCalculation(calculated(simulation), LATER);
     const before = simulation.result;
 
-    const edited = edit(simulation, {
-      investment: investment({ principal: Money.of('0') }),
-    });
+    simulation.recordCalculation(invalid(1), LATER);
 
-    expect(edited.error.code).toBe(EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID);
-    expect(simulation.revision).toBe(1);
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.INVALID,
+    );
+    expect(simulation.calculation.reason).toEqual({
+      code: EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
+      metadata: { missing: [] },
+    });
     expect(simulation.result).toBe(before);
   });
 
+  it('refuses an outcome for another revision or once deleted', () => {
+    const simulation = create();
+    const outcome = calculated(simulation);
+    simulation.edit(
+      {
+        offerId: simulation.offerId,
+        investment: investment({ principal: Money.of('2000') }),
+      },
+      EDITED,
+      LATER,
+    );
+
+    expect(simulation.recordCalculation(outcome, LATER).error.code).toBe(
+      EAppErrorCode.SIMULATION_CALCULATION_STALE,
+    );
+    simulation.delete(LATER);
+    expect(
+      simulation.recordCalculation(invalid(simulation.revision), LATER).error
+        .code,
+    ).toBe(EAppErrorCode.SIMULATION_CALCULATION_STALE);
+  });
+
+  it('fails a calculation only while it is pending', () => {
+    const simulation = create();
+    simulation.markCalculationFailed(LATER);
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.FAILED,
+    );
+
+    const done = create();
+    done.recordCalculation(calculated(done), LATER);
+    done.markCalculationFailed(LATER);
+    expect(done.calculation.status).toBe(
+      ESimulationCalculationStatus.CALCULATED,
+    );
+  });
+
+  it('gives all changes before a save one revision, and a new one after it', () => {
+    const fresh = Simulation.create(
+      { ownerId: 'owner-id', offerId: offer().id, investment: investment() },
+      cause(),
+      CALCULATED_AT,
+    );
+    fresh.edit(
+      { offerId: offer().id, investment: investment() },
+      EDITED,
+      LATER,
+    );
+    expect(fresh.revision).toBe(1);
+    expect(fresh.calculation.inputs.simulationRevision).toBe(1);
+
+    const simulation = create();
+    simulation.edit(
+      { offerId: offer().id, investment: investment() },
+      EDITED,
+      LATER,
+    );
+    simulation.edit(
+      {
+        offerId: simulation.offerId,
+        investment: investment({ principal: Money.of('2000') }),
+      },
+      EDITED,
+      LATER,
+    );
+    expect(simulation.revision).toBe(2);
+    expect(simulation.calculation.inputs.simulationRevision).toBe(2);
+
+    simulation.markPersisted().delete(LATER);
+    expect(simulation.revision).toBe(3);
+  });
+
   it('reports a stale revision as a conflict', () => {
-    const simulation = create().value;
+    const simulation = create();
 
     expect(simulation.assertRevision(1).isOk()).toBe(true);
     expect(simulation.assertRevision(2).error.code).toBe(
@@ -158,15 +256,24 @@ describe('Simulation', () => {
     );
   });
 
-  it('rejects edits once deleted', () => {
-    const simulation = create().value;
+  it('rejects edits and calculation requests once deleted', () => {
+    const simulation = create();
     simulation.delete(CALCULATED_AT);
 
-    expect(edit(simulation).error.code).toBe(EAppErrorCode.SIMULATION_DELETED);
+    expect(
+      simulation.edit(
+        { offerId: simulation.offerId, investment: investment() },
+        EDITED,
+        LATER,
+      ).error.code,
+    ).toBe(EAppErrorCode.SIMULATION_DELETED);
+    expect(simulation.requestCalculation(EDITED, LATER).error.code).toBe(
+      EAppErrorCode.SIMULATION_DELETED,
+    );
   });
 
   it('soft deletes idempotently and keeps the first instant', () => {
-    const simulation = create().value;
+    const simulation = create();
 
     simulation.delete(CALCULATED_AT);
     simulation.delete(LATER);
@@ -176,18 +283,21 @@ describe('Simulation', () => {
   });
 
   it('reconstitutes its identity and state', () => {
+    const calculation = SimulationCalculation.pending(cause(), 4, LATER);
     const simulation = Simulation.reconstitute({
       id: 'simulation-id',
       ownerId: 'owner-id',
       offerId: 'offer-id',
       investment: investment(),
       revision: 4,
+      calculation,
       result: null,
       deletedAt: CALCULATED_AT,
     });
 
     expect(simulation.id).toBe('simulation-id');
     expect(simulation.revision).toBe(4);
+    expect(simulation.calculation).toBe(calculation);
     expect(simulation.result).toBeNull();
     expect(simulation.deletedAt).toBe(CALCULATED_AT);
   });

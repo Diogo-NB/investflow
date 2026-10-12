@@ -19,12 +19,25 @@ import {
 } from '../offers/terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentInputs } from './investment-inputs.vo';
+import { SimulationCalculationService } from './simulation-calculation.domain-service';
+import {
+  ESimulationCalculationCauseKind,
+  SimulationCalculationCause,
+} from './simulation-calculation.vo';
 
 export const CALCULATED_AT = UtcInstant.ofIso('2026-10-10T12:00:00Z');
 
 export const calculator = new InvestmentCalculator(
   new BrazilianBusinessDayCalendar(),
 );
+
+export const calculationService = new SimulationCalculationService(calculator);
+
+export function cause(
+  kind: ESimulationCalculationCauseKind = ESimulationCalculationCauseKind.CREATED,
+): SimulationCalculationCause {
+  return { kind, refId: null, actorId: 'owner-id' };
+}
 
 export function cdiCurve(): Curve {
   return Curve.create(
@@ -49,6 +62,7 @@ export function cdiCurve(): Curve {
 export function offer(
   kind: RemunerationKind = 'PREFIXED',
   ownerId: string | null = null,
+  maturityDate = '2026-01-06',
 ): Offer {
   return Offer.create(
     {
@@ -56,7 +70,7 @@ export function offer(
       ownerId,
       name: 'CDB Banco Local',
       issuerName: 'Banco Local',
-      maturityDate: CalendarDate.of('2026-01-06'),
+      maturityDate: CalendarDate.of(maturityDate),
       redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
       remunerationTerms: RemunerationTerms.create(
         kind,

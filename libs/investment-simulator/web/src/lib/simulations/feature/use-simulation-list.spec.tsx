@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { apiFailure, fakeApi, harness } from '../../testing/simulator-harness';
 import { parsePage, useSimulationList } from './use-simulation-list';
 
@@ -14,6 +14,7 @@ const item = {
   titleType: 'CDB',
   issuerName: 'Banco Local',
   remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+  calculationStatus: 'CALCULATED',
   latestCalculation: {
     id: 'calculation',
     calculatedAt: '2026-10-10T12:00:00.000Z',
@@ -94,6 +95,34 @@ describe('useSimulationList', () => {
     expect(parsePage('12')).toBe(12);
     for (const param of ['0', '-1', '1.5', 'x', '']) {
       expect(parsePage(param)).toBeNull();
+    }
+  });
+
+  it('reads the page again only while one of its rows is calculating', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let status = 'PENDING';
+      const api = fakeApi({
+        [listUrl(1)]: () => ({
+          items: [{ ...item, calculationStatus: status }],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+        }),
+      });
+      const { result } = render(api);
+      await waitFor(() => expect(result.current.state.status).toBe('ready'));
+      const reads = () =>
+        api.calls().filter((call) => call === listUrl(1)).length;
+
+      status = 'CALCULATED';
+      await act(() => vi.advanceTimersByTimeAsync(3000));
+      await waitFor(() => expect(reads()).toBe(2));
+      await act(() => vi.advanceTimersByTimeAsync(9000));
+
+      expect(reads()).toBe(2);
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

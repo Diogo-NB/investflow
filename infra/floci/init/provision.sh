@@ -45,3 +45,6 @@ JSON
   aws events put-targets --rule "$name" --event-bus-name "$BUS" \
     --targets "Id=$name,Arn=$queue_arn" >/dev/null
 }
+
+consumer_queue simulation-calculations \
+  '{"source":["investflow.investment-simulator"],"detail-type":["SimulationCreated","SimulationEdited","SimulationCalculationRequested"]}'

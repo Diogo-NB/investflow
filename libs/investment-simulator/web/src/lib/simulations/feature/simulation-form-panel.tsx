@@ -17,6 +17,7 @@ import {
   type SelectGroup,
   type SelectOption,
 } from '../../ui/select-field';
+import { CheckCircleIcon, SpinningRefreshIcon } from '../../ui/icons';
 import {
   bareInput,
   fieldBox,
@@ -557,11 +558,19 @@ export function SimulationFormPanel({
           className={primaryButton}
           disabled={pending || upToDate}
         >
-          {pending
-            ? 'Salvando…'
-            : upToDate
-              ? 'Resultado atualizado'
-              : 'Salvar e calcular'}
+          {pending ? (
+            <>
+              <SpinningRefreshIcon />
+              Salvando…
+            </>
+          ) : upToDate ? (
+            <>
+              <CheckCircleIcon />
+              Resultado atualizado
+            </>
+          ) : (
+            'Salvar e calcular'
+          )}
         </button>
         <p className="m-0 text-sm text-muted">
           {saved

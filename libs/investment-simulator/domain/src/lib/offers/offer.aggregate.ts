@@ -1,8 +1,9 @@
 import {
-  AggregateRoot,
   CalendarDate,
+  AggregateRoot,
   generateUuid,
   Result,
+  Revision,
   UtcInstant,
 } from '@investflow/shared-domain';
 import { InvalidOfferError, OfferRevisionConflictError } from './offer.error';
@@ -19,12 +20,17 @@ export interface OfferContent {
   readonly remunerationTerms: RemunerationTerms;
 }
 
-interface OfferProps extends OfferContent {
-  // Never changes; it fixes the methodology and taxation.
+// Changed only by behavior methods; readonly fields never change.
+interface OfferProps {
+  // Fixes the methodology and taxation.
   readonly titleType: ETitleType;
   readonly ownerId: string | null;
-  readonly revision: number;
-  readonly deletedAt: UtcInstant | null;
+  name: string;
+  issuerName: string | null;
+  maturityDate: CalendarDate;
+  redemptionTerms: RedemptionTerms;
+  remunerationTerms: RemunerationTerms;
+  deletedAt: UtcInstant | null;
 }
 
 export type CreateOfferProps = Pick<
@@ -37,16 +43,20 @@ export type CreateOfferProps = Pick<
   | 'remunerationTerms'
 > & { readonly issuerName?: string | null };
 
-export type ReconstituteOfferProps = OfferProps & { readonly id: string };
+export type ReconstituteOfferProps = OfferProps & {
+  readonly id: string;
+  readonly revision: number;
+};
 
 export type OfferEdit = Partial<OfferContent>;
 
 export class Offer extends AggregateRoot {
   private constructor(
     id: string,
-    private props: OfferProps,
+    private readonly props: OfferProps,
+    revision: Revision,
   ) {
-    super(id);
+    super(id, revision);
   }
 
   static create(
@@ -63,19 +73,22 @@ export class Offer extends AggregateRoot {
     const invalid = Offer.validate(content);
     if (invalid) return Result.err(invalid);
 
-    const offer = new Offer(generateUuid(), {
-      ...content,
-      titleType: props.titleType,
-      ownerId: props.ownerId,
-      revision: 1,
-      deletedAt: null,
-    });
+    const offer = new Offer(
+      generateUuid(),
+      {
+        ...content,
+        titleType: props.titleType,
+        ownerId: props.ownerId,
+        deletedAt: null,
+      },
+      Revision.initial(),
+    );
     return Result.ok(offer.apply(new OfferCreated(offer.id, occurredAt)));
   }
 
   static reconstitute(props: ReconstituteOfferProps): Offer {
-    const { id, ...state } = props;
-    return new Offer(id, state);
+    const { id, revision, ...state } = props;
+    return new Offer(id, state, Revision.restore(revision));
   }
 
   get titleType(): ETitleType {
@@ -106,10 +119,6 @@ export class Offer extends AggregateRoot {
     return this.props.remunerationTerms;
   }
 
-  get revision(): number {
-    return this.props.revision;
-  }
-
   get deletedAt(): UtcInstant | null {
     return this.props.deletedAt;
   }
@@ -123,7 +132,7 @@ export class Offer extends AggregateRoot {
   }
 
   assertRevision(expected: number): Result<this, OfferRevisionConflictError> {
-    return expected === this.props.revision
+    return expected === this.revision
       ? Result.ok(this)
       : Result.err(new OfferRevisionConflictError(this.id, expected));
   }
@@ -164,21 +173,19 @@ export class Offer extends AggregateRoot {
 
     if (this.isUnchanged(content)) return Result.ok(this);
 
-    this.props = {
-      ...this.props,
-      ...content,
-      revision: this.props.revision + 1,
-    };
+    this.props.name = content.name;
+    this.props.issuerName = content.issuerName;
+    this.props.maturityDate = content.maturityDate;
+    this.props.redemptionTerms = content.redemptionTerms;
+    this.props.remunerationTerms = content.remunerationTerms;
+    this.revisionTracker.increment();
     return Result.ok(this.apply(new OfferChanged(this.id, occurredAt)));
   }
 
   delete(at: UtcInstant): this {
     if (this.props.deletedAt) return this;
-    this.props = {
-      ...this.props,
-      deletedAt: at,
-      revision: this.props.revision + 1,
-    };
+    this.props.deletedAt = at;
+    this.revisionTracker.increment();
     return this.apply(new OfferDeleted(this.id, at));
   }
 

@@ -7,6 +7,34 @@ import type {
   UnsupportedReason,
 } from '../../offers/models/offer-terms';
 
+export type CalculationStatus = 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
+
+export type CalculationCauseKind =
+  | 'CREATED'
+  | 'SIMULATION_EDITED'
+  | 'OFFER_CHANGED'
+  | 'OFFER_DELETED'
+  | 'CURVE_CHANGED'
+  | 'CURVE_DELETED'
+  | 'METHODOLOGY_CHANGED'
+  | 'RETRY_REQUESTED';
+
+export interface SimulationCalculation {
+  readonly status: CalculationStatus;
+  readonly changedAt: string;
+  // Why the calculation was last queued; refId is the offer or curve that
+  // changed.
+  readonly cause: {
+    readonly kind: CalculationCauseKind;
+    readonly refId: string | null;
+  };
+  // Only for INVALID: the stable error code and its details.
+  readonly reason: {
+    readonly code: string;
+    readonly metadata: Readonly<Record<string, unknown>>;
+  } | null;
+}
+
 // Terms come from the offer the simulation uses.
 export interface SimulationListItem {
   readonly id: string;
@@ -17,7 +45,8 @@ export interface SimulationListItem {
   readonly titleType: TitleType;
   readonly issuerName: string | null;
   readonly remunerationTerms: RemunerationTerms;
-  // Null until the first successful calculation.
+  readonly calculationStatus: CalculationStatus;
+  // The last successful calculation; null until the first one.
   readonly result: {
     readonly calculatedAt: string;
     readonly outdated: boolean;
@@ -153,7 +182,8 @@ export interface SimulationWorkspace {
     readonly name: string;
     readonly deleted: boolean;
   } | null;
-  // Null until the first successful calculation.
+  readonly calculation: SimulationCalculation;
+  // The last successful calculation; null until the first one.
   readonly result: SimulationResult | null;
 }
 

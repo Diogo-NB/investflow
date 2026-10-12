@@ -1,80 +1,85 @@
 import {
   AggregateRoot,
-  DomainError,
-  EAppErrorCode,
   generateUuid,
   Result,
+  Revision,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { InvestmentCalculationError } from '../calculations/investment-calculation.error';
-import type { InvestmentCalculator } from '../calculations/investment-calculator.domain-service';
-import { InvestmentScenario } from '../calculations/investment-scenario.vo';
-import type { Curve } from '../curves/curve.aggregate';
-import type { Offer } from '../offers/offer.aggregate';
 import { InvestmentInputs } from './investment-inputs.vo';
+import {
+  SimulationCalculation,
+  SimulationCalculationCause,
+  SimulationCalculationOutcome,
+} from './simulation-calculation.vo';
 import { SimulationResult } from './simulation-result.vo';
 import {
+  SimulationCalculationStaleError,
   SimulationDeletedError,
   SimulationRevisionConflictError,
 } from './simulation.error';
+import {
+  SimulationCalculationRequested,
+  SimulationCreated,
+  SimulationEdited,
+} from './simulation.events';
 
+// Changed only by behavior methods; readonly fields never change.
 interface SimulationProps {
   readonly ownerId: string;
+  offerId: string;
+  investment: InvestmentInputs;
+  calculation: SimulationCalculation;
+  // The last successful calculation; null until the first one.
+  result: SimulationResult | null;
+  deletedAt: UtcInstant | null;
+}
+
+export interface SimulationPremisesProps {
   readonly offerId: string;
   readonly investment: InvestmentInputs;
-  readonly revision: number;
-  // Null until the first successful calculation.
-  readonly result: SimulationResult | null;
-  readonly deletedAt: UtcInstant | null;
 }
 
-// The premises a calculation reads. The curve is the one the investment
-// references; null for fixed rates.
-export interface SimulationCalculationProps {
-  readonly investment: InvestmentInputs;
-  readonly offer: Offer;
-  readonly curve: Curve | null;
-  readonly calculator: InvestmentCalculator;
-  readonly calculatedAt: UtcInstant;
-}
-
-export interface CreateSimulationProps extends SimulationCalculationProps {
+export interface CreateSimulationProps extends SimulationPremisesProps {
   readonly ownerId: string;
 }
 
 export type ReconstituteSimulationProps = SimulationProps & {
   readonly id: string;
+  readonly revision: number;
 };
 
 export class Simulation extends AggregateRoot {
   private constructor(
     id: string,
-    private props: SimulationProps,
+    private readonly props: SimulationProps,
+    revision: Revision,
   ) {
-    super(id);
+    super(id, revision);
   }
 
-  // Saved only together with its first successful calculation.
   static create(
     props: CreateSimulationProps,
-  ): Result<Simulation, InvestmentCalculationError> {
-    const simulation = new Simulation(generateUuid(), {
-      ownerId: props.ownerId,
-      offerId: props.offer.id,
-      investment: props.investment,
-      revision: 1,
-      result: null,
-      deletedAt: null,
-    });
-    const result = simulation.calculateAt(1, props);
-    if (result.isErr()) return result;
-    simulation.props = { ...simulation.props, result: result.value };
-    return Result.ok(simulation);
+    cause: SimulationCalculationCause,
+    at: UtcInstant,
+  ): Simulation {
+    const simulation = new Simulation(
+      generateUuid(),
+      {
+        ownerId: props.ownerId,
+        offerId: props.offerId,
+        investment: props.investment,
+        calculation: SimulationCalculation.pending(cause, 1, at),
+        result: null,
+        deletedAt: null,
+      },
+      Revision.initial(),
+    );
+    return simulation.apply(new SimulationCreated(simulation.id, at));
   }
 
   static reconstitute(props: ReconstituteSimulationProps): Simulation {
-    const { id, ...state } = props;
-    return new Simulation(id, state);
+    const { id, revision, ...state } = props;
+    return new Simulation(id, state, Revision.restore(revision));
   }
 
   get ownerId(): string {
@@ -89,8 +94,8 @@ export class Simulation extends AggregateRoot {
     return this.props.investment;
   }
 
-  get revision(): number {
-    return this.props.revision;
+  get calculation(): SimulationCalculation {
+    return this.props.calculation;
   }
 
   get result(): SimulationResult | null {
@@ -104,91 +109,87 @@ export class Simulation extends AggregateRoot {
   assertRevision(
     expected: number,
   ): Result<this, SimulationRevisionConflictError> {
-    return expected === this.props.revision
+    return expected === this.revision
       ? Result.ok(this)
       : Result.err(new SimulationRevisionConflictError(this.id, expected));
   }
 
-  // Recalculates even when nothing changed, so the result picks up edits to
-  // the offer and curve. A rejected calculation changes nothing.
+  // Queues a calculation even when nothing changed, so saving again picks up
+  // edits to the offer and curve.
   edit(
-    props: SimulationCalculationProps,
-  ): Result<this, SimulationDeletedError | InvestmentCalculationError> {
+    props: SimulationPremisesProps,
+    cause: SimulationCalculationCause,
+    at: UtcInstant,
+  ): Result<this, SimulationDeletedError> {
     if (this.props.deletedAt) {
       return Result.err(new SimulationDeletedError(this.id));
     }
     const unchanged =
-      props.offer.id === this.props.offerId &&
+      props.offerId === this.props.offerId &&
       props.investment.equals(this.props.investment);
-    const revision = unchanged ? this.props.revision : this.props.revision + 1;
+    this.props.offerId = props.offerId;
+    this.props.investment = props.investment;
+    if (!unchanged) this.revisionTracker.increment();
+    this.queueCalculation(cause, at);
+    return Result.ok(this.apply(new SimulationEdited(this.id, at)));
+  }
 
-    const result = this.calculateAt(revision, props);
-    if (result.isErr()) return result;
+  requestCalculation(
+    cause: SimulationCalculationCause,
+    at: UtcInstant,
+  ): Result<this, SimulationDeletedError> {
+    if (this.props.deletedAt) {
+      return Result.err(new SimulationDeletedError(this.id));
+    }
+    this.queueCalculation(cause, at);
+    return Result.ok(
+      this.apply(new SimulationCalculationRequested(this.id, at)),
+    );
+  }
 
-    this.props = {
-      ...this.props,
-      offerId: props.offer.id,
-      investment: props.investment,
-      revision,
-      result: result.value,
-    };
+  // An INVALID outcome keeps the last successful result.
+  recordCalculation(
+    outcome: SimulationCalculationOutcome,
+    at: UtcInstant,
+  ): Result<this, SimulationCalculationStaleError> {
+    const simulationRevision =
+      outcome.kind === 'CALCULATED'
+        ? outcome.result.inputs.simulationRevision
+        : outcome.inputs.simulationRevision;
+    if (this.props.deletedAt || simulationRevision !== this.revision) {
+      return Result.err(
+        new SimulationCalculationStaleError(this.id, simulationRevision),
+      );
+    }
+    this.props.calculation = this.props.calculation.recorded(outcome, at);
+    if (outcome.kind === 'CALCULATED') this.props.result = outcome.result;
     return Result.ok(this);
+  }
+
+  // Only a calculation still waiting can fail; a newer outcome stands.
+  markCalculationFailed(at: UtcInstant): this {
+    if (!this.props.calculation.isPending) return this;
+    this.props.calculation = this.props.calculation.failed(at);
+    return this;
   }
 
   delete(at: UtcInstant): this {
     if (this.props.deletedAt) return this;
-    this.props = {
-      ...this.props,
-      deletedAt: at,
-      revision: this.props.revision + 1,
-    };
+    this.props.deletedAt = at;
+    this.revisionTracker.increment();
     return this;
   }
 
-  private calculateAt(
-    simulationRevision: number,
-    {
-      investment,
-      offer,
-      curve,
-      calculator,
-      calculatedAt,
-    }: SimulationCalculationProps,
-  ): Result<SimulationResult, InvestmentCalculationError> {
-    if ((curve?.id ?? null) !== investment.curveId) {
-      throw new DomainError('A curva não corresponde ao investimento.', {
-        code: EAppErrorCode.INVESTMENT_SCENARIO_INVARIANT,
-        kind: 'unexpected',
-        metadata: {
-          expectedCurveId: investment.curveId,
-          actualCurveId: curve?.id ?? null,
-        },
-      });
-    }
-    const scenario = InvestmentScenario.create({
-      principal: investment.principal,
-      investmentDate: investment.investmentDate,
-      maturityDate: offer.maturityDate,
-      titleType: offer.titleType,
-      remuneration: offer.remunerationTerms,
-      curve,
-    });
-    if (scenario.isErr()) return scenario;
-    const calculation = calculator.calculate(scenario.value);
-    if (calculation.isErr()) return calculation;
-    return Result.ok(
-      SimulationResult.create({
-        inputs: {
-          simulationRevision,
-          offerRevision: offer.revision,
-          curveRevision: curve?.revision ?? null,
-          methodologyVersion: calculation.value.methodologyVersion,
-        },
-        investmentDate: investment.investmentDate,
-        maturityDate: offer.maturityDate,
-        calculation: calculation.value,
-        calculatedAt,
-      }),
+  // Each caller raises the event saying why, which the calculation consumer
+  // also handles.
+  private queueCalculation(
+    cause: SimulationCalculationCause,
+    at: UtcInstant,
+  ): void {
+    this.props.calculation = SimulationCalculation.pending(
+      cause,
+      this.revision,
+      at,
     );
   }
 }

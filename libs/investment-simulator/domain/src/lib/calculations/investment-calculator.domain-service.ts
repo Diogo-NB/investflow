@@ -51,9 +51,11 @@ export class InvestmentCalculator {
       : null;
   }
 
-  calculate(
+  // The rules a calculation can break before its rates are read; curve
+  // coverage is found only by calculate().
+  check(
     scenario: InvestmentScenario,
-  ): Result<InvestmentCalculation, InvestmentCalculationError> {
+  ): Result<void, InvestmentCalculationError> {
     const unsupported = InvestmentCalculator.unsupportedReason(
       scenario.remuneration.kind,
     );
@@ -64,23 +66,7 @@ export class InvestmentCalculator {
         }),
       );
     }
-    const periods = this.accrualPeriods(scenario);
-    if (periods.isErr()) return periods;
-    const rates = this.accrualRates(scenario, periods.value);
-    if (rates.isErr()) return rates;
-
-    // Inputs are validated; only numeric overflow can fail from here on.
-    return Result.fromThrowable(
-      () => this.compute(scenario, rates.value),
-      InvestmentCalculationError.failed,
-    );
-  }
-
-  // InvestmentScenario guarantees the investment date precedes maturity.
-  private accrualPeriods({
-    investmentDate,
-    maturityDate,
-  }: InvestmentScenario): Result<AccrualPeriod[], InvestmentCalculationError> {
+    const { investmentDate, maturityDate } = scenario;
     if (!this.calendar.isBusinessDay(investmentDate)) {
       return Result.err(
         InvestmentCalculationError.notBusinessDay(
@@ -94,7 +80,30 @@ export class InvestmentCalculator {
         InvestmentCalculationError.notBusinessDay('maturityDate', maturityDate),
       );
     }
+    return Result.ok(undefined);
+  }
 
+  calculate(
+    scenario: InvestmentScenario,
+  ): Result<InvestmentCalculation, InvestmentCalculationError> {
+    const checked = this.check(scenario);
+    if (checked.isErr()) return checked;
+    const rates = this.accrualRates(scenario, this.accrualPeriods(scenario));
+    if (rates.isErr()) return rates;
+
+    // Inputs are validated; only numeric overflow can fail from here on.
+    return Result.fromThrowable(
+      () => this.compute(scenario, rates.value),
+      InvestmentCalculationError.failed,
+    );
+  }
+
+  // InvestmentScenario guarantees the investment date precedes maturity, and
+  // check() that both are business days.
+  private accrualPeriods({
+    investmentDate,
+    maturityDate,
+  }: InvestmentScenario): AccrualPeriod[] {
     // Each business day closes the period opened by the previous one; the
     // investment date only opens the first period.
     const businessDays = CalendarDateRange.of(
@@ -102,12 +111,10 @@ export class InvestmentCalculator {
       maturityDate,
     ).datesBetween.filter(this.calendar.isBusinessDay);
 
-    return Result.ok(
-      businessDays.slice(1).map((balanceDate, index) => ({
-        rateReferenceDate: businessDays[index],
-        balanceDate,
-      })),
-    );
+    return businessDays.slice(1).map((balanceDate, index) => ({
+      rateReferenceDate: businessDays[index],
+      balanceDate,
+    }));
   }
 
   private accrualRates(
@@ -145,7 +152,7 @@ export class InvestmentCalculator {
               ),
           );
       case 'IPCA_PLUS':
-        // calculate() rejects it earlier through unsupportedReason().
+        // check() rejects it earlier through unsupportedReason().
         return Result.err(
           InvestmentCalculationError.unsupported(
             EAppErrorCode.INVESTMENT_REMUNERATION_UNSUPPORTED,

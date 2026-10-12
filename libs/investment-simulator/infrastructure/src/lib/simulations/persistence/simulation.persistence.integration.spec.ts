@@ -4,6 +4,8 @@ import {
   ETitleType,
   Curve,
   CurveInterval,
+  ESimulationCalculationCauseKind,
+  ESimulationCalculationStatus,
   IndexValue,
   InvestmentCalculator,
   InvestmentInputs,
@@ -11,6 +13,8 @@ import {
   RedemptionTerms,
   RemunerationTerms,
   Simulation,
+  SimulationCalculationCause,
+  SimulationCalculationService,
 } from '@investflow/investment-simulator-domain';
 import {
   BrazilianBusinessDayCalendar,
@@ -37,7 +41,9 @@ jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 const connectionString = process.env['INVESTMENT_SIMULATOR_TEST_DATABASE_URL'];
 const integration = connectionString ? describe : describe.skip;
 
-const calculator = new InvestmentCalculator(new BrazilianBusinessDayCalendar());
+const calculation = new SimulationCalculationService(
+  new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+);
 
 integration('Simulation PostgreSQL persistence', () => {
   let prisma: PrismaService;
@@ -61,6 +67,15 @@ integration('Simulation PostgreSQL persistence', () => {
   afterAll(async () => {
     try {
       const simulation = { ownerId };
+      const simulationIds = (
+        await prisma.client.simulation.findMany({
+          where: simulation,
+          select: { id: true },
+        })
+      ).map(({ id }) => id);
+      await prisma.client.simulationCalculation.deleteMany({
+        where: { simulation },
+      });
       await prisma.client.simulationResultBalance.deleteMany({
         where: { result: { simulation } },
       });
@@ -82,7 +97,9 @@ integration('Simulation PostgreSQL persistence', () => {
         where: { id: { in: curveIds } },
       });
       await prisma.client.outboxEvent.deleteMany({
-        where: { aggregateId: { in: [...curveIds, ...offerIds] } },
+        where: {
+          aggregateId: { in: [...curveIds, ...offerIds, ...simulationIds] },
+        },
       });
     } finally {
       await prisma.onModuleDestroy();
@@ -90,6 +107,10 @@ integration('Simulation PostgreSQL persistence', () => {
   });
 
   const at = (iso: string) => UtcInstant.ofIso(`${iso}T12:00:00.000Z`);
+  const cause = (
+    kind = ESimulationCalculationCauseKind.CREATED,
+  ): SimulationCalculationCause => ({ kind, refId: null, actorId: ownerId });
+  const EDITED = cause(ESimulationCalculationCauseKind.SIMULATION_EDITED);
 
   // A saved simulation of a CDI title over about one year of business days.
   async function savedSimulation(titleType = ETitleType.CDB) {
@@ -126,22 +147,36 @@ integration('Simulation PostgreSQL persistence', () => {
       },
       at('2026-10-09'),
     ).value;
-    const simulation = Simulation.create({
-      ownerId,
-      offer,
-      investment: investmentOf(curve),
-      curve,
-      calculator,
-      calculatedAt: at('2026-10-09'),
-    }).value;
+    const created = Simulation.create(
+      { ownerId, offerId: offer.id, investment: investmentOf(curve) },
+      cause(),
+      at('2026-10-09'),
+    );
     for (const save of [
       () => curves.save(curve),
       () => offers.save(offer),
-      () => simulations.save(simulation),
+      () => simulations.save(created),
     ]) {
       expect((await save()).isOk()).toBe(true);
     }
+    const simulation = await calculated(created.id, offer, curve, '2026-10-09');
     return { simulation, offer, curve };
+  }
+
+  // What the calculation worker does: read, calculate, record, save.
+  async function calculated(
+    id: string,
+    offer: Offer,
+    curve: Curve,
+    iso: string,
+  ) {
+    const simulation = await load(id);
+    simulation.recordCalculation(
+      calculation.calculate(simulation, offer, curve, at(iso)),
+      at(iso),
+    );
+    expect((await simulations.save(simulation)).isOk()).toBe(true);
+    return simulation;
   }
 
   function investmentOf(curve: Curve, principal = '10000.123456789') {
@@ -153,7 +188,7 @@ integration('Simulation PostgreSQL persistence', () => {
   }
 
   async function load(id: string) {
-    return (await simulations.findById(id, ownerId)).value;
+    return (await simulations.findOwned(id, ownerId)).value;
   }
 
   it('restores a simulation only for its owner and while it is not deleted', async () => {
@@ -162,15 +197,103 @@ integration('Simulation PostgreSQL persistence', () => {
     const loaded = await load(simulation.id);
     expect(loaded.offerId).toBe(simulation.offerId);
     expect(loaded.revision).toBe(1);
+    expect((await simulations.findById(simulation.id)).isOk()).toBe(true);
     expect(
-      (await simulations.findById(simulation.id, 'someone-else')).error.code,
+      (await simulations.findOwned(simulation.id, 'someone-else')).error.code,
     ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
 
     loaded.delete(at('2026-10-13'));
     expect((await simulations.save(loaded)).isOk()).toBe(true);
+    expect((await simulations.findById(simulation.id)).error.code).toBe(
+      EAppErrorCode.SIMULATION_NOT_FOUND,
+    );
+  });
+
+  it('saves a new simulation waiting for its calculation with its event', async () => {
+    const { offer, curve } = await savedSimulation();
+    const created = Simulation.create(
+      { ownerId, offerId: offer.id, investment: investmentOf(curve) },
+      cause(),
+      at('2026-10-09'),
+    );
+    const [event] = created.getDomainEvents();
+
+    expect((await simulations.save(created)).isOk()).toBe(true);
+
+    const loaded = await load(created.id);
+    expect(loaded.result).toBeNull();
+    expect(loaded.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(loaded.calculation.cause).toEqual(cause());
     expect(
-      (await simulations.findById(simulation.id, ownerId)).error.code,
-    ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
+      await prisma.client.outboxEvent.findUnique({
+        where: { id: event.eventId },
+        select: { eventType: true, aggregateId: true },
+      }),
+    ).toEqual({
+      eventType: 'SimulationCreated',
+      aggregateId: created.id,
+    });
+  });
+
+  it('discards an outcome calculated before a later edit', async () => {
+    const { simulation, offer, curve } = await savedSimulation();
+    const worker = await load(simulation.id);
+    const user = await load(simulation.id);
+    user.edit(
+      { offerId: offer.id, investment: investmentOf(curve, '20000') },
+      EDITED,
+      at('2026-10-10'),
+    );
+    expect((await simulations.save(user)).isOk()).toBe(true);
+
+    worker.recordCalculation(
+      calculation.calculate(worker, offer, curve, at('2026-10-10')),
+      at('2026-10-10'),
+    );
+
+    expect((await simulations.save(worker)).error.code).toBe(
+      EAppErrorCode.SIMULATION_CALCULATION_STALE,
+    );
+    const reloaded = await load(simulation.id);
+    expect(reloaded.revision).toBe(2);
+    expect(reloaded.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(reloaded.calculation.cause).toEqual(EDITED);
+    expect(reloaded.result?.inputs.simulationRevision).toBe(1);
+  });
+
+  it('records a failure only over a calculation still pending', async () => {
+    const { simulation, offer, curve } = await savedSimulation();
+    const requested = await load(simulation.id);
+    requested.requestCalculation(
+      cause(ESimulationCalculationCauseKind.RETRY_REQUESTED),
+      at('2026-10-10'),
+    );
+    expect((await simulations.save(requested)).isOk()).toBe(true);
+    const deadLetter = await load(simulation.id);
+    await calculated(simulation.id, offer, curve, '2026-10-11');
+
+    deadLetter.markCalculationFailed(at('2026-10-12'));
+
+    expect((await simulations.save(deadLetter)).error.code).toBe(
+      EAppErrorCode.SIMULATION_CALCULATION_STALE,
+    );
+    expect((await load(simulation.id)).calculation.status).toBe(
+      ESimulationCalculationStatus.CALCULATED,
+    );
+
+    const pending = await load(simulation.id);
+    pending.requestCalculation(EDITED, at('2026-10-12'));
+    expect((await simulations.save(pending)).isOk()).toBe(true);
+    const failing = await load(simulation.id);
+    failing.markCalculationFailed(at('2026-10-13'));
+    expect((await simulations.save(failing)).isOk()).toBe(true);
+    expect((await load(simulation.id)).calculation.status).toBe(
+      ESimulationCalculationStatus.FAILED,
+    );
   });
 
   it('stores a full year of daily balances and restores the result exactly', async () => {
@@ -214,7 +337,7 @@ integration('Simulation PostgreSQL persistence', () => {
     expect(loaded?.taxes.incomeTax.amount.isZero()).toBe(true);
   });
 
-  it('replaces the result and its balances when an edit recalculates', async () => {
+  it('replaces the result and its balances when an edit is calculated', async () => {
     const { simulation, offer, curve } = await savedSimulation();
     const loaded = await load(simulation.id);
     const shorter = Offer.create(
@@ -231,14 +354,18 @@ integration('Simulation PostgreSQL persistence', () => {
     ).value;
     expect((await offers.save(shorter)).isOk()).toBe(true);
 
-    loaded.edit({
-      offer: shorter,
-      investment: investmentOf(curve, '20000'),
-      curve,
-      calculator,
-      calculatedAt: at('2026-10-10'),
-    });
+    loaded.edit(
+      { offerId: shorter.id, investment: investmentOf(curve, '20000') },
+      EDITED,
+      at('2026-10-10'),
+    );
     expect((await simulations.save(loaded)).isOk()).toBe(true);
+    const recalculated = await calculated(
+      simulation.id,
+      shorter,
+      curve,
+      '2026-10-10',
+    );
 
     const reloaded = await load(simulation.id);
     expect(reloaded.revision).toBe(2);
@@ -248,7 +375,7 @@ integration('Simulation PostgreSQL persistence', () => {
       await prisma.client.simulationResultBalance.count({
         where: { simulationId: simulation.id },
       }),
-    ).toBe(loaded.result?.calculation.dailyBalances.length);
+    ).toBe(recalculated.result?.calculation.dailyBalances.length);
     expect(
       reloaded.result?.calculation.dailyBalances.at(-1)?.date.toIsoString(),
     ).toBe('2026-03-02');
@@ -259,13 +386,11 @@ integration('Simulation PostgreSQL persistence', () => {
     const first = await load(simulation.id);
     const second = await load(simulation.id);
     const edit = (target: Simulation, principal: string) =>
-      target.edit({
-        offer,
-        investment: investmentOf(curve, principal),
-        curve,
-        calculator,
-        calculatedAt: at('2026-10-10'),
-      });
+      target.edit(
+        { offerId: offer.id, investment: investmentOf(curve, principal) },
+        EDITED,
+        at('2026-10-10'),
+      );
 
     edit(first, '20000');
     expect((await simulations.save(first)).isOk()).toBe(true);
@@ -281,7 +406,7 @@ integration('Simulation PostgreSQL persistence', () => {
     ).toBe(true);
   });
 
-  it('reads the result as outdated after its offer changes until the simulation is saved again', async () => {
+  it('reads the result as outdated after its offer changes until it is calculated again', async () => {
     const { simulation, offer, curve } = await savedSimulation();
     const workspace = new GetSimulationWorkspaceQueryHandler(prisma);
     const list = new ListSimulationsQueryHandler(prisma);
@@ -334,15 +459,23 @@ integration('Simulation PostgreSQL persistence', () => {
     expect(changed.listed?.result?.outdated).toBe(true);
 
     const loaded = await load(simulation.id);
-    loaded.edit({
-      offer: edited,
-      investment: loaded.investment,
-      curve,
-      calculator,
-      calculatedAt: at('2026-10-11'),
-    });
+    loaded.edit(
+      { offerId: edited.id, investment: loaded.investment },
+      EDITED,
+      at('2026-10-11'),
+    );
     expect((await simulations.save(loaded)).isOk()).toBe(true);
+    const queued = await read();
+    expect(queued.workspace.calculation).toEqual({
+      status: 'PENDING',
+      changedAt: '2026-10-11T12:00:00.000Z',
+      cause: { kind: 'SIMULATION_EDITED', refId: null },
+      reason: null,
+    });
+    expect(queued.listed?.calculationStatus).toBe('PENDING');
+    await calculated(simulation.id, edited, curve, '2026-10-11');
     const recalculated = await read();
+    expect(recalculated.workspace.calculation.status).toBe('CALCULATED');
     expect(recalculated.workspace.simulation.revision).toBe(1);
     expect(recalculated.workspace.result).toMatchObject({
       calculatedAt: '2026-10-11T12:00:00.000Z',

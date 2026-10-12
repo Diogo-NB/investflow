@@ -9,6 +9,12 @@ import {
   secondaryButton,
   surface,
 } from '../../ui/styles';
+import {
+  AlertTriangleIcon,
+  SpinningRefreshIcon,
+  XCircleIcon,
+} from '../../ui/icons';
+import { calculationStatusLabel } from '../utils/calculation-status';
 import type { SimulationListItem } from '../models/simulation.types';
 import { useSimulationList } from './use-simulation-list';
 
@@ -20,18 +26,62 @@ function searchWithPage(params: URLSearchParams, page: number): string {
   return search ? `?${search}` : '';
 }
 
-function NetResult({ item }: { readonly item: SimulationListItem }) {
-  if (!item.result) {
-    return <span className="text-sm text-muted">Sem resultado</span>;
+const TAG_BASE =
+  'inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-sm font-medium';
+
+function StatusTag({ item }: { readonly item: SimulationListItem }) {
+  const label = calculationStatusLabel(item.calculationStatus);
+  switch (item.calculationStatus) {
+    case 'PENDING':
+      return (
+        <span
+          className={`${TAG_BASE} border-accent/30 bg-accent-soft text-accent`}
+        >
+          <SpinningRefreshIcon className="size-4" />
+          {label}
+        </span>
+      );
+    case 'INVALID':
+      return (
+        <span
+          className={`${TAG_BASE} border-warning/40 bg-warning-soft text-warning`}
+        >
+          <AlertTriangleIcon className="size-4 shrink-0" />
+          {label}
+        </span>
+      );
+    case 'FAILED':
+      return (
+        <span
+          className={`${TAG_BASE} border-error/40 bg-error-soft text-error`}
+        >
+          <XCircleIcon className="size-4 shrink-0" />
+          {label}
+        </span>
+      );
+    case 'CALCULATED':
+      return item.result?.outdated ? (
+        <span
+          className={`${TAG_BASE} border-warning/40 bg-warning-soft text-warning`}
+        >
+          <AlertTriangleIcon className="size-4 shrink-0" />
+          Desatualizado
+        </span>
+      ) : null;
   }
+}
+
+function NetResult({ item }: { readonly item: SimulationListItem }) {
   return (
-    <span className="grid justify-items-end gap-0.5">
-      <span className="font-medium tabular-nums">
-        {formatMoney(item.result.netBalance)}
-      </span>
-      {item.result.outdated && (
-        <span className="text-sm text-warning">Desatualizado</span>
+    <span className="grid justify-items-end gap-1">
+      {item.result ? (
+        <span className="font-medium tabular-nums">
+          {formatMoney(item.result.netBalance)}
+        </span>
+      ) : (
+        <span className="text-sm text-muted">Sem resultado</span>
       )}
+      <StatusTag item={item} />
     </span>
   );
 }

@@ -1,7 +1,10 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 import { useApiFetch } from '../../routes/investment-simulator-deps';
-import { simulationListQuery } from '../api/simulation-api';
+import {
+  simulationListQuery,
+  WORKSPACE_REFRESH_MS,
+} from '../api/simulation-api';
 import type { SimulationListItem } from '../models/simulation.types';
 
 export type SimulationListState =
@@ -29,6 +32,11 @@ export function useSimulationList() {
   const query = useQuery({
     ...simulationListQuery(fetchFn, page),
     placeholderData: keepPreviousData,
+    // Only while a row is calculating, so its status settles on screen.
+    refetchInterval: ({ state }) =>
+      state.data?.items.some((item) => item.calculationStatus === 'PENDING')
+        ? WORKSPACE_REFRESH_MS
+        : false,
   });
 
   const lastPage = query.data

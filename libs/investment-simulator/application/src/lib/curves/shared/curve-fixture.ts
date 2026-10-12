@@ -34,7 +34,7 @@ export function curveFixture(spy: Spy) {
     }),
     save: spy(async (curve: Curve) => {
       curves.set(curve.id, curve);
-      curve.clearDomainEvents();
+      curve.markPersisted();
       return Result.ok(undefined);
     }),
   } satisfies CurveRepository;
@@ -60,7 +60,7 @@ export function curveFixture(spy: Spy) {
         ],
       },
       NOW,
-    ).value.clearDomainEvents();
+    ).value.markPersisted();
     curves.set(curve.id, curve);
     return curve;
   }

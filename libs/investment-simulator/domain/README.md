@@ -139,22 +139,32 @@ rounding. This does not reproduce B3-specific truncation and rounding.
 ## Simulations and results
 
 `Simulation` references an offer by ID and holds its `InvestmentInputs`, an
-owner, a revision, its current `SimulationResult`, and optional soft deletion
-that keeps the first instant. Changing the offer or the investment increments
-the revision; deleting does too.
-
-`Simulation.create()` creates a simulation only together with its first
-successful calculation, and `edit()` always recalculates, so saving picks up
-changes to the offer and curve even when the simulation itself is unchanged.
-A rejected calculation changes nothing; deleted simulations reject edits.
-Both combine the offer's terms with the investment into the calculable
-`InvestmentScenario` and return the scenario rule that breaks: principal
-positive BRL, investment before maturity, and a curve exactly when the
-remuneration requires one, of its index and not deleted. Passing a curve other
-than the referenced one is an invariant breach. Past dates, weekends, and
-holidays pass the scenario; only calculation enforces business days.
-`assertRevision()` reports a stale client revision as
+owner, a revision, its `SimulationCalculation`, its last successful
+`SimulationResult`, and optional soft deletion that keeps the first instant.
+Changing the offer or the investment increments the revision; deleting does
+too. `assertRevision()` reports a stale client revision as
 `SIMULATION_REVISION_CONFLICT`.
+
+Calculation is asynchronous. `Simulation.create()`, `edit()`, and
+`requestCalculation()` set the calculation `PENDING` with its cause (kind,
+offer or curve id, actor) and raise `SimulationCreated`, `SimulationEdited`,
+and `SimulationCalculationRequested` respectively, all handled by the
+calculation consumer; `edit()` does so even when nothing changed, so saving picks up changes to the offer and
+curve. Deleted simulations reject both. `recordCalculation()` accepts a
+`CALCULATED` or `INVALID` outcome only for the current revision of a
+simulation that is not deleted, keeps the cause, and keeps the last result when
+the outcome is invalid. `markCalculationFailed()` applies only while the
+calculation is pending.
+
+`SimulationCalculationService` combines the offer's terms with the investment
+into the calculable `InvestmentScenario`. `validate()` returns the first rule
+that breaks: principal positive BRL, investment before maturity, minimum term,
+a curve exactly when the remuneration requires one, of its index and not
+deleted, supported remuneration, and business days (`InvestmentCalculator.check()`).
+`calculate()` also checks curve coverage and returns a `CALCULATED` outcome with
+the result or an `INVALID` one with the broken rule; a numeric failure throws
+so the calculation is retried, and passing a curve other than the referenced
+one is an invariant breach.
 
 `SimulationResult` is the single current result: the whole
 `InvestmentCalculation` (methodology version, maturity summary, tax

@@ -17,7 +17,10 @@ import {
   DeleteSimulationCommand,
   DeleteSimulationUseCase,
   EditSimulationCommand,
+  EditSimulationOutput,
   EditSimulationUseCase,
+  RecalculateSimulationCommand,
+  RecalculateSimulationUseCase,
 } from '@investflow/investment-simulator-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import {
@@ -38,6 +41,7 @@ export class SimulationController {
     private readonly createSimulation: CreateSimulationUseCase,
     private readonly editSimulation: EditSimulationUseCase,
     private readonly deleteSimulation: DeleteSimulationUseCase,
+    private readonly recalculateSimulation: RecalculateSimulationUseCase,
     private readonly listSimulations: ListSimulationsQueryHandler,
     private readonly listMonthlyBalances: ListSimulationMonthlyBalancesQueryHandler,
   ) {}
@@ -61,15 +65,26 @@ export class SimulationController {
     );
   }
 
+  // Answers the saved revision, which the next edit must send.
   @Patch('simulations/:simulationId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   edit(
     @CurrentUser() user: AuthenticatedUser,
     @Param() params: SimulationIdRequest,
     @Body() request: EditSimulationRequest,
-  ): Promise<Result<void, AppError>> {
+  ): Promise<Result<EditSimulationOutput, AppError>> {
     return this.editSimulation.execute(
       EditSimulationCommand.fromRequest(user.userId, params, request),
+    );
+  }
+
+  @Post('simulations/:simulationId/recalculate')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  recalculate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: SimulationIdRequest,
+  ): Promise<Result<void, AppError>> {
+    return this.recalculateSimulation.execute(
+      RecalculateSimulationCommand.fromRequest(user.userId, params),
     );
   }
 

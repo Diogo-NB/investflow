@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import {
-  InvestmentCalculator,
+  ESimulationCalculationCauseKind,
   Simulation,
+  SimulationCalculationService,
 } from '@investflow/investment-simulator-domain';
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import { AppError, Result } from '@investflow/shared-domain';
@@ -13,7 +14,8 @@ export interface CreateSimulationOutput {
   readonly simulationId: string;
 }
 
-// A rejected calculation saves nothing, not even a new offer.
+// A rejected request saves nothing, not even a new offer. The calculation
+// itself runs after the response.
 @Injectable()
 export class CreateSimulationUseCase
   implements CommandHandler<CreateSimulationCommand, CreateSimulationOutput>
@@ -21,7 +23,7 @@ export class CreateSimulationUseCase
   constructor(
     private readonly simulationRepository: SimulationRepository,
     private readonly premises: SimulationPremisesService,
-    private readonly calculator: InvestmentCalculator,
+    private readonly calculation: SimulationCalculationService,
     private readonly clock: Clock,
   ) {}
 
@@ -34,20 +36,30 @@ export class CreateSimulationUseCase
       command.investment.curveId,
     );
     if (premises.isErr()) return premises;
+    const valid = this.calculation.validate(
+      command.investment,
+      premises.value.offer,
+      premises.value.curve,
+    );
+    if (valid.isErr()) return valid;
 
-    const simulation = Simulation.create({
-      ownerId: command.ownerId,
-      investment: command.investment,
-      offer: premises.value.offer,
-      curve: premises.value.curve,
-      calculator: this.calculator,
-      calculatedAt: this.clock.now(),
-    });
-    if (simulation.isErr()) return simulation;
+    const simulation = Simulation.create(
+      {
+        ownerId: command.ownerId,
+        offerId: premises.value.offer.id,
+        investment: command.investment,
+      },
+      {
+        kind: ESimulationCalculationCauseKind.CREATED,
+        refId: null,
+        actorId: command.ownerId,
+      },
+      this.clock.now(),
+    );
 
     const offerSaved = await this.premises.saveNewOffer(premises.value);
     if (offerSaved.isErr()) return offerSaved;
-    const saved = await this.simulationRepository.save(simulation.value);
-    return saved.map(() => ({ simulationId: simulation.value.id }));
+    const saved = await this.simulationRepository.save(simulation);
+    return saved.map(() => ({ simulationId: simulation.id }));
   }
 }

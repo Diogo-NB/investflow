@@ -89,8 +89,9 @@ frontend testing policy.
   screen) are mutable, private to their user or read-only system content;
   simulations always reference them and are recalculated asynchronously when
   they change (decision 2026-10-11). Reproducibility and calculation history
-  were dropped. Offers, curves, and simulations are built on this model;
-  simulations still calculate inside the request. See "Mutable
+  were dropped. Offers, curves, and simulations are built on this model, and
+  a simulation's own calculation runs asynchronously (D4a); offer and curve
+  changes do not recalculate their simulations yet (D4b). See "Mutable
   Premises And Asynchronous Recalculation" in
   `docs/architecture/project-structure.md` before touching offers, curves,
   simulations, or eventing.

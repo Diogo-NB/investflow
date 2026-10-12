@@ -389,9 +389,12 @@ in the outbox. `Simulation` references an offer and an optional curve, has its
 own revision, and keeps one current `SimulationResult` recording the
 simulation, offer, and curve revisions and the methodology version it used;
 "Digitar termos" and "Duplicar e ajustar" create a private offer in the same
-request. Still pending: calculation runs inside the request (saving a
-simulation recalculates it), there is no calculation status, and no domain
-event is consumed. The asynchronous design below was settled on 2026-10-12.
+request. A simulation's own calculation is asynchronous (D4a): saving
+validates, stores `PENDING`, and the `simulation-calculations` consumer
+calculates; a dead-letter consumer records `FAILED`. Still pending (D4b):
+offer and curve changes do not queue the simulations that use them, events do
+not carry the actor, and the worker's guard covers only the simulation
+revision. The design below was settled on 2026-10-12.
 Deliverables and their order are in
 `docs/product/implementation-roadmap.md`.
 
@@ -421,7 +424,16 @@ Deliverables and their order are in
   increments the simulation's own `revision`. A reference to an offer or
   curve that is not visible to the simulation's owner is treated as not
   found.
-- `revision` starts at 1 and increments on every persisted change. Commands
+- `revision` starts at 1 and increments on every persisted change: once per
+  save, however many changes the aggregate received in between, so a revision
+  always names one persisted state. A `Revision` (`@investflow/shared-domain`)
+  tracks it by comparing the current revision with the one last read or
+  saved. An aggregate that needs one passes `Revision.initial()` or
+  `Revision.restore(n)` to `AggregateRoot` and calls
+  `revisionTracker.increment()` from its behavior methods; the others keep
+  `Revision.fixed()`, always 1. `AggregateRoot` exposes `revision`, and
+  `BaseRepository.save()`
+  calls `markPersisted()` so the next change takes a new revision. Commands
   that change an offer, a curve, or a simulation carry the revision the
   client edited;
   a mismatch is a conflict, so concurrent edits (two tabs, a user and an
@@ -474,8 +486,10 @@ state is kept; a transition history is deferred work.
   (principal, period, minimum term, curve required, compatible, and not
   deleted) plus `InvestmentCalculator.check()` (supported remuneration,
   business days). Curve coverage is checked only by the calculation. The use
-  case then persists the simulation as `PENDING` and raises
-  `SimulationCalculationRequested` in the same transaction. Nothing is
+  case then persists the simulation as `PENDING` and raises the event of what
+  happened (`SimulationCreated`, `SimulationEdited`, or, for "Tentar
+  novamente", `SimulationCalculationRequested`) in the same transaction; the
+  calculation consumer handles all of them. Nothing is
   calculated inside the request, so calculation cost is not bounded by
   request timeouts.
 - **Calculation is a domain service.** `SimulationCalculationService`
@@ -496,7 +510,9 @@ state is kept; a transition history is deferred work.
   row with `PENDING`, whatever is in flight. A worker calculates from current
   state, never from the event payload, and its save requires the row to still
   apply to the simulation revision it read (from D4b, also the offer and curve
-  revisions). Otherwise it discards the outcome and acknowledges the message:
+  revisions); a `FAILED` write also requires the row to still be `PENDING`, so
+  a late dead-letter delivery never replaces an outcome written meanwhile.
+  Otherwise it discards the outcome and acknowledges the message:
   whatever made its inputs out of date queued its own message. Late,
   duplicate, or concurrent deliveries therefore cannot replace a newer state.
 - **Fan-out.** Changing or deleting an offer or curve updates the
@@ -641,9 +657,14 @@ providers; the API host owns global HTTP interceptor activation and ordering.
 
 ## Class Design
 
-Aggregates and entities store state in private props objects, expose getters,
-and mutate only through behavior methods. Use static factories for creation and
-reconstitution.
+Aggregates and entities store state in a `private readonly props` object,
+expose getters, and mutate only through behavior methods. Mark a props field
+`readonly` only when it never changes after creation (an owner, a curve's
+index, an offer's title type); behavior methods assign the other fields
+directly rather than rebuilding the props object with a spread, which would
+let any field be overwritten. Factories hand the constructor a fresh object,
+never one the caller keeps. Value objects stay immutable. Use static factories
+for creation and reconstitution.
 
 The domain owns identity generation. Aggregate and entity `create()` factories
 do not accept an ID; they call `generateUuid()` from `@investflow/shared-domain`,

@@ -193,6 +193,20 @@ describe('Offer', () => {
     expect(offer.getDomainEvents()).toEqual([]);
   });
 
+  it('gives all changes before a save one revision, and a new one after it', () => {
+    const fresh = create().value;
+    fresh.edit({ name: 'Renomeada' }, AT);
+    expect(fresh.revision).toBe(1);
+
+    const offer = restore(fresh);
+    offer.edit({ name: 'CDB curto' }, AT);
+    offer.delete(LATER);
+    expect(offer.revision).toBe(2);
+
+    offer.markPersisted().edit({ name: 'CDB longo' }, LATER);
+    expect(offer.revision).toBe(3);
+  });
+
   it('deletes once, incrementing the revision', () => {
     const offer = restore(create().value);
 

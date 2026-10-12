@@ -89,16 +89,29 @@ export function SimulationEditor({
   const { save, remove } = workspace;
   const { isDirty } = form.form.formState;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // The revision the form's values were saved at; the next edit sends it.
+  const [baseRevision, setBaseRevision] = useState(simulation?.revision ?? 0);
+  const changedElsewhere =
+    simulation !== null &&
+    !save.pending &&
+    simulation.revision !== baseRevision;
 
   const blocker = useUnsavedChangesGuard(
     isDirty && !save.pending && !remove.pending,
   );
 
-  const upToDate = !isDirty && result !== null && !result.outdated;
+  const upToDate =
+    !isDirty &&
+    saved?.calculation.status === 'CALCULATED' &&
+    result !== null &&
+    !result.outdated;
 
   const submit = form.form.handleSubmit((values) =>
-    save.run(values, {
-      onSaved: (savedValues) => form.form.reset(savedValues),
+    save.run(values, baseRevision, {
+      onSaved: (savedValues, revision) => {
+        form.form.reset(savedValues);
+        setBaseRevision(revision);
+      },
       onProblem: form.showProblem,
     }),
   );
@@ -147,13 +160,14 @@ export function SimulationEditor({
           onSave={() => void submit()}
         />
         <CalculationPanel
-          simulationId={simulation?.id ?? null}
-          result={result}
+          saved={saved}
           pending={save.pending}
           problem={save.problem}
+          changedElsewhere={changedElsewhere}
           unsavedEdits={isDirty}
           taxRules={options.taxRules}
-          onReload={save.reload}
+          retry={workspace.recalculate}
+          onReload={() => void save.reload()}
         />
       </div>
 

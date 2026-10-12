@@ -1,6 +1,9 @@
 import {
+  ESimulationCalculationCauseKind,
+  ESimulationCalculationStatus,
   ETitleType,
   InvestmentCalculator,
+  SimulationCalculationService,
   Offer,
   Simulation,
 } from '@investflow/investment-simulator-domain';
@@ -34,7 +37,7 @@ const NOW = UtcInstant.ofIso('2026-10-10T12:00:00Z');
 function setup() {
   const offer = catalogOffer();
   const simulations = {
-    findById: jest.fn(),
+    findOwned: jest.fn(),
     save: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as jest.Mocked<SimulationRepository>;
   const offers = {
@@ -49,7 +52,9 @@ function setup() {
   const useCase = new CreateSimulationUseCase(
     simulations,
     new SimulationPremisesService(offers, curves, clock),
-    new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+    new SimulationCalculationService(
+      new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+    ),
     clock,
   );
   return { offer, simulations, offers, curves, useCase };
@@ -81,7 +86,7 @@ describe('CreateSimulationCommand', () => {
 });
 
 describe('CreateSimulationUseCase', () => {
-  it('saves a simulation of a visible offer with its result', async () => {
+  it('saves a simulation of a visible offer waiting for its calculation', async () => {
     const { offer, simulations, offers, useCase } = setup();
 
     const result = await useCase.execute(command());
@@ -91,7 +96,19 @@ describe('CreateSimulationUseCase', () => {
     expect(offers.save).not.toHaveBeenCalled();
     expect(simulation.ownerId).toBe(OWNER_ID);
     expect(simulation.offerId).toBe(offer.id);
-    expect(simulation.result?.calculatedAt).toBe(NOW);
+    expect(simulation.result).toBeNull();
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.PENDING,
+    );
+    expect(simulation.calculation.cause).toEqual({
+      kind: ESimulationCalculationCauseKind.CREATED,
+      refId: null,
+      actorId: OWNER_ID,
+    });
+    expect(simulation.calculation.changedAt).toBe(NOW);
+    expect(
+      simulation.getDomainEvents().map((event) => event.eventType),
+    ).toEqual(['SimulationCreated']);
     expect(result.value).toEqual({ simulationId: simulation.id });
   });
 
@@ -131,10 +148,9 @@ describe('CreateSimulationUseCase', () => {
     expect(curves.findById).toHaveBeenCalledWith(curve.id);
     const simulation = simulations.save.mock.calls[0][0] as Simulation;
     expect(simulation.investment.curveId).toBe(curve.id);
-    expect(simulation.result?.inputs.curveRevision).toBe(1);
   });
 
-  it('saves nothing, not even a new offer, when the calculation is rejected', async () => {
+  it('saves nothing, not even a new offer, when validation rejects it', async () => {
     const { simulations, offers, useCase } = setup();
 
     const result = await useCase.execute(
