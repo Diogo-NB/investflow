@@ -12,7 +12,7 @@ Source is organized by plural business feature. Cohesive domain types stay
 shallow within `src/lib/offers`, `src/lib/simulations`,
 and `src/lib/calculations` instead of being split across global aggregate,
 value-object, and error folders. Simulations own the user's simulations and
-their recorded calculations; calculations own the calculation scenario, the
+their current results; calculations own the calculation scenario, the
 calculator domain service, taxes, and calculation results.
 
 ## Offer catalog
@@ -72,13 +72,9 @@ from lookups and report them as not found.
 
 ## Simulation inputs
 
-`InvestmentTerms` holds the contractual terms of the title being simulated (title
-type, optional issuer name, maturity, redemption, and remuneration) by value,
-independent of the offer catalog. Filling the terms from a catalog offer copies
-them, so later catalog edits or deletions never change a simulation.
-
-`InvestmentInputs` is what each calculation varies: the principal, the
-investment date, and the chosen curve ID (null for fixed rates).
+`InvestmentInputs` is what a simulation invests: the principal, the investment
+date, and the chosen curve ID (null for fixed rates). The terms come from the
+offer the simulation references.
 
 ## Investment calculation domain service
 
@@ -140,33 +136,33 @@ use calendar days and IOF before income tax, without reducing daily gross
 balances. Calculations preserve decimal.js default precision without business
 rounding. This does not reproduce B3-specific truncation and rounding.
 
-## Simulations and calculations
+## Simulations and results
 
-`Simulation` is the title being simulated: its owner, the catalog offer its terms
-were filled from (null for typed terms), its `InvestmentTerms`, fixed for its
-life, and optional soft deletion that keeps the first instant. Other terms make
-another simulation.
+`Simulation` references an offer by ID and holds its `InvestmentInputs`, an
+owner, a revision, its current `SimulationResult`, and optional soft deletion
+that keeps the first instant. Changing the offer or the investment increments
+the revision; deleting does too.
 
-`Simulation.start()` creates a simulation only together with its first
-successful calculation, and `calculate()` records another investment under the
-same terms, rejecting deleted simulations. Both combine the terms with an
-investment into the calculable `InvestmentScenario` and return the scenario rule
-that breaks: principal positive BRL, investment before maturity, and a curve
-exactly when the remuneration requires one, of its index and not deleted.
-Passing a curve other than the referenced one is an invariant breach. Past
-dates, weekends, and holidays pass the scenario; only calculation enforces
-business days.
+`Simulation.create()` creates a simulation only together with its first
+successful calculation, and `edit()` always recalculates, so saving picks up
+changes to the offer and curve even when the simulation itself is unchanged.
+A rejected calculation changes nothing; deleted simulations reject edits.
+Both combine the offer's terms with the investment into the calculable
+`InvestmentScenario` and return the scenario rule that breaks: principal
+positive BRL, investment before maturity, and a curve exactly when the
+remuneration requires one, of its index and not deleted. Passing a curve other
+than the referenced one is an invariant breach. Past dates, weekends, and
+holidays pass the scenario; only calculation enforces business days.
+`assertRevision()` reports a stale client revision as
+`SIMULATION_REVISION_CONFLICT`.
 
-`SimulationCalculation` is an immutable, append-only record of one successful
-calculation. It keeps the `InvestmentInputs`, the whole `InvestmentCalculation`
-(methodology version, maturity summary, tax assessment, and every daily
-balance), and the `calculatedAt` instant supplied by the caller's clock.
-
-A simulation's current investment is its latest calculation's; earlier ones
-are its history. Failed calculations are never recorded.
-`SimulationCalculation.isOutdated()` takes the plain title type and methodology
-version so read models can flag calculations made under a methodology other
-than the title's current one.
+`SimulationResult` is the single current result: the whole
+`InvestmentCalculation` (methodology version, maturity summary, tax
+assessment, and every daily balance), the period it covered, the `calculatedAt`
+instant, and the inputs it was calculated from (simulation, offer, and curve
+revisions and the methodology version). A new successful calculation replaces
+it. `SimulationResult.targetFor()` and `isCurrent()` take plain values, so read
+models can flag a result whose premises or methodology changed since.
 
 ## Building
 

@@ -4,31 +4,22 @@ import { QueryHandler } from '@investflow/shared-application';
 import {
   ETitleType,
   IOF_EXEMPT_FROM_CALENDAR_DAYS,
-  SimulationCalculation,
+  SimulationResult,
+  SimulationResultInputs,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
+import {
+  OfferSummary,
+  offerSummarySelect,
+  toOfferSummary,
+} from '../../offers/queries/offer-projection';
 import { SimulationWorkspaceQueryError } from './simulation-workspace-query.error';
 
 export interface GetSimulationWorkspaceQuery {
   readonly ownerId: string;
   readonly simulationId: string;
-}
-
-export interface SimulationTermsOutput {
-  readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly issuerName: string | null;
-  readonly maturityDate: string;
-  readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
-  readonly remunerationTerms: {
-    readonly kind:
-      | 'PREFIXED'
-      | 'IPCA_PLUS'
-      | 'CDI_PERCENTAGE'
-      | 'SELIC_PERCENTAGE';
-    readonly rate: string;
-  };
 }
 
 export interface InvestmentOutput {
@@ -37,13 +28,15 @@ export interface InvestmentOutput {
   readonly curveId: string | null;
 }
 
-export interface CalculationSummary {
-  readonly id: string;
+export interface SimulationResultSummary {
   readonly calculatedAt: string;
+  // The period calculated, which later edits may have changed.
+  readonly investmentDate: string;
+  readonly maturityDate: string;
   readonly methodologyVersion: string;
-  // True when the current methodology could produce different figures.
+  // True when the simulation, its offer or curve changed since, or the current
+  // methodology could produce different figures.
   readonly outdated: boolean;
-  readonly investment: InvestmentOutput;
   // Business days with a balance, the last one being maturity.
   readonly businessDays: number;
   readonly maturitySummary: {
@@ -78,20 +71,29 @@ export interface CalculationSummary {
 export interface GetSimulationWorkspaceOutput {
   readonly simulation: {
     readonly id: string;
-    readonly fromCatalogOffer: boolean;
-    readonly terms: SimulationTermsOutput;
+    readonly revision: number;
+    readonly investment: InvestmentOutput;
   };
-  // Newest first and never empty; the first one holds the current investment.
-  readonly calculations: readonly CalculationSummary[];
+  // Also when deleted, so the screen can ask for another one.
+  readonly offer: OfferSummary & { readonly deleted: boolean };
+  readonly curve: {
+    readonly id: string;
+    readonly name: string;
+    readonly deleted: boolean;
+  } | null;
+  // Null until the first successful calculation.
+  readonly result: SimulationResultSummary | null;
 }
 
-const calculationSelect = {
-  id: true,
-  calculatedAt: true,
+const resultSelect = {
+  simulationRevision: true,
+  offerRevision: true,
+  curveRevision: true,
   methodologyVersion: true,
-  principal: true,
+  calculatedAt: true,
   investmentDate: true,
-  curveId: true,
+  maturityDate: true,
+  principal: true,
   grossBalance: true,
   grossEarnings: true,
   iof: true,
@@ -104,7 +106,7 @@ const calculationSelect = {
   iofRate: true,
   incomeTaxRate: true,
   _count: { select: { balances: true } },
-} satisfies Prisma.SimulationCalculationSelect;
+} satisfies Prisma.SimulationResultSelect;
 
 type NumericString = `${number}`;
 
@@ -134,24 +136,20 @@ const INCOME_TAX_EXEMPT_FORMULA = 'Isento: LCI e LCA de pessoa física';
 
 const workspaceSelect = {
   id: true,
-  sourceOfferId: true,
-  titleType: true,
-  issuerName: true,
-  maturityDate: true,
-  redemptionType: true,
-  remunerationType: true,
-  rateValue: true,
-  calculations: {
-    select: calculationSelect,
-    orderBy: { calculatedAt: 'desc' },
-  },
+  revision: true,
+  principal: true,
+  investmentDate: true,
+  curveId: true,
+  offer: { select: { ...offerSummarySelect, deletedAt: true } },
+  curve: { select: { id: true, name: true, revision: true, deletedAt: true } },
+  result: { select: resultSelect },
 } satisfies Prisma.SimulationSelect;
 
 type WorkspaceRecord = Prisma.SimulationGetPayload<{
   select: typeof workspaceSelect;
 }>;
 
-type CalculationRecord = WorkspaceRecord['calculations'][number];
+type ResultRecord = NonNullable<WorkspaceRecord['result']>;
 
 @Injectable()
 export class GetSimulationWorkspaceQueryHandler
@@ -186,48 +184,51 @@ export class GetSimulationWorkspaceQueryHandler
   }
 
   private toOutput(record: WorkspaceRecord): GetSimulationWorkspaceOutput {
+    const { offer, curve } = record;
     return {
       simulation: {
         id: record.id,
-        fromCatalogOffer: record.sourceOfferId !== null,
-        terms: {
-          titleType: record.titleType,
-          issuerName: record.issuerName,
-          maturityDate: CalendarDate.fromUtcDate(
-            record.maturityDate,
+        revision: record.revision,
+        investment: {
+          principal: record.principal.toFixed(),
+          investmentDate: CalendarDate.fromUtcDate(
+            record.investmentDate,
           ).value.toIsoString(),
-          redemptionTerms: { kind: record.redemptionType },
-          remunerationTerms: {
-            kind: record.remunerationType,
-            rate: record.rateValue.toFixed(),
-          },
+          curveId: record.curveId,
         },
       },
-      calculations: record.calculations.map((calculation) =>
-        this.toCalculationSummary(record.titleType as ETitleType, calculation),
-      ),
+      offer: { ...toOfferSummary(offer), deleted: offer.deletedAt !== null },
+      curve: curve
+        ? { id: curve.id, name: curve.name, deleted: curve.deletedAt !== null }
+        : null,
+      result: record.result
+        ? this.toResultSummary(
+            record.result,
+            SimulationResult.targetFor(
+              record.revision,
+              offer.titleType as ETitleType,
+              offer.revision,
+              curve?.revision ?? null,
+            ),
+          )
+        : null,
     };
   }
 
-  private toCalculationSummary(
-    titleType: ETitleType,
-    calculation: CalculationRecord,
-  ): CalculationSummary {
+  private toResultSummary(
+    calculation: ResultRecord,
+    target: SimulationResultInputs,
+  ): SimulationResultSummary {
     return {
-      id: calculation.id,
       calculatedAt: calculation.calculatedAt.toISOString(),
+      investmentDate: CalendarDate.fromUtcDate(
+        calculation.investmentDate,
+      ).value.toIsoString(),
+      maturityDate: CalendarDate.fromUtcDate(
+        calculation.maturityDate,
+      ).value.toIsoString(),
       methodologyVersion: calculation.methodologyVersion,
-      outdated: SimulationCalculation.isOutdated(
-        titleType,
-        calculation.methodologyVersion,
-      ),
-      investment: {
-        principal: calculation.principal.toFixed(),
-        investmentDate: CalendarDate.fromUtcDate(
-          calculation.investmentDate,
-        ).value.toIsoString(),
-        curveId: calculation.curveId,
-      },
+      outdated: !SimulationResult.isCurrent(calculation, target),
       businessDays: calculation._count.balances,
       maturitySummary: {
         principal: calculation.principal.toFixed(),

@@ -22,17 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-11, after D2.
-
-Built, on the earlier immutable model:
-
-- **Simulations:** create, recalculate, list, view, duplicate, and delete.
-  CDB, LCI, and LCA with prefixed, CDI, or effective SELIC remuneration on the
-  252 business-day convention, with IOF, income tax, and the LCI/LCA exemption.
-  A calculation is rejected when the chosen curve does not cover the
-  period.
-- **Results:** the summary, the tax explanation dialog, the balance evolution
-  chart with monthly rows, and the calculation history.
+Last updated 2026-10-12, after D3.
 
 Built for the target model:
 
@@ -62,16 +52,30 @@ Built for the target model:
   creates, edits (revision check, `409` on mismatch), duplicates, and deletes
   offers as the authenticated user, and every change writes an
   identifier-only event to the outbox. The seed creates the system offers
-  through the use case. The simulation workspace fills its terms from a
-  visible offer grouped by title type and origin; no offer screens yet.
+  through the use case. No offer screens yet.
+- **Simulations:** reference a visible offer and, for indexed remuneration, a
+  curve of its index, plus the principal and investment date; all are
+  editable and the simulation has its own revision (`PATCH` with the revision,
+  `409` on mismatch). "Digitar termos" and "Duplicar e ajustar" send the terms
+  of a new private offer, created in the same transaction as the simulation.
+  CDB, LCI, and LCA with prefixed, CDI, or effective SELIC remuneration on the
+  252 business-day convention, with IOF, income tax, and the LCI/LCA
+  exemption; a calculation is rejected when the chosen curve does not cover
+  the period.
+- **Results:** one current result per simulation, recording the simulation,
+  offer, and curve revisions and the methodology version it used. Reads flag
+  it "Desatualizado" when any of them changed, including a deleted offer or
+  curve; saving recalculates it from the current premises. The workspace shows
+  the summary, the tax explanation dialog, and the balance evolution chart
+  with monthly rows.
 
 Differs from the target model:
 
-- `Simulation` copies the offer terms; it does not reference the offer.
-- Simulation calculations reference a curve directly; deleting one does not
-  mark the simulations that use it.
-- `SimulationCalculation` keeps every calculation instead of one current
-  result, and calculation runs inside the request.
+- Calculation runs inside the request that saves the simulation; there is no
+  calculation status, and editing or deleting an offer or curve does not
+  recalculate the simulations that use it until they are saved again.
+- A deleted offer or curve is reported on the simulation's screen, but the
+  simulation is not marked "Requer ação".
 
 Not started and outside this roadmap: portfolios, simulation return rates and
 remaining term, side-by-side comparison, IPCA calculation, and early
@@ -79,7 +83,7 @@ redemption.
 
 ## Next Steps
 
-1. D3: simulations reference an offer and a curve and keep one result.
+1. D4a: a simulation's own calculation runs asynchronously.
 2. Decide how users enter a curve's intervals before D6 starts (open
    question in the curve specification).
 3. Decide how D4b's batched fan-out writes calculation events before D4b
@@ -92,7 +96,7 @@ redemption.
 | D0  | Messaging runs locally end to end                                 | —                                  | Done        |
 | D1  | Curves become independent, revisioned, and owned                  | D0                                 | Done        |
 | D2  | Offers become independent, revisioned, and owned                  | D0                                 | Done        |
-| D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Not started |
+| D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Done        |
 | D4a | A simulation's own calculation runs asynchronously                | D3                                 | Not started |
 | D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Not started |
 | D4c | Reconciliation sweep, retries, and "Falha técnica"                | D4b                                | Not started |
@@ -117,25 +121,6 @@ built.
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
 
-## D3 — Simulations always use an offer
-
-- `Simulation` drops its copied terms and references an offer, an optional
-  curve, and its investment. All are editable; the simulation has its own
-  revision.
-- "Digitar termos" and "Duplicar e ajustar" create a private offer in the
-  same transaction as the simulation.
-- `SimulationCalculation` and its history are replaced by one current result
-  recording the simulation, offer, and curve revisions it used and the
-  methodology version.
-- Calculation stays synchronous in this deliverable, so the change is limited
-  to the data model.
-- Workspace: remove the history and the `calculo` URL parameter; add
-  "Duplicar e ajustar" and "Digitar termos" to the offer picker; "Salvar e
-  calcular" sends the revision.
-
-**Done when** the workspace runs on the new model, and editing an offer or
-curve is reflected the next time an affected simulation is saved.
-
 ## D4a — Asynchronous calculation of a simulation
 
 - Calculation status (`PENDING` with `queuedAt`, `CALCULATING` with a lease,
@@ -147,7 +132,8 @@ curve is reflected the next time an affected simulation is saved.
   `SqsConsumersModule.register`.
 - A consumer claims the calculation with a lease, calculates from current
   state, and writes the outcome only when its inputs are not older than the
-  stored ones.
+  stored ones. `SimulationResult` already records those inputs, and the
+  simulation repository already checks the stored revision on every save.
 - Workspace: status in a live region, refetching while pending or
   calculating, and the last successful result marked as predating the
   changes.

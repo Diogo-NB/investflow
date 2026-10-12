@@ -5,23 +5,21 @@ import {
   CurveInterval,
   Curve,
   IndexValue,
-  InvestmentTerms,
   Offer,
   RedemptionTerms,
-  RemunerationKind,
   RemunerationTerms,
+  InvestmentInputs,
   Simulation,
 } from '@investflow/investment-simulator-domain';
 import {
   CalendarDate,
   CalendarDateRange,
+  Money,
   Rate,
   UtcInstant,
 } from '@investflow/shared-domain';
-import {
-  InvestmentCommandInput,
-  SimulationTermsCommandInput,
-} from './simulation-command-input.type';
+import { CreateOfferCommandInput } from '../../offers/shared/offer-command-input.type';
+import { InvestmentCommandInput } from './simulation-command-input.type';
 
 export const OWNER_ID = 'owner-id';
 
@@ -60,30 +58,29 @@ export function cdiCurve(ownerId: string | null = null) {
   ).value;
 }
 
-export function ownedSimulation(kind: RemunerationKind = 'PREFIXED') {
+// Reconstituted, as repositories return it, at revision 1 without a result.
+export function ownedSimulation(offerId = 'offer-id') {
   return Simulation.reconstitute({
     id: 'simulation-id',
     ownerId: OWNER_ID,
-    sourceOfferId: null,
-    terms: InvestmentTerms.create({
-      titleType: ETitleType.CDB,
-      issuerName: null,
-      maturityDate: CalendarDate.of('2026-02-02'),
-      redemption: RedemptionTerms.create('AT_MATURITY'),
-      remuneration: RemunerationTerms.create(
-        kind,
-        Rate.of(kind === 'PREFIXED' ? '0.12' : '1'),
-      ),
+    offerId,
+    investment: InvestmentInputs.create({
+      principal: Money.of('1000'),
+      investmentDate: CalendarDate.of('2026-01-02'),
+      curveId: null,
     }),
+    revision: 1,
+    result: null,
     deletedAt: null,
   });
 }
 
-export function termsRequest(
-  overrides: Partial<SimulationTermsCommandInput> = {},
-): SimulationTermsCommandInput {
+export function newOfferRequest(
+  overrides: Partial<CreateOfferCommandInput> = {},
+): CreateOfferCommandInput {
   return {
     titleType: ETitleType.CDB,
+    name: 'CDB digitado',
     issuerName: 'Banco Local',
     maturityDate: '2030-01-02',
     redemptionTerms: { kind: 'AT_MATURITY' },

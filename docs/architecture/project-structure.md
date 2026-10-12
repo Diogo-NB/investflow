@@ -385,11 +385,14 @@ append-only calculation history kept for reproducibility). Product rules are in
 
 **Status:** partly implemented. Curves and offers are built on this model:
 independent `Curve` and `Offer` aggregates with owners, revisions, and events
-in the outbox. The rest still follows the earlier model: `Simulation` stores
-copied terms, each `SimulationCalculation` records the curve it used and every
-calculation is kept, calculation runs inside the request, and no domain event
-is consumed. Deliverables and
-their order are in `docs/product/implementation-roadmap.md`.
+in the outbox. `Simulation` references an offer and an optional curve, has its
+own revision, and keeps one current `SimulationResult` recording the
+simulation, offer, and curve revisions and the methodology version it used;
+"Digitar termos" and "Duplicar e ajustar" create a private offer in the same
+request. Still pending: calculation runs inside the request (saving a
+simulation recalculates it), there is no calculation status, and no domain
+event is consumed. Deliverables and their order are in
+`docs/product/implementation-roadmap.md`.
 
 ### Model
 

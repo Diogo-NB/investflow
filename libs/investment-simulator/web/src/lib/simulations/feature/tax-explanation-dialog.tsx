@@ -4,7 +4,7 @@ import { formatIsoDate } from '../../dates/calendar-date';
 import { formatPercentOf } from '../../decimals/format-decimal';
 import { quietButton, secondaryButton } from '../../ui/styles';
 import type {
-  CalculationSummary,
+  SimulationResult,
   CalculationTaxes,
   IncomeTaxBracket,
   IofDailyRate,
@@ -88,7 +88,7 @@ function IofTable({
   calculation,
 }: {
   readonly rules: TaxRules;
-  readonly calculation: CalculationSummary;
+  readonly calculation: SimulationResult;
 }) {
   const applied = appliedIofRate(rules, calculation.taxes);
   const exempt = calculation.taxes.iof.rate === null;
@@ -129,7 +129,7 @@ function IncomeTaxTable({
   calculation,
 }: {
   readonly rules: TaxRules;
-  readonly calculation: CalculationSummary;
+  readonly calculation: SimulationResult;
 }) {
   const applied = appliedIncomeTaxBracket(rules, calculation.taxes);
   return (
@@ -185,11 +185,9 @@ function InfoIcon() {
 
 export function TaxExplanationDialog({
   calculation,
-  maturityDate,
   rules,
 }: {
-  readonly calculation: CalculationSummary;
-  readonly maturityDate: string;
+  readonly calculation: SimulationResult;
   readonly rules: TaxRules;
 }) {
   const { taxes } = calculation;
@@ -215,8 +213,8 @@ export function TaxExplanationDialog({
           <Dialog.Description className="m-0">
             Incidem sobre o rendimento e dependem do prazo:{' '}
             <strong className="font-semibold">{days} dias corridos</strong> (
-            {formatIsoDate(calculation.investment.investmentDate)} a{' '}
-            {formatIsoDate(maturityDate)}).
+            {formatIsoDate(calculation.investmentDate)} a{' '}
+            {formatIsoDate(calculation.maturityDate)}).
           </Dialog.Description>
 
           <Section

@@ -22,13 +22,14 @@ import {
   fieldBox,
   primaryButton,
   quietButton,
+  secondaryButton,
   surface,
 } from '../../ui/styles';
 import type {
   ContentOrigin,
   OfferOption,
   SimulationOptions,
-  SimulationTerms,
+  SimulationWorkspace,
   TitleTypeOption,
 } from '../models/simulation.types';
 import type { useSimulationForm } from './use-simulation-form';
@@ -39,7 +40,7 @@ const REDEMPTION_OPTIONS: SelectOption[] = (
   ['AT_MATURITY', 'DAILY'] as const
 ).map((kind) => ({ value: kind, label: REDEMPTION_LABELS[kind] }));
 
-const NO_OFFER = 'none';
+type OfferTerms = Omit<OfferOption, 'unsupportedReason'>;
 
 const ORIGIN_LABELS: Record<ContentOrigin, string> = {
   SYSTEM: 'Do sistema',
@@ -93,55 +94,101 @@ function offerGroups(offers: readonly OfferOption[]): SelectGroup[] {
 function OfferPicker({
   simulation,
   offers,
+  savedOffer,
   pending,
 }: {
   readonly simulation: SimulationForm;
   readonly offers: readonly OfferOption[];
+  readonly savedOffer: SimulationWorkspace['offer'] | null;
   readonly pending: boolean;
 }) {
-  const offerId = simulation.values.offerId;
-  const selected = offers.find((offer) => offer.id === offerId);
-
-  if (offers.length === 0) return null;
-
+  const { form, values } = simulation;
+  // A deleted offer is no longer listed but still names the saved choice.
+  const deleted =
+    savedOffer?.deleted === true && values.offerId === savedOffer.id;
   return (
-    <FormField
-      label="Preencher com uma oferta (opcional)"
-      hint={
-        selected && simulation.termsChangedFrom(selected) ? (
-          <span className="flex flex-wrap items-center gap-x-2">
-            Termos alterados em relação à oferta.
-            <button
-              type="button"
-              className={`${quietButton} min-h-0 px-0 underline`}
-              onClick={() => simulation.applyOffer(selected)}
-            >
-              Restaurar termos da oferta
-            </button>
-          </span>
-        ) : (
-          'Os termos continuam editáveis para testar variações.'
-        )
-      }
-    >
-      {(control) => (
-        <SelectField
-          {...control}
-          value={offerId || NO_OFFER}
-          placeholder="Termos personalizados"
-          disabled={pending}
-          options={[
-            { value: NO_OFFER, label: 'Nenhuma: termos personalizados' },
-          ]}
-          groups={offerGroups(offers)}
-          onValueChange={(value) =>
-            simulation.applyOffer(
-              offers.find((offer) => offer.id === value) ?? null,
-            )
+    <Controller
+      control={form.control}
+      name="offerId"
+      render={({ field, fieldState }) => (
+        <FormField
+          label="Oferta"
+          error={
+            fieldState.error?.message ??
+            (deleted ? 'Sem oferta, escolha outra.' : undefined)
           }
-        />
+          hint={
+            offers.length === 0
+              ? 'Não há ofertas disponíveis. Digite os termos.'
+              : undefined
+          }
+        >
+          {(control) => (
+            <SelectField
+              {...control}
+              ref={field.ref}
+              value={deleted ? '' : field.value}
+              placeholder="Escolha uma oferta"
+              disabled={pending || offers.length === 0}
+              groups={offerGroups(offers)}
+              onValueChange={(value) => {
+                const chosen = offers.find((offer) => offer.id === value);
+                if (chosen) simulation.chooseOffer(chosen);
+              }}
+              onBlur={field.onBlur}
+            />
+          )}
+        </FormField>
       )}
-    </FormField>
+    />
+  );
+}
+
+function ChosenOffer({
+  simulation,
+  options,
+  savedOffer,
+  pending,
+}: {
+  readonly simulation: SimulationForm;
+  readonly options: SimulationOptions;
+  readonly savedOffer: SimulationWorkspace['offer'] | null;
+  readonly pending: boolean;
+}) {
+  const { offer } = simulation;
+  return (
+    <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
+      <legend className={legendClass}>Oferta</legend>
+      <OfferPicker
+        simulation={simulation}
+        offers={options.offers}
+        savedOffer={savedOffer}
+        pending={pending}
+      />
+      {offer && <TermsSummary terms={offer} />}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={secondaryButton}
+          disabled={pending || !offer}
+          onClick={simulation.duplicateOffer}
+        >
+          Duplicar e ajustar
+        </button>
+        <button
+          type="button"
+          className={secondaryButton}
+          disabled={pending}
+          onClick={simulation.typeTerms}
+        >
+          Digitar termos
+        </button>
+      </div>
+      <p className="m-0 text-sm text-muted">
+        Para usar outros termos, duplique a oferta ou digite novos; a nova
+        oferta fica em Minhas e é criada ao salvar.
+      </p>
+    </fieldset>
   );
 }
 
@@ -168,12 +215,22 @@ function TermsFieldset({
 
   return (
     <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
-      <legend className={legendClass}>Termos do título</legend>
-      <OfferPicker
-        simulation={simulation}
-        offers={options.offers}
-        pending={pending}
-      />
+      <legend className={legendClass}>Nova oferta</legend>
+      <FormField label="Nome da oferta" error={errors.offerName?.message}>
+        {(control) => (
+          <div className={fieldBox}>
+            <input
+              {...control}
+              {...form.register('offerName')}
+              type="text"
+              maxLength={100}
+              placeholder="CDB 110% do CDI"
+              disabled={pending}
+              className={bareInput}
+            />
+          </div>
+        )}
+      </FormField>
       <Controller
         control={form.control}
         name="titleType"
@@ -297,11 +354,19 @@ function TermsFieldset({
           )}
         />
       </div>
+      <button
+        type="button"
+        className={`${quietButton} justify-self-start px-0`}
+        disabled={pending}
+        onClick={simulation.backToChosenOffer}
+      >
+        Usar uma oferta existente
+      </button>
     </fieldset>
   );
 }
 
-function TermsSummary({ terms }: { readonly terms: SimulationTerms }) {
+function TermsSummary({ terms }: { readonly terms: OfferTerms }) {
   const rows: [string, string][] = [
     ['Emissor', terms.issuerName ?? 'Sem emissor'],
     [
@@ -312,13 +377,7 @@ function TermsSummary({ terms }: { readonly terms: SimulationTerms }) {
     ['Liquidez', REDEMPTION_LABELS[terms.redemptionTerms.kind]],
   ];
   return (
-    <section aria-labelledby="terms-title" className="grid gap-4">
-      <h3
-        id="terms-title"
-        className="m-0 text-sm font-semibold tracking-wide text-muted uppercase"
-      >
-        Termos do título
-      </h3>
+    <section aria-label="Termos da oferta" className="grid gap-4">
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
@@ -327,21 +386,23 @@ function TermsSummary({ terms }: { readonly terms: SimulationTerms }) {
           </div>
         ))}
       </dl>
-      <p className="m-0 text-sm text-muted">
-        Os termos são fixos nesta simulação. Para testar outros, use Duplicar.
-      </p>
     </section>
   );
 }
 
 function InvestmentFieldset({
   simulation,
+  savedCurve,
   pending,
 }: {
   readonly simulation: SimulationForm;
+  readonly savedCurve: SimulationWorkspace['curve'];
   readonly pending: boolean;
 }) {
-  const { form, index, curveOptions, curve, coverageWarning } = simulation;
+  const { form, values, index, curveOptions, curve, coverageWarning } =
+    simulation;
+  const curveDeleted =
+    savedCurve?.deleted === true && values.curveId === savedCurve.id;
   const { errors } = form.formState;
   const curveHint = (() => {
     if (coverageWarning) {
@@ -409,7 +470,10 @@ function InvestmentFieldset({
           render={({ field, fieldState }) => (
             <FormField
               label={`Curva do ${index}`}
-              error={fieldState.error?.message}
+              error={
+                fieldState.error?.message ??
+                (curveDeleted ? 'Sem curva, escolha outra.' : undefined)
+              }
               hint={
                 curveOptions.length === 0
                   ? `Não há curvas de ${index} disponíveis.`
@@ -420,7 +484,7 @@ function InvestmentFieldset({
                 <SelectField
                   {...control}
                   ref={field.ref}
-                  value={field.value}
+                  value={curveDeleted ? '' : field.value}
                   placeholder="Escolha a curva"
                   disabled={pending || curveOptions.length === 0}
                   groups={curveGroups}
@@ -439,20 +503,20 @@ function InvestmentFieldset({
 interface SimulationFormPanelProps {
   readonly simulation: SimulationForm;
   readonly options: SimulationOptions;
-  // The saved simulation's fixed terms; null while creating one.
-  readonly savedTerms: SimulationTerms | null;
+  // The saved simulation; null while creating one.
+  readonly saved: SimulationWorkspace | null;
   readonly pending: boolean;
   readonly upToDate: boolean;
-  readonly onCalculate: () => void;
+  readonly onSave: () => void;
 }
 
 export function SimulationFormPanel({
   simulation,
   options,
-  savedTerms,
+  saved,
   pending,
   upToDate,
-  onCalculate,
+  onSave,
 }: SimulationFormPanelProps) {
   return (
     <form
@@ -461,22 +525,31 @@ export function SimulationFormPanel({
       className={`${surface} grid content-start gap-6 p-6 lg:sticky lg:top-6`}
       onSubmit={(event) => {
         event.preventDefault();
-        onCalculate();
+        onSave();
       }}
     >
       <h2 id="inputs-title" className="m-0 text-lg font-semibold">
         Entradas
       </h2>
-      {savedTerms ? (
-        <TermsSummary terms={savedTerms} />
-      ) : (
+      {simulation.values.offerMode === 'new' ? (
         <TermsFieldset
           simulation={simulation}
           options={options}
           pending={pending}
         />
+      ) : (
+        <ChosenOffer
+          simulation={simulation}
+          options={options}
+          savedOffer={saved?.offer ?? null}
+          pending={pending}
+        />
       )}
-      <InvestmentFieldset simulation={simulation} pending={pending} />
+      <InvestmentFieldset
+        simulation={simulation}
+        savedCurve={saved?.curve ?? null}
+        pending={pending}
+      />
 
       <div className="grid gap-2 border-t border-border pt-6">
         <button
@@ -485,15 +558,15 @@ export function SimulationFormPanel({
           disabled={pending || upToDate}
         >
           {pending
-            ? 'Calculando…'
+            ? 'Salvando…'
             : upToDate
               ? 'Resultado atualizado'
-              : 'Calcular'}
+              : 'Salvar e calcular'}
         </button>
         <p className="m-0 text-sm text-muted">
-          {savedTerms
-            ? 'Calcular registra um novo resultado com este investimento.'
-            : 'Calcular cria a simulação e registra o resultado.'}
+          {saved
+            ? 'Salvar recalcula o resultado com a oferta e a curva atuais.'
+            : 'Salvar cria a simulação e calcula o resultado.'}
         </p>
       </div>
     </form>

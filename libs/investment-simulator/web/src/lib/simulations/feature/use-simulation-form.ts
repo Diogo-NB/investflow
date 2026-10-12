@@ -5,11 +5,10 @@ import type {
   OfferOption,
   RemunerationOption,
 } from '../models/simulation.types';
-import type { CalculationProblem } from './use-simulation-workspace';
+import type { SaveProblem } from './use-simulation-workspace';
 import {
   coverageGap,
   defaultCurveId,
-  differsFromOffer,
   offerTermValues,
   remunerationOption,
   simulationFormSchema,
@@ -18,13 +17,24 @@ import {
 
 const EDIT = { shouldDirty: true, shouldValidate: false } as const;
 
+const TERM_FIELDS = [
+  'titleType',
+  'issuerName',
+  'remunerationKind',
+  'rate',
+  'maturityDate',
+  'redemptionKind',
+] as const;
+
 interface SimulationFormOptions {
   readonly initialValues: SimulationFormValues;
+  readonly offers: readonly OfferOption[];
   readonly remunerations: readonly RemunerationOption[];
 }
 
 export function useSimulationForm({
   initialValues,
+  offers,
   remunerations,
 }: SimulationFormOptions) {
   const form = useForm<SimulationFormValues>({
@@ -43,30 +53,81 @@ export function useSimulationForm({
   );
   const curveOptions = remuneration?.curves ?? [];
   const curve = curveOptions.find((option) => option.id === values.curveId);
+  const offer = offers.find((option) => option.id === values.offerId);
+
+  function setValues(next: Partial<SimulationFormValues>) {
+    for (const [field, value] of Object.entries(next)) {
+      form.setValue(field as keyof SimulationFormValues, value, EDIT);
+    }
+    form.clearErrors(Object.keys(next) as (keyof SimulationFormValues)[]);
+  }
 
   /** A new kind changes the rate's unit, so the rate and curve start over. */
   function changeKind(next: RemunerationKind) {
-    form.setValue('remunerationKind', next, EDIT);
-    form.setValue('rate', '', EDIT);
-    form.setValue('curveId', defaultCurveId(next, remunerations), EDIT);
-    form.clearErrors(['rate', 'curveId', 'remunerationKind']);
+    setValues({
+      remunerationKind: next,
+      rate: '',
+      curveId: defaultCurveId(next, remunerations),
+    });
   }
 
-  function applyOffer(offer: OfferOption | null) {
-    form.setValue('offerId', offer?.id ?? '', EDIT);
+  function chooseOffer(chosen: OfferOption) {
+    setValues({
+      offerMode: 'existing',
+      offerId: chosen.id,
+      ...offerTermValues(
+        chosen,
+        { curveId: form.getValues('curveId') },
+        remunerations,
+      ),
+    });
+  }
+
+  /** Copies the chosen offer's terms into a new private offer to adjust. */
+  function duplicateOffer() {
     if (!offer) return;
-    const terms = offerTermValues(
-      offer,
-      { curveId: form.getValues('curveId') },
-      remunerations,
-    );
-    for (const [field, value] of Object.entries(terms)) {
-      form.setValue(field as keyof typeof terms, value, EDIT);
-    }
-    form.clearErrors(Object.keys(terms) as (keyof typeof terms)[]);
+    setValues({
+      ...offerTermValues(
+        offer,
+        { curveId: form.getValues('curveId') },
+        remunerations,
+      ),
+      offerMode: 'new',
+      offerName: `${offer.name} (cópia)`,
+    });
   }
 
-  function showProblem(problem: CalculationProblem) {
+  function typeTerms() {
+    const blank = initialTerms();
+    setValues({ ...blank, offerMode: 'new', offerName: '' });
+  }
+
+  /** Back to the chosen offer, discarding the typed terms. */
+  function backToChosenOffer() {
+    if (offer) chooseOffer(offer);
+    else setValues({ offerMode: 'existing' });
+    form.clearErrors([...TERM_FIELDS, 'offerName']);
+  }
+
+  function initialTerms(): Partial<SimulationFormValues> {
+    const kind: RemunerationKind = 'CDI_PERCENTAGE';
+    const keepsCurve = (
+      remunerationOption(remunerations, kind)?.curves ?? []
+    ).some((option) => option.id === form.getValues('curveId'));
+    return {
+      titleType: 'CDB',
+      issuerName: '',
+      remunerationKind: kind,
+      rate: '',
+      maturityDate: '',
+      redemptionKind: 'AT_MATURITY',
+      curveId: keepsCurve
+        ? form.getValues('curveId')
+        : defaultCurveId(kind, remunerations),
+    };
+  }
+
+  function showProblem(problem: SaveProblem) {
     if (!problem.field) return;
     form.setError(
       problem.field,
@@ -78,15 +139,18 @@ export function useSimulationForm({
   return {
     form,
     values,
+    // The visible offer chosen; undefined when none is, or it was deleted.
+    offer,
     index: remuneration?.index ?? null,
     curveOptions,
     curve,
     // Curve dates that may not cover the period; the API has the final word.
     coverageWarning: coverageGap(values, curve),
-    termsChangedFrom: (offer: OfferOption | undefined) =>
-      offer !== undefined && differsFromOffer(values, offer),
     changeKind,
-    applyOffer,
+    chooseOffer,
+    duplicateOffer,
+    typeTerms,
+    backToChosenOffer,
     showProblem,
   };
 }

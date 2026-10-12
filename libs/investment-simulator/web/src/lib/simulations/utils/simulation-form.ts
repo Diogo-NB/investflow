@@ -17,9 +17,8 @@ import type {
   Investment,
   OfferOption,
   RemunerationOption,
+  SimulationInput,
   SimulationOptions,
-  SimulationTerms,
-  StartSimulationInput,
 } from '../models/simulation.types';
 
 /**
@@ -27,8 +26,12 @@ import type {
  * are ISO calendar strings (or the raw text while a typed date is invalid).
  */
 export interface SimulationFormValues {
-  // Catalog offer that filled the terms; only a new simulation can use one.
+  // A visible offer, or terms typed for a new private offer saved with the
+  // simulation. The term fields mirror the chosen offer in "existing" mode.
+  offerMode: 'existing' | 'new';
   offerId: string;
+  // The new offer's name; unused for an existing offer.
+  offerName: string;
   principal: string;
   investmentDate: string;
   titleType: TitleType;
@@ -42,7 +45,7 @@ export interface SimulationFormValues {
   curveId: string;
 }
 
-export type SimulationField = Exclude<keyof SimulationFormValues, 'offerId'>;
+export type SimulationField = Exclude<keyof SimulationFormValues, 'offerMode'>;
 
 // Refinements don't abort, so object-level rules still run; each one passes
 // what an earlier refinement already reports to keep one message per field.
@@ -81,7 +84,9 @@ export function simulationFormSchema(
 ) {
   return z
     .object({
+      offerMode: z.enum(['existing', 'new']),
       offerId: z.string(),
+      offerName: z.string().max(100, 'Use até 100 caracteres.'),
       principal: decimalText(
         'Informe o valor aplicado.',
         'O valor aplicado deve ser maior que zero.',
@@ -112,6 +117,20 @@ export function simulationFormSchema(
       curveId: z.string(),
     })
     .superRefine((values, context) => {
+      if (values.offerMode === 'existing' && !values.offerId) {
+        context.addIssue({
+          code: 'custom',
+          path: ['offerId'],
+          message: 'Escolha uma oferta.',
+        });
+      }
+      if (values.offerMode === 'new' && !values.offerName.trim()) {
+        context.addIssue({
+          code: 'custom',
+          path: ['offerName'],
+          message: 'Informe o nome da oferta.',
+        });
+      }
       if (
         remunerationOption(remunerations, values.remunerationKind)?.index &&
         !values.curveId
@@ -142,25 +161,27 @@ function validatedDecimal(text: string): string {
   return parsed;
 }
 
-/**
- * Converts validated form values into the API's start payload. A saved
- * simulation sends only `investment`; its terms are fixed.
- */
+/** Converts validated form values into the API's create or edit payload. */
 export function toSimulationInput(
   values: SimulationFormValues,
-): StartSimulationInput {
+): SimulationInput {
   return {
-    ...(values.offerId ? { offerId: values.offerId } : {}),
-    terms: {
-      titleType: values.titleType,
-      issuerName: values.issuerName.trim() || null,
-      maturityDate: values.maturityDate,
-      redemptionTerms: { kind: values.redemptionKind },
-      remunerationTerms: {
-        kind: values.remunerationKind,
-        rate: shiftDecimal(validatedDecimal(values.rate), -2),
-      },
-    },
+    offer:
+      values.offerMode === 'existing'
+        ? { id: values.offerId }
+        : {
+            new: {
+              titleType: values.titleType,
+              name: values.offerName.trim(),
+              issuerName: values.issuerName.trim() || null,
+              maturityDate: values.maturityDate,
+              redemptionTerms: { kind: values.redemptionKind },
+              remunerationTerms: {
+                kind: values.remunerationKind,
+                rate: shiftDecimal(validatedDecimal(values.rate), -2),
+              },
+            },
+          },
     investment: {
       principal: validatedDecimal(values.principal),
       investmentDate: values.investmentDate,
@@ -183,7 +204,9 @@ export function blankSimulationValues(
   options: SimulationOptions,
 ): SimulationFormValues {
   return {
+    offerMode: 'existing',
     offerId: '',
+    offerName: '',
     principal: '',
     investmentDate: today,
     titleType: 'CDB',
@@ -196,27 +219,30 @@ export function blankSimulationValues(
   };
 }
 
+/** A saved simulation's choices, also the starting point of a duplicate. */
 export function simulationValues(
-  terms: SimulationTerms,
+  offer: Omit<OfferOption, 'unsupportedReason'>,
   investment: Investment,
 ): SimulationFormValues {
   return {
-    offerId: '',
+    offerMode: 'existing',
+    offerId: offer.id,
+    offerName: '',
     principal: toBrazilianInput(investment.principal),
     investmentDate: investment.investmentDate,
-    titleType: terms.titleType,
-    issuerName: terms.issuerName ?? '',
-    remunerationKind: terms.remunerationTerms.kind,
-    rate: toBrazilianInput(shiftDecimal(terms.remunerationTerms.rate, 2)),
-    maturityDate: terms.maturityDate,
-    redemptionKind: terms.redemptionTerms.kind,
+    titleType: offer.titleType,
+    issuerName: offer.issuerName ?? '',
+    remunerationKind: offer.remunerationTerms.kind,
+    rate: toBrazilianInput(shiftDecimal(offer.remunerationTerms.rate, 2)),
+    maturityDate: offer.maturityDate,
+    redemptionKind: offer.redemptionTerms.kind,
     curveId: investment.curveId ?? '',
   };
 }
 
-/** The term fields a catalog offer fills; the investment itself is kept. */
+/** The term fields an offer fills; the investment itself is kept. */
 export function offerTermValues(
-  offer: OfferOption,
+  offer: Omit<OfferOption, 'unsupportedReason'>,
   current: Pick<SimulationFormValues, 'curveId'>,
   remunerations: readonly RemunerationOption[],
 ): Pick<
@@ -242,22 +268,6 @@ export function offerTermValues(
     redemptionKind: offer.redemptionTerms.kind,
     curveId: keepsCurve ? current.curveId : defaultCurveId(kind, remunerations),
   };
-}
-
-export function differsFromOffer(
-  values: SimulationFormValues,
-  offer: OfferOption,
-): boolean {
-  const rate = parseBrazilianDecimal(values.rate);
-  return (
-    values.titleType !== offer.titleType ||
-    values.issuerName.trim() !== (offer.issuerName ?? '') ||
-    values.remunerationKind !== offer.remunerationTerms.kind ||
-    rate === null ||
-    shiftDecimal(rate, -2) !== shiftDecimal(offer.remunerationTerms.rate, 0) ||
-    values.maturityDate !== offer.maturityDate ||
-    values.redemptionKind !== offer.redemptionTerms.kind
-  );
 }
 
 export function coverageGap(

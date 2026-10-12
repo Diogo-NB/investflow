@@ -16,10 +16,14 @@ export function SimulationWorkspacePage() {
   if (setup.status === 'ready') {
     return (
       <SimulationEditor
-        // A new editor for each simulation, so the form starts from its values.
-        key={simulationId ?? `new:${searchParams.get(TEMPLATE_PARAM) ?? ''}`}
-        simulation={setup.simulation}
-        calculations={setup.calculations}
+        // A new editor for each simulation and each saved revision, so the
+        // form starts from the values saved, including ones saved elsewhere.
+        key={
+          setup.workspace
+            ? `${setup.workspace.simulation.id}:${setup.workspace.simulation.revision}`
+            : `new:${searchParams.get(TEMPLATE_PARAM) ?? ''}`
+        }
+        saved={setup.workspace}
         initialValues={setup.initialValues}
         options={setup.options}
         workspace={workspace}

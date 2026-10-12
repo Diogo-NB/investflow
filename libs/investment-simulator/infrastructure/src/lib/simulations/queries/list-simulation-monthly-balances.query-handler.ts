@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { SimulationCalculationNotFoundError } from '@investflow/investment-simulator-application';
+import { SimulationNotFoundError } from '@investflow/investment-simulator-application';
 import { QueryHandler } from '@investflow/shared-application';
 import { CalendarDate, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
-import { SimulationCalculationQueryError } from './simulation-calculation-query.error';
+import { SimulationQueryError } from './simulation-query.error';
 
-export interface ListCalculationMonthlyBalancesQuery {
+export interface ListSimulationMonthlyBalancesQuery {
   readonly ownerId: string;
-  readonly calculationId: string;
+  readonly simulationId: string;
 }
 
 export interface DailyBalanceItem {
@@ -29,73 +29,73 @@ export interface MonthlyBalanceItem {
   readonly days: readonly DailyBalanceItem[];
 }
 
-export interface ListCalculationMonthlyBalancesOutput {
+export interface ListSimulationMonthlyBalancesOutput {
   readonly items: readonly MonthlyBalanceItem[];
 }
 
-const calculationSelect = {
-  balances: {
+const simulationSelect = {
+  result: {
     select: {
-      date: true,
-      grossBalance: true,
-      dailyGrossEarnings: true,
-      accumulatedGrossEarnings: true,
+      balances: {
+        select: {
+          date: true,
+          grossBalance: true,
+          dailyGrossEarnings: true,
+          accumulatedGrossEarnings: true,
+        },
+        orderBy: { date: 'asc' },
+      },
     },
-    orderBy: { date: 'asc' },
   },
-} satisfies Prisma.SimulationCalculationSelect;
+} satisfies Prisma.SimulationSelect;
 
-type CalculationRecord = Prisma.SimulationCalculationGetPayload<{
-  select: typeof calculationSelect;
+type SimulationRecord = Prisma.SimulationGetPayload<{
+  select: typeof simulationSelect;
 }>;
-type BalanceRecord = CalculationRecord['balances'][number];
+type BalanceRecord = NonNullable<
+  SimulationRecord['result']
+>['balances'][number];
 
 @Injectable()
-export class ListCalculationMonthlyBalancesQueryHandler
+export class ListSimulationMonthlyBalancesQueryHandler
   implements
     QueryHandler<
-      ListCalculationMonthlyBalancesQuery,
-      ListCalculationMonthlyBalancesOutput
+      ListSimulationMonthlyBalancesQuery,
+      ListSimulationMonthlyBalancesOutput
     >
 {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute({
     ownerId,
-    calculationId,
-  }: ListCalculationMonthlyBalancesQuery): Promise<
+    simulationId,
+  }: ListSimulationMonthlyBalancesQuery): Promise<
     Result<
-      ListCalculationMonthlyBalancesOutput,
-      SimulationCalculationNotFoundError | SimulationCalculationQueryError
+      ListSimulationMonthlyBalancesOutput,
+      SimulationNotFoundError | SimulationQueryError
     >
   > {
     const result = await Result.fromPromise(
       async () => {
-        const record = await this.prisma.client.simulationCalculation.findFirst(
-          {
-            // Calculations of deleted simulations are hidden with them.
-            where: {
-              id: calculationId,
-              simulation: { ownerId, deletedAt: null },
-            },
-            select: calculationSelect,
-          },
-        );
+        const record = await this.prisma.client.simulation.findFirst({
+          where: { id: simulationId, ownerId, deletedAt: null },
+          select: simulationSelect,
+        });
         return record ? this.toOutput(record) : null;
       },
-      (cause) => new SimulationCalculationQueryError(cause),
+      (cause) => new SimulationQueryError(cause),
     );
     if (result.isErr()) return result;
     return result.value
       ? Result.ok(result.value)
-      : Result.err(new SimulationCalculationNotFoundError(calculationId));
+      : Result.err(new SimulationNotFoundError(simulationId));
   }
 
   private toOutput(
-    record: CalculationRecord,
-  ): ListCalculationMonthlyBalancesOutput {
+    record: SimulationRecord,
+  ): ListSimulationMonthlyBalancesOutput {
     const months = new Map<string, BalanceRecord[]>();
-    for (const balance of record.balances) {
+    for (const balance of record.result?.balances ?? []) {
       const month = CalendarDate.fromUtcDate(balance.date)
         .value.toIsoString()
         .slice(0, 7);

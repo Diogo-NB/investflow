@@ -11,14 +11,18 @@ Nx. Status:
    with them.
 2. Done (reordered 2026-10-10, because running simulations is what users need
    most): `investment-simulator-web` as an `@nx/react` library with the
-   simulation workspace under `/simulacoes`, built on the earlier immutable
-   model (fixed terms and a calculation history). It brought TanStack Query,
+   simulation workspace under `/simulacoes`. It brought TanStack Query,
    React Hook Form, Zod, Base UI, the date field, and confirmation dialogs.
+   Reworked with D3 (see `docs/product/implementation-roadmap.md`): a
+   simulation references an offer, chosen or created with "Duplicar e
+   ajustar" or "Digitar termos", keeps one result, and "Salvar e calcular"
+   sends its revision. The calculation status and its refetching arrive with
+   asynchronous calculation.
 3. Next, after the backend redesign of 2026-10-11 (mutable premises and
    asynchronous recalculation, see `project-structure.md`): the offer screens
    under `/ofertas` and the curve screens under `/curvas`, mounted by the same
-   route factory, then the simulation workspace reworked to its recorded
-   behavior.
+   route factory, then the rest of the simulation workspace's recorded
+   behavior (status, impact notices, editing an own offer in place).
 4. Finally: full verification (see Testing and verification).
 
 Each step keeps `pnpm check` green. The Keycloak realm doesn't change; API
@@ -380,9 +384,11 @@ it.
 
 ## Simulation workspace behavior
 
-Recorded 2026-10-11 for the redesigned model. The screens built on 2026-10-10
-implement the earlier model (fixed terms, "Calcular" recording one calculation
-per click, and a calculation history); they are reworked to this behavior. A
+Recorded 2026-10-11 for the redesigned model. Built so far: the offer choice,
+"Duplicar e ajustar", "Digitar termos", one current result marked
+"Desatualizado" when its premises changed, and "Salvar e calcular" with the
+revision, calculating synchronously. Not built yet: the calculation status and
+its refetching, impact notices, and editing an own offer in place. A
 simulation always uses an offer, plus a curve when its
 remuneration is indexed, and holds the principal and investment date. All of
 them are editable. Its single result is recalculated asynchronously whenever

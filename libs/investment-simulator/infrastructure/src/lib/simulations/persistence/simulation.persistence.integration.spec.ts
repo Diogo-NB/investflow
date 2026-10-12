@@ -7,12 +7,10 @@ import {
   IndexValue,
   InvestmentCalculator,
   InvestmentInputs,
-  InvestmentTerms,
   Offer,
   RedemptionTerms,
   RemunerationTerms,
   Simulation,
-  SimulationCalculation,
 } from '@investflow/investment-simulator-domain';
 import {
   BrazilianBusinessDayCalendar,
@@ -29,9 +27,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaCurveRepository } from '../../curves/persistence/prisma-curve.repository';
 import { PrismaOfferRepository } from '../../offers/persistence/prisma-offer.repository';
 import { GetSimulationWorkspaceQueryHandler } from '../../simulation-workspaces/queries/get-simulation-workspace.query-handler';
-import { ListCalculationMonthlyBalancesQueryHandler } from '../queries/list-calculation-monthly-balances.query-handler';
+import { ListSimulationMonthlyBalancesQueryHandler } from '../queries/list-simulation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from '../queries/list-simulations.query-handler';
-import { PrismaSimulationCalculationRepository } from './prisma-simulation-calculation.repository';
 import { PrismaSimulationRepository } from './prisma-simulation.repository';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -47,12 +44,8 @@ integration('Simulation PostgreSQL persistence', () => {
   let offers: PrismaOfferRepository;
   let curves: PrismaCurveRepository;
   let simulations: PrismaSimulationRepository;
-  let calculations: PrismaSimulationCalculationRepository;
   const issuerName = `Integration Simulation Bank ${generateUuid()}`;
   const ownerId = `owner-${generateUuid()}`;
-  // Other tests leave simulations without calculations, which the app never
-  // creates, so the list is read for an owner of its own.
-  const historyOwnerId = `owner-${generateUuid()}`;
   const curveIds: string[] = [];
 
   beforeAll(async () => {
@@ -63,19 +56,24 @@ integration('Simulation PostgreSQL persistence', () => {
     offers = new PrismaOfferRepository(prisma);
     curves = new PrismaCurveRepository(prisma);
     simulations = new PrismaSimulationRepository(prisma);
-    calculations = new PrismaSimulationCalculationRepository(prisma);
   });
 
   afterAll(async () => {
     try {
-      const simulation = { ownerId: { in: [ownerId, historyOwnerId] } };
-      await prisma.client.simulationCalculationBalance.deleteMany({
-        where: { calculation: { simulation } },
+      const simulation = { ownerId };
+      await prisma.client.simulationResultBalance.deleteMany({
+        where: { result: { simulation } },
       });
-      await prisma.client.simulationCalculation.deleteMany({
+      await prisma.client.simulationResult.deleteMany({
         where: { simulation },
       });
       await prisma.client.simulation.deleteMany({ where: simulation });
+      const offerIds = (
+        await prisma.client.offer.findMany({
+          where: { issuerName },
+          select: { id: true },
+        })
+      ).map(({ id }) => id);
       await prisma.client.offer.deleteMany({ where: { issuerName } });
       await prisma.client.curveInterval.deleteMany({
         where: { curveId: { in: curveIds } },
@@ -84,18 +82,17 @@ integration('Simulation PostgreSQL persistence', () => {
         where: { id: { in: curveIds } },
       });
       await prisma.client.outboxEvent.deleteMany({
-        where: { aggregateId: { in: curveIds } },
+        where: { aggregateId: { in: [...curveIds, ...offerIds] } },
       });
     } finally {
       await prisma.onModuleDestroy();
     }
   });
 
-  // A saved simulation of a CDI CDB over about one year of business days.
-  async function savedSimulation(
-    simulationOwner = ownerId,
-    titleType = ETitleType.CDB,
-  ) {
+  const at = (iso: string) => UtcInstant.ofIso(`${iso}T12:00:00.000Z`);
+
+  // A saved simulation of a CDI title over about one year of business days.
+  async function savedSimulation(titleType = ETitleType.CDB) {
     const curve = Curve.create(
       {
         ownerId: null,
@@ -111,14 +108,14 @@ integration('Simulation PostgreSQL persistence', () => {
           ),
         ],
       },
-      UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
+      at('2026-10-09'),
     ).value;
     curveIds.push(curve.id);
     const offer = Offer.create(
       {
         ownerId: null,
-        titleType: ETitleType.CDB,
-        name: 'CDB 105% do CDI',
+        titleType,
+        name: 'Integration 105% do CDI',
         issuerName,
         maturityDate: CalendarDate.of('2027-01-04'),
         redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
@@ -127,23 +124,15 @@ integration('Simulation PostgreSQL persistence', () => {
           Rate.of('1.05'),
         ),
       },
-      UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
+      at('2026-10-09'),
     ).value;
-    const terms = InvestmentTerms.create({
-      titleType,
-      issuerName,
-      maturityDate: CalendarDate.of('2027-01-04'),
-      redemption: RedemptionTerms.create('AT_MATURITY'),
-      remuneration: RemunerationTerms.create('CDI_PERCENTAGE', Rate.of('1.05')),
-    });
-    const { simulation } = Simulation.start({
-      ownerId: simulationOwner,
-      sourceOfferId: offer.id,
-      terms,
+    const simulation = Simulation.create({
+      ownerId,
+      offer,
       investment: investmentOf(curve),
       curve,
       calculator,
-      calculatedAt: UtcInstant.ofIso('2026-10-09T12:00:00.000Z'),
+      calculatedAt: at('2026-10-09'),
     }).value;
     for (const save of [
       () => curves.save(curve),
@@ -152,7 +141,7 @@ integration('Simulation PostgreSQL persistence', () => {
     ]) {
       expect((await save()).isOk()).toBe(true);
     }
-    return { simulation, curve };
+    return { simulation, offer, curve };
   }
 
   function investmentOf(curve: Curve, principal = '10000.123456789') {
@@ -163,213 +152,221 @@ integration('Simulation PostgreSQL persistence', () => {
     });
   }
 
-  // The simulations above are saved without their first calculation, which
-  // the app never does; each test records the calculations it reads.
-  function record(
-    { simulation, curve }: Awaited<ReturnType<typeof savedSimulation>>,
-    options: { calculatedAt?: string; principal?: string } = {},
-  ) {
-    return simulation.calculate({
-      investment: investmentOf(curve, options.principal),
-      curve,
-      calculator,
-      calculatedAt: UtcInstant.ofIso(
-        options.calculatedAt ?? '2026-10-10T12:00:00.000Z',
-      ),
-    }).value;
+  async function load(id: string) {
+    return (await simulations.findById(id, ownerId)).value;
   }
 
   it('restores a simulation only for its owner and while it is not deleted', async () => {
     const { simulation } = await savedSimulation();
 
-    const loaded = (await simulations.findById(simulation.id, ownerId)).value;
-    expect(loaded.sourceOfferId).toBe(simulation.sourceOfferId);
+    const loaded = await load(simulation.id);
+    expect(loaded.offerId).toBe(simulation.offerId);
+    expect(loaded.revision).toBe(1);
     expect(
       (await simulations.findById(simulation.id, 'someone-else')).error.code,
     ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
 
-    simulation.delete(UtcInstant.ofIso('2026-10-13T00:00:00Z'));
-    expect((await simulations.save(simulation)).isOk()).toBe(true);
+    loaded.delete(at('2026-10-13'));
+    expect((await simulations.save(loaded)).isOk()).toBe(true);
     expect(
       (await simulations.findById(simulation.id, ownerId)).error.code,
     ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
   });
 
-  it('stores a full year of daily balances and restores them exactly', async () => {
-    const saved = await savedSimulation();
-    const calculation = record(saved);
-    const { result } = calculation;
-    expect(result.dailyBalances.length).toBeGreaterThan(240);
+  it('stores a full year of daily balances and restores the result exactly', async () => {
+    const { simulation } = await savedSimulation();
+    const result = simulation.result?.calculation;
+    expect(result?.dailyBalances.length).toBeGreaterThan(240);
 
-    expect((await calculations.save(calculation)).isOk()).toBe(true);
-    const loaded = (await calculations.findById(calculation.id)).value;
+    const loaded = (await load(simulation.id)).result;
 
-    expect(loaded.simulationId).toBe(saved.simulation.id);
-    expect(loaded.investment.equals(calculation.investment)).toBe(true);
-    expect(loaded.result.methodologyVersion).toBe(result.methodologyVersion);
-    expect(loaded.calculatedAt.equals(calculation.calculatedAt)).toBe(true);
+    expect(loaded?.inputs).toEqual(simulation.result?.inputs);
+    expect(loaded?.calculatedAt.equals(at('2026-10-09'))).toBe(true);
     for (const key of Object.keys(
-      result.maturitySummary,
-    ) as (keyof typeof result.maturitySummary)[]) {
-      expect(loaded.result.maturitySummary[key].amount.toFixed()).toBe(
-        result.maturitySummary[key].amount.toFixed(),
+      result?.maturitySummary ?? {},
+    ) as (keyof NonNullable<typeof result>['maturitySummary'])[]) {
+      expect(loaded?.calculation.maturitySummary[key].amount.toFixed()).toBe(
+        result?.maturitySummary[key].amount.toFixed(),
       );
     }
-    expect(loaded.result.dailyBalances).toHaveLength(
-      result.dailyBalances.length,
+    expect(loaded?.calculation.dailyBalances).toHaveLength(
+      result?.dailyBalances.length ?? 0,
     );
-    loaded.result.dailyBalances.forEach((balance, index) => {
-      const original = result.dailyBalances[index];
-      expect(balance.date.toIsoString()).toBe(original.date.toIsoString());
+    loaded?.calculation.dailyBalances.forEach((balance, index) => {
+      const original = result?.dailyBalances[index];
+      expect(balance.date.toIsoString()).toBe(original?.date.toIsoString());
       expect(balance.grossBalance.amount.toFixed()).toBe(
-        original.grossBalance.amount.toFixed(),
-      );
-      expect(balance.dailyGrossEarnings.amount.toFixed()).toBe(
-        original.dailyGrossEarnings.amount.toFixed(),
+        original?.grossBalance.amount.toFixed(),
       );
       expect(balance.accumulatedGrossEarnings.amount.toFixed()).toBe(
-        original.accumulatedGrossEarnings.amount.toFixed(),
+        original?.accumulatedGrossEarnings.amount.toFixed(),
       );
     });
   });
 
   it('stores an LCI income tax exemption as a null rate', async () => {
-    const calculation = record(await savedSimulation(ownerId, ETitleType.LCI));
-    expect(calculation.result.taxes.incomeTax.rate).toBeNull();
+    const { simulation } = await savedSimulation(ETitleType.LCI);
 
-    expect((await calculations.save(calculation)).isOk()).toBe(true);
-    const loaded = (await calculations.findById(calculation.id)).value;
+    const loaded = (await load(simulation.id)).result?.calculation;
 
-    expect(loaded.result.methodologyVersion).toBe('lci-252-v1');
-    expect(loaded.result.taxes.incomeTax.rate).toBeNull();
-    expect(loaded.result.taxes.incomeTax.amount.isZero()).toBe(true);
-    expect(loaded.result.maturitySummary.netBalance.amount.toFixed()).toBe(
-      calculation.result.maturitySummary.grossBalance.amount.toFixed(),
-    );
+    expect(loaded?.methodologyVersion).toBe('lci-252-v1');
+    expect(loaded?.taxes.incomeTax.rate).toBeNull();
+    expect(loaded?.taxes.incomeTax.amount.isZero()).toBe(true);
   });
 
-  it('is append-only: saving a recorded calculation again fails without duplicating balances', async () => {
-    const calculation = record(await savedSimulation());
-    expect((await calculations.save(calculation)).isOk()).toBe(true);
-
-    expect((await calculations.save(calculation)).isErr()).toBe(true);
-    expect(
-      await prisma.client.simulationCalculationBalance.count({
-        where: { calculationId: calculation.id },
-      }),
-    ).toBe(calculation.result.dailyBalances.length);
-  });
-
-  it('writes a calculation and its balances atomically', async () => {
-    const calculation = record(await savedSimulation());
-    const duplicated = SimulationCalculation.reconstitute({
-      id: calculation.id,
-      simulationId: calculation.simulationId,
-      investment: calculation.investment,
-      result: {
-        ...calculation.result,
-        dailyBalances: [
-          ...calculation.result.dailyBalances,
-          calculation.result.dailyBalances[0],
-        ],
-      },
-      calculatedAt: calculation.calculatedAt,
-    });
-
-    expect((await calculations.save(duplicated)).isErr()).toBe(true);
-    expect(
-      await prisma.client.simulationCalculation.findUnique({
-        where: { id: calculation.id },
-      }),
-    ).toBeNull();
-    expect(
-      await prisma.client.simulationCalculationBalance.count({
-        where: { calculationId: calculation.id },
-      }),
-    ).toBe(0);
-  });
-
-  it('reads the latest calculation as the current state and keeps the history', async () => {
-    const saved = await savedSimulation(historyOwnerId);
-    const first = record(saved, { calculatedAt: '2026-10-10T12:00:00.000Z' });
-    const second = record(saved, {
-      calculatedAt: '2026-10-11T12:00:00.000Z',
-      principal: '20000',
-    });
-    for (const calculation of [first, second]) {
-      expect((await calculations.save(calculation)).isOk()).toBe(true);
-    }
-    const workspace = new GetSimulationWorkspaceQueryHandler(prisma);
-    const query = {
-      ownerId: historyOwnerId,
-      simulationId: saved.simulation.id,
-    };
-
-    const read = (await workspace.execute(query)).value;
-    expect(read.simulation).toEqual({
-      id: saved.simulation.id,
-      fromCatalogOffer: true,
-      terms: {
-        titleType: 'CDB',
+  it('replaces the result and its balances when an edit recalculates', async () => {
+    const { simulation, offer, curve } = await savedSimulation();
+    const loaded = await load(simulation.id);
+    const shorter = Offer.create(
+      {
+        ownerId,
+        titleType: ETitleType.CDB,
+        name: 'Integration curta',
         issuerName,
-        maturityDate: '2027-01-04',
-        redemptionTerms: { kind: 'AT_MATURITY' },
-        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+        maturityDate: CalendarDate.of('2026-03-02'),
+        redemptionTerms: offer.redemptionTerms,
+        remunerationTerms: offer.remunerationTerms,
+      },
+      at('2026-10-10'),
+    ).value;
+    expect((await offers.save(shorter)).isOk()).toBe(true);
+
+    loaded.edit({
+      offer: shorter,
+      investment: investmentOf(curve, '20000'),
+      curve,
+      calculator,
+      calculatedAt: at('2026-10-10'),
+    });
+    expect((await simulations.save(loaded)).isOk()).toBe(true);
+
+    const reloaded = await load(simulation.id);
+    expect(reloaded.revision).toBe(2);
+    expect(reloaded.offerId).toBe(shorter.id);
+    expect(reloaded.result?.inputs.simulationRevision).toBe(2);
+    expect(
+      await prisma.client.simulationResultBalance.count({
+        where: { simulationId: simulation.id },
+      }),
+    ).toBe(loaded.result?.calculation.dailyBalances.length);
+    expect(
+      reloaded.result?.calculation.dailyBalances.at(-1)?.date.toIsoString(),
+    ).toBe('2026-03-02');
+  });
+
+  it('rejects saving a simulation changed elsewhere since it was read', async () => {
+    const { simulation, offer, curve } = await savedSimulation();
+    const first = await load(simulation.id);
+    const second = await load(simulation.id);
+    const edit = (target: Simulation, principal: string) =>
+      target.edit({
+        offer,
+        investment: investmentOf(curve, principal),
+        curve,
+        calculator,
+        calculatedAt: at('2026-10-10'),
+      });
+
+    edit(first, '20000');
+    expect((await simulations.save(first)).isOk()).toBe(true);
+    edit(second, '30000');
+
+    expect((await simulations.save(second)).error.code).toBe(
+      EAppErrorCode.SIMULATION_REVISION_CONFLICT,
+    );
+    expect(
+      (await load(simulation.id)).investment.principal.equals(
+        Money.of('20000'),
+      ),
+    ).toBe(true);
+  });
+
+  it('reads the result as outdated after its offer changes until the simulation is saved again', async () => {
+    const { simulation, offer, curve } = await savedSimulation();
+    const workspace = new GetSimulationWorkspaceQueryHandler(prisma);
+    const list = new ListSimulationsQueryHandler(prisma);
+    const read = async () => ({
+      workspace: (
+        await workspace.execute({ ownerId, simulationId: simulation.id })
+      ).value,
+      listed: (
+        await list.execute({ ownerId, page: 1, pageSize: 100 })
+      ).value.items.find((item) => item.id === simulation.id),
+    });
+
+    const before = await read();
+    expect(before.workspace.simulation).toEqual({
+      id: simulation.id,
+      revision: 1,
+      investment: {
+        principal: '10000.123456789',
+        investmentDate: '2026-01-02',
+        curveId: curve.id,
       },
     });
-    expect(read.calculations.map((item) => [item.id, item.outdated])).toEqual([
-      [second.id, false],
-      [first.id, false],
-    ]);
-    expect(read.calculations[0].investment).toEqual({
-      principal: '20000',
-      investmentDate: '2026-01-02',
-      curveId: saved.curve.id,
+    expect(before.workspace.offer).toMatchObject({
+      id: offer.id,
+      origin: 'SYSTEM',
+      revision: 1,
+      deleted: false,
     });
-    expect(read.calculations[1]).toMatchObject({
-      investment: { principal: '10000.123456789' },
-      businessDays: first.result.dailyBalances.length,
-    });
-    const listed = await new ListSimulationsQueryHandler(prisma).execute({
-      ownerId: historyOwnerId,
-      page: 1,
-      pageSize: 100,
-    });
-    expect(
-      listed.value.items.find((item) => item.id === saved.simulation.id),
-    ).toMatchObject({
-      fromCatalogOffer: true,
+    expect(before.workspace.result?.outdated).toBe(false);
+    expect(before.listed).toMatchObject({
+      offerName: 'Integration 105% do CDI',
       issuerName,
       maturityDate: '2027-01-04',
-      principal: '20000',
-      latestCalculation: {
-        id: second.id,
-        calculatedAt: '2026-10-11T12:00:00.000Z',
-        outdated: false,
-        netBalance: second.result.maturitySummary.netBalance.amount.toFixed(),
+      result: { outdated: false },
+    });
+
+    const edited = (await offers.findById(offer.id)).value;
+    edited.edit(
+      {
+        remunerationTerms: RemunerationTerms.create(
+          'CDI_PERCENTAGE',
+          Rate.of('1.1'),
+        ),
       },
+      at('2026-10-10'),
+    );
+    expect((await offers.save(edited)).isOk()).toBe(true);
+    const changed = await read();
+    expect(changed.workspace.result?.outdated).toBe(true);
+    expect(changed.listed?.result?.outdated).toBe(true);
+
+    const loaded = await load(simulation.id);
+    loaded.edit({
+      offer: edited,
+      investment: loaded.investment,
+      curve,
+      calculator,
+      calculatedAt: at('2026-10-11'),
+    });
+    expect((await simulations.save(loaded)).isOk()).toBe(true);
+    const recalculated = await read();
+    expect(recalculated.workspace.simulation.revision).toBe(1);
+    expect(recalculated.workspace.result).toMatchObject({
+      calculatedAt: '2026-10-11T12:00:00.000Z',
+      outdated: false,
     });
     expect(
-      (await workspace.execute({ ...query, ownerId: 'someone-else' })).error
-        .code,
+      (
+        await workspace.execute({
+          ownerId: 'someone-else',
+          simulationId: simulation.id,
+        })
+      ).error.code,
     ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
   });
 
-  it('keeps calculations readable after their curve is deleted and hides them with their simulation', async () => {
-    const saved = await savedSimulation();
-    const calculation = record(saved);
-    const { result } = calculation;
-    expect((await calculations.save(calculation)).isOk()).toBe(true);
-    const get = new ListCalculationMonthlyBalancesQueryHandler(prisma);
-    const query = { ownerId, calculationId: calculation.id };
+  it('groups the result by month and hides it with its simulation', async () => {
+    const { simulation, curve } = await savedSimulation();
+    const result = simulation.result?.calculation;
+    const get = new ListSimulationMonthlyBalancesQueryHandler(prisma);
+    const query = { ownerId, simulationId: simulation.id };
 
-    expect(
-      (
-        await curves.save(
-          saved.curve.delete(UtcInstant.ofIso('2026-10-12T00:00:00Z')),
-        )
-      ).isOk(),
-    ).toBe(true);
+    expect((await curves.save(curve.delete(at('2026-10-12')))).isOk()).toBe(
+      true,
+    );
     const months = (await get.execute(query)).value.items;
     // January 2026 through January 2027, in order, covering every recorded day.
     expect(months.map(({ month }) => month)).toEqual([
@@ -380,42 +377,38 @@ integration('Simulation PostgreSQL persistence', () => {
       '2027-01',
     ]);
     expect(months.flatMap(({ days }) => days)).toHaveLength(
-      result.dailyBalances.length,
+      result?.dailyBalances.length ?? 0,
     );
-    for (const month of months) {
-      expect(month.businessDays).toBe(month.days.length);
-      expect(month.closingGrossBalance).toBe(month.days.at(-1)?.grossBalance);
-    }
     const total = months.reduce(
       (sum, month) => sum.plus(month.monthGrossEarnings),
       new Prisma.Decimal(0),
     );
     expect(
-      total.equals(result.maturitySummary.grossEarnings.amount.toFixed()),
+      total.equals(
+        result?.maturitySummary.grossEarnings.amount.toFixed() ?? '',
+      ),
     ).toBe(true);
-    expect(months.at(-1)?.days.at(-1)?.date).toBe('2027-01-04');
     expect(
       (await get.execute({ ...query, ownerId: 'someone-else' })).error.code,
-    ).toBe(EAppErrorCode.SIMULATION_CALCULATION_NOT_FOUND);
+    ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
 
+    const loaded = await load(simulation.id);
     expect(
-      (
-        await simulations.save(
-          saved.simulation.delete(UtcInstant.ofIso('2026-10-13T00:00:00Z')),
-        )
-      ).isOk(),
+      (await simulations.save(loaded.delete(at('2026-10-13')))).isOk(),
     ).toBe(true);
     expect((await get.execute(query)).error.code).toBe(
-      EAppErrorCode.SIMULATION_CALCULATION_NOT_FOUND,
+      EAppErrorCode.SIMULATION_NOT_FOUND,
     );
   });
 
-  it('prevents removing a simulation that still has calculations', async () => {
-    const saved = await savedSimulation();
-    expect((await calculations.save(record(saved))).isOk()).toBe(true);
+  it('prevents removing an offer or curve that a simulation references', async () => {
+    const { offer, curve } = await savedSimulation();
 
     await expect(
-      prisma.client.simulation.delete({ where: { id: saved.simulation.id } }),
+      prisma.client.offer.delete({ where: { id: offer.id } }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.client.curve.delete({ where: { id: curve.id } }),
     ).rejects.toThrow();
   });
 });

@@ -1,15 +1,9 @@
-import { ETitleType } from '@investflow/investment-simulator-domain';
-import {
-  RedemptionTermsCommandInput,
-  RemunerationTermsCommandInput,
-} from '../../offers/shared/offer-command-input.type';
+import { CreateOfferCommandInput } from '../../offers/shared/offer-command-input.type';
 
-export interface SimulationTermsCommandInput {
-  readonly titleType: ETitleType;
-  readonly issuerName?: string | null;
-  readonly maturityDate: string;
-  readonly redemptionTerms: RedemptionTermsCommandInput;
-  readonly remunerationTerms: RemunerationTermsCommandInput;
+// Exactly one of them: a visible offer, or terms for a new private offer.
+export interface SimulationOfferCommandInput {
+  readonly id?: string;
+  readonly new?: CreateOfferCommandInput;
 }
 
 export interface InvestmentCommandInput {
@@ -18,11 +12,14 @@ export interface InvestmentCommandInput {
   readonly curveId?: string | null;
 }
 
-export interface StartSimulationCommandInput {
-  // The catalog offer the terms were filled from.
-  readonly offerId?: string;
-  readonly terms: SimulationTermsCommandInput;
+export interface CreateSimulationCommandInput {
+  readonly offer: SimulationOfferCommandInput;
   readonly investment: InvestmentCommandInput;
+}
+
+export interface EditSimulationCommandInput
+  extends CreateSimulationCommandInput {
+  readonly revision: number;
 }
 
 export interface SimulationIdCommandInput {

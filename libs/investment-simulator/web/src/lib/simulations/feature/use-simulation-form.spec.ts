@@ -1,15 +1,19 @@
 import { act, renderHook } from '@testing-library/react';
 import {
   cdiCurve,
+  cdiOffer,
+  options,
   remunerations,
   selicCurve,
-  selicOffer as offer,
+  selicOffer,
 } from '../../testing/simulator-fixtures';
 import type { SimulationFormValues } from '../utils/simulation-form';
 import { useSimulationForm } from './use-simulation-form';
 
 const initialValues: SimulationFormValues = {
-  offerId: '',
+  offerMode: 'existing',
+  offerId: 'cdi-offer',
+  offerName: '',
   principal: '10.000',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
@@ -22,10 +26,15 @@ const initialValues: SimulationFormValues = {
 };
 
 function render(
-  options: Partial<Parameters<typeof useSimulationForm>[0]> = {},
+  overrides: Partial<Parameters<typeof useSimulationForm>[0]> = {},
 ) {
   return renderHook(() =>
-    useSimulationForm({ initialValues, remunerations, ...options }),
+    useSimulationForm({
+      initialValues,
+      offers: options.offers,
+      remunerations,
+      ...overrides,
+    }),
   );
 }
 
@@ -52,12 +61,15 @@ describe('useSimulationForm', () => {
     expect(result.current.index).toBeNull();
   });
 
-  it('fills the terms from an offer and notices later edits', () => {
+  it('mirrors the chosen offer and keeps the investment', () => {
     const { result } = render();
+    expect(result.current.offer).toBe(cdiOffer);
 
-    act(() => result.current.applyOffer(offer));
+    act(() => result.current.chooseOffer(selicOffer));
 
+    expect(result.current.offer).toBe(selicOffer);
     expect(result.current.values).toMatchObject({
+      offerMode: 'existing',
       offerId: 'offer',
       principal: '10.000',
       issuerName: 'Outro',
@@ -67,13 +79,51 @@ describe('useSimulationForm', () => {
       redemptionKind: 'AT_MATURITY',
       curveId: 'selic',
     });
-    expect(result.current.termsChangedFrom(offer)).toBe(false);
+  });
+
+  it('duplicates the chosen offer into editable terms and goes back to it', () => {
+    const { result } = render();
+
+    act(() => result.current.duplicateOffer());
+    expect(result.current.values).toMatchObject({
+      offerMode: 'new',
+      offerId: 'cdi-offer',
+      offerName: 'CDB 105% do CDI (cópia)',
+      rate: '105',
+      maturityDate: '2026-03-02',
+    });
 
     act(() => result.current.form.setValue('rate', '110'));
-    expect(result.current.termsChangedFrom(offer)).toBe(true);
+    act(() => result.current.backToChosenOffer());
+    expect(result.current.values).toMatchObject({
+      offerMode: 'existing',
+      offerId: 'cdi-offer',
+      rate: '105',
+    });
+  });
 
-    act(() => result.current.applyOffer(null));
-    expect(result.current.values).toMatchObject({ offerId: '', rate: '110' });
+  it('types terms from blank, keeping the investment and a valid curve', () => {
+    const { result } = render();
+
+    act(() => result.current.typeTerms());
+
+    expect(result.current.values).toMatchObject({
+      offerMode: 'new',
+      offerName: '',
+      titleType: 'CDB',
+      issuerName: '',
+      remunerationKind: 'CDI_PERCENTAGE',
+      rate: '',
+      maturityDate: '',
+      principal: '10.000',
+      curveId: 'cdi',
+    });
+  });
+
+  it('reports no chosen offer when the saved one is no longer listed', () => {
+    const { result } = render({ offers: [selicOffer] });
+
+    expect(result.current.offer).toBeUndefined();
   });
 
   it('warns when the chosen curve does not cover the period', () => {
@@ -94,6 +144,7 @@ describe('useSimulationForm', () => {
       result.current.showProblem({
         field: 'curveId',
         message: 'Curva excluída.',
+        conflict: false,
       }),
     );
     expect(result.current.form.formState.errors.curveId?.message).toBe(

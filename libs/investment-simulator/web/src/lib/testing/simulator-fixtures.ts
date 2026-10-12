@@ -1,5 +1,5 @@
 import type {
-  CalculationSummary,
+  SimulationResult,
   TaxRules,
   CurveOption,
   OfferOption,
@@ -57,6 +57,19 @@ export const selicOffer: OfferOption = {
   unsupportedReason: null,
 };
 
+export const cdiOffer: OfferOption = {
+  id: 'cdi-offer',
+  titleType: 'CDB',
+  name: 'CDB 105% do CDI',
+  origin: 'OWN',
+  revision: 2,
+  issuerName: 'Banco Local',
+  maturityDate: '2026-03-02',
+  redemptionTerms: { kind: 'DAILY' },
+  remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+  unsupportedReason: null,
+};
+
 const IOF_PERCENTAGES = [
   96, 93, 90, 86, 83, 80, 76, 73, 70, 66, 63, 60, 56, 53, 50, 46, 43, 40, 36,
   33, 30, 26, 23, 20, 16, 13, 10, 6, 3,
@@ -87,24 +100,19 @@ export const options: SimulationOptions = {
     { titleType: 'LCA', incomeTaxExempt: true, minimumTermMonths: 9 },
   ],
   remunerations,
-  offers: [selicOffer],
+  offers: [selicOffer, cdiOffer],
   taxRules,
 };
 
-export function calculationSummary(
-  id: string,
-  overrides: Partial<CalculationSummary> = {},
-): CalculationSummary {
+export function simulationResult(
+  overrides: Partial<SimulationResult> = {},
+): SimulationResult {
   return {
-    id,
     calculatedAt: '2026-10-10T12:00:00.000Z',
+    investmentDate: '2026-01-02',
+    maturityDate: '2026-03-02',
     methodologyVersion: 'cdb-252-v1',
     outdated: false,
-    investment: {
-      principal: '10000',
-      investmentDate: '2026-01-02',
-      curveId: 'cdi',
-    },
     businessDays: 40,
     maturitySummary: {
       principal: '10000',
@@ -137,16 +145,27 @@ export function calculationSummary(
 export const workspace: SimulationWorkspace = {
   simulation: {
     id: 'sim',
-    fromCatalogOffer: false,
-    terms: {
-      titleType: 'CDB',
-      issuerName: 'Banco Local',
-      maturityDate: '2026-03-02',
-      redemptionTerms: { kind: 'DAILY' },
-      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+    revision: 3,
+    investment: {
+      principal: '10000',
+      investmentDate: '2026-01-02',
+      curveId: 'cdi',
     },
   },
-  calculations: [calculationSummary('calculation')],
+  offer: {
+    id: cdiOffer.id,
+    titleType: cdiOffer.titleType,
+    name: cdiOffer.name,
+    origin: cdiOffer.origin,
+    revision: cdiOffer.revision,
+    issuerName: cdiOffer.issuerName,
+    maturityDate: cdiOffer.maturityDate,
+    redemptionTerms: cdiOffer.redemptionTerms,
+    remunerationTerms: cdiOffer.remunerationTerms,
+    deleted: false,
+  },
+  curve: { id: 'cdi', name: 'CDI Local', deleted: false },
+  result: simulationResult(),
 };
 
 export const optionsRoute = {

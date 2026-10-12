@@ -1,41 +1,102 @@
 import { Prisma } from '@prisma/client';
-import { SimulationMapper } from './simulation.mapper';
+import { SimulationMapper, SimulationRecord } from './simulation.mapper';
 
-const record = {
-  id: 'a1d7a2a4-7c39-4b8e-9a8f-0d6c1f0b2f11',
+const id = 'a1d7a2a4-7c39-4b8e-9a8f-0d6c1f0b2f11';
+const decimal = (value: string) => new Prisma.Decimal(value);
+
+const record: SimulationRecord = {
+  id,
   ownerId: 'owner-id',
-  sourceOfferId: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
-  titleType: 'CDB' as const,
-  issuerName: null,
-  maturityDate: new Date('2028-01-03T00:00:00.000Z'),
-  redemptionType: 'DAILY' as const,
-  remunerationType: 'CDI_PERCENTAGE' as const,
-  rateValue: new Prisma.Decimal('1.123456789012345678901234567891'),
+  offerId: 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c',
+  curveId: 'c51b8f16-2b90-4d24-a2f9-5923eb77c16c',
+  principal: decimal('1000.123456789012345678901234567891'),
+  investmentDate: new Date('2026-01-02T00:00:00.000Z'),
+  revision: 3,
   deletedAt: new Date('2026-10-11T12:00:00.000Z'),
   createdAt: new Date('2026-10-10T12:00:00.000Z'),
   updatedAt: new Date('2026-10-10T12:00:00.000Z'),
+  result: {
+    simulationId: id,
+    simulationRevision: 2,
+    offerRevision: 4,
+    curveRevision: 5,
+    methodologyVersion: 'cdb-252-v1',
+    calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
+    investmentDate: new Date('2026-01-02T00:00:00.000Z'),
+    maturityDate: new Date('2026-01-05T00:00:00.000Z'),
+    principal: decimal('1000.123456789012345678901234567891'),
+    grossBalance: decimal('1010'),
+    grossEarnings: decimal('9.876543210987654321098765432109'),
+    iof: decimal('0'),
+    incomeTax: decimal('2.2'),
+    totalTaxes: decimal('2.2'),
+    netBalance: decimal('1007.8'),
+    holdingPeriodCalendarDays: 4,
+    taxableEarnings: decimal('9.876543210987654321098765432109'),
+    incomeTaxBase: decimal('9.876543210987654321098765432109'),
+    iofRate: null,
+    incomeTaxRate: decimal('0.225'),
+    balances: [
+      {
+        simulationId: id,
+        date: new Date('2026-01-05T00:00:00.000Z'),
+        grossBalance: decimal('1010'),
+        dailyGrossEarnings: decimal('9.876543210987654321098765432109'),
+        accumulatedGrossEarnings: decimal('9.876543210987654321098765432109'),
+      },
+    ],
+  },
 };
 
 describe('SimulationMapper', () => {
-  it('round-trips every stored field, including terms without an issuer', () => {
+  it('round-trips the simulation, its result and balances precisely', () => {
     const simulation = SimulationMapper.toDomain(record);
 
-    expect(simulation.terms.issuerName).toBeNull();
-    expect(simulation.terms.maturityDate.toIsoString()).toBe('2028-01-03');
-    expect(simulation.deletedAt?.toISOString()).toBe(
-      '2026-10-11T12:00:00.000Z',
-    );
-    expect(SimulationMapper.toPersistence(simulation)).toEqual({
-      id: record.id,
-      ownerId: record.ownerId,
-      sourceOfferId: record.sourceOfferId,
-      titleType: 'CDB',
-      issuerName: null,
-      maturityDate: record.maturityDate,
-      redemptionType: 'DAILY',
-      remunerationType: 'CDI_PERCENTAGE',
-      rateValue: '1.123456789012345678901234567891',
+    expect(simulation.revision).toBe(3);
+    expect(simulation.result?.inputs).toEqual({
+      simulationRevision: 2,
+      offerRevision: 4,
+      curveRevision: 5,
+      methodologyVersion: 'cdb-252-v1',
+    });
+    const data = SimulationMapper.toPersistence(simulation);
+    expect(data.simulation).toEqual({
+      id,
+      ownerId: 'owner-id',
+      offerId: record.offerId,
+      curveId: record.curveId,
+      principal: '1000.123456789012345678901234567891',
+      investmentDate: record.investmentDate,
+      revision: 3,
       deletedAt: record.deletedAt,
+    });
+    expect(data.result).toMatchObject({
+      simulationId: id,
+      offerRevision: 4,
+      investmentDate: new Date('2026-01-02T00:00:00.000Z'),
+      maturityDate: new Date('2026-01-05T00:00:00.000Z'),
+      grossEarnings: '9.876543210987654321098765432109',
+      iofRate: null,
+      incomeTaxRate: '0.225',
+    });
+    expect(data.balances).toEqual([
+      {
+        simulationId: id,
+        date: new Date('2026-01-05T00:00:00.000Z'),
+        grossBalance: '1010',
+        dailyGrossEarnings: '9.876543210987654321098765432109',
+        accumulatedGrossEarnings: '9.876543210987654321098765432109',
+      },
+    ]);
+  });
+
+  it('maps a simulation without a result', () => {
+    const simulation = SimulationMapper.toDomain({ ...record, result: null });
+
+    expect(simulation.result).toBeNull();
+    expect(SimulationMapper.toPersistence(simulation)).toMatchObject({
+      result: null,
+      balances: [],
     });
   });
 });

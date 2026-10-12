@@ -51,65 +51,67 @@ model Offer {
 }
 
 model Simulation {
-  id               String                     @id @db.Uuid
-  ownerId          String                     @map("owner_id")
-  // The offer the terms were filled from; null for typed terms.
-  sourceOfferId    String?                    @map("source_offer_id") @db.Uuid
-  titleType        InvestmentTitleType        @map("title_type")
-  issuerName       String?                    @map("issuer_name")
-  maturityDate     DateTime                   @map("maturity_date") @db.Date
-  redemptionType   InvestmentRedemptionType   @map("redemption_type")
-  remunerationType InvestmentRemunerationType @map("remuneration_type")
-  rateValue        Decimal                    @map("rate_value") @db.Decimal(65, 30)
-  deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
-  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  sourceOffer      Offer?                     @relation(fields: [sourceOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  calculations     SimulationCalculation[]
+  id             String            @id @db.Uuid
+  ownerId        String            @map("owner_id")
+  offerId        String            @map("offer_id") @db.Uuid
+  // Null for fixed rates.
+  curveId        String?           @map("curve_id") @db.Uuid
+  principal      Decimal           @db.Decimal(65, 30)
+  investmentDate DateTime          @map("investment_date") @db.Date
+  revision       Int
+  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  offer          Offer             @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  curve          Curve?            @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  result         SimulationResult?
 
   @@index([ownerId])
+  @@index([offerId])
+  @@index([curveId])
   @@map("simulation")
 }
 
-// Append-only record of one calculation with the inputs that produced it.
-model SimulationCalculation {
-  id                        String                         @id @db.Uuid
-  simulationId              String                         @map("simulation_id") @db.Uuid
-  curveId                   String?                        @map("curve_id") @db.Uuid
-  principal                 Decimal                        @db.Decimal(65, 30)
-  investmentDate            DateTime                       @map("investment_date") @db.Date
-  methodologyVersion        String                         @map("methodology_version")
-  calculatedAt              DateTime                       @map("calculated_at") @db.Timestamptz(3)
-  grossBalance              Decimal                        @map("gross_balance") @db.Decimal(65, 30)
-  grossEarnings             Decimal                        @map("gross_earnings") @db.Decimal(65, 30)
-  iof                       Decimal                        @db.Decimal(65, 30)
-  incomeTax                 Decimal                        @map("income_tax") @db.Decimal(65, 30)
-  totalTaxes                Decimal                        @map("total_taxes") @db.Decimal(65, 30)
-  netBalance                Decimal                        @map("net_balance") @db.Decimal(65, 30)
+// The current result, replaced by each successful calculation, with the
+// revisions and methodology it was calculated from.
+model SimulationResult {
+  simulationId              String                    @id @map("simulation_id") @db.Uuid
+  simulationRevision        Int                       @map("simulation_revision")
+  offerRevision             Int                       @map("offer_revision")
+  curveRevision             Int?                      @map("curve_revision")
+  methodologyVersion        String                    @map("methodology_version")
+  calculatedAt              DateTime                  @map("calculated_at") @db.Timestamptz(3)
+  investmentDate            DateTime                  @map("investment_date") @db.Date
+  maturityDate              DateTime                  @map("maturity_date") @db.Date
+  principal                 Decimal                   @db.Decimal(65, 30)
+  grossBalance              Decimal                   @map("gross_balance") @db.Decimal(65, 30)
+  grossEarnings             Decimal                   @map("gross_earnings") @db.Decimal(65, 30)
+  iof                       Decimal                   @db.Decimal(65, 30)
+  incomeTax                 Decimal                   @map("income_tax") @db.Decimal(65, 30)
+  totalTaxes                Decimal                   @map("total_taxes") @db.Decimal(65, 30)
+  netBalance                Decimal                   @map("net_balance") @db.Decimal(65, 30)
   // What IOF and income tax were derived from; a null rate means exempt.
-  holdingPeriodCalendarDays Int                            @map("holding_period_calendar_days")
-  taxableEarnings           Decimal                        @map("taxable_earnings") @db.Decimal(65, 30)
-  incomeTaxBase             Decimal                        @map("income_tax_base") @db.Decimal(65, 30)
-  iofRate                   Decimal?                       @map("iof_rate") @db.Decimal(65, 30)
-  incomeTaxRate             Decimal?                       @map("income_tax_rate") @db.Decimal(65, 30)
-  simulation                Simulation                     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  curve                     Curve?                         @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  balances                  SimulationCalculationBalance[]
+  holdingPeriodCalendarDays Int                       @map("holding_period_calendar_days")
+  taxableEarnings           Decimal                   @map("taxable_earnings") @db.Decimal(65, 30)
+  incomeTaxBase             Decimal                   @map("income_tax_base") @db.Decimal(65, 30)
+  iofRate                   Decimal?                  @map("iof_rate") @db.Decimal(65, 30)
+  incomeTaxRate             Decimal?                  @map("income_tax_rate") @db.Decimal(65, 30)
+  simulation                Simulation                @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  balances                  SimulationResultBalance[]
 
-  @@index([simulationId, calculatedAt(sort: Desc)])
-  @@map("simulation_calculation")
+  @@map("simulation_result")
 }
 
-model SimulationCalculationBalance {
-  calculationId            String                @map("calculation_id") @db.Uuid
-  date                     DateTime              @db.Date
-  grossBalance             Decimal               @map("gross_balance") @db.Decimal(65, 30)
-  dailyGrossEarnings       Decimal               @map("daily_gross_earnings") @db.Decimal(65, 30)
-  accumulatedGrossEarnings Decimal               @map("accumulated_gross_earnings") @db.Decimal(65, 30)
-  calculation              SimulationCalculation @relation(fields: [calculationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+model SimulationResultBalance {
+  simulationId             String           @map("simulation_id") @db.Uuid
+  date                     DateTime         @db.Date
+  grossBalance             Decimal          @map("gross_balance") @db.Decimal(65, 30)
+  dailyGrossEarnings       Decimal          @map("daily_gross_earnings") @db.Decimal(65, 30)
+  accumulatedGrossEarnings Decimal          @map("accumulated_gross_earnings") @db.Decimal(65, 30)
+  result                   SimulationResult @relation(fields: [simulationId], references: [simulationId], onDelete: Restrict, onUpdate: Restrict)
 
-  @@id([calculationId, date])
-  @@map("simulation_calculation_balance")
+  @@id([simulationId, date])
+  @@map("simulation_result_balance")
 }
 
 enum EconomicIndex {
@@ -122,17 +124,17 @@ enum EconomicIndex {
 
 // A null owner means system content, visible to every user.
 model Curve {
-  id           String                  @id @db.Uuid
-  ownerId      String?                 @map("owner_id")
-  index        EconomicIndex
-  name         String
-  description  String?
-  revision     Int
-  deletedAt    DateTime?               @map("deleted_at") @db.Timestamptz(3)
-  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  intervals    CurveInterval[]
-  calculations SimulationCalculation[]
+  id          String          @id @db.Uuid
+  ownerId     String?         @map("owner_id")
+  index       EconomicIndex
+  name        String
+  description String?
+  revision    Int
+  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(3)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  intervals   CurveInterval[]
+  simulations Simulation[]
 
   @@index([ownerId])
   @@map("curve")

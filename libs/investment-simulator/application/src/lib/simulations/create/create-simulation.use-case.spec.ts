@@ -1,0 +1,212 @@
+import {
+  ETitleType,
+  InvestmentCalculator,
+  Offer,
+  Simulation,
+} from '@investflow/investment-simulator-domain';
+import { Clock } from '@investflow/shared-application';
+import {
+  BrazilianBusinessDayCalendar,
+  EAppErrorCode,
+  Money,
+  Result,
+  UtcInstant,
+} from '@investflow/shared-domain';
+import { CurveNotFoundError } from '../../curves/curve-not-found.error';
+import { CurveRepository } from '../../curves/curve.repository';
+import { OfferNotFoundError } from '../../offers/offer-not-found.error';
+import { OfferRepository } from '../../offers/offer.repository';
+import { SimulationRepository } from '../simulation.repository';
+import { CreateSimulationCommandInput } from '../shared/simulation-command-input.type';
+import {
+  catalogOffer,
+  cdiCurve,
+  investmentRequest,
+  newOfferRequest,
+  OWNER_ID,
+} from '../shared/simulation-fixture';
+import { SimulationPremisesService } from '../shared/simulation-premises.service';
+import { CreateSimulationCommand } from './create-simulation.command';
+import { CreateSimulationUseCase } from './create-simulation.use-case';
+
+const NOW = UtcInstant.ofIso('2026-10-10T12:00:00Z');
+
+function setup() {
+  const offer = catalogOffer();
+  const simulations = {
+    findById: jest.fn(),
+    save: jest.fn().mockResolvedValue(Result.ok(undefined)),
+  } as unknown as jest.Mocked<SimulationRepository>;
+  const offers = {
+    findById: jest.fn().mockResolvedValue(Result.ok(offer)),
+    save: jest.fn().mockResolvedValue(Result.ok(undefined)),
+  } as unknown as jest.Mocked<OfferRepository>;
+  const curves = {
+    findById: jest.fn(),
+    save: jest.fn(),
+  } as unknown as jest.Mocked<CurveRepository>;
+  const clock = { now: () => NOW } as unknown as Clock;
+  const useCase = new CreateSimulationUseCase(
+    simulations,
+    new SimulationPremisesService(offers, curves, clock),
+    new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+    clock,
+  );
+  return { offer, simulations, offers, curves, useCase };
+}
+
+function command(overrides: Partial<CreateSimulationCommandInput> = {}) {
+  return CreateSimulationCommand.fromRequest(OWNER_ID, {
+    offer: { id: 'offer-id' },
+    investment: investmentRequest(),
+    ...overrides,
+  });
+}
+
+describe('CreateSimulationCommand', () => {
+  it('converts the request into an offer choice and an investment', () => {
+    const existing = command({
+      investment: investmentRequest({ curveId: 'curve-id' }),
+    });
+    const typed = command({ offer: { new: newOfferRequest() } });
+
+    expect(existing.offer).toEqual({ kind: 'existing', offerId: 'offer-id' });
+    expect(existing.investment.principal.equals(Money.of('1000'))).toBe(true);
+    expect(existing.investment.curveId).toBe('curve-id');
+    expect(typed.offer.kind).toBe('new');
+    expect(typed.offer.kind === 'new' && typed.offer.offer.actorId).toBe(
+      OWNER_ID,
+    );
+  });
+});
+
+describe('CreateSimulationUseCase', () => {
+  it('saves a simulation of a visible offer with its result', async () => {
+    const { offer, simulations, offers, useCase } = setup();
+
+    const result = await useCase.execute(command());
+
+    const simulation = simulations.save.mock.calls[0][0] as Simulation;
+    expect(offers.findById).toHaveBeenCalledWith('offer-id');
+    expect(offers.save).not.toHaveBeenCalled();
+    expect(simulation.ownerId).toBe(OWNER_ID);
+    expect(simulation.offerId).toBe(offer.id);
+    expect(simulation.result?.calculatedAt).toBe(NOW);
+    expect(result.value).toEqual({ simulationId: simulation.id });
+  });
+
+  it('creates a private offer from typed terms with the simulation', async () => {
+    const { simulations, offers, useCase } = setup();
+
+    const result = await useCase.execute(
+      command({ offer: { new: newOfferRequest() } }),
+    );
+
+    expect(result.isOk()).toBe(true);
+    const offer = offers.save.mock.calls[0][0] as Offer;
+    const simulation = simulations.save.mock.calls[0][0] as Simulation;
+    expect(offers.findById).not.toHaveBeenCalled();
+    expect(offer.ownerId).toBe(OWNER_ID);
+    expect(offer.name).toBe('CDB digitado');
+    expect(simulation.offerId).toBe(offer.id);
+  });
+
+  it('loads the curve of indexed remuneration', async () => {
+    const { curves, simulations, useCase } = setup();
+    const curve = cdiCurve();
+    curves.findById.mockResolvedValue(Result.ok(curve));
+
+    await useCase.execute(
+      command({
+        offer: {
+          new: newOfferRequest({
+            maturityDate: '2026-02-02',
+            remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1' },
+          }),
+        },
+        investment: investmentRequest({ curveId: curve.id }),
+      }),
+    );
+
+    expect(curves.findById).toHaveBeenCalledWith(curve.id);
+    const simulation = simulations.save.mock.calls[0][0] as Simulation;
+    expect(simulation.investment.curveId).toBe(curve.id);
+    expect(simulation.result?.inputs.curveRevision).toBe(1);
+  });
+
+  it('saves nothing, not even a new offer, when the calculation is rejected', async () => {
+    const { simulations, offers, useCase } = setup();
+
+    const result = await useCase.execute(
+      command({
+        offer: {
+          new: newOfferRequest({
+            titleType: ETitleType.LCA,
+            maturityDate: '2026-06-01',
+          }),
+        },
+      }),
+    );
+
+    expect(result.error.code).toBe(EAppErrorCode.INVESTMENT_TERM_TOO_SHORT);
+    expect(offers.save).not.toHaveBeenCalled();
+    expect(simulations.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects typed terms without a name', async () => {
+    const { simulations, useCase } = setup();
+
+    const result = await useCase.execute(
+      command({ offer: { new: newOfferRequest({ name: ' ' }) } }),
+    );
+
+    expect(result.error.code).toBe(EAppErrorCode.INVALID_OFFER);
+    expect(simulations.save).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'offer',
+      (deps: ReturnType<typeof setup>) =>
+        deps.offers.findById.mockResolvedValue(
+          Result.err(new OfferNotFoundError('offer-id')),
+        ),
+      EAppErrorCode.OFFER_NOT_FOUND,
+    ],
+    [
+      "another user's offer",
+      (deps: ReturnType<typeof setup>) =>
+        deps.offers.findById.mockResolvedValue(
+          Result.ok(catalogOffer('another-owner')),
+        ),
+      EAppErrorCode.OFFER_NOT_FOUND,
+    ],
+    [
+      'curve',
+      (deps: ReturnType<typeof setup>) =>
+        deps.curves.findById.mockResolvedValue(
+          Result.err(new CurveNotFoundError('curve-id')),
+        ),
+      EAppErrorCode.CURVE_NOT_FOUND,
+    ],
+    [
+      "another user's curve",
+      (deps: ReturnType<typeof setup>) =>
+        deps.curves.findById.mockResolvedValue(
+          Result.ok(cdiCurve('another-owner')),
+        ),
+      EAppErrorCode.CURVE_NOT_FOUND,
+    ],
+  ])('stops when the %s is missing', async (_, arrange, code) => {
+    const deps = setup();
+    deps.curves.findById.mockResolvedValue(Result.ok(cdiCurve()));
+    arrange(deps);
+
+    const result = await deps.useCase.execute(
+      command({ investment: investmentRequest({ curveId: 'curve-id' }) }),
+    );
+
+    expect(result.error.code).toBe(code);
+    expect(deps.simulations.save).not.toHaveBeenCalled();
+  });
+});

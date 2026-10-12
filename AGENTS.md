@@ -89,8 +89,8 @@ frontend testing policy.
   screen) are mutable, private to their user or read-only system content;
   simulations always reference them and are recalculated asynchronously when
   they change (decision 2026-10-11). Reproducibility and calculation history
-  were dropped. Offers and curves are built on this model; simulations still
-  implement the earlier immutable one. See "Mutable
+  were dropped. Offers, curves, and simulations are built on this model;
+  simulations still calculate inside the request. See "Mutable
   Premises And Asynchronous Recalculation" in
   `docs/architecture/project-structure.md` before touching offers, curves,
   simulations, or eventing.
@@ -99,9 +99,9 @@ frontend testing policy.
   consumer, and transport knowledge confined to the messaging adapters. See
   "Messaging Transport" in `docs/architecture/project-structure.md`.
 - The frontend is React 19 + Vite 8 (decision 2026-10-10). The simulation
-  workspace under `/simulacoes` is built on the earlier model; the offer and
-  curve screens are not built yet. Follow the status sequence in
-  `docs/architecture/frontend-patterns.md`. Build features from the recorded
+  workspace under `/simulacoes` references offers and keeps one result, still
+  calculated on save; the offer and curve screens are not built yet. Follow
+  the status sequence in `docs/architecture/frontend-patterns.md`. Build features from the recorded
   behavior and design them as idiomatic React; never transliterate earlier
   implementations.
 - Frontend code uses modern, stable, mainstream React: function components,

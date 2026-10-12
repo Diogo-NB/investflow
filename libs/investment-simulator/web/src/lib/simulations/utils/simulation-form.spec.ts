@@ -10,7 +10,6 @@ import {
   blankSimulationValues,
   coverageGap,
   defaultCurveId,
-  differsFromOffer,
   offerTermValues,
   simulationFormSchema,
   simulationValues,
@@ -26,7 +25,9 @@ const offer = {
 };
 
 const valid: SimulationFormValues = {
+  offerMode: 'new',
   offerId: '',
+  offerName: ' CDB digitado ',
   principal: '10.000,50',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
@@ -48,15 +49,18 @@ function errors(values: SimulationFormValues) {
 }
 
 describe('simulation form', () => {
-  it('accepts complete terms and builds the exact API payload', () => {
+  it('accepts typed terms and builds the new offer payload', () => {
     expect(errors(valid)).toEqual({});
     expect(toSimulationInput(valid)).toEqual({
-      terms: {
-        titleType: 'CDB',
-        issuerName: 'Banco Local',
-        maturityDate: '2026-03-02',
-        redemptionTerms: { kind: 'DAILY' },
-        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+      offer: {
+        new: {
+          titleType: 'CDB',
+          name: 'CDB digitado',
+          issuerName: 'Banco Local',
+          maturityDate: '2026-03-02',
+          redemptionTerms: { kind: 'DAILY' },
+          remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+        },
       },
       investment: {
         principal: '10000.5',
@@ -66,41 +70,33 @@ describe('simulation form', () => {
     });
   });
 
-  it('sends the catalog offer and no curve for a fixed rate', () => {
+  it('sends only the id of an existing offer and no curve for a fixed rate', () => {
     // The form clears the curve whenever the kind changes.
     const input = toSimulationInput({
       ...valid,
+      offerMode: 'existing',
       offerId: 'offer',
       remunerationKind: 'PREFIXED',
       rate: '12,5',
       curveId: '',
     });
-    expect(input.offerId).toBe('offer');
+    expect(input.offer).toEqual({ id: 'offer' });
     expect(input.investment.curveId).toBeNull();
-    expect(input.terms.remunerationTerms).toEqual({
-      kind: 'PREFIXED',
-      rate: '0.125',
-    });
   });
 
-  it('sends the chosen title type', () => {
-    expect(
-      toSimulationInput({ ...valid, titleType: 'LCA' }).terms.titleType,
-    ).toBe('LCA');
-  });
-
-  it('sends terms without an issuer', () => {
+  it('sends typed terms without an issuer', () => {
     expect(errors({ ...valid, issuerName: '  ' })).toEqual({});
-    expect(
-      toSimulationInput({ ...valid, issuerName: '  ' }).terms.issuerName,
-    ).toBeNull();
+    const input = toSimulationInput({ ...valid, issuerName: '  ' });
+    expect('new' in input.offer && input.offer.new.issuerName).toBeNull();
   });
 
-  it('sends the trimmed issuer name', () => {
-    expect(
-      toSimulationInput({ ...valid, issuerName: ' Banco Local ' }).terms
-        .issuerName,
-    ).toBe('Banco Local');
+  it('requires an offer, or a name for typed terms', () => {
+    expect(errors({ ...valid, offerName: ' ' })).toEqual({
+      offerName: 'Informe o nome da oferta.',
+    });
+    expect(errors({ ...valid, offerMode: 'existing', offerName: '' })).toEqual({
+      offerId: 'Escolha uma oferta.',
+    });
   });
 
   it('explains every invalid input in Portuguese', () => {
@@ -128,8 +124,10 @@ describe('simulation form', () => {
     });
   });
 
-  it('starts blank simulations with today, no issuer and a sole curve', () => {
+  it('starts blank simulations with today, no offer and a sole curve', () => {
     expect(blankSimulationValues('2026-10-10', options)).toMatchObject({
+      offerMode: 'existing',
+      offerId: '',
       investmentDate: '2026-10-10',
       titleType: 'CDB',
       issuerName: '',
@@ -146,14 +144,21 @@ describe('simulation form', () => {
 
   it('edits saved simulations in the units the user typed', () => {
     expect(
-      simulationValues(workspace.simulation.terms, {
-        ...workspace.calculations[0].investment,
+      simulationValues(workspace.offer, {
+        ...workspace.simulation.investment,
         principal: '10000.5',
       }),
-    ).toEqual({ ...valid, principal: '10000,5', rate: '105' });
+    ).toEqual({
+      ...valid,
+      offerMode: 'existing',
+      offerId: 'cdi-offer',
+      offerName: '',
+      principal: '10000,5',
+      rate: '105',
+    });
   });
 
-  it('fills terms from an offer and tracks later edits', () => {
+  it('fills terms from an offer', () => {
     const filled = {
       ...valid,
       ...offerTermValues(offer, { curveId: '' }, remunerations),
@@ -165,9 +170,6 @@ describe('simulation form', () => {
       maturityDate: '2028-12-29',
       curveId: 'cdi',
     });
-    expect(differsFromOffer(filled, offer)).toBe(false);
-    expect(differsFromOffer({ ...filled, rate: '115' }, offer)).toBe(true);
-    expect(differsFromOffer({ ...filled, titleType: 'LCI' }, offer)).toBe(true);
     expect(
       offerTermValues(offer, { curveId: 'selic' }, remunerations).curveId,
     ).toBe('cdi');

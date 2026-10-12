@@ -5,9 +5,9 @@ import { todayInSaoPaulo } from '../../dates/calendar-date';
 import { ApiError } from '../../http/api-error';
 import { useApiFetch } from '../../routes/investment-simulator-deps';
 import {
-  calculateSimulation,
   createSimulation,
   deleteSimulation,
+  editSimulation,
   simulationKeys,
   simulationOptionsQuery,
   simulationWorkspaceQuery,
@@ -19,14 +19,15 @@ import {
   type SimulationField,
   type SimulationFormValues,
 } from '../utils/simulation-form';
-import { CALCULATION_PARAM } from './use-calculation-history';
 
 export const TEMPLATE_PARAM = 'a-partir-de';
 
-export interface CalculationProblem {
+export interface SaveProblem {
   readonly message: string;
   // The input the user should change, when one is responsible.
   readonly field: SimulationField | null;
+  // The simulation changed elsewhere; reloading shows the saved version.
+  readonly conflict: boolean;
 }
 
 // The API explains the failure; the form only needs to know where to point.
@@ -36,45 +37,64 @@ const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_CURVE_UNAVAILABLE: 'curveId',
   INVESTMENT_CURVE_COVERAGE_MISSING: 'curveId',
   CURVE_NOT_FOUND: 'curveId',
-  INVESTMENT_PERIOD_INVALID: 'maturityDate',
+  OFFER_NOT_FOUND: 'offerId',
+  INVALID_OFFER: 'offerName',
   INVESTMENT_PRINCIPAL_INVALID: 'principal',
+};
+
+// Failures caused by the offer's terms, which are fields only while typed.
+const TERM_FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
+  INVESTMENT_PERIOD_INVALID: 'maturityDate',
+  INVESTMENT_TERM_TOO_SHORT: 'maturityDate',
   INVESTMENT_REMUNERATION_UNSUPPORTED: 'remunerationKind',
 };
 
-function problemField(error: ApiError): SimulationField | null {
+function problemField(
+  error: ApiError,
+  offerMode: SimulationFormValues['offerMode'],
+): SimulationField | null {
+  const termField = (field: SimulationField) =>
+    offerMode === 'new' ? field : 'offerId';
   if (error.code === 'INVESTMENT_DATE_NOT_BUSINESS_DAY') {
     return error.details['field'] === 'maturityDate'
-      ? 'maturityDate'
+      ? termField('maturityDate')
       : 'investmentDate';
   }
-  return (error.code && FIELD_BY_CODE[error.code]) || null;
+  if (!error.code) return null;
+  const term = TERM_FIELD_BY_CODE[error.code];
+  return term ? termField(term) : (FIELD_BY_CODE[error.code] ?? null);
 }
 
-function describeProblem(error: unknown): CalculationProblem {
+function describeProblem(
+  error: unknown,
+  offerMode: SimulationFormValues['offerMode'],
+): SaveProblem {
   if (!(error instanceof ApiError)) {
     return {
       message:
         'Não foi possível concluir. Verifique sua conexão e tente novamente.',
       field: null,
+      conflict: false,
     };
   }
   return {
     message:
       error.userMessage ?? 'Não foi possível concluir agora. Tente novamente.',
-    field: problemField(error),
+    field: problemField(error, offerMode),
+    conflict: error.code === 'SIMULATION_REVISION_CONFLICT',
   };
 }
 
-export interface CalculateCallbacks {
+export interface SaveCallbacks {
   onSaved?(values: SimulationFormValues): void;
-  onProblem?(problem: CalculationProblem): void;
+  onProblem?(problem: SaveProblem): void;
 }
 
 export function useSimulationWorkspace(simulationId: string | undefined) {
   const fetchFn = useApiFetch();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const templateId =
     simulationId === undefined ? searchParams.get(TEMPLATE_PARAM) : null;
   const sourceId = simulationId ?? templateId;
@@ -85,40 +105,38 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
     enabled: sourceId !== null,
   });
 
-  const calculate = useMutation({
+  const save = useMutation({
     retry: 0,
-    // A rejected calculation saves nothing, so the form keeps its edits.
-    mutationFn: (values: SimulationFormValues) => {
+    // A rejected request saves nothing, so the form keeps its edits.
+    mutationFn: async (values: SimulationFormValues) => {
       const input = toSimulationInput(values);
-      return simulationId === undefined
-        ? createSimulation(fetchFn, input)
-        : calculateSimulation(fetchFn, simulationId, input.investment);
+      if (simulationId === undefined) {
+        return (await createSimulation(fetchFn, input)).simulationId;
+      }
+      await editSimulation(fetchFn, simulationId, {
+        ...input,
+        revision: source.data?.simulation.revision ?? 0,
+      });
+      return simulationId;
     },
     // Runs while the mutation is still pending, so navigation is not treated
     // as leaving unsaved changes.
-    onSuccess: async (calculated) => {
+    onSuccess: async (savedId) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: simulationKeys.lists() }),
+        // A new private offer joins the options.
+        queryClient.invalidateQueries({ queryKey: simulationKeys.options() }),
         queryClient.invalidateQueries({
-          queryKey: simulationKeys.workspace(calculated.simulationId),
+          queryKey: simulationKeys.workspace(savedId),
         }),
       ]);
       if (simulationId === undefined) {
         // Load the new page's data first so it opens with the result.
         await queryClient.prefetchQuery(
-          simulationWorkspaceQuery(fetchFn, calculated.simulationId),
+          simulationWorkspaceQuery(fetchFn, savedId),
         );
-        navigate(`/simulacoes/${calculated.simulationId}`, { replace: true });
-        return;
+        navigate(`/simulacoes/${savedId}`, { replace: true });
       }
-      // Show the new latest calculation instead of a selected older one.
-      setSearchParams(
-        (current) => {
-          current.delete(CALCULATION_PARAM);
-          return current;
-        },
-        { replace: true, preventScrollReset: true },
-      );
     },
   });
 
@@ -136,28 +154,26 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
   });
 
   // Rendered pending state lags a double click; this guard does not.
-  const calculating = useRef(false);
+  const saving = useRef(false);
 
-  function run(
-    values: SimulationFormValues,
-    callbacks: CalculateCallbacks = {},
-  ) {
-    if (calculating.current) return;
-    calculating.current = true;
-    calculate.mutate(values, {
+  function run(values: SimulationFormValues, callbacks: SaveCallbacks = {}) {
+    if (saving.current) return;
+    saving.current = true;
+    save.mutate(values, {
       onSuccess: () => {
         if (simulationId !== undefined) callbacks.onSaved?.(values);
       },
-      onError: (error) => callbacks.onProblem?.(describeProblem(error)),
+      onError: (error) =>
+        callbacks.onProblem?.(describeProblem(error, values.offerMode)),
       onSettled: () => {
-        calculating.current = false;
+        saving.current = false;
       },
     });
   }
 
-  const problem: CalculationProblem | null =
-    !calculate.isPending && calculate.error
-      ? describeProblem(calculate.error)
+  const problem: SaveProblem | null =
+    !save.isPending && save.error
+      ? describeProblem(save.error, save.variables?.offerMode ?? 'existing')
       : null;
 
   const setup = (() => {
@@ -172,16 +188,13 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
       return { status: 'loading' } as const;
     }
     const saved = simulationId !== undefined ? (source.data ?? null) : null;
-    const current = source.data?.calculations[0];
-    const initialValues =
-      source.data && current
-        ? // A duplicate also starts here, then saves as custom terms.
-          simulationValues(source.data.simulation.terms, current.investment)
-        : blankSimulationValues(todayInSaoPaulo(), options.data);
+    const initialValues = source.data
+      ? // A duplicate starts from the same offer, curve and investment.
+        simulationValues(source.data.offer, source.data.simulation.investment)
+      : blankSimulationValues(todayInSaoPaulo(), options.data);
     return {
       status: 'ready',
-      simulation: saved?.simulation ?? null,
-      calculations: saved?.calculations ?? [],
+      workspace: saved,
       initialValues,
       options: options.data,
     } as const;
@@ -194,7 +207,16 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
         if (query.isError) void query.refetch();
       }
     },
-    calculate: { run, pending: calculate.isPending, problem },
+    save: {
+      run,
+      pending: save.isPending,
+      problem,
+      // Loads the version saved elsewhere; the editor restarts from it.
+      reload: () => {
+        save.reset();
+        void source.refetch();
+      },
+    },
     remove: {
       run: () => {
         if (!remove.isPending) remove.mutate();

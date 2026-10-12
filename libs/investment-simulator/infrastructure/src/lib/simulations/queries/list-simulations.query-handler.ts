@@ -3,7 +3,7 @@ import { QueryHandler } from '@investflow/shared-application';
 import type { PaginatedResult } from '@investflow/shared-types';
 import {
   ETitleType,
-  SimulationCalculation,
+  SimulationResult,
 } from '@investflow/investment-simulator-domain';
 import { CalendarDate, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
@@ -16,11 +16,10 @@ export interface ListSimulationsQuery {
   readonly pageSize: number;
 }
 
-// Terms come from the simulation; the investment and result from its latest
-// calculation.
+// Terms come from the offer the simulation uses.
 export interface SimulationListItem {
   readonly id: string;
-  readonly fromCatalogOffer: boolean;
+  readonly offerName: string;
   readonly principal: string;
   readonly investmentDate: string;
   readonly maturityDate: string;
@@ -34,35 +33,42 @@ export interface SimulationListItem {
       | 'SELIC_PERCENTAGE';
     readonly rate: string;
   };
-  readonly latestCalculation: {
-    readonly id: string;
+  // Null until the first successful calculation.
+  readonly result: {
     readonly calculatedAt: string;
     readonly outdated: boolean;
     readonly netBalance: string;
-  };
+  } | null;
 }
 
 export type ListSimulationsOutput = PaginatedResult<SimulationListItem>;
 
 const simulationSelect = {
   id: true,
-  sourceOfferId: true,
-  maturityDate: true,
-  titleType: true,
-  issuerName: true,
-  remunerationType: true,
-  rateValue: true,
-  calculations: {
+  revision: true,
+  principal: true,
+  investmentDate: true,
+  offer: {
     select: {
-      id: true,
-      calculatedAt: true,
-      methodologyVersion: true,
-      netBalance: true,
-      principal: true,
-      investmentDate: true,
+      name: true,
+      titleType: true,
+      issuerName: true,
+      maturityDate: true,
+      remunerationType: true,
+      rateValue: true,
+      revision: true,
     },
-    orderBy: { calculatedAt: 'desc' },
-    take: 1,
+  },
+  curve: { select: { revision: true } },
+  result: {
+    select: {
+      simulationRevision: true,
+      offerRevision: true,
+      curveRevision: true,
+      methodologyVersion: true,
+      calculatedAt: true,
+      netBalance: true,
+    },
   },
 } satisfies Prisma.SimulationSelect;
 
@@ -107,33 +113,38 @@ export class ListSimulationsQueryHandler
   }
 
   private toOutput(record: SimulationRecord): SimulationListItem {
-    // A simulation is only created together with its first calculation.
-    const [latest] = record.calculations;
+    const { offer, result } = record;
     return {
       id: record.id,
-      fromCatalogOffer: record.sourceOfferId !== null,
-      principal: latest.principal.toFixed(),
+      offerName: offer.name,
+      principal: record.principal.toFixed(),
       investmentDate: CalendarDate.fromUtcDate(
-        latest.investmentDate,
+        record.investmentDate,
       ).value.toIsoString(),
       maturityDate: CalendarDate.fromUtcDate(
-        record.maturityDate,
+        offer.maturityDate,
       ).value.toIsoString(),
-      titleType: record.titleType,
-      issuerName: record.issuerName,
+      titleType: offer.titleType,
+      issuerName: offer.issuerName,
       remunerationTerms: {
-        kind: record.remunerationType,
-        rate: record.rateValue.toFixed(),
+        kind: offer.remunerationType,
+        rate: offer.rateValue.toFixed(),
       },
-      latestCalculation: {
-        id: latest.id,
-        calculatedAt: latest.calculatedAt.toISOString(),
-        outdated: SimulationCalculation.isOutdated(
-          record.titleType as ETitleType,
-          latest.methodologyVersion,
-        ),
-        netBalance: latest.netBalance.toFixed(),
-      },
+      result: result
+        ? {
+            calculatedAt: result.calculatedAt.toISOString(),
+            outdated: !SimulationResult.isCurrent(
+              result,
+              SimulationResult.targetFor(
+                record.revision,
+                offer.titleType as ETitleType,
+                offer.revision,
+                record.curve?.revision ?? null,
+              ),
+            ),
+            netBalance: result.netBalance.toFixed(),
+          }
+        : null,
     };
   }
 }

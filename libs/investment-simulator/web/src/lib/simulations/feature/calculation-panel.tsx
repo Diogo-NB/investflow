@@ -1,32 +1,31 @@
-import { Link } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 import { formatInstant, formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney, formatPercentOf } from '../../decimals/format-decimal';
-import { surface } from '../../ui/styles';
-import type { CalculationSummary, TaxRules } from '../models/simulation.types';
-import type { CalculationProblem } from './use-simulation-workspace';
+import { useApiFetch } from '../../routes/investment-simulator-deps';
+import { secondaryButton, surface } from '../../ui/styles';
+import { monthlyBalancesQuery } from '../api/simulation-api';
+import type { SimulationResult, TaxRules } from '../models/simulation.types';
+import type { SaveProblem } from './use-simulation-workspace';
 import { MonthlyBalanceTable } from './monthly-balance-table';
 import { TaxExplanationDialog } from './tax-explanation-dialog';
-import type { useCalculationHistory } from './use-calculation-history';
-
-type History = ReturnType<typeof useCalculationHistory>;
 
 interface CalculationPanelProps {
-  readonly history: History;
+  readonly simulationId: string | null;
+  readonly result: SimulationResult | null;
   readonly pending: boolean;
-  readonly problem: CalculationProblem | null;
-  // The form holds edits that the shown calculation does not include.
+  readonly problem: SaveProblem | null;
+  // The form holds edits that the shown result does not include.
   readonly unsavedEdits: boolean;
   readonly taxRules: TaxRules;
-  // The saved simulation's maturity; every calculation shares it.
-  readonly maturityDate: string | null;
+  readonly onReload: () => void;
 }
 
-type SummaryKey = keyof CalculationSummary['maturitySummary'];
+type SummaryKey = keyof SimulationResult['maturitySummary'];
 
 function rowLabel(
   key: SummaryKey,
   label: string,
-  taxes: CalculationSummary['taxes'],
+  taxes: SimulationResult['taxes'],
 ): string {
   if (key === 'iof') {
     return taxes.iof.rate === null
@@ -51,72 +50,47 @@ const SUMMARY_ROWS: readonly [SummaryKey, string][] = [
 ];
 
 function StaleNotice({
-  calculation,
-  history,
+  result,
   unsavedEdits,
 }: {
-  readonly calculation: CalculationSummary;
-  readonly history: History;
+  readonly result: SimulationResult;
   readonly unsavedEdits: boolean;
 }) {
-  if (history.viewingPast && history.latest) {
-    return (
-      <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control bg-accent-soft px-4 py-3 text-sm">
-        <span>
-          Você está vendo um cálculo anterior, de{' '}
-          {formatInstant(calculation.calculatedAt)}.
-        </span>
-        <Link
-          to={{ search: history.searchFor(history.latest.id) }}
-          replace
-          preventScrollReset
-          className="font-medium text-accent"
-        >
-          Ver o mais recente
-        </Link>
-      </p>
-    );
-  }
-  if (calculation.outdated || unsavedEdits) {
-    return (
-      <p className="m-0 rounded-control border border-warning px-4 py-3 text-sm text-warning">
-        <strong className="font-semibold">Desatualizado.</strong>{' '}
-        {unsavedEdits
-          ? 'Há alterações que ainda não foram calculadas.'
-          : 'A metodologia de cálculo mudou desde este cálculo.'}{' '}
-        Calcule novamente para ver o resultado atual.
-      </p>
-    );
-  }
-  return null;
+  if (!result.outdated && !unsavedEdits) return null;
+  return (
+    <p className="m-0 rounded-control border border-warning px-4 py-3 text-sm text-warning">
+      <strong className="font-semibold">Desatualizado.</strong>{' '}
+      {unsavedEdits
+        ? 'Há alterações que ainda não foram calculadas.'
+        : 'A simulação, a oferta, a curva ou a metodologia de cálculo mudou desde este cálculo.'}{' '}
+      Salve e calcule para ver o resultado atual.
+    </p>
+  );
 }
 
 function CalculationResult({
-  calculation,
-  maturityDate,
-  history,
+  simulationId,
+  result,
   unsavedEdits,
   taxRules,
 }: {
-  readonly calculation: CalculationSummary;
-  readonly maturityDate: string;
-  readonly history: History;
+  readonly simulationId: string;
+  readonly result: SimulationResult;
   readonly unsavedEdits: boolean;
   readonly taxRules: TaxRules;
 }) {
-  const summary = calculation.maturitySummary;
-  const balances = history.monthlyBalances;
+  const fetchFn = useApiFetch();
+  const balances = useQuery(
+    monthlyBalancesQuery(fetchFn, simulationId, result.calculatedAt),
+  );
+  const summary = result.maturitySummary;
   return (
     <section aria-labelledby="result-title" className={surface}>
       <div className="grid gap-5 p-6">
         <h2 id="result-title" className="m-0 text-lg font-semibold">
           Resultado no vencimento
         </h2>
-        <StaleNotice
-          calculation={calculation}
-          history={history}
-          unsavedEdits={unsavedEdits}
-        />
+        <StaleNotice result={result} unsavedEdits={unsavedEdits} />
         <div>
           <p className="m-0 text-sm text-muted">Valor líquido no vencimento</p>
           <p className="m-0 text-2xl font-semibold tabular-nums sm:text-3xl">
@@ -127,7 +101,7 @@ function CalculationResult({
           {SUMMARY_ROWS.map(([key, label]) => (
             <div key={key} className="contents">
               <dt className="border-b border-border py-2 text-muted">
-                {rowLabel(key, label, calculation.taxes)}
+                {rowLabel(key, label, result.taxes)}
               </dt>
               <dd className="m-0 border-b border-border py-2 text-right tabular-nums">
                 {formatMoney(summary[key])}
@@ -139,22 +113,18 @@ function CalculationResult({
             {formatMoney(summary.netBalance)}
           </dd>
         </dl>
-        <TaxExplanationDialog
-          calculation={calculation}
-          maturityDate={maturityDate}
-          rules={taxRules}
-        />
+        <TaxExplanationDialog calculation={result} rules={taxRules} />
         <p className="m-0 text-sm text-muted">
-          Aplicação em {formatIsoDate(calculation.investment.investmentDate)},
-          vencimento em {formatIsoDate(maturityDate)} ·{' '}
-          {calculation.businessDays} dias úteis. IOF e imposto de renda incidem
-          no vencimento. Calculado em {formatInstant(calculation.calculatedAt)}{' '}
-          · metodologia {calculation.methodologyVersion}.
+          Aplicação em {formatIsoDate(result.investmentDate)}, vencimento em{' '}
+          {formatIsoDate(result.maturityDate)} · {result.businessDays} dias
+          úteis. IOF e imposto de renda incidem no vencimento. Calculado em{' '}
+          {formatInstant(result.calculatedAt)} · metodologia{' '}
+          {result.methodologyVersion}.
         </p>
       </div>
       {balances.data ? (
         <MonthlyBalanceTable
-          key={calculation.id}
+          key={result.calculatedAt}
           months={balances.data.items}
         />
       ) : (
@@ -168,87 +138,60 @@ function CalculationResult({
   );
 }
 
-function CalculationHistory({ history }: { readonly history: History }) {
-  if (history.items.length < 2) return null;
-  return (
-    <details className={surface}>
-      <summary className="flex min-h-11 cursor-pointer items-center px-6 font-medium text-accent">
-        Histórico de cálculos ({history.items.length})
-      </summary>
-      <ol className="m-0 grid list-none border-t border-border p-0">
-        {history.items.map((item, position) => (
-          <li key={item.id} className="border-b border-border last:border-b-0">
-            <Link
-              to={{ search: history.searchFor(item.id) }}
-              replace
-              preventScrollReset
-              aria-current={
-                item.id === history.selected?.id ? 'true' : undefined
-              }
-              className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 px-6 py-2 text-fg no-underline hover:bg-accent-soft aria-current:bg-accent-soft"
-            >
-              <span>
-                {formatInstant(item.calculatedAt)}
-                {position === 0 && (
-                  <span className="text-muted"> · mais recente</span>
-                )}
-              </span>
-              <span className="flex items-center gap-3">
-                {item.outdated && (
-                  <span className="text-sm text-warning">Desatualizado</span>
-                )}
-                <span className="tabular-nums">
-                  {formatMoney(item.maturitySummary.netBalance)}
-                </span>
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ol>
-    </details>
-  );
-}
-
 export function CalculationPanel({
-  history,
+  simulationId,
+  result,
   pending,
   problem,
   unsavedEdits,
   taxRules,
-  maturityDate,
+  onReload,
 }: CalculationPanelProps) {
-  const calculation = history.selected;
   return (
     <div className="grid content-start gap-6">
       <div aria-live="polite" className="empty:hidden">
         {pending && (
-          <p className={`${surface} m-0 p-6 text-muted`}>Calculando…</p>
+          <p className={`${surface} m-0 p-6 text-muted`}>
+            Salvando e calculando…
+          </p>
         )}
       </div>
       {!pending && problem && (
-        <div role="alert" className={`${surface} grid gap-1 border-error p-6`}>
-          <p className="m-0 font-semibold text-error">
-            Não foi possível calcular.
-          </p>
-          <p className="m-0">{problem.message}</p>
+        <div
+          role="alert"
+          className={`${surface} grid justify-items-start gap-3 border-error p-6`}
+        >
+          <div className="grid gap-1">
+            <p className="m-0 font-semibold text-error">
+              Não foi possível salvar.
+            </p>
+            <p className="m-0">{problem.message}</p>
+          </div>
+          {problem.conflict && (
+            <button
+              type="button"
+              className={secondaryButton}
+              onClick={onReload}
+            >
+              Recarregar
+            </button>
+          )}
         </div>
       )}
-      {calculation && maturityDate ? (
+      {simulationId && result ? (
         <CalculationResult
-          calculation={calculation}
-          maturityDate={maturityDate}
-          history={history}
-          unsavedEdits={unsavedEdits && !history.viewingPast}
+          simulationId={simulationId}
+          result={result}
+          unsavedEdits={unsavedEdits}
           taxRules={taxRules}
         />
       ) : (
         !pending && (
           <p className={`${surface} m-0 p-6 text-muted`}>
-            Preencha os dados e calcule para ver o resultado no vencimento.
+            Preencha os dados e salve para ver o resultado no vencimento.
           </p>
         )
       )}
-      <CalculationHistory history={history} />
     </div>
   );
 }

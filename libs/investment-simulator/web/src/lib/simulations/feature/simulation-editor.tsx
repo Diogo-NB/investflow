@@ -7,15 +7,12 @@ import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { PageLabel } from '../../ui/page-label';
 import { quietButton, secondaryButton } from '../../ui/styles';
 import type {
-  CalculationSummary,
-  Investment,
   SimulationOptions,
   SimulationWorkspace,
 } from '../models/simulation.types';
 import type { SimulationFormValues } from '../utils/simulation-form';
 import { CalculationPanel } from './calculation-panel';
 import { SimulationFormPanel } from './simulation-form-panel';
-import { useCalculationHistory } from './use-calculation-history';
 import { useSimulationForm } from './use-simulation-form';
 import {
   TEMPLATE_PARAM,
@@ -25,24 +22,21 @@ import { useUnsavedChangesGuard } from './use-unsaved-changes-guard';
 
 type Workspace = ReturnType<typeof useSimulationWorkspace>;
 
-type SavedSimulation = SimulationWorkspace['simulation'];
+const ORIGIN_LABELS = { SYSTEM: 'Oferta do sistema', OWN: 'Minha oferta' };
 
 interface SimulationEditorProps {
-  readonly simulation: SavedSimulation | null;
-  readonly calculations: readonly CalculationSummary[];
+  readonly saved: SimulationWorkspace | null;
   readonly initialValues: SimulationFormValues;
   readonly options: SimulationOptions;
   readonly workspace: Workspace;
 }
 
 function SimulationHeading({
-  simulation,
-  current,
+  saved,
 }: {
-  readonly simulation: SavedSimulation | null;
-  readonly current: Investment | null;
+  readonly saved: SimulationWorkspace | null;
 }) {
-  if (!simulation || !current) {
+  if (!saved) {
     return (
       <div className="max-w-prose">
         <h1
@@ -52,12 +46,12 @@ function SimulationHeading({
           Nova simulação
         </h1>
         <p className="mt-2 mb-0 text-muted">
-          Informe quanto e quando investir e os termos do título.
+          Escolha uma oferta e informe quanto e quando investir.
         </p>
       </div>
     );
   }
-  const { terms } = simulation;
+  const { offer, simulation } = saved;
   return (
     <div className="max-w-prose">
       <h1
@@ -65,51 +59,46 @@ function SimulationHeading({
         className="m-0 text-xl leading-tight font-semibold sm:text-2xl"
       >
         {[
-          terms.issuerName,
-          `${terms.titleType} ${remunerationLabel(terms.remunerationTerms)}`,
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+          offer.name,
+          `${offer.titleType} ${remunerationLabel(offer.remunerationTerms)}`,
+        ].join(' · ')}
       </h1>
       <p className="mt-2 mb-0 text-muted">
-        {formatMoney(current.principal)} de{' '}
-        {formatIsoDate(current.investmentDate)} a{' '}
-        {formatIsoDate(terms.maturityDate)} ·{' '}
-        {simulation.fromCatalogOffer
-          ? 'Termos de uma oferta do catálogo'
-          : 'Termos personalizados'}
+        {formatMoney(simulation.investment.principal)} de{' '}
+        {formatIsoDate(simulation.investment.investmentDate)} a{' '}
+        {formatIsoDate(offer.maturityDate)} ·{' '}
+        {offer.deleted ? 'Oferta excluída' : ORIGIN_LABELS[offer.origin]}
       </p>
     </div>
   );
 }
 
 export function SimulationEditor({
-  simulation,
-  calculations,
+  saved,
   initialValues,
   options,
   workspace,
 }: SimulationEditorProps) {
-  const isNew = simulation === null;
+  const simulation = saved?.simulation ?? null;
+  const result = saved?.result ?? null;
   const form = useSimulationForm({
     initialValues,
+    offers: options.offers,
     remunerations: options.remunerations,
   });
-  const history = useCalculationHistory(calculations);
-  const { calculate, remove } = workspace;
+  const { save, remove } = workspace;
   const { isDirty } = form.form.formState;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const blocker = useUnsavedChangesGuard(
-    isDirty && !calculate.pending && !remove.pending,
+    isDirty && !save.pending && !remove.pending,
   );
 
-  const latest = history.latest;
-  const upToDate = !isNew && !isDirty && latest !== null && !latest.outdated;
+  const upToDate = !isDirty && result !== null && !result.outdated;
 
   const submit = form.form.handleSubmit((values) =>
-    calculate.run(values, {
-      onSaved: (saved) => form.form.reset(saved),
+    save.run(values, {
+      onSaved: (savedValues) => form.form.reset(savedValues),
       onProblem: form.showProblem,
     }),
   );
@@ -125,10 +114,7 @@ export function SimulationEditor({
         </Link>
       </PageLabel>
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <SimulationHeading
-          simulation={simulation}
-          current={latest?.investment ?? null}
-        />
+        <SimulationHeading saved={saved} />
         {simulation && (
           <div className="flex flex-wrap gap-2">
             <Link to="/simulacoes/nova" className={secondaryButton}>
@@ -155,18 +141,19 @@ export function SimulationEditor({
         <SimulationFormPanel
           simulation={form}
           options={options}
-          savedTerms={simulation?.terms ?? null}
-          pending={calculate.pending}
+          saved={saved}
+          pending={save.pending}
           upToDate={upToDate}
-          onCalculate={() => void submit()}
+          onSave={() => void submit()}
         />
         <CalculationPanel
-          history={history}
-          pending={calculate.pending}
-          problem={calculate.problem}
+          simulationId={simulation?.id ?? null}
+          result={result}
+          pending={save.pending}
+          problem={save.problem}
           unsavedEdits={isDirty}
           taxRules={options.taxRules}
-          maturityDate={simulation?.terms.maturityDate ?? null}
+          onReload={save.reload}
         />
       </div>
 
@@ -174,7 +161,7 @@ export function SimulationEditor({
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
         title="Excluir esta simulação?"
-        description="A simulação e o histórico de cálculos deixam de aparecer. Não é possível desfazer."
+        description="A simulação e o resultado deixam de aparecer. A oferta e a curva continuam disponíveis. Não é possível desfazer."
         cancelLabel="Cancelar"
         confirmLabel={remove.pending ? 'Excluindo…' : 'Excluir simulação'}
         destructive
@@ -192,7 +179,7 @@ export function SimulationEditor({
           if (!open && blocker.state === 'blocked') blocker.reset();
         }}
         title="Descartar alterações?"
-        description="As alterações desta simulação ainda não foram calculadas nem salvas."
+        description="As alterações desta simulação ainda não foram salvas."
         cancelLabel="Continuar editando"
         confirmLabel="Descartar alterações"
         destructive

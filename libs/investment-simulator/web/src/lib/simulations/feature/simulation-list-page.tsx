@@ -20,19 +20,16 @@ function searchWithPage(params: URLSearchParams, page: number): string {
   return search ? `?${search}` : '';
 }
 
-function origin(item: SimulationListItem): string {
-  return item.fromCatalogOffer
-    ? 'Da oferta do catálogo'
-    : 'Termos personalizados';
-}
-
 function NetResult({ item }: { readonly item: SimulationListItem }) {
+  if (!item.result) {
+    return <span className="text-sm text-muted">Sem resultado</span>;
+  }
   return (
     <span className="grid justify-items-end gap-0.5">
       <span className="font-medium tabular-nums">
-        {formatMoney(item.latestCalculation.netBalance)}
+        {formatMoney(item.result.netBalance)}
       </span>
-      {item.latestCalculation.outdated && (
+      {item.result.outdated && (
         <span className="text-sm text-warning">Desatualizado</span>
       )}
     </span>
@@ -50,7 +47,7 @@ function SimulationTable({
       <thead>
         <tr className="border-b border-border text-sm text-muted">
           <th scope="col" className="px-4 py-3 font-medium">
-            Emissor
+            Oferta
           </th>
           <th scope="col" className="px-4 py-3 font-medium">
             Remuneração
@@ -68,7 +65,7 @@ function SimulationTable({
       </thead>
       <tbody>
         {items.map((item) => (
-          // The issuer link stretches over the row, so the whole row opens the
+          // The offer link stretches over the row, so the whole row opens the
           // simulation while staying a single link for keyboards and readers.
           <tr
             key={item.id}
@@ -79,9 +76,11 @@ function SimulationTable({
                 to={item.id}
                 className="font-medium text-accent underline-offset-4 outline-none group-hover:underline after:absolute after:inset-0 after:rounded-control focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
               >
-                {item.issuerName ?? 'Sem emissor'}
+                {item.offerName}
               </Link>
-              <span className="block text-sm text-muted">{origin(item)}</span>
+              <span className="block text-sm text-muted">
+                {item.issuerName ?? 'Sem emissor'}
+              </span>
             </td>
             <td className="px-4 py-3">
               {item.titleType} {remunerationLabel(item.remunerationTerms)}
@@ -117,9 +116,7 @@ function SimulationRows({
             className="grid gap-2 p-4 text-fg no-underline hover:bg-accent-soft"
           >
             <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium text-accent">
-                {item.issuerName ?? 'Sem emissor'}
-              </span>
+              <span className="font-medium text-accent">{item.offerName}</span>
               <NetResult item={item} />
             </span>
             <span className="text-sm text-muted">

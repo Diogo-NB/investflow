@@ -2,9 +2,8 @@ import { queryOptions } from '@tanstack/react-query';
 import { jsonBody, requestJson, type FetchFn } from '../../http/request-json';
 import type { PaginatedResult } from '../../pagination/paginated-result.type';
 import type {
-  Investment,
   MonthlyBalance,
-  StartSimulationInput,
+  SimulationInput,
   SimulationListItem,
   SimulationOptions,
   SimulationWorkspace,
@@ -19,8 +18,13 @@ export const simulationKeys = {
   list: (page: number) => [...simulationKeys.lists(), { page }] as const,
   options: () => [...simulationKeys.all, 'options'] as const,
   workspace: (id: string) => [...simulationKeys.all, 'workspace', id] as const,
-  monthlyBalances: (calculationId: string) =>
-    [...simulationKeys.all, 'monthly-balances', calculationId] as const,
+  monthlyBalances: (simulationId: string, calculatedAt: string) =>
+    [
+      ...simulationKeys.all,
+      'monthly-balances',
+      simulationId,
+      calculatedAt,
+    ] as const,
 };
 
 export function simulationListQuery(fetchFn: FetchFn, page: number) {
@@ -57,45 +61,40 @@ export function simulationWorkspaceQuery(fetchFn: FetchFn, id: string) {
   });
 }
 
-// Calculations are immutable, so fetched balances never go stale.
-export function monthlyBalancesQuery(fetchFn: FetchFn, calculationId: string) {
+// Keyed by the result's instant: a result is never changed, only replaced.
+export function monthlyBalancesQuery(
+  fetchFn: FetchFn,
+  simulationId: string,
+  calculatedAt: string,
+) {
   return queryOptions({
-    queryKey: simulationKeys.monthlyBalances(calculationId),
+    queryKey: simulationKeys.monthlyBalances(simulationId, calculatedAt),
     queryFn: ({ signal }) =>
       requestJson<{ items: MonthlyBalance[] }>(
         fetchFn,
-        `${BASE}/simulation-calculations/${calculationId}/monthly-balances`,
+        `${BASE}/simulations/${simulationId}/monthly-balances`,
         { signal },
       ),
     staleTime: Infinity,
   });
 }
 
-export interface CalculatedSimulation {
-  readonly simulationId: string;
-  readonly calculationId: string;
-}
-
-export function createSimulation(
-  fetchFn: FetchFn,
-  input: StartSimulationInput,
-) {
-  return requestJson<CalculatedSimulation>(fetchFn, `${BASE}/simulations`, {
+export function createSimulation(fetchFn: FetchFn, input: SimulationInput) {
+  return requestJson<{ simulationId: string }>(fetchFn, `${BASE}/simulations`, {
     method: 'POST',
     ...jsonBody(input),
   });
 }
 
-export function calculateSimulation(
+export function editSimulation(
   fetchFn: FetchFn,
   id: string,
-  input: Investment,
+  input: SimulationInput & { readonly revision: number },
 ) {
-  return requestJson<CalculatedSimulation>(
-    fetchFn,
-    `${BASE}/simulations/${id}/calculations`,
-    { method: 'POST', ...jsonBody(input) },
-  );
+  return requestJson<void>(fetchFn, `${BASE}/simulations/${id}`, {
+    method: 'PATCH',
+    ...jsonBody(input),
+  });
 }
 
 export function deleteSimulation(fetchFn: FetchFn, id: string) {

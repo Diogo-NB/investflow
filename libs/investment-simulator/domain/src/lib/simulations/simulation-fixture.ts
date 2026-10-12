@@ -11,7 +11,7 @@ import { EEconomicIndex } from '../curves/economic-index.enum';
 import { Curve } from '../curves/curve.aggregate';
 import { CurveInterval } from '../curves/curve-interval.vo';
 import { IndexValue } from '../curves/index-value.vo';
-import { InvestmentTerms } from '../offers/terms/investment-terms.vo';
+import { Offer } from '../offers/offer.aggregate';
 import { RedemptionTerms } from '../offers/terms/redemption/redemption-terms.vo';
 import {
   RemunerationKind,
@@ -46,20 +46,25 @@ export function cdiCurve(): Curve {
   ).value;
 }
 
-export function terms(
+export function offer(
   kind: RemunerationKind = 'PREFIXED',
-  issuerName: string | null = 'Banco Local',
-): InvestmentTerms {
-  return InvestmentTerms.create({
-    titleType: ETitleType.CDB,
-    issuerName,
-    maturityDate: CalendarDate.of('2026-01-06'),
-    redemption: RedemptionTerms.create('AT_MATURITY'),
-    remuneration: RemunerationTerms.create(
-      kind,
-      Rate.of(kind === 'PREFIXED' ? '0.12' : '1'),
-    ),
-  });
+  ownerId: string | null = null,
+): Offer {
+  return Offer.create(
+    {
+      titleType: ETitleType.CDB,
+      ownerId,
+      name: 'CDB Banco Local',
+      issuerName: 'Banco Local',
+      maturityDate: CalendarDate.of('2026-01-06'),
+      redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
+      remunerationTerms: RemunerationTerms.create(
+        kind,
+        Rate.of(kind === 'PREFIXED' ? '0.12' : '1'),
+      ),
+    },
+    UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+  ).value;
 }
 
 export function investment(

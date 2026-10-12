@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import {
-  CalculateSimulationUseCase,
+  CreateSimulationUseCase,
   DeleteSimulationUseCase,
-  SimulationCalculationRepository,
+  EditSimulationUseCase,
+  SimulationPremisesService,
   SimulationRepository,
-  StartSimulationUseCase,
 } from '@investflow/investment-simulator-application';
 import { InvestmentCalculator } from '@investflow/investment-simulator-domain';
 import {
@@ -14,9 +14,8 @@ import {
 import { BusinessCalendarController } from './business-calendar/http/business-calendar.controller';
 import { ListNonBusinessDaysQueryHandler } from './business-calendar/queries/list-non-business-days.query-handler';
 import { SimulationController } from './simulations/http/simulation.controller';
-import { PrismaSimulationCalculationRepository } from './simulations/persistence/prisma-simulation-calculation.repository';
 import { PrismaSimulationRepository } from './simulations/persistence/prisma-simulation.repository';
-import { ListCalculationMonthlyBalancesQueryHandler } from './simulations/queries/list-calculation-monthly-balances.query-handler';
+import { ListSimulationMonthlyBalancesQueryHandler } from './simulations/queries/list-simulation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from './simulations/queries/list-simulations.query-handler';
 import { SimulationWorkspaceController } from './simulation-workspaces/http/simulation-workspace.controller';
 import { GetSimulationOptionsQueryHandler } from './simulation-workspaces/queries/get-simulation-options.query-handler';
@@ -43,15 +42,12 @@ import { OffersModule } from './offers/offers.module';
     },
     ListNonBusinessDaysQueryHandler,
     { provide: SimulationRepository, useClass: PrismaSimulationRepository },
-    {
-      provide: SimulationCalculationRepository,
-      useClass: PrismaSimulationCalculationRepository,
-    },
-    StartSimulationUseCase,
-    CalculateSimulationUseCase,
+    SimulationPremisesService,
+    CreateSimulationUseCase,
+    EditSimulationUseCase,
     DeleteSimulationUseCase,
     ListSimulationsQueryHandler,
-    ListCalculationMonthlyBalancesQueryHandler,
+    ListSimulationMonthlyBalancesQueryHandler,
     GetSimulationOptionsQueryHandler,
     GetSimulationWorkspaceQueryHandler,
   ],
