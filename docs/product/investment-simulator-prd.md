@@ -47,10 +47,10 @@ reagem às mudanças das ofertas e curvas que usam:
 
 - Editar uma oferta ou uma curva recalcula todas as
   simulações que usam o item editado. Não há cópia congelada das premissas.
-- O recálculo é assíncrono. Uma simulação pode estar aguardando cálculo,
-  calculando, atualizada, impedida por uma regra de negócio ou com falha
-  técnica (ver [Cálculos de Simulação](#cálculos-de-simulação)). Esses estados
-  fazem parte do produto e são sempre exibidos.
+- O recálculo é assíncrono. Uma simulação pode estar calculando, atualizada,
+  impedida por uma regra de negócio ou com falha técnica (ver
+  [Cálculos de Simulação](#cálculos-de-simulação)). Esses estados fazem parte
+  do produto e são sempre exibidos, junto com a causa do último recálculo.
 - Excluir é definitivo do ponto de vista do usuário: o item deixa de existir
   para ele, mesmo que o armazenamento mantenha um registro técnico.
 - Resultados passados não são reproduzíveis. Cada simulação tem um único
@@ -110,7 +110,7 @@ documentação de curvas.
 - Um portfólio agrupa múltiplas simulações de títulos bancários.
 - Comparar portfólios por valores agregados e rentabilidade média.
 - O estado de um portfólio deriva do estado de suas simulações: em
-  atualização enquanto alguma aguarda cálculo ou calcula, e com pendência
+  atualização enquanto alguma está calculando, e com pendência
   enquanto alguma está impedida ou com falha. Os totais usam o último
   resultado bem sucedido de cada simulação.
 
@@ -166,13 +166,19 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   anterior.
 - O estado do cálculo de uma simulação é sempre um destes:
 
-  | Estado             | Significado                                                                   | Quem age                                   |
-  | ------------------ | ----------------------------------------------------------------------------- | ------------------------------------------ |
-  | Aguardando cálculo | As entradas mudaram e o cálculo está agendado.                                | Sistema                                    |
-  | Calculando         | O cálculo está em execução.                                                   | Sistema                                    |
-  | Atualizado         | O resultado corresponde às entradas, revisões e metodologia atuais.           | —                                          |
-  | Requer ação        | Uma regra de negócio impede o cálculo; o motivo é exibido.                    | Usuário                                    |
-  | Falha técnica      | O cálculo falhou por erro do sistema depois das novas tentativas automáticas. | Sistema; usuário pode pedir nova tentativa |
+  | Estado        | Significado                                                                   | Quem age                                   |
+  | ------------- | ----------------------------------------------------------------------------- | ------------------------------------------ |
+  | Calculando    | As entradas mudaram; o cálculo está agendado ou em execução.                  | Sistema                                    |
+  | Atualizado    | O resultado corresponde às entradas, revisões e metodologia atuais.           | —                                          |
+  | Requer ação   | Uma regra de negócio impede o cálculo; o motivo é exibido.                    | Usuário                                    |
+  | Falha técnica | O cálculo falhou por erro do sistema depois das novas tentativas automáticas. | Sistema; usuário pode pedir nova tentativa |
+
+- Cada estado informa sua causa: a criação da simulação, sua edição, a
+  alteração ou exclusão da oferta ou da curva (e quem a fez), a nova
+  versão da metodologia ou o pedido de nova tentativa. A causa acompanha o
+  resultado do cálculo: "Requer ação" exibe o motivo e também a alteração
+  que levou a ele. Somente o estado atual é mantido; não há histórico de
+  estados.
 
 - "Requer ação" exibe o motivo: falta de cobertura da curva (com os
   períodos descobertos), curva excluída ("Sem curva, escolha outra"),
@@ -182,14 +188,15 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   uma oferta ou uma curva muda ou é excluída depois de a simulação ter sido
   salva. "Requer ação" vale para
   as entradas atuais: quando o usuário ou o dono da premissa a corrige, a
-  simulação volta a aguardar cálculo.
+  simulação volta a calcular.
 - Enquanto não está atualizada, a simulação exibe o último resultado bem
   sucedido, identificado como anterior às alterações, junto com seu estado.
   Uma simulação que nunca teve cálculo bem sucedido exibe somente o estado.
-- Uma simulação cujo resultado não corresponde às revisões atuais de suas
-  premissas ou à metodologia vigente, ou cujo cálculo não termina no prazo
-  esperado, é recalculada automaticamente pelo sistema. Nenhuma alteração fica sem cálculo por perda de
-  uma notificação interna.
+- Toda alteração aceita agenda o cálculo junto com a própria alteração, e o
+  sistema repete automaticamente um cálculo interrompido ou que falhou por
+  erro temporário. Mudar a versão da metodologia de um título agenda o
+  recálculo das simulações daquele título. Nenhuma alteração fica sem
+  cálculo por perda de uma notificação interna.
 - A tela de resultado mostra a alíquota aplicada ao lado de cada tributo e, sob
   demanda, explica o cálculo de forma breve: a regra de cada tributo, a conta
   com os valores do cálculo e as tabelas de IOF e IR com a faixa aplicada

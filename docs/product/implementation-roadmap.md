@@ -22,7 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-12, after D3.
+Last updated 2026-10-12, after D3 and the D4 design.
 
 Built for the target model:
 
@@ -83,7 +83,9 @@ redemption.
 
 ## Next Steps
 
-1. D4a: a simulation's own calculation runs asynchronously.
+1. D4a: a simulation's own calculation runs asynchronously. The design was
+   settled on 2026-10-12; the walkthrough is in
+   [Event Flow](../architecture/event-flow.md).
 2. Decide how users enter a curve's intervals before D6 starts (open
    question in the curve specification).
 3. Decide how D4b's batched fan-out writes calculation events before D4b
@@ -99,54 +101,92 @@ redemption.
 | D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Done        |
 | D4a | A simulation's own calculation runs asynchronously                | D3                                 | Not started |
 | D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Not started |
-| D4c | Reconciliation sweep, retries, and "Falha técnica"                | D4b                                | Not started |
 | D5  | Offer screens (`/ofertas`)                                        | D2; best after D4b                 | Not started |
 | D6  | Curve screens (`/curvas`)                                         | D1 and the interval-input decision | Not started |
 
 ```text
      ┌──► D1 ──┐
-D0 ──┤         ├──► D3 ──► D4a ──► D4b ──► D4c
+D0 ──┤         ├──► D3 ──► D4a ──► D4b
      └──► D2 ──┘                     │
           D2 ────────────────────────┴──► D5
           D1 ── (interval input decided) ──► D6
 ```
 
-Recommended order: D0, D1, D2, D3, D4a, D4b, D4c, D5, D6. D0 went first
+Recommended order: D0, D1, D2, D3, D4a, D4b, D5, D6. D0 went first
 because it carried the most infrastructure unknowns and touched no business
 code. D2 followed D1's single-aggregate model: offers are not grouped in the
 domain (decision 2026-10-11). D6 waits for the pending product decision on how
 users enter a curve's intervals, which can be made while D1 to D4 are
 built.
 
+D4c (a periodic reconciliation sweep) was dropped on 2026-10-12. The outbox
+writes every event with its change, and SQS redelivers a message until it is
+handled or dead-lettered, so no message is lost and no claim can expire.
+"Falha técnica" and "Tentar novamente" moved to D4a, and requeuing after a
+methodology version change moved to D4b.
+
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
 
 ## D4a — Asynchronous calculation of a simulation
 
-- Calculation status (`PENDING` with `queuedAt`, `CALCULATING` with a lease,
-  `CALCULATED`, `INVALID` with reason, `FAILED`).
-- The request validates synchronously, persists the simulation as `PENDING`,
-  and raises an event in the same transaction.
-- The calculation consumer gets its queue through `consumer_queue` in
-  `infra/floci/init/provision.sh`, and the API binds it with
-  `SqsConsumersModule.register`.
-- A consumer claims the calculation with a lease, calculates from current
-  state, and writes the outcome only when its inputs are not older than the
-  stored ones. `SimulationResult` already records those inputs, and the
-  simulation repository already checks the stored revision on every save.
-- Workspace: status in a live region, refetching while pending or
-  calculating, and the last successful result marked as predating the
-  changes.
+The flow, its diagrams, and every failure case are in
+[Event Flow](../architecture/event-flow.md); the rules are in "Recalculation"
+in [Project Structure](../architecture/project-structure.md).
+
+- A `SimulationCalculation` value object on `Simulation`, persisted in a 1:1
+  `simulation_calculation` table: status (`PENDING`, `CALCULATED`, `INVALID`,
+  `FAILED`), `changedAt`, the cause of the last queuing (kind, offer or curve
+  id, actor), the simulation, offer, and curve revisions it applies to, and,
+  for `INVALID`, the reason code and metadata. No transition history.
+- Creating, editing, and "Tentar novamente" set `PENDING` with their cause
+  and raise `SimulationCalculationRequested` in the same transaction. The
+  request still validates synchronously through
+  `SimulationCalculationService.validate()` (every rule except curve
+  coverage) and calculates nothing. Saving without changes queues the
+  calculation again, which is how premise edits are picked up until D4b.
+- `SimulationCalculationService` (domain service) replaces
+  `Simulation.calculateAt`. `validate()` builds the `InvestmentScenario` and
+  calls a new `InvestmentCalculator.check()` (unsupported remuneration and
+  business days, extracted from the start of `calculate()`). `calculate()`
+  returns a `CALCULATED` or `INVALID` outcome and throws on technical
+  failures. `Simulation.recordCalculation()` accepts an outcome only for its
+  current revision and keeps the cause.
+- The calculation consumer gets the `simulation-calculations` queue through
+  `consumer_queue` in `infra/floci/init/provision.sh`, and the API binds it
+  with `SqsConsumersModule.register`. It loads current state, calculates, and
+  saves with a conditional update on the simulation revision the calculation
+  row applies to. A conflict means a newer message exists: the outcome is
+  discarded and the message acknowledged. SQS provides exclusivity, crash
+  recovery, and retries; there are no leases or claims.
+- A consumer bound to the dead-letter queue sets `FAILED` while the
+  simulation is still `PENDING`.
+- Workspace: status and cause in a live region ("Calculando", "Atualizado",
+  "Requer ação", "Falha técnica" with "Tentar novamente"). The details query
+  polls about every 3 seconds whatever the status, paused while the tab is
+  hidden; the monthly balances query is keyed by the result's `calculatedAt`;
+  the last successful result is marked as predating the changes.
 
 **Done when** saving returns immediately, the result arrives asynchronously,
-and duplicate or out-of-order deliveries cannot replace a newer result.
+duplicate or late deliveries cannot replace a newer result, a crashed worker's
+message is calculated by another, and repeated technical failures end in
+"Falha técnica" with a working "Tentar novamente".
 
 ## D4b — Recalculation from premise changes
 
-- Consumers for offer and curve changes mark the affected simulations
-  `PENDING` and queue them in batches, never in one transaction.
-- Deleting an offer or curve sets its simulations `INVALID` ("Sem oferta,
-  escolha outra" or "Sem curva, escolha outra").
+- Offer and curve events carry the actor id, so fan-out can record who
+  caused a recalculation.
+- Consumers for offer and curve changes page through the affected
+  simulations by id, never in one transaction. Each page updates only
+  `simulation_calculation` to `PENDING` with the cause (`OFFER_CHANGED` or
+  `CURVE_CHANGED`, the id, the actor) and writes one
+  `SimulationCalculationRequested` per simulation.
+- Deleting an offer or curve sets its simulations `INVALID` in pages, with no
+  calculation ("Sem oferta, escolha outra" or "Sem curva, escolha outra").
+- The worker's conditional save also requires the offer and curve revisions
+  it read, now that every premise change queues its own messages.
+- Changing a title type's methodology version queues its simulations through
+  the same batched path, run once with the deploy that changes it.
 - A query counting the user's affected simulations, for impact notices.
 - Outbox publishing throughput. The poller publishes one event per
   EventBridge call, sequentially, so it sustains roughly 20 to 50 events per
@@ -159,7 +199,7 @@ and duplicate or out-of-order deliveries cannot replace a newer result.
 calculation events. Events are written to the outbox only by
 `BaseRepository.save()`, so only a loaded aggregate can raise them, but fan-out
 is meant to update simulations in bulk without loading them. The same choice
-applies to the D4c sweep.
+applies to the methodology requeue.
 
 - **Outbox port (recommended for throughput).** An application port appends
   events to the outbox in the current transaction, implemented by
@@ -171,22 +211,11 @@ applies to the D4c sweep.
 
 Rejected: bulk repository methods that write events themselves (event
 definitions would live in a persistence adapter) and one summary event per
-batch (complicates per-simulation claims, retries, and dead-lettering).
+batch (complicates per-simulation retries and dead-lettering).
 
 **Done when** editing a curve recalculates every simulation that uses it,
-and deleting it moves them to "Requer ação".
-
-## D4c — Recovery
-
-- A periodic sweep queues a simulation again when it is `PENDING` with an old
-  `queuedAt`, `CALCULATING` with an expired lease, `CALCULATED` or `INVALID`
-  with stored inputs or methodology version different from the target, or
-  `FAILED` past a cooldown.
-- "Tentar novamente" for `FAILED` simulations.
-
-**Done when** a dropped calculation message, a dropped fan-out event, a worker
-killed mid-calculation, and a methodology version change all converge to
-`CALCULATED` or `INVALID`.
+deleting it moves them to "Requer ação", and a methodology version change
+recalculates the simulations of its title type.
 
 ## D5 — Offer screens
 

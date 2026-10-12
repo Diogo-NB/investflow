@@ -399,7 +399,7 @@ any of them changes.
   (name and issuer, or "Sem emissor"), the remuneration, the curve
   when indexed, the principal, the period, the net value of the last
   successful result, and a textual status tag unless the result is up to date
-  ("Aguardando cálculo", "Calculando", "Requer ação", "Falha técnica"). Desktop
+  ("Calculando", "Requer ação", "Falha técnica"). Desktop
   uses a table; below 1024px, labeled rows. The whole row or card opens the
   simulation: one link per entry, stretched over the table row on desktop.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
@@ -432,20 +432,25 @@ any of them changes.
   or curve). A revision conflict says the simulation changed elsewhere and
   offers to reload. An accepted new simulation opens its own page, already
   waiting for its calculation.
-- Status: the results panel always shows the calculation status in a live
-  region. While the status is "Aguardando cálculo" or "Calculando", the
-  workspace query refetches on an interval and stops once it settles. Until the
-  status is up to date, the panel shows the last successful result marked as
-  predating the changes; a simulation that never succeeded shows only the
-  status.
+- Status: the results panel always shows the calculation status and its
+  cause in a live region ("Calculando · a curva CDI otimista foi alterada").
+  The simulation's page polls its details query about every 3 seconds
+  whatever the status, so finished calculations, edits from another tab, and
+  premise changes all appear without special cases; TanStack Query pauses it
+  while the tab is hidden and refetches on focus. A refetch updates the status
+  and result panels, never fields with unsaved edits. The monthly balances
+  query includes the result's `calculatedAt` in its key, so it refetches once
+  per new result and never on an ordinary poll. Until the status is up to
+  date, the panel shows the last successful result marked as predating the
+  changes; a simulation that never succeeded shows only the status.
   - "Requer ação" shows the reason with its recovery: choose another curve
     or offer when one was deleted ("Sem curva, escolha outra", "Sem
     oferta, escolha outra"), or fix the field. A coverage gap names the first
     gap the API reports ("A curva não tem valores entre 02/01/2029 e
     28/12/2029 e em mais 2 períodos"); the domain groups consecutive missing
     rate references into ranges and the browser only phrases them.
-  - "Falha técnica" explains that the system will retry and offers "Tentar
-    novamente".
+  - "Falha técnica" explains that the automatic retries were exhausted and
+    offers "Tentar novamente", which queues the calculation again.
 - Results: the net value at maturity, then principal, gross balance, gross
   earnings, IOF, income tax, total taxes and net value, with the dates,
   business days, calculation instant in São Paulo time and the methodology

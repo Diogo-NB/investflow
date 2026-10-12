@@ -97,7 +97,9 @@ frontend testing policy.
 - Integration events travel over EventBridge and SQS, emulated locally by
   Floci (decision 2026-10-11): one bus, one queue with a dead-letter queue per
   consumer, and transport knowledge confined to the messaging adapters. See
-  "Messaging Transport" in `docs/architecture/project-structure.md`.
+  "Messaging Transport" in `docs/architecture/project-structure.md`; the
+  visual walkthrough of the event and recalculation flow is
+  `docs/architecture/event-flow.md`.
 - The frontend is React 19 + Vite 8 (decision 2026-10-10). The simulation
   workspace under `/simulacoes` references offers and keeps one result, still
   calculated on save; the offer and curve screens are not built yet. Follow

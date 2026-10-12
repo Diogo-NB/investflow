@@ -391,7 +391,8 @@ simulation, offer, and curve revisions and the methodology version it used;
 "Digitar termos" and "Duplicar e ajustar" create a private offer in the same
 request. Still pending: calculation runs inside the request (saving a
 simulation recalculates it), there is no calculation status, and no domain
-event is consumed. Deliverables and their order are in
+event is consumed. The asynchronous design below was settled on 2026-10-12.
+Deliverables and their order are in
 `docs/product/implementation-roadmap.md`.
 
 ### Model
@@ -433,67 +434,91 @@ event is consumed. Deliverables and their order are in
   `forbidden`.
 - Every change to an offer or curve raises a past-tense domain
   event persisted through the transactional outbox (see
-  `$investflow-eventing`). Events carry identifiers only. Consumers read current state, so events never carry
-  revisions or values, and their size does not grow with the content.
+  `$investflow-eventing`). Events carry identifiers only (the changed item
+  and, from D4b, the actor). Consumers read current state, so events never
+  carry revisions or values, and their size does not grow with the content.
 
 ### Recalculation
+
+Settled on 2026-10-12. `docs/architecture/event-flow.md` walks through the
+flow with diagrams and every failure case.
 
 A simulation has one current result. It stores what it was computed from: the
 simulation revision, the offer revision, the curve revision, and the
 methodology version. The target is read from the current references, not
 copied, so it can never drift from them.
 
-| Status        | Meaning                                                                            |
-| ------------- | ---------------------------------------------------------------------------------- |
-| `PENDING`     | The target differs from the stored result; a calculation was queued at `queuedAt`. |
-| `CALCULATING` | A worker claimed the calculation with a lease (`claimedUntil`).                    |
-| `CALCULATED`  | The stored result matches the target.                                              |
-| `INVALID`     | A business rule blocks the target; the reason code and metadata are stored.        |
-| `FAILED`      | A technical failure exhausted the queue's retries.                                 |
+The calculation state is a `SimulationCalculation` value object of the
+`Simulation` aggregate, persisted in a 1:1 `simulation_calculation` table next
+to `simulation_result`; nothing about it is stored on `simulation`.
+
+| Status       | Meaning                                                                              |
+| ------------ | ------------------------------------------------------------------------------------ |
+| `PENDING`    | The inputs changed; a calculation message is queued or being processed.              |
+| `CALCULATED` | The stored result matches the inputs the calculation row applies to.                 |
+| `INVALID`    | A business rule blocks the calculation; the reason code and metadata are stored.     |
+| `FAILED`     | A technical failure exhausted the queue's retries and the message was dead-lettered. |
+
+Every status also records `changedAt`, the simulation, offer, and curve
+revisions it applies to, and the cause of the last queuing: its kind
+(`CREATED`, `SIMULATION_EDITED`, `OFFER_CHANGED`, `OFFER_DELETED`,
+`CURVE_CHANGED`, `CURVE_DELETED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`),
+the offer or curve id, and the actor (`null` for system processes). The cause
+is set when the simulation is queued and kept by the outcome, so "Requer
+ação" shows both the reason and the change that led to it. Only the current
+state is kept; a transition history is deferred work.
 
 - **Requests validate synchronously, then calculate asynchronously.** Creating
-  or editing a simulation validates input and references in the request
-  (principal, business days, minimum term, index compatibility, visibility),
-  persists the simulation as `PENDING`, and raises an event in the same
-  transaction. Coverage is checked only by the calculation. Nothing is
-  calculated inside the request, so calculation cost is not bounded by request
-  timeouts.
-- **Fan-out.** Changing or deleting an offer or curve marks every
-  simulation that references it `PENDING` and queues their calculations in
-  batches. A system curve update can reach every user's simulations, so
-  fan-out must never load them all into one transaction.
-- **Calculation.** A consumer claims a `PENDING` simulation (or one whose lease
-  expired), calculates from current state, not from the event payload, and
-  writes the outcome.
-- **Monotonic writes.** An outcome is written only when its inputs are not
-  older than the stored ones: compare the simulation revision first, then the
-  offer and curve revisions (at the same simulation revision the
-  references are the same offer and curve, so their revisions are comparable). Late,
-  duplicate, or out-of-order deliveries therefore cannot replace a newer
-  result, and consumers stay idempotent. The methodology version is not part
-  of this comparison, because version strings have no order: a worker always
-  calculates with the current methodology, and a result recorded with another
-  version is out of date and recovered by reconciliation.
-- **`INVALID` is scoped to its target.** It records the inputs it was decided
-  for; any change to the target returns the simulation to `PENDING`. A deleted
-  offer or curve sets `INVALID` with its own reason code.
-- **Reconciliation.** A periodic sweep queues a simulation again when it is:
-  - `PENDING` with `queuedAt` older than a threshold (its message was lost or
-    dead-lettered);
-  - `CALCULATING` with an expired lease (its worker crashed);
-  - `CALCULATED` or `INVALID` while its stored inputs or methodology version
-    differ from the target (a fan-out event was lost, or the methodology
-    changed);
-  - `FAILED` past a cooldown.
-
-  Queuing sets `PENDING` and a new `queuedAt`. Repeated queuing is harmless
-  because claims and monotonic writes discard redundant work. Events make
-  recalculation fast; the sweep guarantees it converges.
-
-- **Reads** return the last successful result together with the status and
-  the inputs it was computed from, so the screen can show "recalculating" or
-  "requires action" over the previous values. The browser refreshes while a
-  simulation is `PENDING` or `CALCULATING`; real-time push is future work.
+  or editing a simulation checks visibility in the application and calls
+  `SimulationCalculationService.validate()`: the `InvestmentScenario` rules
+  (principal, period, minimum term, curve required, compatible, and not
+  deleted) plus `InvestmentCalculator.check()` (supported remuneration,
+  business days). Curve coverage is checked only by the calculation. The use
+  case then persists the simulation as `PENDING` and raises
+  `SimulationCalculationRequested` in the same transaction. Nothing is
+  calculated inside the request, so calculation cost is not bounded by
+  request timeouts.
+- **Calculation is a domain service.** `SimulationCalculationService`
+  combines the simulation, its offer and curve, and `InvestmentCalculator`,
+  and returns an outcome: `CALCULATED` with a `SimulationResult`, or
+  `INVALID` with the reason. Technical failures are thrown, never recorded.
+  `Simulation.recordCalculation()` accepts an outcome only for the
+  simulation's current revision and owns the state transition.
+- **Delivery is the queue's job.** The calculation consumer reads the
+  `simulation-calculations` queue. The visibility timeout keeps a message with
+  one worker; a worker that dies leaves its message to reappear; a failing
+  message is retried until `maxReceiveCount` and then dead-lettered; a
+  consumer bound to the dead-letter queue sets `FAILED` while the simulation
+  is still `PENDING`; `EventDispatcher` skips duplicate deliveries. There are
+  no leases, claims, or `CALCULATING` status, and domain code knows nothing
+  about queues.
+- **Conditional writes.** Edits and fan-out always overwrite the calculation
+  row with `PENDING`, whatever is in flight. A worker calculates from current
+  state, never from the event payload, and its save requires the row to still
+  apply to the simulation revision it read (from D4b, also the offer and curve
+  revisions). Otherwise it discards the outcome and acknowledges the message:
+  whatever made its inputs out of date queued its own message. Late,
+  duplicate, or concurrent deliveries therefore cannot replace a newer state.
+- **Fan-out.** Changing or deleting an offer or curve updates the
+  calculation rows of every simulation that references it, in pages, and
+  queues their calculations. A system curve update can reach every user's
+  simulations, so fan-out must never load them all into one transaction, and
+  it never writes the `simulation` rows.
+- **`INVALID` is scoped to its inputs.** Any change to them returns the
+  simulation to `PENDING`. A deleted offer or curve sets `INVALID` directly
+  with its own reason code, without calculating.
+- **Convergence without a sweep.** The outbox writes each event in the same
+  transaction as its change, and SQS redelivers a message until it is handled
+  or dead-lettered, so no change is left without a calculation. A methodology
+  version change queues the simulations of its title type through the fan-out
+  path, once, with the deploy that changes it.
+- **Reads** return the last successful result together with the status, its
+  cause, and the inputs it was computed from, so the screen can show
+  "Calculando" or "Requer ação" over the previous values. The details screen
+  polls the same endpoint about every 3 seconds whatever the status; the
+  monthly balances refetch only when the result's `calculatedAt` changes. A
+  change token with `ETag` and `304` can be added to the same endpoint if
+  polling load ever shows up; real-time push is future work.
 - A portfolio's status is derived from its simulations' statuses at read time.
 
 ## Messaging Transport
@@ -706,6 +731,27 @@ offer or curve.
   - Outbox cleanup cannot remove audit history.
   - Users can read the history of the offers and curves they can see.
   - Tests cover recording, ordering by revision, and visibility.
+
+### Calculation status history (deferred 2026-10-12)
+
+A simulation's calculation states over time (status, cause, actor, reason, and
+instant), for support and for explaining past recalculations.
+
+- **Today:** `simulation_calculation` keeps only the current state, with its
+  cause, reason, and `changedAt` (see Recalculation). The PRD excludes
+  calculation history and audit from the MVP.
+- **Why deferred:** the current state with its cause answers what the screen
+  needs. A history grows with every premise change across all users (a
+  system curve edit writes at least two transitions per affected
+  simulation), so it needs a retention rule and a product decision.
+- **Done means:**
+  - A product decision records what the history is for and who reads it.
+  - Every write to `simulation_calculation`, including fan-out pages, also
+    inserts the same described row into `simulation_calculation_transition`
+    in the same transaction; the aggregate does not change.
+  - A retention rule bounds its size, for example the last N transitions per
+    simulation.
+  - Tests cover recording from each write path and retention.
 
 ### Single active outbox poller (deferred 2026-10-11)
 

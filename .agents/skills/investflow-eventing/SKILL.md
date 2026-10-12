@@ -6,7 +6,8 @@ description: Implement, review, or refactor InvestFlow transactional messaging. 
 # InvestFlow Eventing
 
 Preserve atomic event persistence and at-least-once delivery across bounded
-contexts.
+contexts. `docs/architecture/event-flow.md` walks through the whole flow,
+including simulation recalculation, with diagrams.
 
 ## Publishing flow
 
@@ -70,6 +71,16 @@ an outbox poller is active by importing `OutboxModule`.
 - The host activates consumers explicitly with
   `SqsConsumersModule.register([{ consumer, queueUrlConfigKey }])`.
 - Treat delivery as at least once and make consumer effects idempotent.
+- Leave delivery mechanics to the queue: the visibility timeout keeps a
+  message with one worker, redelivery recovers crashed workers, and the
+  dead-letter queue ends retries. Do not add leases, claims, or retry counters
+  to domain or application code.
+- A consumer whose work lost a race (its conditional save finds that the
+  state moved on) returns normally, so the message is acknowledged: the
+  change that moved it raised its own event. Throw only for failures that a
+  retry can fix.
+- To record that retries were exhausted, bind a consumer to the dead-letter
+  queue with `SqsConsumersModule.register`, like any queue.
 - Use one SQS queue with a dead-letter queue per consumer. Provision it by
   adding a `consumer_queue <name> '<event pattern>'` line to
   `infra/floci/init/provision.sh`, and add its URL to `.env.example`.
