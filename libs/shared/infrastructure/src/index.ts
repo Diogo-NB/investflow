@@ -13,7 +13,8 @@ export { PrismaService } from './lib/persistence/prisma/prisma.service';
 export type { TransactionalPrismaClient } from './lib/persistence/prisma/prisma-client.type';
 export { SkipTransaction } from './lib/persistence/prisma/skip-transaction.decorator';
 export { TransactionInterceptor } from './lib/persistence/prisma/transaction.interceptor';
-export { TransactionContext } from './lib/persistence/prisma/transaction.context';
+export { UnitOfWork } from './lib/persistence/unit-of-work';
+export { TransactionalDomainEventRecorder } from './lib/messaging/outbox/transactional-domain-event-recorder';
 export {
   formatUtcInstantDatePtBr,
   formatUtcInstantDateTimePtBr,

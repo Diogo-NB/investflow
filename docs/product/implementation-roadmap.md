@@ -22,7 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-12, after D4a.
+Last updated 2026-10-12, after D4a and D4b's first step.
 
 Built for the target model:
 
@@ -33,7 +33,11 @@ Built for the target model:
   off on its own (up to 5 minutes) and pauses during broker outages; events
   above the 200 KB outbox payload limit fail at save time. Consumers are plain
   classes that the host binds to their queues; the API binds the simulation
-  calculation consumer and its dead-letter consumer.
+  calculation consumer and its dead-letter consumer. Events are recorded in
+  the unit of work (`UnitOfWork.run()`) that every request, consumer, and the
+  seed runs in: aggregates through their repository's `save()`, services
+  through the `DomainEventRecorder` port. The unit of work writes them to the
+  outbox before commit, in chunks of 1,000 rows.
 - **Curves:** independent, revisioned `Curve` aggregates with owners; `null`
   is the system. Alternatives of an index ("CDI base", "CDI otimista") are
   separate curves, and screens group them by index and origin; no grouping
@@ -97,8 +101,8 @@ redemption.
 
 ## Next Steps
 
-1. Decide how D4b's batched fan-out writes calculation events (open decision
-   in its section), then build D4b.
+1. Build the rest of D4b: actor on events, page fan-out, worker guard, impact
+   counts, and publishing throughput.
 2. Decide how users enter a curve's intervals before D6 starts (open
    question in the curve specification).
 
@@ -111,7 +115,7 @@ redemption.
 | D2  | Offers become independent, revisioned, and owned                  | D0                                 | Done        |
 | D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Done        |
 | D4a | A simulation's own calculation runs asynchronously                | D3                                 | Done        |
-| D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Not started |
+| D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | In progress |
 | D5  | Offer screens (`/ofertas`)                                        | D2; best after D4b                 | Not started |
 | D6  | Curve screens (`/curvas`)                                         | D1 and the interval-input decision | Not started |
 
@@ -133,8 +137,9 @@ built.
 D4c (a periodic reconciliation sweep) was dropped on 2026-10-12. The outbox
 writes every event with its change, and SQS redelivers a message until it is
 handled or dead-lettered, so no message is lost and no claim can expire.
-"Falha técnica" and "Tentar novamente" moved to D4a, and requeuing after a
-methodology version change moved to D4b.
+"Falha técnica" and "Tentar novamente" moved to D4a. Requeuing after a
+methodology version change moved to D4b and was then deferred (2026-10-12,
+see "Deferred Work" in [Project Structure](../architecture/project-structure.md)).
 
 Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
@@ -142,50 +147,56 @@ roadmap; they build on the new model once it is in place.
 ## D4b — Recalculation from premise changes
 
 The flow is in walkthroughs 5 and 6 of
-[Event Flow](../architecture/event-flow.md).
+[Event Flow](../architecture/event-flow.md). Decisions settled on 2026-10-12:
 
-- Offer and curve events carry the actor id, so fan-out can record who
-  caused a recalculation.
-- Consumers for offer and curve changes page through the affected
-  simulations by id, never in one transaction. Each page updates only
-  `simulation_calculation` to `PENDING` with the cause (`OFFER_CHANGED` or
-  `CURVE_CHANGED`, the id, the actor) and writes one
-  `SimulationCalculationRequested` per simulation.
-- Deleting an offer or curve sets its simulations `INVALID` in pages, with no
-  calculation ("Sem oferta, escolha outra" or "Sem curva, escolha outra").
-- The worker's conditional save also requires the offer and curve revisions
-  it read, now that every premise change queues its own messages.
-- Changing a title type's methodology version queues its simulations through
-  the same batched path, run once with the deploy that changes it.
-- A query counting the user's affected simulations, for impact notices.
-- Outbox publishing throughput. The poller publishes one event per
-  EventBridge call, sequentially, so it sustains roughly 20 to 50 events per
-  second, and after a full batch it waits for the next tick. A system curve
-  edit can queue thousands of calculations. Batch entries per `PutEvents` call
-  (up to 10, checking each entry's result), mark a batch with one update, and
-  poll again immediately when a batch was full.
+- **Done (step 1): events are recorded in the unit of work, not by the
+  repository.**
+  - The `DomainEventRecorder` port (shared-domain) lets domain services,
+    application services, and repositories record events.
+  - `UnitOfWork.run()` buffers them and writes them to `outbox_events` in
+    chunks of 1,000 rows right before commit. Recording outside a unit of work
+    throws.
+  - This resolved the earlier open decision on how fan-out writes events
+    without loading aggregates: there is no separate outbox port.
+- **Actor on events:** offer and curve events carry the actor id, so fan-out
+  can record who caused a recalculation.
+- **Page fan-out:** a consumer for `OfferChanged`, `OfferDeleted`,
+  `CurveChanged`, and `CurveDeleted` processes one page of about 500
+  simulation ids (ordered by id after a cursor) per message. Each page:
+  - bulk-updates their `simulation_calculation` rows to `PENDING` with the
+    cause (kind, offer or curve id, actor), without loading aggregates or
+    touching `simulation`;
+  - records one `SimulationCalculationRequested` per simulation;
+  - when full, records a continuation event
+    (`{ premise, premiseId, causeKind, actorId, afterSimulationId }`) handled
+    by the same consumer.
 
-**Open decision, settle before starting:** how batched fan-out writes its
-calculation events. Events are written to the outbox only by
-`BaseRepository.save()`, so only a loaded aggregate can raise them, but fan-out
-is meant to update simulations in bulk without loading them. The same choice
-applies to the methodology requeue.
+  Each page is its own transaction, retried and dead-lettered on its own.
 
-- **Outbox port (recommended for throughput).** An application port appends
-  events to the outbox in the current transaction, implemented by
-  `OutboxWriter`. Batch use cases pair it with a bulk update repository method.
-  Aggregate changes keep using `save()`; the eventing skill must state when
-  each path applies.
-- **Load aggregates in small batches.** Keeps one path to the outbox at the
-  cost of slower fan-out; affordable if calculation dominates the cost.
+- **Deletion requeues like a change**, with `OFFER_DELETED` or
+  `CURVE_DELETED`. The worker finds the premise missing and records `INVALID`
+  ("Sem oferta, escolha outra" / "Sem curva, escolha outra"). Fan-out never
+  writes `INVALID`: a race with a user switching premises would strand a valid
+  simulation in a terminal state, while a wrong `PENDING` self-corrects.
+- **Worker guard:** the worker's conditional save also requires the offer and
+  curve revisions it read. An outcome calculated before a premise edit or
+  delete is discarded, since fan-out queued a newer calculation.
+- **Impact counts:** a query counting the user's simulations affected by an
+  offer or curve, for impact notices.
+- **Publishing throughput:** the poller publishes one event per EventBridge
+  call, sequentially, roughly 20 to 50 events per second, and after a full
+  batch it waits for the next tick. A system curve edit can queue thousands of
+  calculations. Instead, send up to 10 entries per `PutEvents` (checking each
+  entry's result), mark a batch with one update, and poll again immediately
+  when a batch was full.
+- **Outbox ordering stays by `created_at`:** rows recorded in one transaction
+  publish in no particular order. Add a position column only when a consumer
+  needs order.
+- **Methodology requeue: deferred.** See "Deferred Work" in
+  [Project Structure](../architecture/project-structure.md).
 
-Rejected: bulk repository methods that write events themselves (event
-definitions would live in a persistence adapter) and one summary event per
-batch (complicates per-simulation retries and dead-lettering).
-
-**Done when** editing a curve recalculates every simulation that uses it,
-deleting it moves them to "Requer ação", and a methodology version change
-recalculates the simulations of its title type.
+**Done when** editing a curve recalculates every simulation that uses it, and
+deleting it moves them to "Requer ação".
 
 ## D5 — Offer screens
 

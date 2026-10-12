@@ -1,4 +1,5 @@
 import { PrismaService } from '../../persistence/prisma/prisma.service';
+import { UnitOfWork } from '../../persistence/unit-of-work';
 import { EventDispatcher } from './event-dispatcher.service';
 import { OnEvent } from './on-event.decorator';
 
@@ -19,12 +20,13 @@ const event = {
 
 function createFixture(insertedCount = 1) {
   const createMany = jest.fn().mockResolvedValue({ count: insertedCount });
+  const unitOfWork = {
+    run: jest.fn((work: () => Promise<void>) => work()),
+  } as unknown as UnitOfWork;
   const prisma = {
-    $transaction: jest.fn(async (operation: (tx: unknown) => Promise<void>) =>
-      operation({ processedEvent: { createMany } }),
-    ),
+    client: { processedEvent: { createMany } },
   } as unknown as PrismaService;
-  return { dispatcher: new EventDispatcher(prisma), createMany };
+  return { dispatcher: new EventDispatcher(unitOfWork, prisma), createMany };
 }
 
 describe('EventDispatcher', () => {

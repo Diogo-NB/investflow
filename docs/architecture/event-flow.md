@@ -42,7 +42,9 @@ Three ideas carry the whole design:
 
 | Term               | What it is                                                                                                   |
 | ------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Domain event       | A past-tense fact raised by an aggregate, such as `OfferChanged`. Carries identifiers, never values.         |
+| Domain event       | A past-tense fact, such as `OfferChanged`. Carries identifiers, never values.                                |
+| Unit of work       | `UnitOfWork.run()`: the transaction of a request or consumer. Its recorded events are written with it.       |
+| Recorder           | `DomainEventRecorder`: records events in the unit of work. Repositories use it on save; services directly.   |
 | Outbox             | The `outbox_events` table. Events wait here until published.                                                 |
 | Outbox poller      | `OutboxPollerService`. Publishes unpublished rows every second and backs off per event on failure.           |
 | Bus                | The EventBridge bus `investflow`. Publishers send every event here and know nothing about consumers.         |
@@ -67,7 +69,8 @@ sequenceDiagram
   participant L as SqsEventListener
   participant C as Consumer
 
-  UC->>DB: save aggregate + outbox row (one transaction)
+  UC->>DB: save aggregate, record its event (one unit of work)
+  Note over UC,DB: before commit, the unit of work writes the outbox rows
   P->>DB: fetch unpublished rows
   P->>EB: PutEvents (source, detail-type, detail)
   P->>DB: mark row published
@@ -104,12 +107,11 @@ Saving returns immediately and the result arrives a moment later.
 stateDiagram-v2
   [*] --> PENDING: created
   PENDING --> CALCULATED: worker saved the result
-  PENDING --> INVALID: a business rule blocks it
+  PENDING --> INVALID: a business rule blocks it, or the offer or curve was deleted
   PENDING --> FAILED: retries exhausted
   CALCULATED --> PENDING: edited or premise changed
   INVALID --> PENDING: edited or premise changed
   FAILED --> PENDING: Tentar novamente or edited
-  CALCULATED --> INVALID: offer or curve deleted
 ```
 
 | Status       | Screen shows                                                    | Who acts                   |
@@ -286,15 +288,21 @@ sequenceDiagram
 
 Fan-out never loads simulations or writes the `simulation` rows, and never
 runs in one big transaction: a system curve edit can reach every user's
-simulations. A methodology version change uses the same batched path.
+simulations. Each page is one message of about 500 simulations; a full page
+records a continuation event for the next one, handled by the same consumer.
+The page records its events through `DomainEventRecorder`, without
+aggregates.
 
 ### Walkthrough 6: An Offer or Curve Is Deleted (D4b)
 
-The fan-out consumer sets the affected simulations to `INVALID` in pages,
-with the cause (`OFFER_DELETED` or `CURVE_DELETED`, the id, the actor) and
-the reason ("Sem oferta, escolha outra" or "Sem curva, escolha outra"). No
-calculation runs, because the outcome is known. Choosing another offer or
-curve is an edit, which queues a calculation.
+Deletion goes through the same path as walkthrough 5, with the cause
+`OFFER_DELETED` or `CURVE_DELETED` (the id, the actor). The worker finds the
+premise missing and records `INVALID` with the reason ("Sem oferta, escolha
+outra" or "Sem curva, escolha outra"), keeping the cause. Fan-out never writes
+`INVALID` itself: if a user switched a simulation to another premise while
+fan-out ran, a wrong `PENDING` only costs a recalculation, while a wrong
+`INVALID` would stay until the next edit. Choosing another offer or curve is an
+edit, which queues a calculation.
 
 ### The Guard: Three Rules
 
@@ -350,17 +358,18 @@ sequenceDiagram
 
 ## Where the Code Lives
 
-| Piece                                     | Path                                                                     |
-| ----------------------------------------- | ------------------------------------------------------------------------ |
-| Outbox writer and poller, broker port     | `libs/shared/infrastructure/src/lib/messaging/outbox`                    |
-| EventBridge adapter                       | `libs/shared/infrastructure/src/lib/messaging/eventbridge`               |
-| `EventDispatcher`, `@OnEvent`             | `libs/shared/infrastructure/src/lib/messaging/consumers`                 |
-| `SqsEventListener`, `SqsConsumersModule`  | `libs/shared/infrastructure/src/lib/messaging/sqs`                       |
-| Queues, rules, dead-letter queues         | `infra/floci/init/provision.sh`                                          |
-| Offer and curve events                    | `libs/investment-simulator/domain/src/lib/offers`, `.../curves`          |
-| Simulation, calculation service           | `libs/investment-simulator/domain/src/lib/simulations`                   |
-| Calculation, failure, and retry use cases | `libs/investment-simulator/application/src/lib/simulations`              |
-| Calculation and dead-letter consumers     | `libs/investment-simulator/infrastructure/src/lib/simulations/messaging` |
+| Piece                                           | Path                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------ |
+| Outbox writer and poller, broker port, recorder | `libs/shared/infrastructure/src/lib/messaging/outbox`                    |
+| `UnitOfWork`                                    | `libs/shared/infrastructure/src/lib/persistence`                         |
+| EventBridge adapter                             | `libs/shared/infrastructure/src/lib/messaging/eventbridge`               |
+| `EventDispatcher`, `@OnEvent`                   | `libs/shared/infrastructure/src/lib/messaging/consumers`                 |
+| `SqsEventListener`, `SqsConsumersModule`        | `libs/shared/infrastructure/src/lib/messaging/sqs`                       |
+| Queues, rules, dead-letter queues               | `infra/floci/init/provision.sh`                                          |
+| Offer and curve events                          | `libs/investment-simulator/domain/src/lib/offers`, `.../curves`          |
+| Simulation, calculation service                 | `libs/investment-simulator/domain/src/lib/simulations`                   |
+| Calculation, failure, and retry use cases       | `libs/investment-simulator/application/src/lib/simulations`              |
+| Calculation and dead-letter consumers           | `libs/investment-simulator/infrastructure/src/lib/simulations/messaging` |
 
 ## Adding a New Consumer
 

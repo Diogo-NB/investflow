@@ -6,7 +6,7 @@ import {
   Offer,
   OfferRevisionConflictError,
 } from '@investflow/investment-simulator-domain';
-import { Result } from '@investflow/shared-domain';
+import { DomainEventRecorder, Result } from '@investflow/shared-domain';
 import {
   BaseRepository,
   PrismaService,
@@ -25,8 +25,8 @@ export class PrismaOfferRepository
   // without one is new.
   private readonly storedRevisions = new WeakMap<Offer, number>();
 
-  constructor(prisma: PrismaService) {
-    super(prisma);
+  constructor(prisma: PrismaService, events: DomainEventRecorder) {
+    super(prisma, events);
   }
 
   async findById(

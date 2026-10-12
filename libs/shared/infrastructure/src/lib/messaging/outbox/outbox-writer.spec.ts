@@ -45,17 +45,22 @@ describe('OutboxWriter', () => {
     );
   });
 
-  it('writes prepared rows and skips the write when there are none', async () => {
+  it('writes rows in chunks of 1,000 and skips the write when there are none', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 1 });
     const client = {
       outboxEvent: { createMany },
     } as unknown as TransactionalPrismaClient;
-    const rows = writer.prepare([event]);
+    const rows = Array.from({ length: 2_500 }, (_, index) => ({
+      ...writer.prepare([event])[0],
+      id: `event-${index}`,
+    }));
 
     await writer.append(client, rows);
     await writer.append(client, []);
 
-    expect(createMany).toHaveBeenCalledTimes(1);
-    expect(createMany).toHaveBeenCalledWith({ data: rows });
+    expect(createMany.mock.calls.map(([{ data }]) => data.length)).toEqual([
+      1_000, 1_000, 500,
+    ]);
+    expect(createMany.mock.calls[2][0].data.at(-1).id).toBe('event-2499');
   });
 });

@@ -155,9 +155,10 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   referências escolhidas: valor inicial positivo, dias úteis, prazo mínimo,
   compatibilidade entre remuneração e índice, e oferta e curva existentes e
   visíveis para o usuário.
-- Alterar ou excluir uma oferta ou uma curva, ou mudar a versão da
-  metodologia de um título, agenda o recálculo de todas as simulações
-  afetadas.
+- Alterar ou excluir uma oferta ou uma curva agenda o recálculo de todas as
+  simulações afetadas. Mudar a versão da metodologia de um título ainda não
+  agenda recálculo: o resultado aparece como desatualizado até a simulação
+  ser salva de novo.
 - Cada simulação tem um único resultado atual: o investimento usado, a versão
   da metodologia, as revisões da oferta e da curva usadas, o instante do
   cálculo, o resumo no vencimento, a apuração dos tributos (prazo em dias
@@ -194,9 +195,8 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   Uma simulação que nunca teve cálculo bem sucedido exibe somente o estado.
 - Toda alteração aceita agenda o cálculo junto com a própria alteração, e o
   sistema repete automaticamente um cálculo interrompido ou que falhou por
-  erro temporário. Mudar a versão da metodologia de um título agenda o
-  recálculo das simulações daquele título. Nenhuma alteração fica sem
-  cálculo por perda de uma notificação interna.
+  erro temporário. Nenhuma alteração fica sem cálculo por perda de uma
+  notificação interna.
 - A tela de resultado mostra a alíquota aplicada ao lado de cada tributo e, sob
   demanda, explica o cálculo de forma breve: a regra de cada tributo, a conta
   com os valores do cálculo e as tabelas de IOF e IR com a faixa aplicada

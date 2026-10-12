@@ -4,6 +4,7 @@ export * from './lib/foundations/app-error-code.enum';
 export * from './lib/foundations/app.error';
 export * from './lib/foundations/domain.error';
 export * from './lib/foundations/domain-event.contract';
+export * from './lib/foundations/domain-event-recorder.port';
 export * from './lib/foundations/repository.port';
 export * from './lib/foundations/result';
 export * from './lib/foundations/value-object.base';

@@ -9,7 +9,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { TransactionalPrismaClient } from './prisma-client.type';
-import { TransactionContext } from './transaction.context';
+import { UnitOfWorkContext } from '../unit-of-work.context';
 
 const TRANSACTION_TIMEOUT = 10_000;
 
@@ -44,7 +44,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
 
   get client(): TransactionalPrismaClient {
-    return TransactionContext.get() ?? this._client;
+    return UnitOfWorkContext.current()?.client ?? this._client;
   }
 
   async isHealthy(): Promise<boolean> {

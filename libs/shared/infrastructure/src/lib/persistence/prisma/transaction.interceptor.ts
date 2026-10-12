@@ -6,14 +6,13 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, from } from 'rxjs';
-import { PrismaService } from './prisma.service';
 import { SKIP_TRANSACTION_KEY } from './skip-transaction.decorator';
-import { TransactionContext } from './transaction.context';
+import { UnitOfWork } from '../unit-of-work';
 
 @Injectable()
 export class TransactionInterceptor implements NestInterceptor {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly unitOfWork: UnitOfWork,
     private readonly reflector: Reflector,
   ) {}
 
@@ -28,14 +27,11 @@ export class TransactionInterceptor implements NestInterceptor {
     }
 
     return from(
-      this.prisma.$transaction(async (tx) =>
-        TransactionContext.run(
-          tx,
-          () =>
-            new Promise<unknown>((resolve, reject) => {
-              next.handle().subscribe({ next: resolve, error: reject });
-            }),
-        ),
+      this.unitOfWork.run(
+        () =>
+          new Promise<unknown>((resolve, reject) => {
+            next.handle().subscribe({ next: resolve, error: reject });
+          }),
       ),
     );
   }

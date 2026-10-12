@@ -26,7 +26,11 @@ import {
   Rate,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { PrismaService } from '@investflow/shared-infrastructure';
+import {
+  PrismaService,
+  TransactionalDomainEventRecorder,
+  UnitOfWork,
+} from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { PrismaCurveRepository } from '../../curves/persistence/prisma-curve.repository';
 import { PrismaOfferRepository } from '../../offers/persistence/prisma-offer.repository';
@@ -45,8 +49,21 @@ const calculation = new SimulationCalculationService(
   new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
 );
 
+// Each save runs in its own unit of work, as a request would.
+function inUnitOfWork<R extends { save(aggregate: never): Promise<unknown> }>(
+  unitOfWork: UnitOfWork,
+  repository: R,
+): R {
+  const save = repository.save.bind(repository);
+  return Object.assign(repository, {
+    save: (aggregate: never) => unitOfWork.run(() => save(aggregate)),
+  });
+}
+
 integration('Simulation PostgreSQL persistence', () => {
   let prisma: PrismaService;
+  let unitOfWork: UnitOfWork;
+  const events = new TransactionalDomainEventRecorder();
   let offers: PrismaOfferRepository;
   let curves: PrismaCurveRepository;
   let simulations: PrismaSimulationRepository;
@@ -58,10 +75,20 @@ integration('Simulation PostgreSQL persistence', () => {
     prisma = new PrismaService(
       new ConfigService({ DATABASE_URL: connectionString }),
     );
+    unitOfWork = new UnitOfWork(prisma);
     await prisma.onModuleInit();
-    offers = new PrismaOfferRepository(prisma);
-    curves = new PrismaCurveRepository(prisma);
-    simulations = new PrismaSimulationRepository(prisma);
+    offers = inUnitOfWork(
+      unitOfWork,
+      new PrismaOfferRepository(prisma, events),
+    );
+    curves = inUnitOfWork(
+      unitOfWork,
+      new PrismaCurveRepository(prisma, events),
+    );
+    simulations = inUnitOfWork(
+      unitOfWork,
+      new PrismaSimulationRepository(prisma, events),
+    );
   });
 
   afterAll(async () => {

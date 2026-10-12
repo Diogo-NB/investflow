@@ -10,7 +10,7 @@ import {
   SimulationResult,
   SimulationRevisionConflictError,
 } from '@investflow/investment-simulator-domain';
-import { Result } from '@investflow/shared-domain';
+import { DomainEventRecorder, Result } from '@investflow/shared-domain';
 import {
   BaseRepository,
   PrismaService,
@@ -40,8 +40,8 @@ export class PrismaSimulationRepository
   // without it is new.
   private readonly storedStates = new WeakMap<Simulation, StoredState>();
 
-  constructor(prisma: PrismaService) {
-    super(prisma);
+  constructor(prisma: PrismaService, events: DomainEventRecorder) {
+    super(prisma, events);
   }
 
   findById(

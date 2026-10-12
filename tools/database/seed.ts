@@ -22,7 +22,7 @@ import {
   ClockModule,
   PrismaModule,
   PrismaService,
-  TransactionContext,
+  UnitOfWork,
 } from '@investflow/shared-infrastructure';
 import { curveRange, curves, offers } from './investment-simulator/fixtures';
 
@@ -56,13 +56,12 @@ async function seedSystemContent(): Promise<{
     const prisma = app.get(PrismaService);
     const createOffer = app.get(CreateOfferUseCase);
     const createCurve = app.get(CreateCurveUseCase);
+    const unitOfWork = app.get(UnitOfWork);
     const run = (execute: () => Promise<Result<unknown, AppError>>) =>
-      prisma.$transaction((tx) =>
-        TransactionContext.run(tx, async () => {
-          const result = await execute();
-          if (result.isErr()) throw result.error;
-        }),
-      );
+      unitOfWork.run(async () => {
+        const result = await execute();
+        if (result.isErr()) throw result.error;
+      });
 
     let offersCreated = 0;
     for (const offer of offers) {

@@ -11,14 +11,25 @@ including simulation recalculation, with diagrams.
 
 ## Publishing flow
 
-1. An aggregate raises an immutable, past-tense `DomainEvent` through `apply()`.
-2. A use case calls its command repository's `save()` method.
-3. `BaseRepository.save()` persists the aggregate and hands its queued events
-   to `OutboxWriter` (`messaging/outbox`), which writes them to
-   `outbox_events` in the active Prisma transaction. The repository only
-   decides when events are written; the writer owns the row format,
-   serialization, and payload limit, so the outbox table is touched only in
-   `messaging/outbox`.
+1. Events are recorded in the current **unit of work**. Every writing entry
+   point runs inside `UnitOfWork.run()` (`persistence/unit-of-work.ts`): the
+   HTTP `TransactionInterceptor`, `EventDispatcher` for consumers, and the
+   seed. It opens the Prisma transaction and buffers the recorded events.
+2. Two ways to record:
+   - **Aggregates** raise an immutable, past-tense `DomainEvent` through
+     `apply()`. `BaseRepository.save()` persists the aggregate, hands its
+     events to `DomainEventRecorder`, and calls `markPersisted()`.
+   - **Domain and application services** inject `DomainEventRecorder`
+     (`@investflow/shared-domain`) and call `record(...events)` directly. Use it
+     for bulk work that does not load aggregates, such as fan-out pages.
+3. `TransactionalDomainEventRecorder` validates each event with `OutboxWriter`
+   when it is recorded and buffers the rows. Recording outside a unit of work
+   throws, because the event would be lost. Just before commit, `UnitOfWork`
+   appends the buffer to `outbox_events` in chunks of 1,000 rows, so changes
+   and their events commit together or not at all. Rows of one transaction
+   share `created_at` and publish in no particular order. The writer owns the
+   row format, serialization, and payload limit, so the outbox table is
+   touched only in `messaging/outbox` and by `UnitOfWork`.
 4. `OutboxPollerService` hands each unpublished row to the `MessageBroker`
    port. `EventBridgeMessageBroker` puts it on the `investflow` bus with
    `source` `investflow.<context>` and `detail-type` set to the event type,
@@ -33,10 +44,11 @@ including simulation recalculation, with diagrams.
    doubling up to 60) until a publication succeeds; each pause costs 3 calls
    and 3 warnings, and the pause and resume are logged once.
 7. `OutboxWriter` rejects an event whose payload exceeds the outbox limit
-   (200 KB), and `BaseRepository.save()` prepares the rows before persisting
-   anything, so the use case fails with nothing written. The limit is the outbox's own
-   contract: events carry identifiers and changed fields, not documents, and
-   every broker adapter must accept payloads of that size.
+   (200 KB) at `record()`. `BaseRepository.save()` lets that failure throw
+   rather than return an error, so the whole unit of work rolls back with
+   nothing written. The limit is the outbox's own contract: events carry
+   identifiers and changed fields, not documents, and every broker adapter
+   must accept payloads of that size.
 
 Routing lives in the broker adapter and the EventBridge rules; the poller and
 the port know no topics, buses, or queues. The deployable host decides whether
@@ -88,7 +100,11 @@ an outbox poller is active by importing `OutboxModule`.
 ## Boundaries
 
 - Never publish directly from a use case.
-- Never read or clear aggregate events outside `BaseRepository`.
+- Never write `outbox_events` directly; record through `DomainEventRecorder`
+  and let `UnitOfWork` flush. Only `BaseRepository` hands aggregate events to
+  the recorder and calls `markPersisted()`.
+- Run every writing entry point (requests, consumers, jobs, scripts) inside
+  `UnitOfWork.run()`; reads may skip it.
 - Do not share internal domain-event classes as public wire contracts between
   contexts; translate to explicit versioned integration contracts when needed.
 - The deployable app selects active pollers and consumers. Importing unrelated

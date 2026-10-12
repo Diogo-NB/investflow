@@ -6,6 +6,7 @@ import {
 } from '@investflow/investment-simulator-domain';
 import {
   CalendarDate,
+  DomainEventRecorder,
   CalendarDateRange,
   EAppErrorCode,
   UtcInstant,
@@ -30,14 +31,17 @@ function fixture() {
     updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   };
   const interval = { deleteMany: jest.fn(), createMany: jest.fn() };
-  const outboxEvent = { createMany: jest.fn() };
+  const events = { record: jest.fn() };
   return {
     curve,
     interval,
-    outboxEvent,
-    repository: new PrismaCurveRepository({
-      client: { curve, curveInterval: interval, outboxEvent },
-    } as unknown as PrismaService),
+    events,
+    repository: new PrismaCurveRepository(
+      {
+        client: { curve, curveInterval: interval },
+      } as unknown as PrismaService,
+      events as unknown as DomainEventRecorder,
+    ),
   };
 }
 
@@ -127,7 +131,7 @@ describe('PrismaCurveRepository', () => {
       data: [expect.objectContaining({ curveId: curve.id, value: '0.12' })],
     });
     expect(test.curve.updateMany).not.toHaveBeenCalled();
-    expect(test.outboxEvent.createMany).toHaveBeenCalledTimes(1);
+    expect(test.events.record).toHaveBeenCalledTimes(1);
   });
 
   it('updates from the revision it read and replaces the intervals', async () => {
@@ -174,7 +178,7 @@ describe('PrismaCurveRepository', () => {
     expect(result.error.code).toBe(EAppErrorCode.CURVE_REVISION_CONFLICT);
     expect(result.error.kind).toBe('conflict');
     expect(test.interval.deleteMany).not.toHaveBeenCalled();
-    expect(test.outboxEvent.createMany).not.toHaveBeenCalled();
+    expect(test.events.record).not.toHaveBeenCalled();
   });
 
   it.each(['0.1234567890123456789012345678901', '1e35'])(

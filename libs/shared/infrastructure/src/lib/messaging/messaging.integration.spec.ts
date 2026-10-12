@@ -17,6 +17,7 @@ import {
 import {
   AggregateRoot,
   DomainEvent,
+  DomainEventRecorder,
   generateUuid,
   UtcInstant,
 } from '@investflow/shared-domain';
@@ -24,6 +25,7 @@ import { ClockModule } from '../clocks/clock.module';
 import { BaseRepository } from '../persistence/base.repository';
 import { PrismaModule } from '../persistence/prisma/prisma.module';
 import { PrismaService } from '../persistence/prisma/prisma.service';
+import { UnitOfWork } from '../persistence/unit-of-work';
 import { EventDispatcher } from './consumers/event-dispatcher.service';
 import { OnEvent } from './consumers/on-event.decorator';
 import { MessageBroker } from './outbox/message-broker.port';
@@ -184,7 +186,13 @@ integration('Messaging through EventBridge and SQS', () => {
       'dispatch',
     );
 
-    const saved = await new TestRepository(prisma).save(aggregate);
+    const saved = await app
+      .get(UnitOfWork)
+      .run(() =>
+        new TestRepository(prisma, app.get(DomainEventRecorder)).save(
+          aggregate,
+        ),
+      );
     expect(saved.isOk()).toBe(true);
     await app.get(OutboxPollerService).poll();
 

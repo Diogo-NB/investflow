@@ -11,7 +11,11 @@ import {
   Rate,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { PrismaService } from '@investflow/shared-infrastructure';
+import {
+  PrismaService,
+  TransactionalDomainEventRecorder,
+  UnitOfWork,
+} from '@investflow/shared-infrastructure';
 import { PrismaOfferRepository } from './prisma-offer.repository';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -22,14 +26,28 @@ const integration = connectionString ? describe : describe.skip;
 
 const AT = UtcInstant.ofIso('2026-10-11T12:00:00Z');
 
+// Each save runs in its own unit of work, as a request would.
+function inUnitOfWork<R extends { save(aggregate: never): Promise<unknown> }>(
+  unitOfWork: UnitOfWork,
+  repository: R,
+): R {
+  const save = repository.save.bind(repository);
+  return Object.assign(repository, {
+    save: (aggregate: never) => unitOfWork.run(() => save(aggregate)),
+  });
+}
+
 integration('Offer PostgreSQL persistence', () => {
   let prisma: PrismaService;
+  let unitOfWork: UnitOfWork;
+  const events = new TransactionalDomainEventRecorder();
   const offerIds: string[] = [];
 
   beforeAll(async () => {
     prisma = new PrismaService(
       new ConfigService({ DATABASE_URL: connectionString }),
     );
+    unitOfWork = new UnitOfWork(prisma);
     await prisma.onModuleInit();
   });
 
@@ -61,7 +79,10 @@ integration('Offer PostgreSQL persistence', () => {
       AT,
     ).value;
     offerIds.push(offer.id);
-    const saved = await new PrismaOfferRepository(prisma).save(offer);
+    const saved = await inUnitOfWork(
+      unitOfWork,
+      new PrismaOfferRepository(prisma, events),
+    ).save(offer);
     expect(saved.isOk()).toBe(true);
     return offer;
   }
@@ -69,8 +90,12 @@ integration('Offer PostgreSQL persistence', () => {
   it('round trips an offer with all decimal digits and its event', async () => {
     const offer = await savedOffer();
 
-    const loaded = (await new PrismaOfferRepository(prisma).findById(offer.id))
-      .value;
+    const loaded = (
+      await inUnitOfWork(
+        unitOfWork,
+        new PrismaOfferRepository(prisma, events),
+      ).findById(offer.id)
+    ).value;
 
     expect(loaded.name).toBe('CDB 110% do CDI');
     expect(loaded.revision).toBe(1);
@@ -86,8 +111,14 @@ integration('Offer PostgreSQL persistence', () => {
 
   it('refuses a concurrent edit of the same revision', async () => {
     const offer = await savedOffer();
-    const first = new PrismaOfferRepository(prisma);
-    const second = new PrismaOfferRepository(prisma);
+    const first = inUnitOfWork(
+      unitOfWork,
+      new PrismaOfferRepository(prisma, events),
+    );
+    const second = inUnitOfWork(
+      unitOfWork,
+      new PrismaOfferRepository(prisma, events),
+    );
     const mine = (await first.findById(offer.id)).value;
     const theirs = (await second.findById(offer.id)).value;
 
@@ -98,8 +129,12 @@ integration('Offer PostgreSQL persistence', () => {
     const conflict = await second.save(theirs);
     expect(conflict.error.code).toBe(EAppErrorCode.OFFER_REVISION_CONFLICT);
 
-    const stored = (await new PrismaOfferRepository(prisma).findById(offer.id))
-      .value;
+    const stored = (
+      await inUnitOfWork(
+        unitOfWork,
+        new PrismaOfferRepository(prisma, events),
+      ).findById(offer.id)
+    ).value;
     expect(stored.revision).toBe(2);
     expect(stored.name).toBe('CDB 110% do CDI');
     expect(stored.maturityDate.toIsoString()).toBe('2031-01-02');
@@ -107,7 +142,10 @@ integration('Offer PostgreSQL persistence', () => {
 
   it('hides a deleted offer from lookups', async () => {
     const offer = await savedOffer();
-    const offers = new PrismaOfferRepository(prisma);
+    const offers = inUnitOfWork(
+      unitOfWork,
+      new PrismaOfferRepository(prisma, events),
+    );
 
     const loaded = (await offers.findById(offer.id)).value;
     expect((await offers.save(loaded.delete(AT))).isOk()).toBe(true);

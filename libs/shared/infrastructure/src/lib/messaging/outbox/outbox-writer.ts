@@ -7,10 +7,14 @@ import type { TransactionalPrismaClient } from '../../persistence/prisma/prisma-
 // oversized event fails its use case instead of committing and never publishing.
 const MAX_OUTBOX_PAYLOAD_BYTES = 200 * 1024;
 
-export type OutboxRows = readonly Prisma.OutboxEventCreateManyInput[];
+export type OutboxRow = Prisma.OutboxEventCreateManyInput;
+
+// An outbox row binds 7 parameters and PostgreSQL allows 65,535 per
+// statement, so one insert holds at most about 9,300 rows.
+const ROWS_PER_INSERT = 1_000;
 
 export class OutboxWriter {
-  prepare(events: readonly DomainEvent[]): OutboxRows {
+  prepare(events: readonly DomainEvent[]): OutboxRow[] {
     return events.map((event) => {
       const payload = serialize(event);
       const bytes = Buffer.byteLength(JSON.stringify(payload));
@@ -34,10 +38,13 @@ export class OutboxWriter {
 
   async append(
     client: TransactionalPrismaClient,
-    rows: OutboxRows,
+    rows: readonly OutboxRow[],
   ): Promise<void> {
-    if (rows.length === 0) return;
-    await client.outboxEvent.createMany({ data: [...rows] });
+    for (let start = 0; start < rows.length; start += ROWS_PER_INSERT) {
+      await client.outboxEvent.createMany({
+        data: rows.slice(start, start + ROWS_PER_INSERT),
+      });
+    }
   }
 }
 

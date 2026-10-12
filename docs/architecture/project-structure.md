@@ -515,19 +515,28 @@ state is kept; a transition history is deferred work.
   Otherwise it discards the outcome and acknowledges the message:
   whatever made its inputs out of date queued its own message. Late,
   duplicate, or concurrent deliveries therefore cannot replace a newer state.
-- **Fan-out.** Changing or deleting an offer or curve updates the
-  calculation rows of every simulation that references it, in pages, and
-  queues their calculations. A system curve update can reach every user's
-  simulations, so fan-out must never load them all into one transaction, and
-  it never writes the `simulation` rows.
+- **Fan-out.** Changing or deleting an offer or curve queues every simulation
+  that references it, one message per page of about 500 simulation ids
+  (ordered by id after a cursor). A page bulk-updates their
+  `simulation_calculation` rows to `PENDING` with the cause, records one
+  `SimulationCalculationRequested` per simulation through
+  `DomainEventRecorder`, and, when full, records a continuation event
+  (premise, cause, actor, last id) that the same consumer handles. A system
+  curve update can reach every user's simulations, so fan-out never loads
+  aggregates, never writes the `simulation` rows, and keeps each page its own
+  retryable transaction.
+- **Deletion requeues like a change.** Deleting an offer or curve queues its
+  simulations with `OFFER_DELETED` or `CURVE_DELETED`; the worker finds the
+  premise missing and records `INVALID` with `OFFER_NOT_FOUND` or
+  `CURVE_NOT_FOUND`. Fan-out only ever writes `PENDING`: a simulation switched
+  to another premise during fan-out is merely recalculated, whereas writing
+  `INVALID` in bulk could strand a valid simulation in a terminal state.
 - **`INVALID` is scoped to its inputs.** Any change to them returns the
-  simulation to `PENDING`. A deleted offer or curve sets `INVALID` directly
-  with its own reason code, without calculating.
+  simulation to `PENDING`.
 - **Convergence without a sweep.** The outbox writes each event in the same
   transaction as its change, and SQS redelivers a message until it is handled
   or dead-lettered, so no change is left without a calculation. A methodology
-  version change queues the simulations of its title type through the fan-out
-  path, once, with the deploy that changes it.
+  version change does not requeue anything yet (see Deferred Work).
 - **Reads** return the last successful result together with the status, its
   cause, and the inputs it was computed from, so the screen can show
   "Calculando" or "Requer ação" over the previous values. The details screen
@@ -543,6 +552,15 @@ Decision dated 2026-10-11: integration events travel over Amazon EventBridge
 and Amazon SQS, emulated locally by [Floci](https://github.com/floci-io/floci).
 This replaces the earlier SNS topic per context.
 
+- **Recording.** Events are recorded in the unit of work, the transaction
+  every writing entry point runs in (`UnitOfWork.run()`: HTTP requests,
+  consumers, the seed). Aggregates raise them with `apply()` and their
+  repository records them on save; domain and application services record
+  through the `DomainEventRecorder` port, which bulk work such as fan-out
+  uses without loading aggregates. The unit of work writes the buffered
+  events to `outbox_events` before commit, in chunks of 1,000 rows, so a
+  change and its events commit together. Recording outside a unit of work
+  throws.
 - **Routing.** The outbox poller publishes every event to the custom bus
   `investflow` with `source` `investflow.<context>` and `detail-type` set to
   the event type; the `detail` is the serialized domain event. Each consumer
@@ -557,7 +575,7 @@ This replaces the earlier SNS topic per context.
   fail, so an EventBridge outage costs 3 calls and 3 warnings per pause, with
   pauses growing to 60 seconds.
 - **Payload limit.** The outbox owns a 200 KB payload limit, enforced when the
-  event is saved: events carry identifiers and changed fields, not documents.
+  event is recorded: events carry identifiers and changed fields, not documents.
   The limit is not derived from the transport; every broker adapter must
   accept payloads of that size (EventBridge accepts 256 KB per entry).
 - **Hosts.** Consumers run in the API today and can become SQS-triggered
@@ -773,6 +791,18 @@ instant), for support and for explaining past recalculations.
   - A retention rule bounds its size, for example the last N transitions per
     simulation.
   - Tests cover recording from each write path and retention.
+
+### Requeue after a methodology version change (deferred 2026-10-12)
+
+- **Why deferred:** no methodology version has changed yet, and the trigger
+  (automatic at startup or a deploy-time command) is a separate decision from
+  premise fan-out.
+- **What exists today:** results record their methodology version, and reads
+  flag a result "Desatualizado" when its title type's current version
+  differs. Nothing requeues it; saving the simulation again recalculates it.
+- **Done when:** changing a title type's methodology version queues its
+  simulations with cause `METHODOLOGY_CHANGED` through the fan-out page path,
+  once per change.
 
 ### Single active outbox poller (deferred 2026-10-11)
 

@@ -11,7 +11,11 @@ import {
   EAppErrorCode,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { PrismaService } from '@investflow/shared-infrastructure';
+import {
+  PrismaService,
+  TransactionalDomainEventRecorder,
+  UnitOfWork,
+} from '@investflow/shared-infrastructure';
 import { PrismaCurveRepository } from './prisma-curve.repository';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -29,14 +33,28 @@ function interval(start: string, end: string, value: string) {
   );
 }
 
+// Each save runs in its own unit of work, as a request would.
+function inUnitOfWork<R extends { save(aggregate: never): Promise<unknown> }>(
+  unitOfWork: UnitOfWork,
+  repository: R,
+): R {
+  const save = repository.save.bind(repository);
+  return Object.assign(repository, {
+    save: (aggregate: never) => unitOfWork.run(() => save(aggregate)),
+  });
+}
+
 integration('Curve PostgreSQL persistence', () => {
   let prisma: PrismaService;
+  let unitOfWork: UnitOfWork;
+  const events = new TransactionalDomainEventRecorder();
   const curveIds: string[] = [];
 
   beforeAll(async () => {
     prisma = new PrismaService(
       new ConfigService({ DATABASE_URL: connectionString }),
     );
+    unitOfWork = new UnitOfWork(prisma);
     await prisma.onModuleInit();
   });
 
@@ -72,7 +90,10 @@ integration('Curve PostgreSQL persistence', () => {
       AT,
     ).value;
     curveIds.push(curve.id);
-    const saved = await new PrismaCurveRepository(prisma).save(curve);
+    const saved = await inUnitOfWork(
+      unitOfWork,
+      new PrismaCurveRepository(prisma, events),
+    ).save(curve);
     expect(saved.isOk()).toBe(true);
     return curve;
   }
@@ -80,8 +101,12 @@ integration('Curve PostgreSQL persistence', () => {
   it('round trips a curve with deflation and all decimal digits', async () => {
     const curve = await savedCurve();
 
-    const loaded = (await new PrismaCurveRepository(prisma).findById(curve.id))
-      .value;
+    const loaded = (
+      await inUnitOfWork(
+        unitOfWork,
+        new PrismaCurveRepository(prisma, events),
+      ).findById(curve.id)
+    ).value;
 
     expect(loaded.index).toBe(EEconomicIndex.IPCA);
     expect(loaded.revision).toBe(1);
@@ -98,8 +123,14 @@ integration('Curve PostgreSQL persistence', () => {
 
   it('replaces intervals on edit and refuses a concurrent edit of the same revision', async () => {
     const curve = await savedCurve();
-    const first = new PrismaCurveRepository(prisma);
-    const second = new PrismaCurveRepository(prisma);
+    const first = inUnitOfWork(
+      unitOfWork,
+      new PrismaCurveRepository(prisma, events),
+    );
+    const second = inUnitOfWork(
+      unitOfWork,
+      new PrismaCurveRepository(prisma, events),
+    );
     const mine = (await first.findById(curve.id)).value;
     const theirs = (await second.findById(curve.id)).value;
 
@@ -113,8 +144,12 @@ integration('Curve PostgreSQL persistence', () => {
     const conflict = await second.save(theirs);
     expect(conflict.error.code).toBe(EAppErrorCode.CURVE_REVISION_CONFLICT);
 
-    const stored = (await new PrismaCurveRepository(prisma).findById(curve.id))
-      .value;
+    const stored = (
+      await inUnitOfWork(
+        unitOfWork,
+        new PrismaCurveRepository(prisma, events),
+      ).findById(curve.id)
+    ).value;
     expect(stored.revision).toBe(2);
     expect(stored.name).toBe('IPCA');
     expect(stored.intervals).toHaveLength(1);
@@ -123,7 +158,10 @@ integration('Curve PostgreSQL persistence', () => {
 
   it('hides a deleted curve from lookups', async () => {
     const curve = await savedCurve();
-    const curves = new PrismaCurveRepository(prisma);
+    const curves = inUnitOfWork(
+      unitOfWork,
+      new PrismaCurveRepository(prisma, events),
+    );
 
     const loaded = (await curves.findById(curve.id)).value;
     expect((await curves.save(loaded.delete(AT))).isOk()).toBe(true);

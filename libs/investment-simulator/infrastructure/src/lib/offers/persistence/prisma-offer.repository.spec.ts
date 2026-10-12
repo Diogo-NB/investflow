@@ -6,6 +6,7 @@ import {
 } from '@investflow/investment-simulator-domain';
 import {
   CalendarDate,
+  DomainEventRecorder,
   EAppErrorCode,
   Rate,
   UtcInstant,
@@ -34,13 +35,16 @@ function fixture() {
     create: jest.fn(),
     updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   };
-  const outboxEvent = { createMany: jest.fn() };
+  const events = { record: jest.fn() };
   return {
     offer,
-    outboxEvent,
-    repository: new PrismaOfferRepository({
-      client: { offer, outboxEvent },
-    } as unknown as PrismaService),
+    events,
+    repository: new PrismaOfferRepository(
+      {
+        client: { offer },
+      } as unknown as PrismaService,
+      events as unknown as DomainEventRecorder,
+    ),
   };
 }
 
@@ -128,7 +132,7 @@ describe('PrismaOfferRepository', () => {
       }),
     });
     expect(test.offer.updateMany).not.toHaveBeenCalled();
-    expect(test.outboxEvent.createMany).toHaveBeenCalledTimes(1);
+    expect(test.events.record).toHaveBeenCalledTimes(1);
   });
 
   it('updates from the revision it read', async () => {
@@ -168,6 +172,6 @@ describe('PrismaOfferRepository', () => {
 
     expect(result.error.code).toBe(EAppErrorCode.OFFER_REVISION_CONFLICT);
     expect(result.error.kind).toBe('conflict');
-    expect(test.outboxEvent.createMany).not.toHaveBeenCalled();
+    expect(test.events.record).not.toHaveBeenCalled();
   });
 });

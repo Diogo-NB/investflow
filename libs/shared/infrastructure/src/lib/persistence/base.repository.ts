@@ -1,34 +1,38 @@
-import { AggregateRoot, AppError, Result } from '@investflow/shared-domain';
-import { OutboxWriter } from '../messaging/outbox/outbox-writer';
+import {
+  AggregateRoot,
+  AppError,
+  DomainEventRecorder,
+  Result,
+} from '@investflow/shared-domain';
 import { RepositorySaveError } from './repository.error';
 import type { TransactionalPrismaClient } from './prisma/prisma-client.type';
 import { PrismaService } from './prisma/prisma.service';
 
 export abstract class BaseRepository<T extends AggregateRoot> {
-  private readonly outbox = new OutboxWriter();
-
-  constructor(protected readonly prisma: PrismaService) {}
+  constructor(
+    protected readonly prisma: PrismaService,
+    private readonly events: DomainEventRecorder,
+  ) {}
 
   // An AppError thrown by persistAggregate (a revision conflict, an
   // unrepresentable value) is returned as is; anything else is a save failure.
   async save(
     aggregate: T,
   ): Promise<Result<void, AppError | RepositorySaveError>> {
-    return Result.fromPromise(
-      async () => {
-        // Preparing first rejects an invalid event before anything is written.
-        const outboxRows = this.outbox.prepare(aggregate.getDomainEvents());
-        const client = this.prisma.client;
-        await this.persistAggregate(aggregate, client);
-        await this.outbox.append(client, outboxRows);
-
-        aggregate.markPersisted();
-      },
+    const persisted = await Result.fromPromise(
+      () => this.persistAggregate(aggregate, this.prisma.client),
       (error) =>
         error instanceof AppError
           ? error
           : new RepositorySaveError(aggregate, error),
     );
+    if (persisted.isErr()) return persisted;
+
+    // Throws rather than returning an error: a change whose events cannot be
+    // recorded must abort the whole unit of work, not commit without them.
+    this.events.record(...aggregate.getDomainEvents());
+    aggregate.markPersisted();
+    return persisted;
   }
 
   protected abstract persistAggregate(

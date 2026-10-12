@@ -5,6 +5,7 @@ import {
   PrismaService,
   SkipTransaction,
   TransactionalPrismaClient,
+  UnitOfWork,
 } from '@investflow/shared-infrastructure';
 import { HTTP_INTERCEPTOR_PROVIDERS } from './http-interceptors.providers';
 
@@ -48,6 +49,7 @@ describe('API global HTTP interceptors', () => {
     module = await Test.createTestingModule({
       providers: [
         ...HTTP_INTERCEPTOR_PROVIDERS,
+        UnitOfWork,
         { provide: PrismaService, useValue: { $transaction: transaction } },
         { provide: RouteFixture, useValue: fixture },
       ],
