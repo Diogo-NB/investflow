@@ -30,7 +30,7 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
   static create(
     props: InvestmentScenarioProps,
   ): Result<InvestmentScenario, InvestmentCalculationError> {
-    if (!props.principal.isPositive()) {
+    if (!props.principal.isPositive) {
       return Result.err(
         new InvestmentCalculationError(
           EAppErrorCode.INVESTMENT_PRINCIPAL_INVALID,

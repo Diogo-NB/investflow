@@ -1,12 +1,16 @@
 import {
+  dayNumber,
   formatInstant,
   formatMonth,
   formatShortMonth,
   formatIsoDate,
   isIsoDate,
   isoToLocalDate,
+  lastDayOfMonth,
   localDateToIso,
+  nextDay,
   parseBrazilianDate,
+  parseBrazilianMonth,
   previousDay,
   todayInSaoPaulo,
 } from './calendar-date';
@@ -41,6 +45,31 @@ describe('calendar dates', () => {
     expect(previousDay('2026-03-02')).toBe('2026-03-01');
     expect(previousDay('2028-03-01')).toBe('2028-02-29');
     expect(previousDay('2026-01-01')).toBe('2025-12-31');
+  });
+
+  it('steps forward across month, year and leap boundaries', () => {
+    expect(nextDay('2026-03-01')).toBe('2026-03-02');
+    expect(nextDay('2028-02-28')).toBe('2028-02-29');
+    expect(nextDay('2027-02-28')).toBe('2027-03-01');
+    expect(nextDay('2025-12-31')).toBe('2026-01-01');
+  });
+
+  it('counts days from the Unix epoch across leap years', () => {
+    expect(dayNumber('1970-01-01')).toBe(0);
+    expect(dayNumber('2000-03-01')).toBe(11017);
+    expect(dayNumber('2028-03-01') - dayNumber('2028-02-28')).toBe(2);
+    expect(dayNumber('2027-03-01') - dayNumber('2027-02-28')).toBe(1);
+    expect(dayNumber('2026-12-31') - dayNumber('2026-01-01')).toBe(364);
+  });
+
+  it('parses Brazilian months and finds their last day', () => {
+    expect(parseBrazilianMonth(' 02/2028 ')).toBe('2028-02');
+    for (const text of ['13/2026', '00/2026', '2/2026', '2026-02']) {
+      expect(parseBrazilianMonth(text)).toBeNull();
+    }
+    expect(lastDayOfMonth('2028-02')).toBe('2028-02-29');
+    expect(lastDayOfMonth('2027-02')).toBe('2027-02-28');
+    expect(lastDayOfMonth('2026-12')).toBe('2026-12-31');
   });
 
   it('round trips the widget date without touching UTC', () => {

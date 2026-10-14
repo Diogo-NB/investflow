@@ -18,8 +18,8 @@ describe('CalendarDate', () => {
     ['0001-01-01', true, false],
   ] as const)('recognizes month boundaries for %s', (date, first, last) => {
     const value = CalendarDate.of(date);
-    expect(value.isFirstDayOfMonth()).toBe(first);
-    expect(value.isLastDayOfMonth()).toBe(last);
+    expect(value.isFirstDayOfMonth).toBe(first);
+    expect(value.isLastDayOfMonth).toBe(last);
   });
 
   it.each([
@@ -166,13 +166,13 @@ describe('CalendarDate', () => {
     expect(leapDay.year).toBe(2024);
     expect(leapDay.month).toBe(2);
     expect(leapDay.day).toBe(29);
-    expect(leapDay.isLastDayOfMonth()).toBe(true);
+    expect(leapDay.isLastDayOfMonth).toBe(true);
     const march = leapDay.addDays(1);
     expect(march.year).toBe(2024);
     expect(march.month).toBe(3);
     expect(march.day).toBe(1);
     expect(march.daysInMonth).toBe(31);
-    expect(march.isFirstDayOfMonth()).toBe(true);
+    expect(march.isFirstDayOfMonth).toBe(true);
   });
 
   it('compares dates and identifies weekends', () => {
@@ -186,9 +186,9 @@ describe('CalendarDate', () => {
     expect(friday.isOnOrBefore(saturday)).toBe(true);
     expect(saturday.isOnOrAfter(friday)).toBe(true);
     expect(saturday.isOnOrAfter(saturday)).toBe(true);
-    expect(friday.isWeekend()).toBe(false);
-    expect(saturday.isWeekend()).toBe(true);
-    expect(sunday.isWeekend()).toBe(true);
+    expect(friday.isWeekend).toBe(false);
+    expect(saturday.isWeekend).toBe(true);
+    expect(sunday.isWeekend).toBe(true);
     expect(friday.equals(CalendarDate.of('2026-01-02'))).toBe(true);
   });
 });

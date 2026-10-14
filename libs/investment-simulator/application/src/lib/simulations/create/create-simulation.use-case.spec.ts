@@ -9,7 +9,6 @@ import {
 } from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
 import {
-  BrazilianBusinessDayCalendar,
   EAppErrorCode,
   Money,
   Result,
@@ -52,9 +51,7 @@ function setup() {
   const useCase = new CreateSimulationUseCase(
     simulations,
     new SimulationPremisesService(offers, curves, clock),
-    new SimulationCalculationService(
-      new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
-    ),
+    new SimulationCalculationService(new InvestmentCalculator()),
     clock,
   );
   return { offer, simulations, offers, curves, useCase };

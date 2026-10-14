@@ -182,16 +182,16 @@ export class CalendarDate extends ValueObject<CalendarDate> {
     return !this.isBefore(other);
   }
 
-  isWeekend(): boolean {
+  get isWeekend(): boolean {
     const dayOfWeek = this.toUtcDate().getUTCDay();
     return dayOfWeek === SUNDAY || dayOfWeek === SATURDAY;
   }
 
-  isFirstDayOfMonth(): boolean {
+  get isFirstDayOfMonth(): boolean {
     return this.day === 1;
   }
 
-  isLastDayOfMonth(): boolean {
+  get isLastDayOfMonth(): boolean {
     return this.day === this.daysInMonth;
   }
 

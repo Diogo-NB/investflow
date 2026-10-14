@@ -1,21 +1,34 @@
-import { useState, type ComponentProps } from 'react';
-import { todayInSaoPaulo } from '../dates/calendar-date';
+import type { ComponentProps } from 'react';
 import { DateField } from '../ui/date-field';
-import { useNonBusinessDays } from './use-non-business-days';
+import { useBusinessCalendar } from './use-business-calendar';
 
 type BusinessDateFieldProps = Omit<
   ComponentProps<typeof DateField>,
-  'isDateUnavailable' | 'onVisibleYearChange'
+  'isDateUnavailable'
 >;
 
-export function BusinessDateField(props: BusinessDateFieldProps) {
-  const [year, setYear] = useState(() => Number(todayInSaoPaulo().slice(0, 4)));
-  const isNonBusinessDay = useNonBusinessDays(year);
+/**
+ * A date field whose calendar offers only business days within the accepted
+ * years, narrowed further by `min` and `max`.
+ */
+export function BusinessDateField({
+  min,
+  max,
+  ...props
+}: BusinessDateFieldProps) {
+  const { state } = useBusinessCalendar();
+  if (state.status !== 'ready')
+    return <DateField {...props} min={min} max={max} />;
+  const { calendar } = state;
   return (
     <DateField
+      // A narrower lower bound, such as an interval's start, is where an
+      // empty calendar should open.
+      openTo={min}
       {...props}
-      isDateUnavailable={isNonBusinessDay}
-      onVisibleYearChange={setYear}
+      min={min && min > calendar.first ? min : calendar.first}
+      max={max && max < calendar.last ? max : calendar.last}
+      isDateUnavailable={(isoDate) => !calendar.isBusinessDay(isoDate)}
     />
   );
 }

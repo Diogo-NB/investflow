@@ -37,7 +37,7 @@ describe('TaxCalculator domain service', () => {
 
     const exempt = calculate(400, '-5');
     expect(exempt.iof.rate).toBeNull();
-    expect(exempt.iof.base.isZero()).toBe(true);
+    expect(exempt.iof.base.isZero).toBe(true);
     expect(exempt.incomeTax.rate?.value.toString()).toBe('0.175');
   });
 
@@ -65,7 +65,7 @@ describe('TaxCalculator domain service', () => {
   it.each([30, 31, 180, 721])(
     'charges no IOF after %s calendar days',
     (days) => {
-      expect(calculate(days).iof.amount.isZero()).toBe(true);
+      expect(calculate(days).iof.amount.isZero).toBe(true);
     },
   );
 
@@ -83,9 +83,9 @@ describe('TaxCalculator domain service', () => {
 
   it.each(['0', '-100'])('charges no tax on earnings of %s', (earnings) => {
     const result = calculate(10, earnings);
-    expect(result.iof.amount.isZero()).toBe(true);
-    expect(result.incomeTax.amount.isZero()).toBe(true);
-    expect(result.total.isZero()).toBe(true);
+    expect(result.iof.amount.isZero).toBe(true);
+    expect(result.incomeTax.amount.isZero).toBe(true);
+    expect(result.total.isZero).toBe(true);
   });
 
   it('preserves fractional tax precision', () => {
@@ -100,9 +100,9 @@ describe('TaxCalculator domain service', () => {
       const result = calculate(10, '100', titleType);
       expect(result.incomeTax.base.amount.toString()).toBe('34');
       expect(result.incomeTax.rate).toBeNull();
-      expect(result.incomeTax.amount.isZero()).toBe(true);
+      expect(result.incomeTax.amount.isZero).toBe(true);
       expect(result.total.amount.toString()).toBe('66');
-      expect(calculate(400, '100', titleType).total.isZero()).toBe(true);
+      expect(calculate(400, '100', titleType).total.isZero).toBe(true);
     },
   );
 });

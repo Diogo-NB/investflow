@@ -9,7 +9,6 @@ export * from './lib/foundations/repository.port';
 export * from './lib/foundations/result';
 export * from './lib/foundations/value-object.base';
 export * from './lib/identity/generate-uuid';
-export * from './lib/dates/brazilian-business-day-calendar.domain-service';
 export * from './lib/dates/business-day-calendar.domain-service';
 export * from './lib/dates/calendar-date.vo';
 export * from './lib/dates/calendar-date-range.vo';

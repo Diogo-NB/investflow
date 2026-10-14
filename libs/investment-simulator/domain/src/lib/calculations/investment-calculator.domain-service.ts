@@ -40,8 +40,6 @@ interface AccrualRate extends AccrualPeriod {
 export class InvestmentCalculator {
   private readonly taxes = new TaxCalculator();
 
-  constructor(private readonly calendar: BusinessDayCalendar) {}
-
   // The IPCA contractual profile is not defined yet.
   static unsupportedReason(
     remunerationKind: RemunerationKind,
@@ -67,7 +65,7 @@ export class InvestmentCalculator {
       );
     }
     const { investmentDate, maturityDate } = scenario;
-    if (!this.calendar.isBusinessDay(investmentDate)) {
+    if (!BusinessDayCalendar.isBusinessDay(investmentDate)) {
       return Result.err(
         InvestmentCalculationError.notBusinessDay(
           'investmentDate',
@@ -75,7 +73,7 @@ export class InvestmentCalculator {
         ),
       );
     }
-    if (!this.calendar.isBusinessDay(maturityDate)) {
+    if (!BusinessDayCalendar.isBusinessDay(maturityDate)) {
       return Result.err(
         InvestmentCalculationError.notBusinessDay('maturityDate', maturityDate),
       );
@@ -109,7 +107,7 @@ export class InvestmentCalculator {
     const businessDays = CalendarDateRange.of(
       investmentDate,
       maturityDate,
-    ).datesBetween.filter(this.calendar.isBusinessDay);
+    ).datesBetween.filter((date) => BusinessDayCalendar.isBusinessDay(date));
 
     return businessDays.slice(1).map((balanceDate, index) => ({
       rateReferenceDate: businessDays[index],

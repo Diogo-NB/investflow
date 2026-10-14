@@ -131,6 +131,25 @@ export function CopyIcon(props: IconProps) {
   );
 }
 
+export function LockIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4.25" y="8.75" width="11.5" height="8" rx="1.5" />
+      <path d="M6.75 8.75V6.5a3.25 3.25 0 0 1 6.5 0v2.25" />
+    </Icon>
+  );
+}
+
+export function SplitIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="2.75" y="5.75" width="5.5" height="8.5" rx="1" />
+      <rect x="11.75" y="5.75" width="5.5" height="8.5" rx="1" />
+      <path d="M10 3.75v12.5" strokeDasharray="1.5 1.5" />
+    </Icon>
+  );
+}
+
 export function TrashIcon(props: IconProps) {
   return (
     <Icon {...props}>

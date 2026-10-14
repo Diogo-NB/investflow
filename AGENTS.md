@@ -81,6 +81,11 @@ frontend testing policy.
   `UtcInstant` from `@investflow/shared-domain`, and obtain time through the
   shared `Clock` port. Native `Date` is restricted to infrastructure boundaries
   and must be converted immediately.
+- The web page accepts dates from January 1 of the current year − 100 to
+  December 31 of the current year + 100 (decision 2026-10-14), because its
+  calendars and date checks cannot cover every year. It is a limit of the
+  page only: the API accepts any date. The page reads the business calendar
+  for exactly those years once per session.
 - Do not add `createdAt` or `updatedAt` to aggregates and entities only for
   technical auditing. Persistence timestamps remain an infrastructure concern;
   temporal fields belong in the domain only when business rules, state
@@ -103,8 +108,8 @@ frontend testing policy.
   `docs/architecture/event-flow.md`.
 - The frontend is React 19 + Vite 8 (decision 2026-10-10). The simulation
   workspace under `/simulacoes` references offers and keeps one result, still
-  calculated on save; the offer screens live under `/ofertas`, and the curve
-  screens are not built yet. Follow
+  calculated on save; the offer screens live under `/ofertas` and the curve
+  screens under `/curvas`. Follow
   the status sequence in `docs/architecture/frontend-patterns.md`. Build features from the recorded
   behavior and design them as idiomatic React; never transliterate earlier
   implementations.

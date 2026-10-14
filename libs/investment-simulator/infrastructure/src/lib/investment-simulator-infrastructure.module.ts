@@ -13,12 +13,8 @@ import {
   InvestmentCalculator,
   SimulationCalculationService,
 } from '@investflow/investment-simulator-domain';
-import {
-  BrazilianBusinessDayCalendar,
-  BusinessDayCalendar,
-} from '@investflow/shared-domain';
 import { BusinessCalendarController } from './business-calendar/http/business-calendar.controller';
-import { ListNonBusinessDaysQueryHandler } from './business-calendar/queries/list-non-business-days.query-handler';
+import { GetBusinessCalendarQueryHandler } from './business-calendar/queries/get-business-calendar.query-handler';
 import { SimulationController } from './simulations/http/simulation.controller';
 import { SimulationCalculationFailureConsumer } from './simulations/messaging/simulation-calculation-failure.consumer';
 import { SimulationCalculationConsumer } from './simulations/messaging/simulation-calculation.consumer';
@@ -41,20 +37,14 @@ import { OffersModule } from './offers/offers.module';
     BusinessCalendarController,
   ],
   providers: [
-    { provide: BusinessDayCalendar, useClass: BrazilianBusinessDayCalendar },
-    {
-      provide: InvestmentCalculator,
-      useFactory: (calendar: BusinessDayCalendar) =>
-        new InvestmentCalculator(calendar),
-      inject: [BusinessDayCalendar],
-    },
+    { provide: InvestmentCalculator, useValue: new InvestmentCalculator() },
     {
       provide: SimulationCalculationService,
       useFactory: (calculator: InvestmentCalculator) =>
         new SimulationCalculationService(calculator),
       inject: [InvestmentCalculator],
     },
-    ListNonBusinessDaysQueryHandler,
+    GetBusinessCalendarQueryHandler,
     { provide: SimulationRepository, useClass: PrismaSimulationRepository },
     SimulationPremisesService,
     CreateSimulationUseCase,

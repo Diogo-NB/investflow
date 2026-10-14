@@ -52,7 +52,7 @@ export class IofPolicy {
 
   taxOnEarnings(earnings: Money, holdingPeriodCalendarDays: number): Money {
     const rate = this.rateForHoldingPeriod(holdingPeriodCalendarDays);
-    if (!rate || !earnings.isPositive()) return Money.zero(earnings.currency);
+    if (!rate || !earnings.isPositive) return Money.zero(earnings.currency);
     return earnings.times(rate.value);
   }
 }

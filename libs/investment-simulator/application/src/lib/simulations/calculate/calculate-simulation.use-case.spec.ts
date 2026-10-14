@@ -8,7 +8,6 @@ import {
 import { Clock } from '@investflow/shared-application';
 import {
   AppError,
-  BrazilianBusinessDayCalendar,
   EAppErrorCode,
   Result,
   UtcInstant,
@@ -51,9 +50,7 @@ function setup(curveId: string | null = null) {
     simulations,
     offers,
     curves,
-    new SimulationCalculationService(
-      new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
-    ),
+    new SimulationCalculationService(new InvestmentCalculator()),
     { now: () => NOW } as unknown as Clock,
   );
   const execute = () =>

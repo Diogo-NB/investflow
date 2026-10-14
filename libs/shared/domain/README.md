@@ -47,13 +47,15 @@ time.
 
 ## Business-day calendars
 
-`BusinessDayCalendar` provides reusable weekend and interval-counting behavior.
-`BrazilianBusinessDayCalendar` additionally excludes the fixed dates 1 January,
-21 April, 1 May, 7 September, 12 October, 2, 15 and 20 November, and 25
-December. It also excludes four Easter-relative observances: Carnival Monday
-(-48 days), Carnival Tuesday (-47 days), Good Friday (-2 days), and Corpus
-Christi (+60 days). Business-day intervals exclude their start and include
-their end.
+`BusinessDayCalendar` is Brazil's national financial calendar, used through
+static methods (`isBusinessDay`, `weekdayHolidaysIn`)
+because its rules are fixed in code (decision 2026-10-14). It excludes
+weekends, the fixed dates 1 January, 21 April, 1 May, 7 September, 12 October
+(from 1980), 2, 15 and 20 November (20 November from 2024), and 25 December,
+and four Easter-relative observances: Carnival Monday (-48 days), Carnival
+Tuesday (-47 days), Good Friday (-2 days), and Corpus Christi (+60 days). A calendar
+loaded from data, such as an ANBIMA import, would have to become an instance
+passed to the code that needs it.
 
 Easter Sunday is calculated with the Gregorian algorithm published in Jean
 Meeus, _Astronomical Algorithms_, 2nd edition, chapter 8, “Date of Easter”

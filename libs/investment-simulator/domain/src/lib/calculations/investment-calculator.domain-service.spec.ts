@@ -1,11 +1,11 @@
 import {
-  BrazilianBusinessDayCalendar,
   CalendarDate,
   CalendarDateRange,
   EAppErrorCode,
   Money,
   Rate,
   UtcInstant,
+  BusinessDayCalendar,
 } from '@investflow/shared-domain';
 import { EEconomicIndex } from '../curves/economic-index.enum';
 import { Curve } from '../curves/curve.aggregate';
@@ -20,8 +20,7 @@ import { InvestmentCalculationError } from './investment-calculation.error';
 import { InvestmentCalculator } from './investment-calculator.domain-service';
 import { InvestmentScenario } from './investment-scenario.vo';
 
-const calendar = new BrazilianBusinessDayCalendar();
-const calculator = new InvestmentCalculator(calendar);
+const calculator = new InvestmentCalculator();
 
 function scenario(
   options: {
@@ -130,7 +129,7 @@ describe('InvestmentCalculator domain service', () => {
     let count = 0;
     while (count < 252) {
       maturity = maturity.addDays(1);
-      if (calendar.isBusinessDay(maturity)) count++;
+      if (BusinessDayCalendar.isBusinessDay(maturity)) count++;
     }
     const result = calculator.calculate(
       scenario({ end: maturity.toIsoString() }),
@@ -220,9 +219,9 @@ describe('InvestmentCalculator domain service', () => {
       expect(result.maturitySummary.grossBalance.amount.toString()).toBe(
         '1000',
       );
-      expect(result.taxes.total.isZero()).toBe(true);
+      expect(result.taxes.total.isZero).toBe(true);
       expect(
-        result.dailyBalances.every((row) => row.dailyGrossEarnings.isZero()),
+        result.dailyBalances.every((row) => row.dailyGrossEarnings.isZero),
       ).toBe(true);
     });
 
@@ -316,13 +315,13 @@ describe('InvestmentCalculator domain service', () => {
       ),
     ).toBe(true);
     expect(result.taxes.incomeTax.rate).toBeNull();
-    expect(result.taxes.total.isZero()).toBe(true);
+    expect(result.taxes.total.isZero).toBe(true);
     expect(
       result.maturitySummary.netBalance.equals(
         result.maturitySummary.grossBalance,
       ),
     ).toBe(true);
-    expect(cdb.taxes.total.isPositive()).toBe(true);
+    expect(cdb.taxes.total.isPositive).toBe(true);
   });
 
   it('returns an explicit error for deferred IPCA', () => {

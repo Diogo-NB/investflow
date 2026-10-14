@@ -52,3 +52,5 @@ __screenshots__/
 
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
+# Playwright MCP session output (snapshots, console logs)
+.playwright-mcp/

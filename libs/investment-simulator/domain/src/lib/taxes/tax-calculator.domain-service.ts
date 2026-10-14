@@ -13,7 +13,7 @@ export class TaxCalculator {
     grossEarnings: Money,
     holdingPeriodCalendarDays: number,
   ): TaxAssessment {
-    const iofBase = grossEarnings.isPositive()
+    const iofBase = grossEarnings.isPositive
       ? grossEarnings
       : Money.zero(grossEarnings.currency);
     const iof = this.iofPolicy.taxOnEarnings(

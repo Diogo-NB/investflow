@@ -238,7 +238,7 @@ describe('Curve', () => {
 
   it('copies and orders input intervals and returns defensive collections', () => {
     const later = interval('2026-10-08', '2026-10-31', '0.11');
-    const earlier = interval('2026-10-01', '2026-10-06');
+    const earlier = interval('2026-10-01', '2026-10-07');
     const input = [later, earlier];
     const curve = create({ intervals: input }).value;
     expect(input).toEqual([later, earlier]);
@@ -262,15 +262,10 @@ describe('Curve', () => {
     },
   );
 
-  it.each(['2026-09-30', '2026-10-07', '2026-11-01'])(
-    'reports absence at %s without filling gaps',
+  it.each(['2026-09-30', '2026-11-01'])(
+    'reports absence at %s outside the covered span',
     (reference) => {
-      const curve = create({
-        intervals: [
-          interval('2026-10-01', '2026-10-06'),
-          interval('2026-10-08', '2026-10-31'),
-        ],
-      }).value;
+      const curve = create().value;
       const result = curve.valueAt(CalendarDate.of(reference));
       expect(result.error.code).toBe(EAppErrorCode.CURVE_VALUE_NOT_FOUND);
       expect(result.error.metadata).toEqual({
@@ -322,6 +317,71 @@ describe('Curve', () => {
     const result = create(overrides);
     expect(result.error).toBeInstanceOf(InvalidCurveError);
     expect(result.error.code).toBe(EAppErrorCode.INVALID_CURVE);
+  });
+
+  it.each([
+    [
+      'a business day',
+      [
+        interval('2026-10-01', '2026-10-06'),
+        interval('2026-10-08', '2026-10-31'),
+      ],
+      { start: '2026-10-07', end: '2026-10-07' },
+    ],
+    [
+      'business days around a weekend, reported from the first to the last',
+      [
+        interval('2026-10-01', '2026-10-02'),
+        interval('2026-10-08', '2026-10-31'),
+      ],
+      { start: '2026-10-05', end: '2026-10-07' },
+    ],
+  ])('rejects a curve missing %s', (_, intervals, missing) => {
+    const result = create({ intervals });
+    expect(result.error.code).toBe(EAppErrorCode.CURVE_INTERVAL_GAP);
+    expect(result.error.metadata).toEqual(missing);
+  });
+
+  it('accepts uncovered weekends and holidays between intervals', () => {
+    // 10-10 and 10-11 are a weekend; 10-12 is a national holiday.
+    const result = create({
+      intervals: [
+        interval('2026-10-01', '2026-10-09'),
+        interval('2026-10-13', '2026-10-31', '0.11'),
+      ],
+    });
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('rejects a monthly curve missing a month', () => {
+    const result = create({
+      index: EEconomicIndex.IPCA,
+      intervals: [
+        interval('2027-01-01', '2027-01-31', '0.004'),
+        interval('2027-03-01', '2027-03-31', '0.003'),
+      ],
+    });
+    expect(result.error.code).toBe(EAppErrorCode.CURVE_INTERVAL_GAP);
+    expect(result.error.metadata).toEqual({
+      start: '2027-02-01',
+      end: '2027-02-28',
+    });
+  });
+
+  it('rejects an edit that leaves a gap without changing anything', () => {
+    const curve = create().value.markPersisted();
+    const result = curve.edit(
+      {
+        intervals: [
+          interval('2026-10-01', '2026-10-06'),
+          interval('2026-10-08', '2026-10-31'),
+        ],
+      },
+      LATER,
+    );
+    expect(result.error.code).toBe(EAppErrorCode.CURVE_INTERVAL_GAP);
+    expect(curve.revision).toBe(1);
+    expect(curve.intervals).toEqual([interval('2026-10-01', '2026-10-31')]);
   });
 
   it('resolves monthly inflation, deflation and repeated monthly values', () => {
@@ -385,7 +445,7 @@ describe('Curve', () => {
     const curve = create({
       intervals: [
         interval('2026-10-05', '2026-10-06', '0.10'),
-        interval('2026-10-09', '2026-10-09', '0.11'),
+        interval('2026-10-07', '2026-10-09', '0.11'),
       ],
     }).value;
     const references = [
@@ -402,7 +462,6 @@ describe('Curve', () => {
     const error = curve.valuesAt(references).error;
     expect(error.metadata?.['missingRanges']).toEqual([
       { start: '2026-10-01', end: '2026-10-02' },
-      { start: '2026-10-07', end: '2026-10-08' },
       { start: '2026-10-13', end: '2026-10-13' },
     ]);
     expect(error.metadata?.['curveId']).toBe(curve.id);

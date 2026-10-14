@@ -275,7 +275,10 @@ PDF/CSV ficam fora do escopo.
 - Um dia útil exclui sábados, domingos e os feriados nacionais usados pelo
   calendário financeiro da ANBIMA.
 - Os feriados fixos são 1º de janeiro, 21 de abril, 1º de maio, 7 de setembro,
-  12 de outubro, 2, 15 e 20 de novembro e 25 de dezembro.
+  12 de outubro, 2, 15 e 20 de novembro e 25 de dezembro. Um feriado só vale
+  a partir do ano em que foi instituído: 12 de outubro desde 1980 (Lei
+  6.802/1980) e 20 de novembro desde 2024 (Lei 14.759/2023). As origens dos
+  demais não foram pesquisadas, e eles valem em todos os anos.
 - Carnaval (segunda e terça-feira), Paixão de Cristo e Corpus Christi são
   derivados anualmente da data da Páscoa pelo computus gregoriano documentado
   no domínio compartilhado.
@@ -286,6 +289,15 @@ PDF/CSV ficam fora do escopo.
   em qualquer data; as simulações que a usam passam a "Requer ação".
 - Fechamentos exclusivos da B3, feriados estaduais ou municipais e alterações
   extraordinárias de calendário ficam fora do MVP.
+
+### Anos Aceitos na Interface
+
+Decisão de 2026-10-14: a interface web aceita datas (aplicação, vencimento de
+oferta, intervalos de curva) entre 1º de janeiro de AA − 100 e 31 de dezembro
+de AA + 100, sendo AA o ano corrente, porque seus calendários e verificações
+de data não alcançam todos os anos. É um limite da interface: a API aceita
+qualquer data. A interface carrega o calendário de dias úteis exatamente
+desses anos.
 
 ### Prefixado
 
@@ -472,4 +484,3 @@ validada antes da implementação.
 - Definir a rentabilidade mensal, anualizada e total da simulação (bruta ou
   líquida e a forma de anualização) e o prazo restante.
 - Definir comportamento após vencimento e eventual resgate.
-- Definir a interface de cadastro dos intervalos de uma curva.

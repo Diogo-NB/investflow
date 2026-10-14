@@ -1,4 +1,5 @@
 import {
+  BusinessDayCalendar,
   CalendarDate,
   AggregateRoot,
   generateUuid,
@@ -9,6 +10,7 @@ import {
 import { CurveInterval } from './curve-interval.vo';
 import {
   CurveCoverageError,
+  CurveIntervalGapError,
   CurveRevisionConflictError,
   CurveValueNotFoundError,
   InvalidCurveError,
@@ -47,6 +49,8 @@ export type ReconstituteCurveProps = CurveProps & {
 
 export type CurveEdit = Partial<CurveContent>;
 
+export type CurveContentError = InvalidCurveError | CurveIntervalGapError;
+
 export class Curve extends AggregateRoot {
   private constructor(
     id: string,
@@ -59,7 +63,7 @@ export class Curve extends AggregateRoot {
   static create(
     props: CreateCurveProps,
     occurredAt: UtcInstant,
-  ): Result<Curve, InvalidCurveError> {
+  ): Result<Curve, CurveContentError> {
     const content = Curve.normalize({
       name: props.name,
       description: props.description ?? null,
@@ -136,7 +140,7 @@ export class Curve extends AggregateRoot {
   duplicateFor(
     ownerId: string | null,
     occurredAt: UtcInstant,
-  ): Result<Curve, InvalidCurveError> {
+  ): Result<Curve, CurveContentError> {
     return Curve.create(
       {
         index: this.props.index,
@@ -152,7 +156,7 @@ export class Curve extends AggregateRoot {
   edit(
     edit: CurveEdit,
     occurredAt: UtcInstant,
-  ): Result<this, InvalidCurveError> {
+  ): Result<this, CurveContentError> {
     const content = Curve.normalize({
       name: edit.name ?? this.props.name,
       description:
@@ -255,7 +259,7 @@ export class Curve extends AggregateRoot {
   private static validate(
     index: EEconomicIndex,
     { name, intervals }: CurveContent,
-  ): InvalidCurveError | null {
+  ): CurveContentError | null {
     if (!name.length) {
       return new InvalidCurveError('Informe o nome da curva.');
     }
@@ -272,8 +276,8 @@ export class Curve extends AggregateRoot {
       }
       if (
         monthly &&
-        (!interval.range.start.isFirstDayOfMonth() ||
-          !interval.range.end.isLastDayOfMonth())
+        (!interval.range.start.isFirstDayOfMonth ||
+          !interval.range.end.isLastDayOfMonth)
       ) {
         return new InvalidCurveError(
           'Intervalos mensais devem cobrir meses completos.',
@@ -284,6 +288,36 @@ export class Curve extends AggregateRoot {
           start: interval.range.start.toIsoString(),
         });
       }
+    }
+    return Curve.firstGap(monthly, intervals);
+  }
+
+  // Monthly curves need every month; daily curves need every business day,
+  // the only days a calculation reads.
+  private static firstGap(
+    monthly: boolean,
+    intervals: readonly CurveInterval[],
+  ): CurveIntervalGapError | null {
+    for (let i = 1; i < intervals.length; i++) {
+      const after = intervals[i - 1].range.end.addDays(1);
+      const next = intervals[i].range.start;
+      if (monthly) {
+        if (after.isBefore(next)) {
+          return new CurveIntervalGapError(after, next.addDays(-1));
+        }
+        continue;
+      }
+      let first = after;
+      while (
+        first.isBefore(next) &&
+        !BusinessDayCalendar.isBusinessDay(first)
+      ) {
+        first = first.addDays(1);
+      }
+      if (!first.isBefore(next)) continue;
+      let last = next.addDays(-1);
+      while (!BusinessDayCalendar.isBusinessDay(last)) last = last.addDays(-1);
+      return new CurveIntervalGapError(first, last);
     }
     return null;
   }

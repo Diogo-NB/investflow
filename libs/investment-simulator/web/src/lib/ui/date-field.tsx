@@ -22,8 +22,12 @@ interface DateFieldProps extends ControlProps {
   readonly ref?: Ref<HTMLInputElement>;
   // Calendar days that cannot be picked (they can still be typed).
   readonly isDateUnavailable?: (isoDate: string) => boolean;
-  // The year of the month the calendar shows, as it opens and navigates.
-  readonly onVisibleYearChange?: (year: number) => void;
+  // Inclusive ISO bounds of the days the calendar offers; it opens within
+  // them and cannot leave their months.
+  readonly min?: string;
+  readonly max?: string;
+  // Where an empty calendar opens; today when absent or out of bounds.
+  readonly openTo?: string;
 }
 
 export function DateField({
@@ -33,12 +37,17 @@ export function DateField({
   disabled,
   ref,
   isDateUnavailable,
-  onVisibleYearChange,
+  min,
+  max,
+  openTo,
   ...control
 }: DateFieldProps) {
   // Text being typed; null shows the value itself.
   const [draft, setDraft] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  // Set on every opening: the calendar stays mounted between openings, so a
+  // starting month would keep showing the month of an earlier opening.
+  const [month, setMonth] = useState<Date | undefined>(undefined);
   const valid = isIsoDate(value);
   // A value set from outside (a filled offer, the calendar) replaces the draft.
   const text =
@@ -47,6 +56,21 @@ export function DateField({
       : valid
         ? formatIsoDate(value)
         : value;
+  const outside = (iso: string) =>
+    (min !== undefined && iso < min) || (max !== undefined && iso > max);
+  // The selected day when it is allowed, else the preferred day, else today
+  // moved within the bounds.
+  const today = todayInSaoPaulo();
+  const opening =
+    valid && !outside(value)
+      ? value
+      : openTo !== undefined && isIsoDate(openTo) && !outside(openTo)
+        ? openTo
+        : min !== undefined && today < min
+          ? min
+          : max !== undefined && today > max
+            ? max
+            : today;
 
   return (
     <div className={fieldBox}>
@@ -75,12 +99,8 @@ export function DateField({
       <Popover.Root
         open={open}
         onOpenChange={(next) => {
+          if (next) setMonth(isoToLocalDate(opening));
           setOpen(next);
-          if (next) {
-            onVisibleYearChange?.(
-              Number((valid ? value : todayInSaoPaulo()).slice(0, 4)),
-            );
-          }
         }}
       >
         <Popover.Trigger
@@ -109,18 +129,15 @@ export function DateField({
                 locale={ptBR}
                 autoFocus
                 captionLayout="dropdown"
-                startMonth={new Date(2000, 0)}
-                endMonth={new Date(2060, 11)}
+                startMonth={min ? isoToLocalDate(min) : new Date(2000, 0)}
+                endMonth={max ? isoToLocalDate(max) : new Date(2060, 11)}
                 selected={valid ? isoToLocalDate(value) : undefined}
-                defaultMonth={valid ? isoToLocalDate(value) : undefined}
-                onMonthChange={(month) =>
-                  onVisibleYearChange?.(month.getFullYear())
-                }
-                disabled={
-                  isDateUnavailable
-                    ? (date: Date) => isDateUnavailable(localDateToIso(date))
-                    : undefined
-                }
+                month={month}
+                onMonthChange={setMonth}
+                disabled={(date: Date) => {
+                  const iso = localDateToIso(date);
+                  return outside(iso) || Boolean(isDateUnavailable?.(iso));
+                }}
                 onSelect={(date) => {
                   if (!date) return;
                   setDraft(null);

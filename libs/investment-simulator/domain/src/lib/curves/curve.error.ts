@@ -12,6 +12,21 @@ export class InvalidCurveError extends DomainError {
   }
 }
 
+// A day the curve needs between its first and last dates has no value.
+export class CurveIntervalGapError extends DomainError {
+  constructor(start: CalendarDate, end: CalendarDate) {
+    super(
+      start.equals(end)
+        ? `Falta o valor de ${start.toPtBrString()}.`
+        : `Faltam valores de ${start.toPtBrString()} a ${end.toPtBrString()}.`,
+      {
+        code: EAppErrorCode.CURVE_INTERVAL_GAP,
+        metadata: { start: start.toIsoString(), end: end.toIsoString() },
+      },
+    );
+  }
+}
+
 export class CurveRevisionConflictError extends ConflictError {
   constructor(id: string, expectedRevision: number) {
     super(

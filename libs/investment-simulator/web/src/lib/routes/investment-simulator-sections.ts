@@ -1,4 +1,9 @@
-import { OfferIcon, SimulationIcon, type IconComponent } from '../ui/icons';
+import {
+  CurveIcon,
+  OfferIcon,
+  SimulationIcon,
+  type IconComponent,
+} from '../ui/icons';
 
 export interface InvestmentSimulatorSection {
   readonly path: string;
@@ -25,5 +30,13 @@ export const investmentSimulatorSections: readonly InvestmentSimulatorSection[] 
       description: 'Consulte e cadastre os títulos que suas simulações usam.',
       action: 'Abrir ofertas',
       Icon: OfferIcon,
+    },
+    {
+      path: '/curvas',
+      label: 'Curvas',
+      description:
+        'Mantenha as trajetórias de CDI, SELIC e IPCA que as simulações usam.',
+      action: 'Abrir curvas',
+      Icon: CurveIcon,
     },
   ];

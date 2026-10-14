@@ -14,6 +14,11 @@ const offerEditor = () =>
     Component: module.OfferEditorPage,
   }));
 
+const curveEditor = () =>
+  import('../curves/feature/curve-editor-page').then((module) => ({
+    Component: module.CurveEditorPage,
+  }));
+
 export function investmentSimulatorRoutes(
   deps: InvestmentSimulatorDeps,
 ): RouteObject[] {
@@ -60,6 +65,28 @@ export function investmentSimulatorRoutes(
             })),
         },
         { path: ':offerId/editar', lazy: offerEditor },
+      ],
+    },
+    {
+      path: 'curvas',
+      element: withDeps,
+      children: [
+        {
+          index: true,
+          lazy: () =>
+            import('../curves/feature/curve-list-page').then((module) => ({
+              Component: module.CurveListPage,
+            })),
+        },
+        { path: 'nova', lazy: curveEditor },
+        {
+          path: ':curveId',
+          lazy: () =>
+            import('../curves/feature/curve-details-page').then((module) => ({
+              Component: module.CurveDetailsPage,
+            })),
+        },
+        { path: ':curveId/editar', lazy: curveEditor },
       ],
     },
   ];

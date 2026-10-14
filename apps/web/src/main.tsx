@@ -1,3 +1,4 @@
+import { prefetchInvestmentSimulator } from '@investflow/investment-simulator-web';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Keycloak from 'keycloak-js';
 import { StrictMode } from 'react';
@@ -37,10 +38,10 @@ const queryClient = new QueryClient({
 
 startAuthentication(keycloak, window.location)
   .then((session) => {
+    const deps = { fetch: createAuthorizedFetch(keycloak) };
+    prefetchInvestmentSimulator(queryClient, deps);
     // Created after init, which removes Keycloak's callback fragment from the URL.
-    const router = createBrowserRouter(
-      createAppRoutes({ fetch: createAuthorizedFetch(keycloak) }),
-    );
+    const router = createBrowserRouter(createAppRoutes(deps));
     createRoot(root).render(
       <StrictMode>
         <AuthSessionContext value={session}>

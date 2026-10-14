@@ -1,5 +1,4 @@
 import {
-  BrazilianBusinessDayCalendar,
   CalendarDate,
   CalendarDateRange,
   Money,
@@ -27,9 +26,7 @@ import {
 
 export const CALCULATED_AT = UtcInstant.ofIso('2026-10-10T12:00:00Z');
 
-export const calculator = new InvestmentCalculator(
-  new BrazilianBusinessDayCalendar(),
-);
+export const calculator = new InvestmentCalculator();
 
 export const calculationService = new SimulationCalculationService(calculator);
 

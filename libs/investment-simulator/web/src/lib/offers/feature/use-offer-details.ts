@@ -83,8 +83,9 @@ export function useOfferDetails(offerId: string) {
         // Its simulations now show it as deleted.
         queryClient.invalidateQueries({ queryKey: simulationKeys.all }),
       ]);
-      navigate(`/ofertas${listSearch}`);
-      // Dropped after leaving, so the page does not refetch a deleted record.
+      // Dropped only once the list has replaced this page: while a lazy
+      // route loads, the page is still mounted and would refetch it.
+      await navigate(`/ofertas${listSearch}`);
       queryClient.removeQueries({ queryKey: offerKeys.detail(offerId) });
     },
   });

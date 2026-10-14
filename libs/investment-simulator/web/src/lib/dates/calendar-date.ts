@@ -38,6 +38,22 @@ export function parseBrazilianDate(text: string): string | null {
     : null;
 }
 
+/** "01/2027" → "2027-01", or null when it is not a real month. */
+export function parseBrazilianMonth(text: string): string | null {
+  const match = /^(\d{2})\/(\d{4})$/.exec(text.trim());
+  if (!match) return null;
+  const [, month, year] = match;
+  return isValidParts(Number(year), Number(month), 1)
+    ? `${year}-${month}`
+    : null;
+}
+
+/** "2027-02" → "2027-02-28". */
+export function lastDayOfMonth(isoMonth: string): string {
+  const [year, month] = isoMonth.split('-').map(Number);
+  return `${isoMonth}-${String(daysInMonth(year, month)).padStart(2, '0')}`;
+}
+
 /** The civil day before an ISO date, computed without instants. */
 export function previousDay(iso: string): string {
   let [year, month, day] = iso.split('-').map(Number);
@@ -49,6 +65,40 @@ export function previousDay(iso: string): string {
       year -= 1;
     }
     day = daysInMonth(year, month);
+  }
+  const pad = (value: number, length = 2) =>
+    String(value).padStart(length, '0');
+  return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
+}
+
+/** Days since 1970-01-01 for an ISO date, computed without instants. */
+export function dayNumber(iso: string): number {
+  const [year, month, day] = iso.split('-').map(Number);
+  // Counts years from March so the leap day falls at the end of the year.
+  const y = month <= 2 ? year - 1 : year;
+  const era = Math.floor(y / 400);
+  const yearOfEra = y - era * 400;
+  const dayOfYear =
+    Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
+  const dayOfEra =
+    yearOfEra * 365 +
+    Math.floor(yearOfEra / 4) -
+    Math.floor(yearOfEra / 100) +
+    dayOfYear;
+  return era * 146097 + dayOfEra - 719468;
+}
+
+/** The civil day after an ISO date, computed without instants. */
+export function nextDay(iso: string): string {
+  let [year, month, day] = iso.split('-').map(Number);
+  day += 1;
+  if (day > daysInMonth(year, month)) {
+    day = 1;
+    month += 1;
+    if (month === 13) {
+      month = 1;
+      year += 1;
+    }
   }
   const pad = (value: number, length = 2) =>
     String(value).padStart(length, '0');

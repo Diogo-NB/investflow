@@ -78,24 +78,25 @@ seja uma curva de juros a termo extraída de preços de mercado.
 
 ## Decisões Confirmadas
 
-| Decisão                      | Regra                                                                                                  |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Representação por intervalos | Os valores possuem início e fim explícitos.                                                            |
-| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.        |
-| Convenção única              | Todos os valores de uma curva utilizam a convenção do seu índice.                                      |
-| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                       |
-| Curvas independentes         | Cada curva fixa seu índice e é editável por seu dono; não há grupo de curvas no modelo.                |
-| Edição                       | Editar uma curva altera a própria curva, incrementa sua revisão e recalcula as simulações que a usam.  |
-| Visibilidade                 | Curvas de usuários são privadas; curvas do sistema são públicas e somente leitura para usuários.       |
-| Duplicação                   | Duplicar cria uma curva privada com o mesmo índice e o mesmo conteúdo, inclusive de curvas do sistema. |
-| Exclusão                     | Excluir é definitivo para o usuário; simulações que usavam a curva passam a "Requer ação".             |
-| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                               |
-| Cadastro incompleto          | Lacunas são permitidas, mas a curva precisa ter pelo menos um intervalo.                               |
-| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                                   |
-| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                       |
-| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.                  |
-| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                  |
-| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                               |
+| Decisão                      | Regra                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Representação por intervalos | Os valores possuem início e fim explícitos.                                                             |
+| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.         |
+| Convenção única              | Todos os valores de uma curva utilizam a convenção do seu índice.                                       |
+| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                        |
+| Curvas independentes         | Cada curva fixa seu índice e é editável por seu dono; não há grupo de curvas no modelo.                 |
+| Edição                       | Editar uma curva altera a própria curva, incrementa sua revisão e recalcula as simulações que a usam.   |
+| Visibilidade                 | Curvas de usuários são privadas; curvas do sistema são públicas e somente leitura para usuários.        |
+| Duplicação                   | Duplicar cria uma curva privada com o mesmo índice e o mesmo conteúdo, inclusive de curvas do sistema.  |
+| Exclusão                     | Excluir é definitivo para o usuário; simulações que usavam a curva passam a "Requer ação".              |
+| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                                |
+| Cadastro completo            | Sem dias úteis (ou meses, no IPCA) faltando entre o primeiro e o último intervalo (decisão 2026-10-13). |
+| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                                    |
+| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                        |
+| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.                   |
+| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                   |
+| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                |
+| Cadastro de intervalos       | Tabela editável com uma linha por intervalo (início, fim e valor), mantida contígua; no IPCA, meses.    |
 
 As regras exatas do CDI e do híbrido foram objeto de pesquisa de mercado
 solicitada durante a definição do produto. O CDI e as pendências do IPCA estão
@@ -227,14 +228,14 @@ cálculo deverá determinar as referências necessárias; a curva
 não escolhe dias úteis nem competências defasadas por conta própria. A forma
 de verificar o conjunto de referências será refinada em uma etapa posterior.
 
-### Exemplo de Lacuna Relevante
+### Exemplo de Lacuna Recusada
 
 Uma curva possui taxas de 01/10/2026 a 06/10/2026 e de 08/10/2026 a
-31/10/2026. O dia 07/10/2026 é um dia útil no calendário do PRD. Se sua taxa
-for necessária ao cálculo, a curva não possui cobertura suficiente.
+31/10/2026. O dia 07/10/2026 é um dia útil no calendário do PRD, então a
+curva não pode ser salva assim: falta o valor de 07/10/2026.
 
 A presença de valores nos dias anteriores e posteriores não autoriza deduzir
-o valor do dia ausente. O cálculo deve ser impedido.
+o valor do dia ausente; o usuário informa o valor que falta.
 
 ### Exemplo de Intervalo Sem Capitalização
 
@@ -242,16 +243,18 @@ Uma curva possui valores até sexta-feira, 02/10/2026, e a partir de
 segunda-feira, 05/10/2026. A ausência de taxas para sábado e domingo não
 constitui uma lacuna de juros para a capitalização por dias úteis.
 
-### Curvas Incompletas
+### Curvas Completas
 
-É permitido cadastrar uma curva com lacunas, desde que tenha pelo menos um
-intervalo. Sua suficiência é verificada a cada cálculo que a usa. Uma
-referência necessária ausente impede o cálculo e deve constar do diagnóstico
-de cobertura.
+Decisão de 2026-10-13: uma curva precisa ter pelo menos um intervalo e não
+pode ter lacunas. Entre o primeiro e o último intervalo, todo dia útil de uma
+curva diária (CDI e SELIC efetiva) e todo mês de uma curva mensal (IPCA) tem
+valor. Fins de semana e feriados sem valor não são lacunas, pois a
+capitalização por dias úteis não os lê.
 
-Uma mesma curva pode servir a uma simulação curta e não servir a outra mais
-longa, e uma edição pode mudar essa suficiência. Portanto, ela não deve ser
-presumida como uma característica permanente e universal da curva.
+A cobertura continua sendo verificada a cada cálculo: uma simulação pode
+precisar de datas antes do primeiro intervalo ou depois do último. Uma mesma
+curva pode servir a uma simulação curta e não servir a outra mais longa, e
+uma edição pode mudar essa suficiência.
 
 Para o IPCA, as competências exigidas podem anteceder a data da aplicação,
 conforme a defasagem contratual. Uma busca simples por datas dentro do
@@ -456,8 +459,8 @@ escolhida por outra.
 - Ausência de sobreposição entre trechos de uma curva, mesmo quando seus
   valores são iguais; cada referência necessária resolve para um único valor.
 - Identificação explícita da competência em curvas de inflação.
-- Cadastro permitido de curvas incompletas com pelo menos um intervalo,
-  com diagnóstico de cobertura por cálculo.
+- Pelo menos um intervalo e nenhum dia útil (ou mês, no IPCA) faltando entre
+  o primeiro e o último; a cobertura além deles é diagnosticada por cálculo.
 - Índice e convenção fixos na curva; uma mudança de significado origina outra
   curva.
 - Revisão da curva sempre crescente; uma alteração salva nunca reutiliza uma
@@ -469,7 +472,6 @@ escolhida por outra.
 | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Perfil contratual do IPCA | Definir atualização, aniversário, defasagem, proporcionalização e tratamento das extremidades do investimento. |
 | Histórico e projeções     | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários.      |
-| Cadastro de intervalos    | Definir a interface de cadastro e edição dos intervalos de uma curva.                                          |
 
 A decisão de impedir cálculo sem cobertura não é reaberta por essas
 pendências. Interpolação, prolongamento e substituição automática de curvas

@@ -22,7 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-13, after D5. D4b is paused after its first step.
+Last updated 2026-10-13, after D6. D4b is paused after its first step.
 
 Built for the target model:
 
@@ -46,7 +46,14 @@ Built for the target model:
   curves, always as the authenticated user. Every change writes an
   identifier-only event to the outbox. The seed creates the system curves
   through the same use case with the system actor. The simulation workspace
-  picks a curve grouped by origin; no curve screens yet.
+  picks a curve grouped by origin. A curve has no missing business days (or
+  months, for IPCA) between its first and last intervals; the domain rejects
+  a gap with `CURVE_INTERVAL_GAP`. The `/curvas` screens list (filtered by
+  index, with coverage), show (with a chart), create (optionally copying a
+  base curve's intervals), edit, duplicate, and delete curves (D6); intervals
+  are typed in a row table kept contiguous, with business-day pickers and
+  months for IPCA, and a curve's page lists the user's simulations that use
+  it. A simulation missing curve values links to its curve.
 - **Offers:** independent, revisioned `Offer` aggregates on the same model as
   curves: title type (fixed), name, optional issuer, remuneration and rate,
   maturity, and liquidity, with an owner (`null` is the system). Variants from
@@ -100,7 +107,7 @@ Differs from the target model:
 
 - Editing or deleting an offer or curve does not queue the simulations that
   use it; they are flagged "Desatualizado" until saved again (D4b, paused).
-  The offer screens say so in their impact notices.
+  The offer and curve screens say so in their impact notices.
 - The worker's guard covers only the simulation revision: an outcome
   calculated from an older offer or curve revision can land after a newer
   one, and is then shown as "Desatualizado" (D4b adds those revisions).
@@ -111,23 +118,21 @@ redemption.
 
 ## Next Steps
 
-1. Decide how users enter a curve's intervals before D6 starts (open
-   question in the curve specification).
-2. Resume D4b: actor on events, page fan-out, worker guard, and publishing
+1. Resume D4b: actor on events, page fan-out, worker guard, and publishing
    throughput.
 
 ## Overview
 
-| #   | Deliverable                                                       | Depends on                         | Status      |
-| --- | ----------------------------------------------------------------- | ---------------------------------- | ----------- |
-| D0  | Messaging runs locally end to end                                 | —                                  | Done        |
-| D1  | Curves become independent, revisioned, and owned                  | D0                                 | Done        |
-| D2  | Offers become independent, revisioned, and owned                  | D0                                 | Done        |
-| D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Done        |
-| D4a | A simulation's own calculation runs asynchronously                | D3                                 | Done        |
-| D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Paused      |
-| D5  | Offer screens (`/ofertas`)                                        | D2                                 | Done        |
-| D6  | Curve screens (`/curvas`)                                         | D1 and the interval-input decision | Not started |
+| #   | Deliverable                                                       | Depends on                         | Status |
+| --- | ----------------------------------------------------------------- | ---------------------------------- | ------ |
+| D0  | Messaging runs locally end to end                                 | —                                  | Done   |
+| D1  | Curves become independent, revisioned, and owned                  | D0                                 | Done   |
+| D2  | Offers become independent, revisioned, and owned                  | D0                                 | Done   |
+| D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Done   |
+| D4a | A simulation's own calculation runs asynchronously                | D3                                 | Done   |
+| D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Paused |
+| D5  | Offer screens (`/ofertas`)                                        | D2                                 | Done   |
+| D6  | Curve screens (`/curvas`)                                         | D1 and the interval-input decision | Done   |
 
 ```text
      ┌──► D1 ──┐
@@ -137,17 +142,19 @@ D0 ──┤         ├──► D3 ──► D4a ──► D4b
           D1 ── (interval input decided) ──► D6
 ```
 
-Recommended order: D0, D1, D2, D3, D4a, D5, D4b, D6. D0 went first
+Recommended order: D0, D1, D2, D3, D4a, D5, D6, D4b. D0 went first
 because it carried the most infrastructure unknowns and touched no business
 code. D2 followed D1's single-aggregate model: offers are not grouped in the
-domain (decision 2026-10-11). D6 waits for the pending product decision on how
-users enter a curve's intervals, which can be made while D1 to D4 are
-built.
+domain (decision 2026-10-11). D6 waited for the product decision on how users
+enter a curve's intervals: an editable row table, IPCA as months, and no
+observed or projected mark yet (decision 2026-10-13). It then went before
+D4b, like D5.
 
 D4b was paused on 2026-10-13 after its first step, and D5 went before it. Its
 impact counts became the filtered simulation list, which D5 built: the
-`offerId` filter's total says how many simulations a change affects. Until
-D4b resumes, the offer screens say that affected simulations stay
+`offerId` filter's total says how many simulations a change affects, and D6
+uses the `curveId` filter the same way. Until D4b resumes, the offer and curve
+screens say that affected simulations stay
 "Desatualizado" until saved again.
 
 D4c (a periodic reconciliation sweep) was dropped on 2026-10-12. The outbox
@@ -164,8 +171,9 @@ roadmap; they build on the new model once it is in place.
 
 **Paused (2026-10-13).** Step 1 is done; the remaining points below are
 settled but not built. Impact counts moved into D5 as the filtered simulation
-list. When D4b resumes, replace the offer screens' interim copy ("ficarão
-desatualizadas até serem salvas novamente") with the recalculation notice.
+list. When D4b resumes, replace the offer and curve screens' interim copy
+("ficarão desatualizadas até serem salvas novamente") with the recalculation
+notice.
 
 The flow is in walkthroughs 5 and 6 of
 [Event Flow](../architecture/event-flow.md). Decisions settled on 2026-10-12:
@@ -216,12 +224,3 @@ The flow is in walkthroughs 5 and 6 of
 
 **Done when** editing a curve recalculates every simulation that uses it, and
 deleting it moves them to "Requer ação".
-
-## D6 — Curve screens
-
-Implement "Curve behavior" in the frontend guide under `/curvas`. Blocked on
-the product decision about the interval input; everything else it needs exists
-after D1.
-
-**Done when** the recorded curve behavior works against the API and the
-frontend verification in the guide passes.

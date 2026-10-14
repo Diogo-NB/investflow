@@ -85,7 +85,7 @@ remuneration, and the curve when the remuneration needs one. It does not
 know aggregates, persistence, or clocks.
 
 ```typescript
-const calculator = new InvestmentCalculator(new BrazilianBusinessDayCalendar());
+const calculator = new InvestmentCalculator();
 const scenario = InvestmentScenario.create(props);
 if (scenario.isErr()) return scenario;
 const result = calculator.calculate(scenario.value);

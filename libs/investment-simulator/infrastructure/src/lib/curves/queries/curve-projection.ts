@@ -13,11 +13,8 @@ export interface CurveSummary {
   readonly description: string | null;
   readonly origin: CurveOrigin;
   readonly revision: number;
-  // First and last covered dates.
+  // First and last covered dates; a curve has no gaps between them.
   readonly coverage: { readonly startDate: string; readonly endDate: string };
-  // Uncovered days between the first and last dates; they block only the
-  // calculations that need them.
-  readonly hasGaps: boolean;
 }
 
 // A user sees system curves and their own.
@@ -51,10 +48,8 @@ type CurveSummaryRecord = Prisma.CurveGetPayload<{
 }>;
 
 export function toCurveSummary(record: CurveSummaryRecord): CurveSummary {
-  const intervals = record.intervals.map((interval) => ({
-    start: CalendarDate.fromUtcDate(interval.startDate).value,
-    end: CalendarDate.fromUtcDate(interval.endDate).value,
-  }));
+  const first = record.intervals[0];
+  const last = record.intervals[record.intervals.length - 1];
   return {
     id: record.id,
     index: record.index,
@@ -63,12 +58,8 @@ export function toCurveSummary(record: CurveSummaryRecord): CurveSummary {
     origin: record.ownerId ? 'OWN' : 'SYSTEM',
     revision: record.revision,
     coverage: {
-      startDate: intervals[0].start.toIsoString(),
-      endDate: intervals[intervals.length - 1].end.toIsoString(),
+      startDate: CalendarDate.fromUtcDate(first.startDate).value.toIsoString(),
+      endDate: CalendarDate.fromUtcDate(last.endDate).value.toIsoString(),
     },
-    hasGaps: intervals.some(
-      (interval, i) =>
-        i > 0 && !intervals[i - 1].end.addDays(1).equals(interval.start),
-    ),
   };
 }

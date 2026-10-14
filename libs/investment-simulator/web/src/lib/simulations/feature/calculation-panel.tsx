@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { formatInstant, formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney, formatPercentOf } from '../../decimals/format-decimal';
 import { useApiFetch } from '../../routes/investment-simulator-deps';
 import {
   AlertTriangleIcon,
   CheckCircleIcon,
+  CurveIcon,
   RefreshIcon,
   SpinningRefreshIcon,
   XCircleIcon,
@@ -173,6 +175,17 @@ function CalculationStatusNotice({
           {calculation.reason && (
             <p className="m-0 text-fg">{describeReason(calculation.reason)}</p>
           )}
+          {calculation.reason?.code === 'INVESTMENT_CURVE_COVERAGE_MISSING' &&
+            saved.curve &&
+            !saved.curve.deleted && (
+              <Link
+                to={`/curvas/${saved.curve.id}`}
+                className={secondaryButton}
+              >
+                <CurveIcon className="size-4 shrink-0" />
+                Ver curva {saved.curve.name}
+              </Link>
+            )}
         </StatusCard>
       );
     case 'FAILED':

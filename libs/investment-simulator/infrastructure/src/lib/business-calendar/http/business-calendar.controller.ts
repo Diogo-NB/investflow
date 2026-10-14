@@ -1,17 +1,15 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { SkipTransaction } from '@investflow/shared-infrastructure';
-import { ListNonBusinessDaysQueryHandler } from '../queries/list-non-business-days.query-handler';
-import { ListNonBusinessDaysRequest } from './requests/list-non-business-days.request';
+import { GetBusinessCalendarQueryHandler } from '../queries/get-business-calendar.query-handler';
+import { GetBusinessCalendarRequest } from './requests/get-business-calendar.request';
 
 @Controller('investment-simulator/business-calendar')
 export class BusinessCalendarController {
-  constructor(
-    private readonly listNonBusinessDays: ListNonBusinessDaysQueryHandler,
-  ) {}
+  constructor(private readonly getCalendar: GetBusinessCalendarQueryHandler) {}
 
-  @Get('non-business-days')
+  @Get()
   @SkipTransaction()
-  nonBusinessDays(@Query() query: ListNonBusinessDaysRequest) {
-    return this.listNonBusinessDays.execute({ year: query.year });
+  get(@Query() query: GetBusinessCalendarRequest) {
+    return this.getCalendar.execute(query);
   }
 }

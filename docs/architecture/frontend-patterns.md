@@ -18,11 +18,12 @@ Nx. Status:
    ajustar" or "Digitar termos", keeps one result, and "Salvar e calcular"
    sends its revision. With D4a the workspace shows the calculation status and
    polls it.
-3. Next, after the backend redesign of 2026-10-11 (mutable premises and
-   asynchronous recalculation, see `project-structure.md`): the offer screens
-   under `/ofertas` and the curve screens under `/curvas`, mounted by the same
-   route factory, then the rest of the simulation workspace's recorded
-   behavior (status, impact notices, editing an own offer in place).
+3. In progress, after the backend redesign of 2026-10-11 (mutable premises
+   and asynchronous recalculation, see `project-structure.md`): done are the
+   offer screens under `/ofertas` (D5) and the curve screens under `/curvas`
+   (D6), mounted by the same route factory. Next is the rest of the
+   simulation workspace's recorded behavior (impact notices, editing an own
+   offer in place).
 4. Finally: full verification (see Testing and verification).
 
 Each step keeps `pnpm check` green. The Keycloak realm doesn't change; API
@@ -85,7 +86,7 @@ InvestFlow's frontend is a client-rendered authenticated SPA. Opening `/`
 requires Keycloak login and then shows a Portuguese welcome page, the
 authenticated identity, and logout. Unmatched browser routes redirect to `/`.
 The welcome page and the header link to each mounted context feature
-(`/simulacoes` and `/ofertas`; curves under `/curvas` come next). The bounded context owns its
+(`/simulacoes`, `/ofertas`, and `/curvas`). The bounded context owns its
 business requests and presentation.
 
 ```text
@@ -143,7 +144,9 @@ interface InvestmentSimulatorDeps {
 ```
 
 The app passes its bearer-attaching `authorizedFetch` and spreads the result
-into its shell routes. The library also exports `investmentSimulatorSections`
+into its shell routes. Right after login it also calls
+`prefetchInvestmentSimulator(queryClient, deps)`, which starts the reads every
+screen needs (the business calendar) without blocking the first render. The library also exports `investmentSimulatorSections`
 (path, label, description, action, and canonical icon of each screen), which
 the app's header and welcome page render, so the context owns how its
 sections are named and drawn. The factory returns top-level paths (`simulacoes`, later
@@ -438,10 +441,11 @@ any of them changes.
     coverage, and warns when the period may exceed it.
 - The investment and maturity date pickers grey out weekends and holidays.
   `BusinessDateField` (in the library's `business-calendar/` folder, for any
-  screen that needs business days) reads them per year from
-  `GET business-calendar/non-business-days?year=`; the browser holds no
-  holiday rules. Typed dates are not blocked; the request rejects a
-  non-business day on its field.
+  screen that needs business days) uses the shared business calendar (see
+  Business rules and the business calendar) and limits its calendar to the
+  accepted years; the browser holds no holiday rules. Typed dates are not blocked by the picker; the form rejects one outside
+  the accepted years, and the request a non-business day, on its field. The INVALID notice for missing curve values
+  links to the curve ("Ver curva <nome>").
 - "Salvar e calcular" sends the simulation (with its revision when editing) and
   is disabled when nothing changed. A rejected request saves nothing: the form
   keeps its edits as unsaved changes and the reason appears on the responsible
@@ -555,25 +559,109 @@ independent; the screens group them, and no grouping is stored.
 - Browser and API verification uses dedicated test offers. It doesn't reset
   local databases or change Keycloak accounts.
 
+## Business rules and the business calendar
+
+Decision dated 2026-10-13. The API keeps the final say over every business
+rule, because other clients, the seed, and imports write through it. A form
+repeats a small rule set only for instant feedback, with the API's messages,
+and still shows the API's answer when they disagree. Editing conveniences
+that are not rules, such as keeping curve rows contiguous, live only in the
+frontend as pure, tested functions. Browser code never imports server
+libraries.
+
+The business calendar stays in the API, the only source of holidays
+(decision 2026-10-14). The page accepts dates within the current year ± 100
+(`acceptedYears`, a limit of the page alone, since its calendars and checks
+cannot cover every year; the API accepts any date).
+`GET business-calendar?fromYear=&toYear=` returns the holidays that fall on
+weekdays in those years; the browser treats Saturday and Sunday as
+non-business. Date fields outside the curve editor (offer maturity,
+simulation investment date) reject typed dates outside those years with the
+same message. The app starts this read right after login
+(`prefetchInvestmentSimulator`), it lasts the session, and
+`useBusinessCalendar()` turns it into a synchronous `BusinessCalendar`: no
+screen reasons about years being loaded. Screens that need it (the curve
+editor) wait for it with their own loading and retry states, and every
+business date field bounds its picker to the accepted years.
+
 ## Curve behavior
 
-Recorded 2026-10-11. Not implemented in the browser. A curve has an index
-(which fixes the value convention), a name, an optional description,
+Recorded 2026-10-11 and implemented under `/curvas` (D6). A curve has an
+index (which fixes the value convention), a name, an optional description,
 intervals with values, an owner, and a revision. Alternatives of one index are
 separate curves; screens group them by index and origin, and nothing about the
 grouping is stored. Visibility and ownership follow Offer behavior.
 
 - Routes under `/curvas`: list, curve details, create, and editor. Each loads
-  lazily.
+  lazily. Confirmation dialogs load on demand.
 - The list shows the curves visible to the user grouped by index, then by
-  origin ("Do sistema", "Minhas"), sorted by name, filterable by index, with
-  each curve's coverage (first and last dates, and whether it has gaps).
-- "Duplicar" creates a private copy named "<nome> (cópia)" with the same
-  index and content, including from a system curve; a system curve offers
-  only "Duplicar".
-- The editor edits the name, description, and intervals; rates are typed as
-  percentages. The interval input design is a pending product decision (see
-  the curve specification). It follows the offer editor's impact notice,
-  revision conflict, and save rules.
+  origin ("Do sistema", "Minhas"), sorted by name, with each curve's coverage
+  (first and last dates; a curve has no gaps). The `index` URL parameter
+  filters it and carries through to detail and editor links and back; an
+  unknown value is dropped through navigation. The list is not paginated.
+  "Nova curva" from a filtered list starts with that index.
+- Details show the index, convention, coverage, origin, and description, a
+  step line chart of the values over time above the intervals table (each step
+  runs until the next interval starts, a zero
+  line appears when a value is negative, and the hovered interval's exact value
+  and dates show in a strip above the plot, never over the axis, for mouse and
+  keyboard alike), and "Simulações com esta curva" with the same reads,
+  states, and "Ver todas (N)" link (`/simulacoes?curveId=<id>`) as offers.
+  Own curves offer "Editar", "Duplicar" and "Excluir". A system curve shows a
+  "Curva do sistema: somente leitura" notice and offers only "Duplicar", as
+  its primary action. "Duplicar" creates a private copy named "<nome>
+  (cópia)" with the same index and content.
+- The editor edits the name, description, and intervals; the index is chosen
+  only on creation, where it starts unselected (or with the list's `index`
+  filter) and the rows appear once it is chosen. Creating also offers "Copiar
+  intervalos de": a base curve, filtered by the chosen index, whose choice
+  sets the index and replaces the rows. Intervals are an editable row table
+  (decision 2026-10-13): one row per interval with start, end, and value, all
+  inclusive. CDI and SELIC rows take dates, whose pickers offer only business
+  days within the row's limits: an end picker opens on its start's month and
+  offers nothing before the start (a one-day interval stays possible) or
+  from the next row's end on, and a start picker offers nothing up to the
+  previous row's start or after its own end (typed dates are not blocked;
+  changing a start checks a filled end at once), and an annual rate in percent, never
+  negative; IPCA rows take MM/AAAA months (first to last day) and a monthly
+  variation in percent above -100%, which may be negative. Switching between
+  daily and monthly indexes on creation clears the rows.
+- Rows stay contiguous as they are edited (pure row operations in
+  `curve-form.ts`, tested without React):
+  - Changing an end moves the next row's start to the following business day
+    (or month); changing a start moves the previous row's end to the business
+    day (or month) before it.
+  - Removing a row between two others makes the previous one run until the
+    next starts. Removing the first or last row shortens the curve, never
+    stretching a neighbor over the removed days.
+  - "Dividir em dois" splits a row at the month start nearest its middle (its
+    middle business day, or month, when it lies within one month); both
+    halves keep the value and the second one's value gets focus.
+  - "Adicionar intervalo" starts the new row right after the last one and
+    guesses its end as that month's last business day (or the same month),
+    focusing the value. A value field suggests the previous row's value as
+    its placeholder.
+  - Removing a row, switching between daily and monthly indexes with rows
+    filled, or copying a base curve over typed rows offers "Desfazer", right
+    under the rows, until the next edit or save. Removing moves focus to
+    "Desfazer"; undoing moves it to the restored row.
+  - After rows are added, split, removed, or restored, only the rules between
+    rows and the fields already in error are re-checked, so a new row's empty
+    fields stay quiet until the next save.
+  - Overlaps and missing business days (or months) are flagged on the later
+    row with the API's message and a one-click "Começar em <data>" fix. Typing
+    alone cannot open a gap, since rows follow each other; the message and fix
+    are for rows loaded with one, or a gap the API reports. A
+    typed weekend or holiday shows "Não é dia útil." without blocking. At
+    least one row is required. A live summary states the coverage (months for IPCA). On phones each row has
+    a visible "Intervalo N" heading and its actions show their names. Observed
+    and projected values are not distinguished yet (open question in the
+    curve specification).
+- The editor follows the offer editor's impact notice, revision conflict, and
+  save rules. Until curve changes recalculate simulations (D4b, paused), the
+  notice reads "N simulações usam esta curva e ficarão desatualizadas até
+  serem salvas novamente". The PATCH sends only changed fields, comparing
+  intervals after the same conversion and ordering, so retyping a value
+  identically changes nothing.
 - Deleting a curve states how many of the user's simulations will require a
   new choice ("Sem curva, escolha outra"). Its copies are not affected.

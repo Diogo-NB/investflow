@@ -17,7 +17,6 @@ import {
   SimulationCalculationService,
 } from '@investflow/investment-simulator-domain';
 import {
-  BrazilianBusinessDayCalendar,
   CalendarDate,
   CalendarDateRange,
   EAppErrorCode,
@@ -46,7 +45,7 @@ const connectionString = process.env['INVESTMENT_SIMULATOR_TEST_DATABASE_URL'];
 const integration = connectionString ? describe : describe.skip;
 
 const calculation = new SimulationCalculationService(
-  new InvestmentCalculator(new BrazilianBusinessDayCalendar()),
+  new InvestmentCalculator(),
 );
 
 // Each save runs in its own unit of work, as a request would.
@@ -361,7 +360,7 @@ integration('Simulation PostgreSQL persistence', () => {
 
     expect(loaded?.methodologyVersion).toBe('lci-252-v1');
     expect(loaded?.taxes.incomeTax.rate).toBeNull();
-    expect(loaded?.taxes.incomeTax.amount.isZero()).toBe(true);
+    expect(loaded?.taxes.incomeTax.amount.isZero).toBe(true);
   });
 
   it('replaces the result and its balances when an edit is calculated', async () => {

@@ -109,15 +109,15 @@ export class Money extends ValueObject<Money> {
     return Money.of(this.amountValue.times(factor), this.currency);
   }
 
-  isZero(): boolean {
+  get isZero(): boolean {
     return this.amountValue.isZero();
   }
 
-  isPositive(): boolean {
+  get isPositive(): boolean {
     return this.amountValue.isPositive() && !this.amountValue.isZero();
   }
 
-  isNegative(): boolean {
+  get isNegative(): boolean {
     return this.amountValue.isNegative() && !this.amountValue.isZero();
   }
 

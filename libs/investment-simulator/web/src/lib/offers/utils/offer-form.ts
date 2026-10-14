@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { isIsoDate } from '../../dates/calendar-date';
+import {
+  isInAcceptedYears,
+  outsideAcceptedYearsMessage,
+} from '../../business-calendar/business-calendar';
+import { isIsoDate, todayInSaoPaulo } from '../../dates/calendar-date';
 import {
   fitsDecimalStorage,
   isPositiveDecimal,
@@ -26,6 +30,10 @@ export const requiredDate = z
   .refine(
     (value) => value === '' || isIsoDate(value),
     'Informe uma data válida no formato DD/MM/AAAA.',
+  )
+  .refine(
+    (value) => !isIsoDate(value) || isInAcceptedYears(value, todayInSaoPaulo()),
+    { error: () => outsideAcceptedYearsMessage(todayInSaoPaulo()) },
   );
 
 export function decimalText(empty: string, positive: string) {

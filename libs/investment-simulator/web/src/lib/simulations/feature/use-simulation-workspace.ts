@@ -163,8 +163,9 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
     mutationFn: () => deleteSimulation(fetchFn, simulationId ?? ''),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: simulationKeys.lists() });
-      navigate(`/simulacoes${listSearch(searchParams)}`);
-      // Dropped after leaving, so the page does not refetch a deleted record.
+      // Dropped only once the list has replaced this page: while a lazy
+      // route loads, the page is still mounted and would refetch it.
+      await navigate(`/simulacoes${listSearch(searchParams)}`);
       queryClient.removeQueries({
         queryKey: simulationKeys.workspace(simulationId ?? ''),
       });

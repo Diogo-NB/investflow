@@ -1,4 +1,5 @@
 import type { OfferSummary } from '../models/offer.types';
+import { todayInSaoPaulo } from '../../dates/calendar-date';
 import { offerEdit, offerFormSchema, offerValues } from './offer-form';
 
 const offer: OfferSummary = {
@@ -50,5 +51,20 @@ describe('offerFormSchema', () => {
 
     expect(result.success).toBe(false);
     expect(result.error?.issues.map((issue) => issue.path)).toEqual([['name']]);
+  });
+
+  it('rejects a maturity outside the years the page accepts', () => {
+    const year = Number(todayInSaoPaulo().slice(0, 4));
+    const result = offerFormSchema.safeParse({
+      ...offerValues(offer),
+      maturityDate: `${year + 101}-01-02`,
+    });
+
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ['maturityDate'],
+        message: `Use datas entre 01/01/${year - 100} e 31/12/${year + 100}.`,
+      }),
+    ]);
   });
 });

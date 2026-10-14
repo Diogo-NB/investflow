@@ -19,7 +19,7 @@ describe('Money', () => {
       const result = Money.create(0, 'USD');
 
       expect(result.isOk()).toBe(true);
-      expect(result.value.isZero()).toBe(true);
+      expect(result.value.isZero).toBe(true);
       expect(result.value.currency).toBe('USD');
     });
 
@@ -38,7 +38,7 @@ describe('Money', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result.value.amount.toString()).toBe('-0.01');
-      expect(result.value.isNegative()).toBe(true);
+      expect(result.value.isNegative).toBe(true);
     });
 
     it.each(['brl', 'REAL', 'BR'])(
@@ -69,7 +69,7 @@ describe('Money', () => {
     it('creates zero in the requested currency', () => {
       const money = Money.zero('EUR');
 
-      expect(money.isZero()).toBe(true);
+      expect(money.isZero).toBe(true);
       expect(money.currency).toBe('EUR');
     });
   });
@@ -85,14 +85,14 @@ describe('Money', () => {
     });
 
     it('allows subtraction to produce zero', () => {
-      expect(Money.of('50').subtract(Money.of('50')).isZero()).toBe(true);
+      expect(Money.of('50').subtract(Money.of('50')).isZero).toBe(true);
     });
 
     it('allows subtraction to produce a negative amount', () => {
       const result = Money.of('10').subtract(Money.of('20'));
 
       expect(result.amount.toString()).toBe('-10');
-      expect(result.isNegative()).toBe(true);
+      expect(result.isNegative).toBe(true);
     });
 
     it('rejects arithmetic between different currencies', () => {
@@ -146,8 +146,8 @@ describe('Money', () => {
       expect(low.lessThan(high)).toBe(true);
       expect(low.lessThanOrEqual(high)).toBe(true);
       expect(low.lessThanOrEqual(same)).toBe(true);
-      expect(high.isPositive()).toBe(true);
-      expect(Money.of(-1).isNegative()).toBe(true);
+      expect(high.isPositive).toBe(true);
+      expect(Money.of(-1).isNegative).toBe(true);
     });
 
     it('rejects comparison between different currencies', () => {
