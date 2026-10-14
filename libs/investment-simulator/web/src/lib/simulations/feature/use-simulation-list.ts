@@ -6,6 +6,12 @@ import {
   WORKSPACE_REFRESH_MS,
 } from '../api/simulation-api';
 import type { SimulationListItem } from '../models/simulation.types';
+import { parsePage, toSearch, withPage } from '../../pagination/page-search';
+import {
+  LIST_FILTERS,
+  parseFilters,
+  type SimulationListFilter,
+} from '../utils/simulation-list-search';
 
 export type SimulationListState =
   | { readonly status: 'loading' }
@@ -19,18 +25,14 @@ export type SimulationListState =
       readonly updating: boolean;
     };
 
-export function parsePage(param: string | null): number | null {
-  if (param === null) return 1;
-  return /^[1-9]\d{0,6}$/.test(param) ? Number(param) : null;
-}
-
 export function useSimulationList() {
   const fetchFn = useApiFetch();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { filters, invalid } = parseFilters(searchParams);
   const requested = parsePage(searchParams.get('page'));
   const page = requested ?? 1;
   const query = useQuery({
-    ...simulationListQuery(fetchFn, page),
+    ...simulationListQuery(fetchFn, { page, ...filters }),
     placeholderData: keepPreviousData,
     // Only while a row is calculating, so its status settles on screen.
     refetchInterval: ({ state }) =>
@@ -42,14 +44,20 @@ export function useSimulationList() {
   const lastPage = query.data
     ? Math.max(1, Math.ceil(query.data.total / query.data.pageSize))
     : null;
-  // Malformed pages and pages past the end (after deletions) are corrected by
-  // navigating, never by copying the URL into state.
+  // Malformed values and pages past the end (after deletions) are corrected
+  // by navigating, never by copying the URL into state.
   const correctedPage =
     requested === null
       ? 1
       : lastPage !== null && !query.isPlaceholderData && page > lastPage
         ? lastPage
         : null;
+  const correctedSearch = (() => {
+    if (invalid.length === 0 && correctedPage === null) return null;
+    const next = new URLSearchParams(searchParams);
+    for (const name of invalid) next.delete(name);
+    return withPage(next, correctedPage ?? page);
+  })();
 
   const state: SimulationListState =
     query.data && lastPage !== null
@@ -64,10 +72,30 @@ export function useSimulationList() {
         ? { status: 'error', retrying: query.isFetching }
         : { status: 'loading' };
 
+  // A different filter means a different list, which starts at its first page.
+  function updateFilters(change: (next: URLSearchParams) => void) {
+    const next = new URLSearchParams(searchParams);
+    change(next);
+    next.delete('page');
+    setSearchParams(next);
+  }
+
   return {
     page,
+    filters,
+    filtered: Object.keys(filters).length > 0,
     state,
-    correctedPage,
+    correctedSearch,
+    search: toSearch(searchParams),
+    setFilter: (name: SimulationListFilter, value: string | null) =>
+      updateFilters((next) => {
+        if (value) next.set(name, value);
+        else next.delete(name);
+      }),
+    clearFilters: () =>
+      updateFilters((next) => {
+        for (const name of LIST_FILTERS) next.delete(name);
+      }),
     retry: () => void query.refetch(),
   };
 }

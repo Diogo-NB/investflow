@@ -1,6 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -10,6 +11,7 @@ import {
 } from 'class-validator';
 import { ETitleType } from '@investflow/investment-simulator-domain';
 import { ListOffersQuery } from '../../queries/list-offers.query-handler';
+import type { OfferOrigin } from '../../queries/offer-projection';
 
 export class ListOffersRequest implements Omit<ListOffersQuery, 'viewerId'> {
   @Type(() => Number)
@@ -35,4 +37,8 @@ export class ListOffersRequest implements Omit<ListOffersQuery, 'viewerId'> {
   @IsOptional()
   @IsEnum(ETitleType)
   titleType?: ETitleType;
+
+  @IsOptional()
+  @IsIn(['SYSTEM', 'OWN'])
+  origin?: OfferOrigin;
 }

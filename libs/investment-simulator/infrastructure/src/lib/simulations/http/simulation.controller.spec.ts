@@ -80,6 +80,24 @@ describe('SimulationController', () => {
     });
   });
 
+  it('passes the list filters within the owner scope', async () => {
+    const fixture = createFixture();
+    const request = Object.assign(new ListSimulationsRequest(), {
+      offerId: OFFER_ID,
+      calculationStatus: 'INVALID',
+    });
+
+    await fixture.controller.list(USER, request);
+
+    expect(fixture.list.execute).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      offerId: OFFER_ID,
+      calculationStatus: 'INVALID',
+      ownerId: USER.userId,
+    });
+  });
+
   it('builds owned commands from the request', async () => {
     const fixture = createFixture();
 

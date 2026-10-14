@@ -64,13 +64,16 @@ export function SelectField({
           placeholder={placeholder}
           className="min-w-0 truncate data-placeholder:text-muted"
         />
-        <Select.Icon aria-hidden="true" className="text-muted">
+        <Select.Icon
+          aria-hidden="true"
+          className="text-muted transition-transform duration-150 in-data-popup-open:rotate-180"
+        >
           ▾
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
         <Select.Positioner sideOffset={4} className="z-20 outline-none">
-          <Select.Popup className="max-h-(--available-height) min-w-(--anchor-width) overflow-y-auto rounded-control border border-border bg-surface py-1 text-fg outline-none">
+          <Select.Popup className="max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-y-auto rounded-control border border-border bg-surface py-1 text-fg outline-none transition-[opacity,scale] duration-150 ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
             <Select.List>
               {options?.map((option) => (
                 <SelectItem key={option.value} option={option} />

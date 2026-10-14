@@ -9,15 +9,20 @@ import {
   type RemunerationKind,
   type TitleType,
 } from '../../offers/models/offer-terms';
+import {
+  offerSelectGroups,
+  ORIGIN_LABELS,
+} from '../../offers/utils/offer-groups';
 import { BusinessDateField } from '../../business-calendar/business-date-field';
 import { DecimalInput } from '../../ui/decimal-input';
 import { FormField } from '../../ui/form-field';
+import { SelectField, type SelectOption } from '../../ui/select-field';
 import {
-  SelectField,
-  type SelectGroup,
-  type SelectOption,
-} from '../../ui/select-field';
-import { CheckCircleIcon, SpinningRefreshIcon } from '../../ui/icons';
+  CheckCircleIcon,
+  CurveIcon,
+  OfferIcon,
+  SpinningRefreshIcon,
+} from '../../ui/icons';
 import {
   bareInput,
   fieldBox,
@@ -27,7 +32,6 @@ import {
   surface,
 } from '../../ui/styles';
 import type {
-  ContentOrigin,
   OfferOption,
   SimulationOptions,
   SimulationWorkspace,
@@ -42,11 +46,6 @@ const REDEMPTION_OPTIONS: SelectOption[] = (
 ).map((kind) => ({ value: kind, label: REDEMPTION_LABELS[kind] }));
 
 type OfferTerms = Omit<OfferOption, 'unsupportedReason'>;
-
-const ORIGIN_LABELS: Record<ContentOrigin, string> = {
-  SYSTEM: 'Do sistema',
-  OWN: 'Minhas',
-};
 
 const legendClass =
   'float-left mb-4 w-full p-0 text-sm font-semibold tracking-wide text-muted uppercase';
@@ -64,32 +63,6 @@ function titleTypeHint(
       : null,
   ];
   return facts.filter(Boolean).join(' · ');
-}
-
-function offerOption(offer: OfferOption): SelectOption {
-  return {
-    value: offer.id,
-    label: offer.name,
-    detail: offer.unsupportedReason
-      ? UNSUPPORTED_LABELS[offer.unsupportedReason]
-      : [
-          offer.issuerName,
-          remunerationLabel(offer.remunerationTerms),
-          `vence em ${formatIsoDate(offer.maturityDate)}`,
-        ]
-          .filter(Boolean)
-          .join(' · '),
-    disabled: offer.unsupportedReason !== null,
-  };
-}
-
-function offerGroups(offers: readonly OfferOption[]): SelectGroup[] {
-  const groups = new Map<string, SelectOption[]>();
-  for (const offer of offers) {
-    const label = `${offer.titleType} · ${ORIGIN_LABELS[offer.origin]}`;
-    groups.set(label, [...(groups.get(label) ?? []), offerOption(offer)]);
-  }
-  return [...groups].map(([label, options]) => ({ label, options }));
 }
 
 function OfferPicker({
@@ -131,7 +104,7 @@ function OfferPicker({
               value={deleted ? '' : field.value}
               placeholder="Escolha uma oferta"
               disabled={pending || offers.length === 0}
-              groups={offerGroups(offers)}
+              groups={offerSelectGroups(offers)}
               onValueChange={(value) => {
                 const chosen = offers.find((offer) => offer.id === value);
                 if (chosen) simulation.chooseOffer(chosen);
@@ -159,7 +132,12 @@ function ChosenOffer({
   const { offer } = simulation;
   return (
     <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
-      <legend className={legendClass}>Oferta</legend>
+      <legend className={legendClass}>
+        <span className="flex items-center gap-2">
+          <OfferIcon className="size-4 shrink-0" />
+          Oferta
+        </span>
+      </legend>
       <OfferPicker
         simulation={simulation}
         offers={options.offers}
@@ -216,7 +194,12 @@ function TermsFieldset({
 
   return (
     <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
-      <legend className={legendClass}>Nova oferta</legend>
+      <legend className={legendClass}>
+        <span className="flex items-center gap-2">
+          <OfferIcon className="size-4 shrink-0" />
+          Nova oferta
+        </span>
+      </legend>
       <FormField label="Nome da oferta" error={errors.offerName?.message}>
         {(control) => (
           <div className={fieldBox}>
@@ -471,6 +454,7 @@ function InvestmentFieldset({
           render={({ field, fieldState }) => (
             <FormField
               label={`Curva do ${index}`}
+              icon={CurveIcon}
               error={
                 fieldState.error?.message ??
                 (curveDeleted ? 'Sem curva, escolha outra.' : undefined)

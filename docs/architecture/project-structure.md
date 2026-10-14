@@ -391,10 +391,10 @@ simulation, offer, and curve revisions and the methodology version it used;
 "Digitar termos" and "Duplicar e ajustar" create a private offer in the same
 request. A simulation's own calculation is asynchronous (D4a): saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
-calculates; a dead-letter consumer records `FAILED`. Still pending (D4b):
-offer and curve changes do not queue the simulations that use them, events do
-not carry the actor, and the worker's guard covers only the simulation
-revision. The design below was settled on 2026-10-12.
+calculates; a dead-letter consumer records `FAILED`. Still pending (D4b,
+paused on 2026-10-13 after D5 took its place): offer and curve changes do not
+queue the simulations that use them, events do not carry the actor, and the
+worker's guard covers only the simulation revision. The design below was settled on 2026-10-12.
 Deliverables and their order are in
 `docs/product/implementation-roadmap.md`.
 

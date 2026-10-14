@@ -1,11 +1,15 @@
 import type {
   EconomicIndex,
-  RedemptionKind,
   RemunerationKind,
   RemunerationTerms,
   TitleType,
   UnsupportedReason,
 } from '../../offers/models/offer-terms';
+import type {
+  ContentOrigin,
+  OfferSummary,
+  OfferTermsInput,
+} from '../../offers/models/offer.types';
 
 export type CalculationStatus = 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
 
@@ -54,8 +58,6 @@ export interface SimulationListItem {
   } | null;
 }
 
-export type ContentOrigin = 'SYSTEM' | 'OWN';
-
 export interface CurveOption {
   readonly id: string;
   readonly name: string;
@@ -72,16 +74,7 @@ export interface RemunerationOption {
   readonly curves: readonly CurveOption[];
 }
 
-export interface OfferOption {
-  readonly id: string;
-  readonly titleType: TitleType;
-  readonly name: string;
-  readonly origin: ContentOrigin;
-  readonly revision: number;
-  readonly issuerName: string | null;
-  readonly maturityDate: string;
-  readonly redemptionTerms: { readonly kind: RedemptionKind };
-  readonly remunerationTerms: RemunerationTerms;
+export interface OfferOption extends OfferSummary {
   readonly unsupportedReason: UnsupportedReason | null;
 }
 
@@ -203,15 +196,6 @@ export interface MonthlyBalance {
   readonly accumulatedGrossEarnings: string;
   readonly closingGrossBalance: string;
   readonly days: readonly DailyBalance[];
-}
-
-export interface OfferTermsInput {
-  readonly titleType: TitleType;
-  readonly name: string;
-  readonly issuerName: string | null;
-  readonly maturityDate: string;
-  readonly redemptionTerms: { readonly kind: RedemptionKind };
-  readonly remunerationTerms: RemunerationTerms;
 }
 
 // A visible offer, or the terms of a new private offer saved with the

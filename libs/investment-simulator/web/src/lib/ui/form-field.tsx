@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from 'react';
+import type { IconComponent } from './icons';
 
 export interface ControlProps {
   readonly id: string;
@@ -8,19 +9,31 @@ export interface ControlProps {
 
 interface FormFieldProps {
   readonly label: string;
+  // The canonical icon of the aggregate the field chooses.
+  readonly icon?: IconComponent;
   readonly hint?: ReactNode;
   readonly error?: string;
   readonly children: (control: ControlProps) => ReactNode;
 }
 
-export function FormField({ label, hint, error, children }: FormFieldProps) {
+export function FormField({
+  label,
+  icon: Icon,
+  hint,
+  error,
+  children,
+}: FormFieldProps) {
   const id = useId();
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined;
   return (
     <div className="grid content-start gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-fg">
+      <label
+        htmlFor={id}
+        className="flex items-center gap-1.5 text-sm font-medium text-fg"
+      >
+        {Icon && <Icon className="size-4 shrink-0 text-muted" />}
         {label}
       </label>
       {children({

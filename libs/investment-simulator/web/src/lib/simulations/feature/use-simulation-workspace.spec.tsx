@@ -387,12 +387,16 @@ describe('useSimulationWorkspace', () => {
     );
   });
 
-  it('deletes the simulation and returns to the list', async () => {
+  it('deletes the simulation and returns to the filtered list', async () => {
     const api = fakeApi({
       ...savedRoutes,
       [`DELETE ${API}/simulations/sim`]: undefined,
     });
-    const { result } = render(api, 'sim', '/simulacoes/sim');
+    const { result } = render(
+      api,
+      'sim',
+      '/simulacoes/sim?titleType=CDB&page=2',
+    );
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
     act(() => result.current.hook.remove.run());
@@ -400,6 +404,7 @@ describe('useSimulationWorkspace', () => {
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/simulacoes'),
     );
+    expect(result.current.location.search).toBe('?titleType=CDB&page=2');
     expect(api.calls()).toContain(`DELETE ${API}/simulations/sim`);
   });
 });

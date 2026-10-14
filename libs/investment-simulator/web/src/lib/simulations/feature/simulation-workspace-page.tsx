@@ -1,7 +1,9 @@
 import { Link, useParams, useSearchParams } from 'react-router';
+import { SimulationIcon } from '../../ui/icons';
 import { PageLabel } from '../../ui/page-label';
 import { secondaryButton } from '../../ui/styles';
 import { SimulationEditor } from './simulation-editor';
+import { listSearch } from '../utils/simulation-list-search';
 import {
   TEMPLATE_PARAM,
   useSimulationWorkspace,
@@ -12,6 +14,7 @@ export function SimulationWorkspacePage() {
   const [searchParams] = useSearchParams();
   const workspace = useSimulationWorkspace(simulationId);
   const { setup } = workspace;
+  const listPath = `/simulacoes${listSearch(searchParams)}`;
 
   if (setup.status === 'ready') {
     return (
@@ -34,8 +37,8 @@ export function SimulationWorkspacePage() {
   return (
     <section aria-labelledby="simulation-title" className="grid gap-6">
       <title>Simulação | InvestFlow</title>
-      <PageLabel>
-        <Link to="/simulacoes" className="text-accent">
+      <PageLabel icon={SimulationIcon}>
+        <Link to={listPath} className="text-accent">
           Simulações
         </Link>
       </PageLabel>
@@ -53,7 +56,7 @@ export function SimulationWorkspacePage() {
             Ela pode ter sido excluída. Suas outras simulações continuam na
             lista.
           </p>
-          <Link to="/simulacoes" className={secondaryButton}>
+          <Link to={listPath} className={secondaryButton}>
             Ver simulações
           </Link>
         </div>

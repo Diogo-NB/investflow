@@ -14,6 +14,15 @@ export interface ListSimulationsQuery {
   readonly ownerId: string;
   readonly page: number;
   readonly pageSize: number;
+  readonly offerId?: string;
+  readonly curveId?: string;
+  readonly titleType?: 'CDB' | 'LCI' | 'LCA';
+  readonly remunerationKind?:
+    | 'PREFIXED'
+    | 'IPCA_PLUS'
+    | 'CDI_PERCENTAGE'
+    | 'SELIC_PERCENTAGE';
+  readonly calculationStatus?: 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
 }
 
 // Terms come from the offer the simulation uses.
@@ -89,9 +98,21 @@ export class ListSimulationsQueryHandler
   ): Promise<Result<ListSimulationsOutput, SimulationQueryError>> {
     return Result.fromPromise(
       async () => {
+        // A deleted offer or curve still matches its id, so the simulations
+        // left without it can be counted and listed.
         const where: Prisma.SimulationWhereInput = {
-          ownerId: query.ownerId,
-          deletedAt: null,
+          AND: [
+            { ownerId: query.ownerId, deletedAt: null },
+            query.offerId ? { offerId: query.offerId } : {},
+            query.curveId ? { curveId: query.curveId } : {},
+            query.titleType ? { offer: { titleType: query.titleType } } : {},
+            query.remunerationKind
+              ? { offer: { remunerationType: query.remunerationKind } }
+              : {},
+            query.calculationStatus
+              ? { calculation: { status: query.calculationStatus } }
+              : {},
+          ],
         };
         const [records, total] = await Promise.all([
           this.prisma.client.simulation.findMany({

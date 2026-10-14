@@ -2,11 +2,17 @@ import { z } from 'zod';
 import { isIsoDate, previousDay } from '../../dates/calendar-date';
 import {
   fitsDecimalStorage,
-  isPositiveDecimal,
   parseBrazilianDecimal,
   shiftDecimal,
   toBrazilianInput,
 } from '../../decimals/decimal-string';
+import {
+  decimalText,
+  offerTermFields,
+  requiredDate,
+  toOfferInput,
+  validatedDecimal,
+} from '../../offers/utils/offer-form';
 import type {
   RedemptionKind,
   RemunerationKind,
@@ -47,30 +53,6 @@ export interface SimulationFormValues {
 
 export type SimulationField = Exclude<keyof SimulationFormValues, 'offerMode'>;
 
-// Refinements don't abort, so object-level rules still run; each one passes
-// what an earlier refinement already reports to keep one message per field.
-const requiredDate = z
-  .string()
-  .refine((value) => value !== '', 'Informe a data.')
-  .refine(
-    (value) => value === '' || isIsoDate(value),
-    'Informe uma data válida no formato DD/MM/AAAA.',
-  );
-
-function decimalText(empty: string, positive: string) {
-  return z
-    .string()
-    .refine((value) => value.trim() !== '', empty)
-    .refine(
-      (value) => value.trim() === '' || parseBrazilianDecimal(value) !== null,
-      'Use apenas números, como 10.000,50.',
-    )
-    .refine((value) => {
-      const decimal = parseBrazilianDecimal(value);
-      return decimal === null || isPositiveDecimal(decimal);
-    }, positive);
-}
-
 /** The remuneration option of a kind; every kind is listed by the API. */
 export function remunerationOption(
   remunerations: readonly RemunerationOption[],
@@ -95,25 +77,7 @@ export function simulationFormSchema(
         return decimal === null || fitsDecimalStorage(decimal);
       }, 'Valor grande demais.'),
       investmentDate: requiredDate,
-      titleType: z.enum(['CDB', 'LCI', 'LCA']),
-      issuerName: z.string().max(100, 'Use até 100 caracteres.'),
-      remunerationKind: z.enum([
-        'PREFIXED',
-        'CDI_PERCENTAGE',
-        'SELIC_PERCENTAGE',
-        'IPCA_PLUS',
-      ]),
-      rate: decimalText(
-        'Informe a taxa.',
-        'A taxa deve ser maior que zero.',
-      ).refine((value) => {
-        const decimal = parseBrazilianDecimal(value);
-        return (
-          decimal === null || fitsDecimalStorage(shiftDecimal(decimal, -2))
-        );
-      }, 'Taxa com casas decimais demais.'),
-      maturityDate: requiredDate,
-      redemptionKind: z.enum(['AT_MATURITY', 'DAILY']),
+      ...offerTermFields,
       curveId: z.string(),
     })
     .superRefine((values, context) => {
@@ -155,12 +119,6 @@ export function simulationFormSchema(
     });
 }
 
-function validatedDecimal(text: string): string {
-  const parsed = parseBrazilianDecimal(text);
-  if (parsed === null) throw new Error('Form values must be validated first');
-  return parsed;
-}
-
 /** Converts validated form values into the API's create or edit payload. */
 export function toSimulationInput(
   values: SimulationFormValues,
@@ -169,19 +127,7 @@ export function toSimulationInput(
     offer:
       values.offerMode === 'existing'
         ? { id: values.offerId }
-        : {
-            new: {
-              titleType: values.titleType,
-              name: values.offerName.trim(),
-              issuerName: values.issuerName.trim() || null,
-              maturityDate: values.maturityDate,
-              redemptionTerms: { kind: values.redemptionKind },
-              remunerationTerms: {
-                kind: values.remunerationKind,
-                rate: shiftDecimal(validatedDecimal(values.rate), -2),
-              },
-            },
-          },
+        : { new: toOfferInput({ ...values, name: values.offerName }) },
     investment: {
       principal: validatedDecimal(values.principal),
       investmentDate: values.investmentDate,

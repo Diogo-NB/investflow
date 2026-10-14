@@ -85,7 +85,7 @@ InvestFlow's frontend is a client-rendered authenticated SPA. Opening `/`
 requires Keycloak login and then shows a Portuguese welcome page, the
 authenticated identity, and logout. Unmatched browser routes redirect to `/`.
 The welcome page and the header link to each mounted context feature
-(`/simulacoes`; offers under `/ofertas` and curves under `/curvas` come next). The bounded context owns its
+(`/simulacoes` and `/ofertas`; curves under `/curvas` come next). The bounded context owns its
 business requests and presentation.
 
 ```text
@@ -143,7 +143,10 @@ interface InvestmentSimulatorDeps {
 ```
 
 The app passes its bearer-attaching `authorizedFetch` and spreads the result
-into its shell routes. The factory returns top-level paths (`simulacoes`, later
+into its shell routes. The library also exports `investmentSimulatorSections`
+(path, label, description, action, and canonical icon of each screen), which
+the app's header and welcome page render, so the context owns how its
+sections are named and drawn. The factory returns top-level paths (`simulacoes`, later
 `ofertas` and `curvas`), and each page module loads through route `lazy`. The library puts `deps` in its own internal
 context, which its API adapters read. Features never import Keycloak or app
 modules, and they use relative `/api` URLs.
@@ -388,21 +391,34 @@ Recorded 2026-10-11 for the redesigned model. Built so far: the offer choice,
 "Duplicar e ajustar", "Digitar termos", one current result marked
 "Desatualizado" when its premises changed, "Salvar e calcular" with the
 revision, and the calculation status with its polling, "Tentar novamente",
-and the list's status tags. Not built yet: impact notices and editing an own
-offer in place. A
+the list's status tags, and the list filters. Not built yet: editing an own
+offer in place from the workspace, with its impact notice. A
 simulation always uses an offer, plus a curve when its
 remuneration is indexed, and holds the principal and investment date. All of
 them are editable. Its single result is recalculated asynchronously whenever
 any of them changes.
 
 - `/simulacoes` lists the user's simulations, 20 per page (`page` URL
-  parameter, corrected by navigation when stale). Each row shows the offer
-  (name and issuer, or "Sem emissor"), the remuneration, the curve
-  when indexed, the principal, the period, the net value of the last
-  successful result, and a textual status tag unless the result is up to date
-  ("Calculando", "Requer ação", "Falha técnica"). Desktop
-  uses a table; below 1024px, labeled rows. The whole row or card opens the
-  simulation: one link per entry, stretched over the table row on desktop.
+  parameter, corrected by navigation when stale).
+  - A filter bar of Base UI Selects narrows the list by offer, curve, title
+    type, remuneration kind, and calculation status, with "Limpar filtros".
+    The offer and curve choices come from the options query the workspace
+    already caches; an offer or curve no longer listed shows as "Oferta
+    excluída" or "Curva excluída". There is no index filter: the remuneration
+    kind fixes the index.
+  - The filters live in the URL under the API's names (`offerId`, `curveId`,
+    `titleType`, `remunerationKind`, `calculationStatus`). Changing one
+    resets to page 1, and an invalid value is dropped by navigating with
+    `replace`. The list's parameters carry to a simulation's page and back
+    to the list, including after deleting it.
+  - A filtered list with no rows says "Nenhuma simulação corresponde aos
+    filtros." with "Limpar filtros", distinct from having no simulations. Each row shows the offer
+    (name and issuer, or "Sem emissor"), the remuneration, the curve
+    when indexed, the principal, the period, the net value of the last
+    successful result, and a textual status tag unless the result is up to date
+    ("Calculando", "Requer ação", "Falha técnica"). Desktop
+    uses a table; below 1024px, labeled rows. The whole row or card opens the
+    simulation: one link per entry, stretched over the table row on desktop.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
   (stacked below 1024px):
   - "Oferta": chosen from the offers visible to the user (system and own)
@@ -494,7 +510,7 @@ any of them changes.
 
 ## Offer behavior
 
-Recorded 2026-10-11. Not implemented in the browser. An offer has a title type
+Recorded 2026-10-11 and implemented under `/ofertas` (D5). An offer has a title type
 (fixed after creation), a name, an optional issuer, remuneration and rate,
 maturity, liquidity, an owner, and a revision. User content is private and
 editable; system content is visible to everyone and read only. Offers are
@@ -504,21 +520,30 @@ independent; the screens group them, and no grouping is stored.
   lazily. Confirmation dialogs load on demand.
 - The list shows the offers visible to the user grouped by title type and
   origin ("Do sistema", "Minhas"), each with its name, issuer, and terms.
-  Filters are the `q` (name or issuer), `titleType`, and `page` URL
-  parameters. A submitted search or changed type resets to page 1. These
+  Filters are the `q` (name or issuer), `titleType`, `origin` ("Do
+  sistema" or "Minhas"), and `page` URL parameters. A submitted search or a
+  changed filter resets to page 1. These
   parameters carry through to detail and editor links and back to the list.
   The page size is fixed at 20. Obsolete reads are canceled. A stale page
   beyond the last page is corrected through navigation.
 - Details show the offer's exact terms in a definition list. Own offers offer
   "Editar", "Duplicar" and "Excluir"; system offers offer "Duplicar", which
   creates a private copy. A missing or deleted record has its own state.
+- "Simulações com esta oferta" on the details lists the first 20 of the
+  user's simulations that use it, each opening `/simulacoes/:simulationId`,
+  then "Ver todas (N)" to `/simulacoes?offerId=<id>`. It reads the filtered
+  simulation list (first page, 20 per page, the same read as that link's
+  first page), whose total is the N used by the delete dialog and the editor
+  notice, and it has its own loading, empty, and failure states with retry.
 - Deleting confirms in an AlertDialog that states the deletion is permanent and
-  how many of the user's simulations will require a new choice ("Sem oferta,
-  escolha outra").
+  that "N simulações ficarão sem oferta (Sem oferta, escolha outra)".
 - The editor initializes from one snapshot. The title type is displayed as
   fixed information. Changing the remuneration kind clears the rate, because
   its unit changed. Before saving, it states how many of the user's
-  simulations will be recalculated. The PATCH sends the edited revision and
+  simulations use the offer. Until offer changes recalculate them (D4b,
+  paused), the notice reads "N simulações usam esta oferta e ficarão
+  desatualizadas até serem salvas novamente"; it is hidden when none do.
+  A system offer has no editor; its details offer only "Duplicar". The PATCH sends the edited revision and
   only changed fields. A revision conflict says the offer changed elsewhere
   and keeps the user's input until they reload. A successful save clears the
   dirty baseline before redirecting to a fresh detail read. A failed detail

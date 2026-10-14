@@ -1,6 +1,8 @@
 import type { ReactNode, SVGProps } from 'react';
 
-type IconProps = Omit<SVGProps<SVGSVGElement>, 'children'>;
+export type IconProps = Omit<SVGProps<SVGSVGElement>, 'children'>;
+
+export type IconComponent = (props: IconProps) => ReactNode;
 
 // Decorative: state is always also given as text.
 function Icon({
@@ -69,5 +71,113 @@ export function XCircleIcon(props: IconProps) {
 export function SpinningRefreshIcon({ className = 'size-5' }: IconProps) {
   return (
     <RefreshIcon className={`${className} shrink-0 motion-safe:animate-spin`} />
+  );
+}
+
+// Canonical aggregate icons: each one always stands for its aggregate, in the
+// header, page titles, lists, and empty states.
+
+export function SimulationIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4.25" y="2.75" width="11.5" height="14.5" rx="1.75" />
+      <rect x="6.75" y="5.25" width="6.5" height="2.75" rx="0.5" />
+      <path d="M7.25 11h.01M10 11h.01M12.75 11h.01M7.25 14h.01M10 14h.01M12.75 14h.01" />
+    </Icon>
+  );
+}
+
+export function OfferIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.75 9.6V4.25a1.5 1.5 0 0 1 1.5-1.5h6.35a1.5 1.5 0 0 1 1.06.44l4.6 4.6a1.5 1.5 0 0 1 0 2.12l-5.85 5.85a1.5 1.5 0 0 1-2.12 0l-5.1-5.1a1.5 1.5 0 0 1-.44-1.06Z" />
+      <circle cx="7.25" cy="6.25" r="1.1" />
+    </Icon>
+  );
+}
+
+export function CurveIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.25 3.25v13.5h13.5" />
+      <path d="M5.75 13.75c2.25-.25 3.25-1.75 4.25-4.25s2.25-4.25 5.75-4.5" />
+    </Icon>
+  );
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 4.25v11.5M4.25 10h11.5" />
+    </Icon>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12.9 3.6a1.77 1.77 0 0 1 2.5 2.5l-8.65 8.65-3.25.75.75-3.25Z" />
+      <path d="m11.75 4.75 2.5 2.5" />
+    </Icon>
+  );
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="6.75" y="6.75" width="9.5" height="9.5" rx="1.5" />
+      <path d="M13.25 6.75V5A1.25 1.25 0 0 0 12 3.75H5A1.25 1.25 0 0 0 3.75 5v7A1.25 1.25 0 0 0 5 13.25h1.75" />
+    </Icon>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.75 5.75h12.5M8 5.75v-1.5h4v1.5" />
+      <path d="m5.25 5.75.7 9.6a1.5 1.5 0 0 0 1.5 1.4h5.1a1.5 1.5 0 0 0 1.5-1.4l.7-9.6" />
+      <path d="M8.5 9v4.5m3-4.5v4.5" />
+    </Icon>
+  );
+}
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="8.75" cy="8.75" r="5" />
+      <path d="m12.5 12.5 3.75 3.75" />
+    </Icon>
+  );
+}
+
+export function XIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m5.5 5.5 9 9m0-9-9 9" />
+    </Icon>
+  );
+}
+
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 10h12m-4.5-4.5L16 10l-4.5 4.5" />
+    </Icon>
+  );
+}
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m12 5-5 5 5 5" />
+    </Icon>
+  );
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m8 5 5 5-5 5" />
+    </Icon>
   );
 }

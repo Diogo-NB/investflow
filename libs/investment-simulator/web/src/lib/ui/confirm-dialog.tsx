@@ -36,8 +36,8 @@ export function ConfirmDialog({
       }}
     >
       <AlertDialog.Portal>
-        <AlertDialog.Backdrop className="fixed inset-0 bg-fg opacity-30" />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 grid w-md max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-surface border border-border bg-surface p-6 text-fg outline-none">
+        <AlertDialog.Backdrop className="fixed inset-0 bg-fg opacity-30 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 grid w-md max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-surface border border-border bg-surface p-6 text-fg outline-none transition-[opacity,scale] duration-150 ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
           <AlertDialog.Title className="m-0 text-lg font-semibold">
             {title}
           </AlertDialog.Title>

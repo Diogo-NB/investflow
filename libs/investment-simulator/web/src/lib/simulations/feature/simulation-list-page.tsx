@@ -1,30 +1,26 @@
-import { Link, Navigate, useSearchParams } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
 import { remunerationLabel } from '../../offers/models/offer-terms';
+import { EmptyState } from '../../ui/empty-state';
+import { ListSkeleton } from '../../ui/list-skeleton';
 import { PageLabel } from '../../ui/page-label';
-import {
-  primaryButton,
-  quietButton,
-  secondaryButton,
-  surface,
-} from '../../ui/styles';
+import { PageTitle } from '../../ui/page-title';
+import { PaginationNav } from '../../ui/pagination-nav';
+import { primaryButton, secondaryButton, surface } from '../../ui/styles';
 import {
   AlertTriangleIcon,
+  OfferIcon,
+  PlusIcon,
+  SimulationIcon,
   SpinningRefreshIcon,
   XCircleIcon,
+  XIcon,
 } from '../../ui/icons';
 import { calculationStatusLabel } from '../utils/calculation-status';
 import type { SimulationListItem } from '../models/simulation.types';
+import { SimulationListFilterBar } from './simulation-list-filters';
 import { useSimulationList } from './use-simulation-list';
-
-function searchWithPage(params: URLSearchParams, page: number): string {
-  const next = new URLSearchParams(params);
-  if (page === 1) next.delete('page');
-  else next.set('page', String(page));
-  const search = next.toString();
-  return search ? `?${search}` : '';
-}
 
 const TAG_BASE =
   'inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-sm font-medium';
@@ -88,8 +84,10 @@ function NetResult({ item }: { readonly item: SimulationListItem }) {
 
 function SimulationTable({
   items,
+  search,
 }: {
   readonly items: readonly SimulationListItem[];
+  readonly search: string;
 }) {
   return (
     <table className="hidden w-full border-collapse text-left lg:table">
@@ -119,17 +117,22 @@ function SimulationTable({
           // simulation while staying a single link for keyboards and readers.
           <tr
             key={item.id}
-            className="group relative cursor-pointer border-b border-border last:border-b-0 hover:bg-accent-soft"
+            className="group relative cursor-pointer border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-accent-soft"
           >
             <td className="px-4 py-3">
-              <Link
-                to={item.id}
-                className="font-medium text-accent underline-offset-4 outline-none group-hover:underline after:absolute after:inset-0 after:rounded-control focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
-              >
-                {item.offerName}
-              </Link>
-              <span className="block text-sm text-muted">
-                {item.issuerName ?? 'Sem emissor'}
+              <span className="flex items-start gap-3">
+                <OfferIcon className="mt-0.5 size-5 shrink-0 text-muted transition-colors duration-150 group-hover:text-accent" />
+                <span>
+                  <Link
+                    to={{ pathname: item.id, search }}
+                    className="font-medium text-accent underline-offset-4 outline-none group-hover:underline after:absolute after:inset-0 after:rounded-control focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+                  >
+                    {item.offerName}
+                  </Link>
+                  <span className="block text-sm text-muted">
+                    {item.issuerName ?? 'Sem emissor'}
+                  </span>
+                </span>
               </span>
             </td>
             <td className="px-4 py-3">
@@ -154,19 +157,24 @@ function SimulationTable({
 
 function SimulationRows({
   items,
+  search,
 }: {
   readonly items: readonly SimulationListItem[];
+  readonly search: string;
 }) {
   return (
     <ul className="m-0 grid list-none p-0 lg:hidden">
       {items.map((item) => (
         <li key={item.id} className="border-b border-border last:border-b-0">
           <Link
-            to={item.id}
-            className="grid gap-2 p-4 text-fg no-underline hover:bg-accent-soft"
+            to={{ pathname: item.id, search }}
+            className="grid gap-2 p-4 text-fg no-underline transition-colors duration-150 hover:bg-accent-soft"
           >
             <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium text-accent">{item.offerName}</span>
+              <span className="flex items-center gap-2 font-medium text-accent">
+                <OfferIcon className="size-5 shrink-0 text-muted" />
+                {item.offerName}
+              </span>
               <NetResult item={item} />
             </span>
             <span className="text-sm text-muted">
@@ -183,38 +191,37 @@ function SimulationRows({
 }
 
 export function SimulationListPage() {
-  const { page, state, correctedPage, retry } = useSimulationList();
-  const [searchParams] = useSearchParams();
+  const list = useSimulationList();
+  const { page, state, correctedSearch, search, retry } = list;
 
-  if (correctedPage !== null) {
-    return (
-      <Navigate
-        replace
-        to={{ search: searchWithPage(searchParams, correctedPage) }}
-      />
-    );
+  if (correctedSearch !== null) {
+    return <Navigate replace to={{ search: correctedSearch }} />;
   }
 
   return (
     <section aria-labelledby="simulations-title" className="grid gap-6">
       <title>Simulações | InvestFlow</title>
-      <PageLabel>Simulações</PageLabel>
+      <PageLabel icon={SimulationIcon}>Simulações</PageLabel>
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-prose">
-          <h1
-            id="simulations-title"
-            className="m-0 text-xl leading-tight font-semibold sm:text-2xl"
-          >
-            Simulações
-          </h1>
-          <p className="mt-2 mb-0 text-muted">
-            Compare quanto cada título rende líquido no vencimento.
-          </p>
-        </div>
+        <PageTitle
+          id="simulations-title"
+          icon={SimulationIcon}
+          subtitle="Compare quanto cada título rende líquido no vencimento."
+        >
+          Simulações
+        </PageTitle>
         <Link to="nova" className={primaryButton}>
+          <PlusIcon className="size-5 shrink-0" />
           Nova simulação
         </Link>
       </header>
+
+      <SimulationListFilterBar
+        filters={list.filters}
+        filtered={list.filtered}
+        onChange={list.setFilter}
+        onClear={list.clearFilters}
+      />
 
       <div
         className={surface}
@@ -224,9 +231,7 @@ export function SimulationListPage() {
         }
       >
         {state.status === 'loading' && (
-          <p role="status" className="m-0 p-6 text-muted">
-            Carregando simulações…
-          </p>
+          <ListSkeleton label="Carregando simulações…" />
         )}
         {state.status === 'error' && (
           <div role="alert" className="grid justify-items-start gap-4 p-6">
@@ -241,51 +246,56 @@ export function SimulationListPage() {
             </button>
           </div>
         )}
-        {state.status === 'ready' && state.items.length === 0 && (
-          <div className="grid justify-items-start gap-4 p-6">
-            <p className="m-0 max-w-prose">
-              Você ainda não tem simulações. Informe o valor, as datas e os
-              termos de um CDB, LCI ou LCA para ver o resultado líquido no
-              vencimento.
-            </p>
-            <Link to="nova" className={secondaryButton}>
-              Criar a primeira simulação
-            </Link>
-          </div>
-        )}
+        {state.status === 'ready' &&
+          state.items.length === 0 &&
+          (list.filtered ? (
+            <EmptyState
+              icon={SimulationIcon}
+              actions={
+                <button
+                  type="button"
+                  className={secondaryButton}
+                  onClick={list.clearFilters}
+                >
+                  <XIcon className="size-4 shrink-0" />
+                  Limpar filtros
+                </button>
+              }
+            >
+              <p className="m-0">Nenhuma simulação corresponde aos filtros.</p>
+            </EmptyState>
+          ) : (
+            <EmptyState
+              icon={SimulationIcon}
+              actions={
+                <Link to="nova" className={secondaryButton}>
+                  <PlusIcon className="size-4 shrink-0" />
+                  Criar a primeira simulação
+                </Link>
+              }
+            >
+              <p className="m-0">
+                Você ainda não tem simulações. Informe o valor, as datas e os
+                termos de um CDB, LCI ou LCA para ver o resultado líquido no
+                vencimento.
+              </p>
+            </EmptyState>
+          ))}
         {state.status === 'ready' && state.items.length > 0 && (
-          <>
-            <SimulationTable items={state.items} />
-            <SimulationRows items={state.items} />
-          </>
+          // Replays when another page or filter arrives.
+          <div key={search} className="motion-safe:animate-fade-in">
+            <SimulationTable items={state.items} search={search} />
+            <SimulationRows items={state.items} search={search} />
+          </div>
         )}
       </div>
 
-      {state.status === 'ready' && state.lastPage > 1 && (
-        <nav
-          aria-label="Páginas de simulações"
-          className="flex flex-wrap items-center gap-2"
-        >
-          {page > 1 ? (
-            <Link
-              to={{ search: searchWithPage(searchParams, page - 1) }}
-              className={quietButton}
-            >
-              ← Anterior
-            </Link>
-          ) : null}
-          <span className="px-2 text-sm text-muted" aria-live="polite">
-            Página {page} de {state.lastPage}
-          </span>
-          {page < state.lastPage ? (
-            <Link
-              to={{ search: searchWithPage(searchParams, page + 1) }}
-              className={quietButton}
-            >
-              Próxima →
-            </Link>
-          ) : null}
-        </nav>
+      {state.status === 'ready' && (
+        <PaginationNav
+          label="Páginas de simulações"
+          page={page}
+          lastPage={state.lastPage}
+        />
       )}
     </section>
   );

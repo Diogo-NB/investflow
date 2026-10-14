@@ -91,7 +91,7 @@ frontend testing policy.
   they change (decision 2026-10-11). Reproducibility and calculation history
   were dropped. Offers, curves, and simulations are built on this model, and
   a simulation's own calculation runs asynchronously (D4a); offer and curve
-  changes do not recalculate their simulations yet (D4b). See "Mutable
+  changes do not recalculate their simulations yet (D4b, paused). See "Mutable
   Premises And Asynchronous Recalculation" in
   `docs/architecture/project-structure.md` before touching offers, curves,
   simulations, or eventing.
@@ -103,7 +103,8 @@ frontend testing policy.
   `docs/architecture/event-flow.md`.
 - The frontend is React 19 + Vite 8 (decision 2026-10-10). The simulation
   workspace under `/simulacoes` references offers and keeps one result, still
-  calculated on save; the offer and curve screens are not built yet. Follow
+  calculated on save; the offer screens live under `/ofertas`, and the curve
+  screens are not built yet. Follow
   the status sequence in `docs/architecture/frontend-patterns.md`. Build features from the recorded
   behavior and design them as idiomatic React; never transliterate earlier
   implementations.

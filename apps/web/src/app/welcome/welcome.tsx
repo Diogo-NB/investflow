@@ -1,4 +1,26 @@
+import { investmentSimulatorSections } from '@investflow/investment-simulator-web';
 import { Link } from 'react-router';
+
+const card =
+  'group flex items-start gap-4 rounded-surface border border-border bg-surface p-6 text-fg no-underline transition-colors duration-200 hover:border-accent motion-safe:animate-fade-in motion-safe:[animation-fill-mode:backwards]';
+
+// Kept local: the app does not import the context's internal icon set.
+function ArrowRight() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1"
+    >
+      <path d="M4 10h12m-4.5-4.5L16 10l-4.5 4.5" />
+    </svg>
+  );
+}
 
 export function Welcome() {
   return (
@@ -21,20 +43,33 @@ export function Welcome() {
         </p>
       </div>
 
-      <Link
-        to="/simulacoes"
-        className="group mt-10 flex flex-wrap items-center justify-between gap-4 rounded-surface border border-border bg-surface p-6 text-fg no-underline hover:border-accent sm:mt-14"
-      >
-        <span className="grid gap-1">
-          <span className="text-lg font-semibold">Simulações de CDB</span>
-          <span className="text-muted">
-            Calcule o resultado líquido no vencimento e compare cenários.
-          </span>
-        </span>
-        <span className="font-medium text-accent group-hover:underline">
-          Abrir simulações →
-        </span>
-      </Link>
+      <div className="mt-10 grid gap-4 sm:mt-14 lg:grid-cols-2">
+        {investmentSimulatorSections.map(
+          ({ path, label, description, action, Icon }, index) => (
+            <Link
+              key={path}
+              to={path}
+              className={card}
+              style={{ animationDelay: `${index * 80}ms` }}
+            >
+              <span
+                aria-hidden="true"
+                className="flex size-12 shrink-0 items-center justify-center rounded-surface bg-accent-soft text-accent transition-colors duration-200 group-hover:bg-accent group-hover:text-accent-fg"
+              >
+                <Icon className="size-6 shrink-0" />
+              </span>
+              <span className="grid flex-1 gap-1">
+                <span className="text-lg font-semibold">{label}</span>
+                <span className="text-muted">{description}</span>
+                <span className="mt-2 inline-flex items-center gap-1 font-medium text-accent group-hover:underline">
+                  {action}
+                  <ArrowRight />
+                </span>
+              </span>
+            </Link>
+          ),
+        )}
+      </div>
     </section>
   );
 }

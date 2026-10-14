@@ -72,6 +72,7 @@ describe('Offer reads', () => {
       AND: [
         VISIBLE,
         { titleType: 'CDB' },
+        {},
         {
           OR: [
             { name: { contains: 'local', mode: 'insensitive' } },
@@ -87,6 +88,24 @@ describe('Offer reads', () => {
     expect(result.value).toMatchObject({ total: 21, page: 2, pageSize: 20 });
     expect(result.value.items).toEqual([summary]);
   });
+
+  it.each([
+    ['OWN', { ownerId: VIEWER }],
+    ['SYSTEM', { ownerId: null }],
+  ] as const)(
+    'narrows the visible offers to the %s origin',
+    async (origin, part) => {
+      const f = fixture();
+
+      await f.list.execute({ viewerId: VIEWER, page: 1, pageSize: 20, origin });
+
+      const where = { AND: [VISIBLE, {}, part, {}] };
+      expect(f.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where }),
+      );
+      expect(f.count).toHaveBeenCalledWith({ where });
+    },
+  );
 
   it("marks the viewer's own offers", async () => {
     const f = fixture();

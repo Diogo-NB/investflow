@@ -103,7 +103,7 @@ export function DateField({
         </Popover.Trigger>
         <Popover.Portal>
           <Popover.Positioner sideOffset={8} align="end" className="z-20">
-            <Popover.Popup className="rounded-surface border border-border bg-surface p-3 text-fg outline-none">
+            <Popover.Popup className="origin-(--transform-origin) rounded-surface border border-border bg-surface p-3 text-fg outline-none transition-[opacity,scale] duration-150 ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
               <DayPicker
                 mode="single"
                 locale={ptBR}

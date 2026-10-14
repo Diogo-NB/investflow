@@ -21,6 +21,7 @@ import {
   type SimulationField,
   type SimulationFormValues,
 } from '../utils/simulation-form';
+import { listSearch } from '../utils/simulation-list-search';
 
 export const TEMPLATE_PARAM = 'a-partir-de';
 
@@ -162,7 +163,7 @@ export function useSimulationWorkspace(simulationId: string | undefined) {
     mutationFn: () => deleteSimulation(fetchFn, simulationId ?? ''),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: simulationKeys.lists() });
-      navigate('/simulacoes');
+      navigate(`/simulacoes${listSearch(searchParams)}`);
       // Dropped after leaving, so the page does not refetch a deleted record.
       queryClient.removeQueries({
         queryKey: simulationKeys.workspace(simulationId ?? ''),

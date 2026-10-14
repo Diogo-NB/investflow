@@ -1,9 +1,20 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { apiFailure, fakeApi, harness } from '../../testing/simulator-harness';
-import { parsePage, useSimulationList } from './use-simulation-list';
+import {
+  apiFailure,
+  fakeApi,
+  harness,
+  withLocation,
+} from '../../testing/simulator-harness';
+import { parsePage } from '../../pagination/page-search';
+import { useSimulationList } from './use-simulation-list';
 
-const listUrl = (page: number) =>
-  `GET /api/investment-simulator/simulations?page=${page}&pageSize=20`;
+const OFFER_ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
+const CURVE_ID = '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e';
+
+const listUrl = (page: number, filters = '') =>
+  `GET /api/investment-simulator/simulations?page=${page}&pageSize=20${filters}`;
+
+const emptyPage = { items: [], total: 0, page: 1, pageSize: 20 };
 
 const item = {
   id: 'sim',
@@ -42,7 +53,7 @@ describe('useSimulationList', () => {
       lastPage: 2,
       updating: false,
     });
-    expect(result.current.correctedPage).toBeNull();
+    expect(result.current.correctedSearch).toBeNull();
   });
 
   it('reports an empty list as ready with no items', async () => {
@@ -81,13 +92,13 @@ describe('useSimulationList', () => {
       [listUrl(3)]: { items: [], total: 20, page: 3, pageSize: 20 },
     });
     const { result } = render(api, '/simulacoes?page=3');
-    await waitFor(() => expect(result.current.correctedPage).toBe(1));
+    await waitFor(() => expect(result.current.correctedSearch).toBe(''));
 
     const malformed = render(
-      fakeApi({ [listUrl(1)]: { items: [], total: 0, page: 1, pageSize: 20 } }),
+      fakeApi({ [listUrl(1)]: emptyPage }),
       '/simulacoes?page=abc',
     );
-    expect(malformed.result.current.correctedPage).toBe(1);
+    expect(malformed.result.current.correctedSearch).toBe('');
   });
 
   it('parses only positive integer pages', () => {
@@ -124,5 +135,76 @@ describe('useSimulationList', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('sends every valid filter from the URL to the request', async () => {
+    const filters = `&offerId=${OFFER_ID}&curveId=${CURVE_ID}&titleType=LCI&remunerationKind=CDI_PERCENTAGE&calculationStatus=INVALID`;
+    const api = fakeApi({ [listUrl(2, filters)]: emptyPage });
+    const { result } = render(
+      api,
+      `/simulacoes?calculationStatus=INVALID&page=2&titleType=LCI&curveId=${CURVE_ID}&remunerationKind=CDI_PERCENTAGE&offerId=${OFFER_ID}`,
+    );
+
+    expect(result.current.filters).toEqual({
+      offerId: OFFER_ID,
+      curveId: CURVE_ID,
+      titleType: 'LCI',
+      remunerationKind: 'CDI_PERCENTAGE',
+      calculationStatus: 'INVALID',
+    });
+    expect(result.current.filtered).toBe(true);
+    await waitFor(() => expect(api.calls()).toEqual([listUrl(2, filters)]));
+  });
+
+  it('drops invalid filter values through replace, keeping the valid ones', async () => {
+    const api = fakeApi({ [listUrl(2, '&titleType=CDB')]: emptyPage });
+    const { result } = render(
+      api,
+      '/simulacoes?offerId=nope&titleType=CDB&calculationStatus=DONE&remunerationKind=x&curveId=1&page=2&tab=x',
+    );
+
+    expect(result.current.filters).toEqual({ titleType: 'CDB' });
+    expect(result.current.correctedSearch).toBe('?titleType=CDB&page=2&tab=x');
+  });
+
+  it('starts a changed filter at the first page, keeping unrelated parameters', async () => {
+    const api = fakeApi({
+      [listUrl(3)]: emptyPage,
+      [listUrl(1, '&calculationStatus=FAILED')]: emptyPage,
+      [listUrl(1, `&offerId=${OFFER_ID}&calculationStatus=FAILED`)]: emptyPage,
+    });
+    const { result } = renderHook(
+      withLocation(useSimulationList),
+      harness(api, '/simulacoes?page=3&tab=x'),
+    );
+
+    act(() => result.current.hook.setFilter('calculationStatus', 'FAILED'));
+    expect(result.current.location.search).toBe(
+      '?tab=x&calculationStatus=FAILED',
+    );
+    act(() => result.current.hook.setFilter('offerId', OFFER_ID));
+    expect(result.current.hook.filters).toEqual({
+      offerId: OFFER_ID,
+      calculationStatus: 'FAILED',
+    });
+
+    act(() => result.current.hook.setFilter('calculationStatus', null));
+    expect(result.current.hook.filters).toEqual({ offerId: OFFER_ID });
+    act(() => result.current.hook.clearFilters());
+    expect(result.current.location.search).toBe('?tab=x');
+    expect(result.current.hook.filtered).toBe(false);
+  });
+
+  it('tells a filtered empty list from having no simulations', async () => {
+    const api = fakeApi({ [listUrl(1, '&titleType=LCA')]: emptyPage });
+    const { result } = render(api, '/simulacoes?titleType=LCA');
+
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        status: 'ready',
+        items: [],
+      }),
+    );
+    expect(result.current.filtered).toBe(true);
   });
 });

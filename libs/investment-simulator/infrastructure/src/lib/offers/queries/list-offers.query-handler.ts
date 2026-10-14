@@ -6,6 +6,7 @@ import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { OfferQueryError } from './offer-query.error';
 import {
+  OfferOrigin,
   OfferSummary,
   offerSummaryOrder,
   offerSummarySelect,
@@ -20,6 +21,7 @@ export interface ListOffersQuery {
   // Matches the name or the issuer.
   readonly q?: string;
   readonly titleType?: 'CDB' | 'LCI' | 'LCA';
+  readonly origin?: OfferOrigin;
 }
 
 export type ListOffersOutput = PaginatedResult<OfferSummary>;
@@ -39,6 +41,9 @@ export class ListOffersQueryHandler
           AND: [
             visibleOfferWhere(query.viewerId),
             query.titleType ? { titleType: query.titleType } : {},
+            query.origin
+              ? { ownerId: query.origin === 'OWN' ? query.viewerId : null }
+              : {},
             query.q
               ? {
                   OR: [

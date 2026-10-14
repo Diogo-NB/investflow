@@ -8,14 +8,21 @@ import type {
   SimulationOptions,
   SimulationWorkspace,
 } from '../models/simulation.types';
+import type { SimulationListFilters } from '../utils/simulation-list-search';
 
 const BASE = '/api/investment-simulator';
 export const SIMULATION_PAGE_SIZE = 20;
 
+export interface SimulationListRequest extends SimulationListFilters {
+  readonly page: number;
+  readonly pageSize?: number;
+}
+
 export const simulationKeys = {
   all: ['simulations'] as const,
   lists: () => [...simulationKeys.all, 'list'] as const,
-  list: (page: number) => [...simulationKeys.lists(), { page }] as const,
+  list: (request: SimulationListRequest) =>
+    [...simulationKeys.lists(), request] as const,
   options: () => [...simulationKeys.all, 'options'] as const,
   workspace: (id: string) => [...simulationKeys.all, 'workspace', id] as const,
   monthlyBalances: (simulationId: string, calculatedAt: string) =>
@@ -27,13 +34,24 @@ export const simulationKeys = {
     ] as const,
 };
 
-export function simulationListQuery(fetchFn: FetchFn, page: number) {
+export function simulationListQuery(
+  fetchFn: FetchFn,
+  { pageSize = SIMULATION_PAGE_SIZE, ...request }: SimulationListRequest,
+) {
+  const params = { ...request, pageSize };
+  const search = new URLSearchParams({
+    page: String(params.page),
+    pageSize: String(pageSize),
+  });
+  for (const [name, value] of Object.entries(request)) {
+    if (name !== 'page' && value !== undefined) search.set(name, String(value));
+  }
   return queryOptions({
-    queryKey: simulationKeys.list(page),
+    queryKey: simulationKeys.list(params),
     queryFn: ({ signal }) =>
       requestJson<PaginatedResult<SimulationListItem>>(
         fetchFn,
-        `${BASE}/simulations?page=${page}&pageSize=${SIMULATION_PAGE_SIZE}`,
+        `${BASE}/simulations?${search}`,
         { signal },
       ),
   });

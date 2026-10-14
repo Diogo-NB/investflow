@@ -23,7 +23,9 @@ The compact white header establishes the workspace on an off-white canvas.
 Identity and logout stay together; content is left-aligned on the same rail.
 One horizontal rule extends the small route label across available space.
 The signature is the lowercase green `if` brand square, aligned with the
-wordmark and the content rail. One offer navigation card follows the welcome copy. No nested surfaces or gradients.
+wordmark and the content rail. One navigation card per section (simulations,
+offers) follows the welcome copy, each led by its aggregate icon. No nested
+surfaces or gradients.
 
 - Container: 72rem maximum, with 24px mobile and 40px larger-screen gutters.
 - Header: at least 80px; wraps naturally when wordmark and identity need room.
@@ -100,9 +102,21 @@ on them stays the foreground color.
 - Dropdowns use the Base UI Select for triggers and popups, with 8px
   horizontal trigger padding inside the field inset. Focus is shown by the
   outer field border, without an inner text outline.
-- Welcome entry: a single bordered link card, heading/copy on the left and a
-  textual navigation action on the right; wraps on mobile. Green hover/focus
-  feedback comes from existing tokens.
+- Welcome entries: one bordered link card per section, side by side from
+  1024px. The aggregate icon on a 48px accent tile leads the heading, copy,
+  and a textual action with an arrow. On hover the border turns accent, the
+  tile fills with the accent, and the arrow moves 4px right.
+- Header navigation: each section link shows its aggregate icon beside the
+  label; the current section sits on the accent container.
+- Page titles: the aggregate's icon on a 40px accent tile beside the heading
+  and its supporting line. The route label repeats the icon at 16px.
+- Empty states: the aggregate's icon on a 56px accent tile beside the copy and
+  its actions. Loading lists show their status text above three placeholder
+  rows (an icon tile and two bars) that pulse.
+- Actions carry an icon before their label: plus for creation, pencil for
+  "Editar", copy for "Duplicar", trash for "Excluir", search for "Buscar", x
+  for "Limpar filtros", chevrons for pagination, and an arrow for "Ver
+  todas". Pending actions swap their icon for the spinning refresh icon.
 - List: compact heading and primary creation action; issuer search/title filter
   above one white result surface. Desktop table uses horizontal separators and
   right-aligned tabular figures. Below 1024px, labeled offer rows replace it.
@@ -143,8 +157,8 @@ on them stays the foreground color.
 
 ## Motion, iconography, imagery, and dark mode
 
-Motion is limited to state feedback, with no ripple effects or page-entry
-transitions:
+Motion is limited to state feedback and short, quiet transitions, with no
+ripple effects, bounces, or page-entry transitions:
 
 - A refresh icon spins while work is in progress: "Calculando" (workspace
   card and list tag) and "Salvando…", and on "Tentar novamente" while it is
@@ -154,16 +168,41 @@ transitions:
   changes.
 - While a recalculation is pending, the previous figures recede to 60%
   opacity.
+- List results, empty states, an offer's terms, and the impact notice fade in
+  the same way when they arrive; a list replays it for each new page or
+  filter, never on a background refetch. The welcome cards fade in 80 ms
+  apart.
+- Dialogs, select popups, and the calendar popover fade and scale in from 95%
+  over 150 ms (Base UI's starting and ending styles); a select's caret turns
+  while it is open.
+- Hover feedback is a 150–200 ms color transition on rows, links, and cards,
+  plus the icon movements described above. Loading placeholders pulse.
 
 All animation is `motion-safe:`, and the global reduced-motion reset also
 zeroes durations; a still refresh icon keeps its meaning.
 
 Icons are inline SVGs in `libs/investment-simulator/web/src/lib/ui/icons.tsx`
-(20px grid, 1.6 stroke, `currentColor`, `aria-hidden`): refresh, check circle,
-alert triangle, and x circle, plus the existing info and calendar icons. They
-accompany text and never carry state alone. There is no icon package, icon
-font, illustration asset, or dark theme. Home navigation uses a text arrow. The
-brand square is text and CSS, not an image.
+(20px grid, 1.6 stroke, `currentColor`, `aria-hidden`). They accompany text
+and never carry state alone. There is no icon package, icon font,
+illustration asset, or dark theme. The brand square is text and CSS, not an
+image.
+
+Each aggregate has one canonical icon, used wherever the aggregate appears
+(navigation, page titles, route labels, fields that choose it, list rows, and
+empty states) and never for anything else:
+
+| Aggregate  | Icon                          |
+| ---------- | ----------------------------- |
+| Simulation | calculator (`SimulationIcon`) |
+| Offer      | price tag (`OfferIcon`)       |
+| Curve      | chart curve (`CurveIcon`)     |
+
+A new aggregate (portfolios, for example) gets its own icon here before it
+ships. The other icons are state icons (refresh, check circle, alert
+triangle, x circle), action icons (plus, pencil, copy, trash, search, x,
+arrow, chevrons), and the info and calendar icons. The app receives the
+section icons through the context's `investmentSimulatorSections`; its welcome
+card arrow is a local copy of the arrow icon.
 
 ## Accessibility
 

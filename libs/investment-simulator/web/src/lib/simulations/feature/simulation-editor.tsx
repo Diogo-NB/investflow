@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
 import { remunerationLabel } from '../../offers/models/offer-terms';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
+import { CopyIcon, PlusIcon, SimulationIcon, TrashIcon } from '../../ui/icons';
 import { PageLabel } from '../../ui/page-label';
+import { PageTitle } from '../../ui/page-title';
 import { quietButton, secondaryButton } from '../../ui/styles';
 import type {
   SimulationOptions,
   SimulationWorkspace,
 } from '../models/simulation.types';
 import type { SimulationFormValues } from '../utils/simulation-form';
+import { listSearch } from '../utils/simulation-list-search';
 import { CalculationPanel } from './calculation-panel';
 import { SimulationFormPanel } from './simulation-form-panel';
 import { useSimulationForm } from './use-simulation-form';
@@ -18,7 +21,7 @@ import {
   TEMPLATE_PARAM,
   type useSimulationWorkspace,
 } from './use-simulation-workspace';
-import { useUnsavedChangesGuard } from './use-unsaved-changes-guard';
+import { useUnsavedChangesGuard } from '../../ui/use-unsaved-changes-guard';
 
 type Workspace = ReturnType<typeof useSimulationWorkspace>;
 
@@ -38,38 +41,34 @@ function SimulationHeading({
 }) {
   if (!saved) {
     return (
-      <div className="max-w-prose">
-        <h1
-          id="simulation-title"
-          className="m-0 text-xl leading-tight font-semibold sm:text-2xl"
-        >
-          Nova simulação
-        </h1>
-        <p className="mt-2 mb-0 text-muted">
-          Escolha uma oferta e informe quanto e quando investir.
-        </p>
-      </div>
+      <PageTitle
+        id="simulation-title"
+        icon={SimulationIcon}
+        subtitle="Escolha uma oferta e informe quanto e quando investir."
+      >
+        Nova simulação
+      </PageTitle>
     );
   }
   const { offer, simulation } = saved;
   return (
-    <div className="max-w-prose">
-      <h1
-        id="simulation-title"
-        className="m-0 text-xl leading-tight font-semibold sm:text-2xl"
-      >
-        {[
-          offer.name,
-          `${offer.titleType} ${remunerationLabel(offer.remunerationTerms)}`,
-        ].join(' · ')}
-      </h1>
-      <p className="mt-2 mb-0 text-muted">
-        {formatMoney(simulation.investment.principal)} de{' '}
-        {formatIsoDate(simulation.investment.investmentDate)} a{' '}
-        {formatIsoDate(offer.maturityDate)} ·{' '}
-        {offer.deleted ? 'Oferta excluída' : ORIGIN_LABELS[offer.origin]}
-      </p>
-    </div>
+    <PageTitle
+      id="simulation-title"
+      icon={SimulationIcon}
+      subtitle={
+        <>
+          {formatMoney(simulation.investment.principal)} de{' '}
+          {formatIsoDate(simulation.investment.investmentDate)} a{' '}
+          {formatIsoDate(offer.maturityDate)} ·{' '}
+          {offer.deleted ? 'Oferta excluída' : ORIGIN_LABELS[offer.origin]}
+        </>
+      }
+    >
+      {[
+        offer.name,
+        `${offer.titleType} ${remunerationLabel(offer.remunerationTerms)}`,
+      ].join(' · ')}
+    </PageTitle>
   );
 }
 
@@ -87,6 +86,7 @@ export function SimulationEditor({
     remunerations: options.remunerations,
   });
   const { save, remove } = workspace;
+  const [searchParams] = useSearchParams();
   const { isDirty } = form.form.formState;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // The revision the form's values were saved at; the next edit sends it.
@@ -121,8 +121,11 @@ export function SimulationEditor({
       <title>
         {simulation ? 'Simulação | InvestFlow' : 'Nova simulação | InvestFlow'}
       </title>
-      <PageLabel>
-        <Link to="/simulacoes" className="text-accent">
+      <PageLabel icon={SimulationIcon}>
+        <Link
+          to={`/simulacoes${listSearch(searchParams)}`}
+          className="text-accent"
+        >
           Simulações
         </Link>
       </PageLabel>
@@ -131,19 +134,22 @@ export function SimulationEditor({
         {simulation && (
           <div className="flex flex-wrap gap-2">
             <Link to="/simulacoes/nova" className={secondaryButton}>
+              <PlusIcon className="size-4 shrink-0" />
               Nova simulação
             </Link>
             <Link
               to={`/simulacoes/nova?${TEMPLATE_PARAM}=${simulation.id}`}
               className={secondaryButton}
             >
+              <CopyIcon className="size-4 shrink-0" />
               Duplicar
             </Link>
             <button
               type="button"
-              className={`${quietButton} text-error`}
+              className={`${quietButton} gap-2 text-error`}
               onClick={() => setConfirmingDelete(true)}
             >
+              <TrashIcon className="size-4 shrink-0" />
               Excluir
             </button>
           </div>

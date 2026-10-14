@@ -22,7 +22,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-12, after D4a and D4b's first step.
+Last updated 2026-10-13, after D5. D4b is paused after its first step.
 
 Built for the target model:
 
@@ -52,11 +52,14 @@ Built for the target model:
   maturity, and liquidity, with an owner (`null` is the system). Variants from
   one issuer are separate offers, and screens group them by title type and
   origin; no grouping is stored. The API under `investment-simulator/offers`
-  lists (paginated, `q` matching name or issuer, `titleType`), reads,
+  lists (paginated, `q` matching name or issuer, `titleType`, `origin`),
+  reads,
   creates, edits (revision check, `409` on mismatch), duplicates, and deletes
   offers as the authenticated user, and every change writes an
   identifier-only event to the outbox. The seed creates the system offers
-  through the use case. No offer screens yet.
+  through the use case. The `/ofertas` screens list, search, show, create,
+  edit, duplicate, and delete offers (D5); an offer's page lists the user's
+  simulations that use it, and its delete dialog and editor state how many.
 - **Simulations:** reference a visible offer and, for indexed remuneration, a
   curve of its index, plus the principal and investment date; all are
   editable and the simulation has its own revision (`PATCH` with the revision,
@@ -86,11 +89,18 @@ Built for the target model:
   novamente") over the last result, the summary, the tax explanation dialog,
   and the balance evolution chart with monthly rows; the list tags rows that
   are not up to date.
+- **Simulation list filters:** `GET simulations` filters the owner's
+  simulations by `offerId`, `curveId`, `titleType`, `remunerationKind`, and
+  `calculationStatus`, combined with AND; there is no index filter because
+  the remuneration kind fixes the index. `/simulacoes` filters with the same
+  URL parameters, carried to a simulation and back, and the offer screens
+  count affected simulations from the `offerId` filter's total.
 
 Differs from the target model:
 
 - Editing or deleting an offer or curve does not queue the simulations that
-  use it; they are flagged "Desatualizado" until saved again (D4b).
+  use it; they are flagged "Desatualizado" until saved again (D4b, paused).
+  The offer screens say so in their impact notices.
 - The worker's guard covers only the simulation revision: an outcome
   calculated from an older offer or curve revision can land after a newer
   one, and is then shown as "Desatualizado" (D4b adds those revisions).
@@ -101,10 +111,10 @@ redemption.
 
 ## Next Steps
 
-1. Build the rest of D4b: actor on events, page fan-out, worker guard, impact
-   counts, and publishing throughput.
-2. Decide how users enter a curve's intervals before D6 starts (open
+1. Decide how users enter a curve's intervals before D6 starts (open
    question in the curve specification).
+2. Resume D4b: actor on events, page fan-out, worker guard, and publishing
+   throughput.
 
 ## Overview
 
@@ -115,24 +125,30 @@ redemption.
 | D2  | Offers become independent, revisioned, and owned                  | D0                                 | Done        |
 | D3  | Simulations reference an offer and curve; one result              | D1, D2                             | Done        |
 | D4a | A simulation's own calculation runs asynchronously                | D3                                 | Done        |
-| D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | In progress |
-| D5  | Offer screens (`/ofertas`)                                        | D2; best after D4b                 | Not started |
+| D4b | Offer and curve changes recalculate the simulations that use them | D4a                                | Paused      |
+| D5  | Offer screens (`/ofertas`)                                        | D2                                 | Done        |
 | D6  | Curve screens (`/curvas`)                                         | D1 and the interval-input decision | Not started |
 
 ```text
      ┌──► D1 ──┐
 D0 ──┤         ├──► D3 ──► D4a ──► D4b
-     └──► D2 ──┘                     │
-          D2 ────────────────────────┴──► D5
+     └──► D2 ──┘
+          D2 ──► D5
           D1 ── (interval input decided) ──► D6
 ```
 
-Recommended order: D0, D1, D2, D3, D4a, D4b, D5, D6. D0 went first
+Recommended order: D0, D1, D2, D3, D4a, D5, D4b, D6. D0 went first
 because it carried the most infrastructure unknowns and touched no business
 code. D2 followed D1's single-aggregate model: offers are not grouped in the
 domain (decision 2026-10-11). D6 waits for the pending product decision on how
 users enter a curve's intervals, which can be made while D1 to D4 are
 built.
+
+D4b was paused on 2026-10-13 after its first step, and D5 went before it. Its
+impact counts became the filtered simulation list, which D5 built: the
+`offerId` filter's total says how many simulations a change affects. Until
+D4b resumes, the offer screens say that affected simulations stay
+"Desatualizado" until saved again.
 
 D4c (a periodic reconciliation sweep) was dropped on 2026-10-12. The outbox
 writes every event with its change, and SQS redelivers a message until it is
@@ -145,6 +161,11 @@ Portfolios, simulation return rates, and remaining term are outside this
 roadmap; they build on the new model once it is in place.
 
 ## D4b — Recalculation from premise changes
+
+**Paused (2026-10-13).** Step 1 is done; the remaining points below are
+settled but not built. Impact counts moved into D5 as the filtered simulation
+list. When D4b resumes, replace the offer screens' interim copy ("ficarão
+desatualizadas até serem salvas novamente") with the recalculation notice.
 
 The flow is in walkthroughs 5 and 6 of
 [Event Flow](../architecture/event-flow.md). Decisions settled on 2026-10-12:
@@ -181,8 +202,6 @@ The flow is in walkthroughs 5 and 6 of
 - **Worker guard:** the worker's conditional save also requires the offer and
   curve revisions it read. An outcome calculated before a premise edit or
   delete is discarded, since fan-out queued a newer calculation.
-- **Impact counts:** a query counting the user's simulations affected by an
-  offer or curve, for impact notices.
 - **Publishing throughput:** the poller publishes one event per EventBridge
   call, sequentially, roughly 20 to 50 events per second, and after a full
   batch it waits for the next tick. A system curve edit can queue thousands of
@@ -197,15 +216,6 @@ The flow is in walkthroughs 5 and 6 of
 
 **Done when** editing a curve recalculates every simulation that uses it, and
 deleting it moves them to "Requer ação".
-
-## D5 — Offer screens
-
-Implement "Offer behavior" in the frontend guide under `/ofertas`: grouped
-list, details, editor with impact notice and revision conflicts,
-duplicate, and delete. Best after D4b so impact notices have real counts.
-
-**Done when** the recorded offer behavior works against the API and the
-frontend verification in the guide passes.
 
 ## D6 — Curve screens
 

@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
+import { investmentSimulatorSections } from '@investflow/investment-simulator-web';
 import { useIdentity, useLogout } from './auth/auth-context';
+
+const navLink =
+  'group flex min-h-11 items-center gap-2 rounded-control px-3 font-medium text-muted no-underline transition-colors duration-200 hover:bg-accent-soft hover:text-fg aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent';
 
 export function Shell() {
   const identity = useIdentity();
@@ -38,13 +42,13 @@ export function Shell() {
             InvestFlow
           </Link>
 
-          <nav aria-label="Principal" className="mr-auto">
-            <NavLink
-              to="/simulacoes"
-              className="flex min-h-11 items-center rounded-control px-3 font-medium text-muted no-underline hover:bg-accent-soft hover:text-fg aria-[current=page]:text-accent"
-            >
-              Simulações
-            </NavLink>
+          <nav aria-label="Principal" className="mr-auto flex flex-wrap">
+            {investmentSimulatorSections.map(({ path, label, Icon }) => (
+              <NavLink key={path} to={path} className={navLink}>
+                <Icon className="size-5 shrink-0 transition-transform duration-200 group-hover:-translate-y-0.5" />
+                {label}
+              </NavLink>
+            ))}
           </nav>
 
           <div className="flex min-w-0 items-center gap-3 sm:gap-6">
