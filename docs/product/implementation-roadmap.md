@@ -105,9 +105,9 @@ Built:
   rate), and for the period, all derived from the balances and taxes.
   `simulation_result` also stores the rates and business days as a read model
   for sorting and aggregation. The workspace query returns the result in the
-  same shape (term, gross, net, taxes), and the remaining term (phase, calendar days, and their years, months, and days)
-  computed at read time from `Clock.today()` and the current dates, in any
-  status. The results panel shows the term above the status, the net annual
+  same shape (term, gross, net, taxes), and the remaining term (phase,
+  calendar days, and their years, months, and days) computed at read time
+  from `Clock.today()` and the current dates, in any status. The results panel shows the term above the status, the net annual
   return beside the net value, and the "Rentabilidade" table with its
   explanation dialog; LCI and LCA show one "Líquida e bruta" column.
   `GET simulations` returns each row's net annual return and accepts
@@ -254,7 +254,8 @@ Scope:
   and opening the comparison.
 - A screen-oriented query that returns, for each requested simulation the
   user owns: its offer and curve, the investment, the status with its cause,
-  and the last successful result's summary, taxes, and return rates. Unknown
+  and the last successful result's term, gross and net outcomes (amounts and
+  rates of return), and taxes, in the workspace's result shape. Unknown
   or foreign ids answer `404` like the single read.
 - The screen polls while any simulation is calculating, as the workspace
   does, and links each column to its simulation.
