@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   REMUNERATION_LABELS,
@@ -16,15 +17,17 @@ import {
 } from '../../ui/select-field';
 import {
   CurveIcon,
+  FilterIcon,
   OfferIcon,
   XIcon,
   type IconComponent,
 } from '../../ui/icons';
-import { quietButton } from '../../ui/styles';
+import { quietButton, secondaryButton } from '../../ui/styles';
 import { simulationOptionsQuery } from '../api/simulation-api';
 import type {
   CalculationStatus,
   CurveOption,
+  OfferOption,
   SimulationOptions,
 } from '../models/simulation.types';
 import type {
@@ -62,13 +65,24 @@ const STATUS_LABELS: Record<CalculationStatus, string> = {
   FAILED: 'Falha técnica',
 };
 
+// Rows of a calculated simulation whose premises changed read "Desatualizado".
 const STATUS_OPTIONS: SelectOption[] = [
-  { value: ALL, label: 'Todos' },
+  { value: ALL, label: 'Todas' },
   ...(Object.keys(STATUS_LABELS) as CalculationStatus[]).map((status) => ({
     value: status,
     label: STATUS_LABELS[status],
+    detail:
+      status === 'CALCULATED' ? 'Inclui resultados desatualizados' : undefined,
   })),
 ];
+
+// An offer that cannot be calculated yet may still have simulations, so the
+// filter keeps it selectable.
+function offerGroups(offers: readonly OfferOption[]): SelectGroup[] {
+  return offerSelectGroups(
+    offers.map((offer) => ({ ...offer, unsupportedReason: null })),
+  );
+}
 
 // A filter from a link may name an offer or curve no longer listed.
 function withUnlisted(
@@ -104,7 +118,7 @@ function FilterSelect({
   label,
   icon,
   value,
-  allLabel,
+  allLabel = 'Todas',
   options,
   groups,
   disabled,
@@ -125,10 +139,10 @@ function FilterSelect({
         <SelectField
           {...control}
           value={value ?? ALL}
-          placeholder={allLabel ?? 'Todas'}
+          placeholder={allLabel}
           disabled={disabled}
           options={[
-            ...(groups ? [{ value: ALL, label: allLabel ?? 'Todas' }] : []),
+            ...(groups ? [{ value: ALL, label: allLabel }] : []),
             ...(options ?? []),
           ]}
           groups={groups ?? []}
@@ -141,22 +155,43 @@ function FilterSelect({
 
 export function SimulationListFilterBar({
   filters,
-  filtered,
   onChange,
   onClear,
 }: {
   readonly filters: SimulationListFilters;
-  readonly filtered: boolean;
   readonly onChange: (name: SimulationListFilter, value: string | null) => void;
   readonly onClear: () => void;
 }) {
   const fetchFn = useApiFetch();
   // Already cached when the user came from a simulation.
   const options = useQuery(simulationOptionsQuery(fetchFn));
+  const panelId = useId();
+  // Phones only: the stacked filters would push every row below the fold.
+  const [expanded, setExpanded] = useState(false);
+  const active = Object.keys(filters).length;
 
   return (
-    <div role="search" aria-label="Filtrar simulações">
-      <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
+    <div role="search" aria-label="Filtrar simulações" className="grid gap-4">
+      <button
+        type="button"
+        className={`${secondaryButton} justify-self-start sm:hidden`}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <FilterIcon className="size-5 shrink-0" />
+        {active > 0 ? `Filtros (${active})` : 'Filtros'}
+        <span
+          aria-hidden="true"
+          className={`text-muted transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
+        >
+          ▾
+        </span>
+      </button>
+      <div
+        id={panelId}
+        className={`${expanded ? 'grid' : 'hidden'} items-end gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]`}
+      >
         <FilterSelect
           label="Oferta"
           icon={OfferIcon}
@@ -164,7 +199,7 @@ export function SimulationListFilterBar({
           groups={
             options.data
               ? withUnlisted(
-                  offerSelectGroups(options.data.offers),
+                  offerGroups(options.data.offers),
                   filters.offerId,
                   'Oferta excluída',
                 )
@@ -205,14 +240,13 @@ export function SimulationListFilterBar({
         <FilterSelect
           label="Situação"
           value={filters.calculationStatus}
-          allLabel="Todos"
           options={STATUS_OPTIONS}
           onChange={(value) => onChange('calculationStatus', value)}
         />
         <button
           type="button"
           className={`${quietButton} gap-1`}
-          disabled={!filtered}
+          disabled={active === 0}
           onClick={onClear}
         >
           <XIcon className="size-4 shrink-0" />
@@ -220,7 +254,7 @@ export function SimulationListFilterBar({
         </button>
       </div>
       {options.isError && (
-        <p className="mt-2 mb-0 text-sm text-muted">
+        <p className="m-0 text-sm text-muted">
           Não foi possível carregar as ofertas e curvas para filtrar.{' '}
           <button
             type="button"

@@ -408,7 +408,14 @@ any of them changes.
     The offer and curve choices come from the options query the workspace
     already caches; an offer or curve no longer listed shows as "Oferta
     excluída" or "Curva excluída". There is no index filter: the remuneration
-    kind fixes the index.
+    kind fixes the index. Offers that cannot be calculated yet stay
+    selectable, and "Calculada" notes that it includes outdated results.
+    Below 640px the filters collapse behind "Filtros (N)", N counting the
+    active ones.
+  - A status line above the list states the total ("N simulações", or "N
+    simulações encontradas" when filtered) and "Atualizando simulações…"
+    while a newer page or filter loads, during which the previous rows stay
+    dimmed. Clearing the filters moves focus to it.
   - The filters live in the URL under the API's names (`offerId`, `curveId`,
     `titleType`, `remunerationKind`, `calculationStatus`). Changing one
     resets to page 1, and an invalid value is dropped by navigating with
@@ -420,7 +427,7 @@ any of them changes.
     when indexed, the principal, the period, the net value of the last
     successful result, and a textual status tag unless the result is up to date
     ("Calculando", "Requer ação", "Falha técnica"). Desktop
-    uses a table; below 1024px, labeled rows. The whole row or card opens the
+    uses a table with fixed column widths; below 1024px, labeled rows. The whole row or card opens the
     simulation: one link per entry, stretched over the table row on desktop.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
   (stacked below 1024px):

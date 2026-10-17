@@ -1,3 +1,4 @@
+import { useRef, type Ref } from 'react';
 import { Link, Navigate } from 'react-router';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
@@ -20,7 +21,10 @@ import {
 import { calculationStatusLabel } from '../utils/calculation-status';
 import type { SimulationListItem } from '../models/simulation.types';
 import { SimulationListFilterBar } from './simulation-list-filters';
-import { useSimulationList } from './use-simulation-list';
+import {
+  useSimulationList,
+  type SimulationListState,
+} from './use-simulation-list';
 
 const TAG_BASE =
   'inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-sm font-medium';
@@ -69,7 +73,7 @@ function StatusTag({ item }: { readonly item: SimulationListItem }) {
 
 function NetResult({ item }: { readonly item: SimulationListItem }) {
   return (
-    <span className="grid justify-items-end gap-1">
+    <span className="grid justify-items-end gap-1 text-right">
       {item.result ? (
         <span className="font-medium tabular-nums">
           {formatMoney(item.result.netBalance)}
@@ -89,9 +93,17 @@ function SimulationTable({
   readonly items: readonly SimulationListItem[];
   readonly search: string;
 }) {
+  // Fixed widths keep the columns in place as filters and pages change rows.
   return (
-    <table className="hidden w-full border-collapse text-left lg:table">
+    <table className="hidden w-full table-fixed border-collapse text-left lg:table">
       <caption className="sr-only">Suas simulações</caption>
+      <colgroup>
+        <col />
+        <col className="w-48" />
+        <col className="w-40" />
+        <col className="w-57" />
+        <col className="w-45" />
+      </colgroup>
       <thead>
         <tr className="border-b border-border text-sm text-muted">
           <th scope="col" className="px-4 py-3 font-medium">
@@ -141,7 +153,7 @@ function SimulationTable({
             <td className="px-4 py-3 text-right tabular-nums">
               {formatMoney(item.principal)}
             </td>
-            <td className="px-4 py-3 tabular-nums">
+            <td className="px-4 py-3 whitespace-nowrap tabular-nums">
               {formatIsoDate(item.investmentDate)} a{' '}
               {formatIsoDate(item.maturityDate)}
             </td>
@@ -168,20 +180,27 @@ function SimulationRows({
         <li key={item.id} className="border-b border-border last:border-b-0">
           <Link
             to={{ pathname: item.id, search }}
-            className="grid gap-2 p-4 text-fg no-underline transition-colors duration-150 hover:bg-accent-soft"
+            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 p-4 text-fg no-underline transition-colors duration-150 hover:bg-accent-soft"
           >
-            <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="flex items-center gap-2 font-medium text-accent">
-                <OfferIcon className="size-5 shrink-0 text-muted" />
-                {item.offerName}
+            <span className="flex items-start gap-2">
+              <OfferIcon className="mt-0.5 size-5 shrink-0 text-muted" />
+              <span>
+                <span className="block font-medium text-accent">
+                  {item.offerName}
+                </span>
+                <span className="block text-sm text-muted">
+                  {item.issuerName ?? 'Sem emissor'}
+                </span>
               </span>
-              <NetResult item={item} />
             </span>
-            <span className="text-sm text-muted">
+            <NetResult item={item} />
+            <span className="col-span-2 text-sm text-muted">
               {item.titleType} {remunerationLabel(item.remunerationTerms)} ·{' '}
               {formatMoney(item.principal)} ·{' '}
-              {formatIsoDate(item.investmentDate)} a{' '}
-              {formatIsoDate(item.maturityDate)}
+              <span className="whitespace-nowrap tabular-nums">
+                {formatIsoDate(item.investmentDate)} a{' '}
+                {formatIsoDate(item.maturityDate)}
+              </span>
             </span>
           </Link>
         </li>
@@ -190,9 +209,51 @@ function SimulationRows({
   );
 }
 
+function ResultSummary({
+  state,
+  filtered,
+  ref,
+}: {
+  readonly state: SimulationListState;
+  readonly filtered: boolean;
+  readonly ref: Ref<HTMLParagraphElement>;
+}) {
+  const text = (() => {
+    if (state.status !== 'ready') return '';
+    if (state.updating) return 'Atualizando simulações…';
+    if (state.total === 0) return '';
+    const noun = state.total === 1 ? 'simulação' : 'simulações';
+    const found = state.total === 1 ? 'encontrada' : 'encontradas';
+    return filtered
+      ? `${state.total} ${noun} ${found}`
+      : `${state.total} ${noun}`;
+  })();
+  // Stays mounted so the live region exists before its text changes, and
+  // receives focus when clearing the filters removes the button pressed.
+  return (
+    <p
+      ref={ref}
+      tabIndex={-1}
+      role="status"
+      className="m-0 -mb-2 min-h-6 text-sm text-muted outline-none"
+    >
+      {text}
+      {state.status === 'ready' && !state.updating && state.total === 0 && (
+        <span className="sr-only">Nenhuma simulação encontrada.</span>
+      )}
+    </p>
+  );
+}
+
 export function SimulationListPage() {
   const list = useSimulationList();
   const { page, state, correctedSearch, search, retry } = list;
+  const summaryRef = useRef<HTMLParagraphElement>(null);
+
+  function clearFilters() {
+    list.clearFilters();
+    summaryRef.current?.focus();
+  }
 
   if (correctedSearch !== null) {
     return <Navigate replace to={{ search: correctedSearch }} />;
@@ -218,10 +279,11 @@ export function SimulationListPage() {
 
       <SimulationListFilterBar
         filters={list.filters}
-        filtered={list.filtered}
         onChange={list.setFilter}
-        onClear={list.clearFilters}
+        onClear={clearFilters}
       />
+
+      <ResultSummary ref={summaryRef} state={state} filtered={list.filtered} />
 
       <div
         className={surface}
@@ -255,7 +317,7 @@ export function SimulationListPage() {
                 <button
                   type="button"
                   className={secondaryButton}
-                  onClick={list.clearFilters}
+                  onClick={clearFilters}
                 >
                   <XIcon className="size-4 shrink-0" />
                   Limpar filtros
@@ -282,8 +344,10 @@ export function SimulationListPage() {
             </EmptyState>
           ))}
         {state.status === 'ready' && state.items.length > 0 && (
-          // Replays when another page or filter arrives.
-          <div key={search} className="motion-safe:animate-fade-in">
+          // The previous rows stay, dimmed, until the requested ones arrive.
+          <div
+            className={`transition-opacity duration-150 motion-safe:animate-fade-in ${state.updating ? 'opacity-50' : ''}`}
+          >
             <SimulationTable items={state.items} search={search} />
             <SimulationRows items={state.items} search={search} />
           </div>
