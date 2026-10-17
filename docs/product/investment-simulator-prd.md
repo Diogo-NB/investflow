@@ -163,7 +163,9 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   da metodologia, as revisões da oferta e da curva usadas, o instante do
   cálculo, o resumo no vencimento, a apuração dos tributos (prazo em dias
   corridos, base, alíquota e valor do IOF ou isenção, base, alíquota e valor do
-  IR) e a trajetória diária bruta. Um novo cálculo bem sucedido substitui o
+  IR), a rentabilidade (ver
+  [Rentabilidade e Prazo Restante](#rentabilidade-e-prazo-restante)) e a
+  trajetória diária bruta. Um novo cálculo bem sucedido substitui o
   anterior.
 - O estado do cálculo de uma simulação é sempre um destes:
 
@@ -203,7 +205,8 @@ recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
   destacada.
 - Cada título tem sua própria versão da metodologia (`cdb-252-v1`,
   `lci-252-v1`, `lca-252-v1`), que muda sempre que fórmulas, convenções,
-  tributação ou o calendário alterarem os valores calculados daquele título.
+  tributação, o calendário ou a definição da rentabilidade alterarem os
+  valores calculados daquele título.
 - Resultados de simulações excluídas deixam de ser consultáveis.
 
 ### Resultados
@@ -215,7 +218,7 @@ Por simulação:
 - IR;
 - IOF, quando aplicável;
 - montante líquido;
-- rentabilidade mensal, anualizada e total;
+- rentabilidade líquida e bruta: ao ano, ao mês e no período;
 - prazo restante;
 - data de vencimento;
 - estado do cálculo.
@@ -410,6 +413,58 @@ Exemplo: para R$ 100 de rendimento bruto no 10º dia corrido, o IOF é R$ 66.
 O IR de 22,5% incide sobre os R$ 34 restantes e corresponde a R$ 7,65. O
 rendimento líquido é R$ 26,35.
 
+### Rentabilidade e Prazo Restante
+
+Decisão de 2026-10-16.
+
+A rentabilidade é calculada em duas versões: líquida, depois do IOF e do IR,
+e bruta, antes dos tributos. A líquida é a principal, pois é a única que
+compara de forma justa um CDB com uma LCI ou LCA isenta; a bruta corresponde
+à taxa anunciada pela oferta. Cada versão tem três medidas, derivadas do
+resultado do cálculo:
+
+```text
+rentabilidade_no_periodo = montante / valor_inicial - 1
+rentabilidade_ao_ano     = (1 + rentabilidade_no_periodo) ^ (252 / dias_uteis) - 1
+rentabilidade_ao_mes     = (1 + rentabilidade_ao_ano) ^ (1 / 12) - 1
+```
+
+- `montante` é o montante líquido ou o bruto, conforme a versão.
+- `dias_uteis` é a contagem de dias úteis do cálculo, entre a aplicação
+  (excluída) e o vencimento (incluído).
+- A anualização usa 252 dias úteis, a mesma convenção da capitalização: um
+  prefixado de 12% ao ano tem rentabilidade bruta de exatamente 12% ao ano.
+- A rentabilidade ao mês é a taxa mensal equivalente, constante, e não o
+  rendimento de cada mês civil. Equivale a usar 21 dias úteis por mês.
+- Exemplo: CDB prefixado de 12% ao ano por 504 dias úteis e IR de 15% rende
+  25,44% bruto e 21,62% líquido no período, ou 12,00% e 10,28% ao ano.
+- A rentabilidade pertence ao resultado: é calculada com ele e acompanha o
+  último resultado bem sucedido. Sua introdução não altera a versão da
+  metodologia, pois nenhum valor existente muda; uma mudança futura na sua
+  definição muda a versão, para que os resultados anteriores apareçam como
+  desatualizados.
+- A rentabilidade supõe que o investimento é mantido até o vencimento, pois o
+  resgate antecipado ainda não é calculado.
+- Rentabilidades preservam a precisão calculada; a interface as exibe com duas
+  casas decimais.
+
+O prazo restante conta os dias corridos até o vencimento a partir de hoje, a
+data em UTC:
+
+- antes da data de aplicação, conta a partir da aplicação, de modo que nunca
+  supera o prazo total;
+- no dia do vencimento é zero, e depois dele a simulação aparece como vencida,
+  sem prazo restante. O que acontece com o investimento após o vencimento
+  continua pendente;
+- depende somente das datas da simulação atual (aplicação e vencimento da
+  oferta), não do resultado, e por isso aparece em qualquer estado do
+  cálculo. Sem oferta, não há prazo restante;
+- é apresentado em anos, meses e dias contados com a regra de soma de meses
+  civis usada no prazo mínimo de LCI e LCA: anos inteiros, depois meses
+  inteiros, depois os dias restantes. Somar um mês mantém o dia ou o limita ao
+  último dia do mês, de modo que de 31/01 a 28/02 há 1 mês. O prazo total
+  exibido antes da aplicação usa a mesma regra.
+
 ### Liquidez e Resgate
 
 - Liquidez diária: permitir resgate antes do vencimento e calcular rendimento,
@@ -481,6 +536,6 @@ validada antes da implementação.
   mínimos de LCI e LCA indexadas a índice de preços.
 - Validar regra de agregação para portfólios com vencimentos diferentes.
 - Definir significado e cálculo da rentabilidade média do portfólio.
-- Definir a rentabilidade mensal, anualizada e total da simulação (bruta ou
-  líquida e a forma de anualização) e o prazo restante.
-- Definir comportamento após vencimento e eventual resgate.
+- Definir comportamento após vencimento e eventual resgate. A exibição do
+  prazo restante de uma simulação vencida já está definida em
+  [Rentabilidade e Prazo Restante](#rentabilidade-e-prazo-restante).

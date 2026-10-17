@@ -208,3 +208,24 @@ export function ChevronRightIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function InfoIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M10 9v5" />
+      <circle cx="10" cy="6.25" r="0.5" fill="currentColor" />
+    </Icon>
+  );
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.25" y="4.25" width="13.5" height="12.5" rx="2" />
+      <path d="M3.25 8.25h13.5" />
+      <path d="M7 2.75v3" />
+      <path d="M13 2.75v3" />
+    </Icon>
+  );
+}

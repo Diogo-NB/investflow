@@ -55,6 +55,7 @@ export interface SimulationListItem {
     readonly calculatedAt: string;
     readonly outdated: boolean;
     readonly netBalance: string;
+    readonly netAnnualReturn: string;
   } | null;
 }
 
@@ -111,47 +112,59 @@ export interface SimulationOptions {
   readonly taxRules: TaxRules;
 }
 
-export interface MaturitySummary {
-  readonly principal: string;
-  readonly grossBalance: string;
-  readonly grossEarnings: string;
-  readonly iof: string;
-  readonly incomeTax: string;
-  readonly totalTaxes: string;
-  readonly netBalance: string;
+// Decimal fractions: 0.1028 is 10.28%.
+export interface RateOfReturn {
+  readonly forPeriod: string;
+  // Over 252 business days a year.
+  readonly annual: string;
+  // The equivalent constant monthly rate, not any calendar month's earnings.
+  readonly monthly: string;
+}
+
+// What the investor has at maturity on one basis, gross or net of taxes.
+export interface MaturityOutcome {
+  readonly finalBalance: string;
+  readonly earnings: string;
+  readonly rateOfReturn: RateOfReturn;
+}
+
+export interface Tax {
+  readonly base: string;
+  readonly rate: string | null;
+  readonly amount: string;
+  // The calculation written out by the API, shown as is.
+  readonly formula: string;
+}
+
+export interface CalculationTaxes {
+  // rate is null when the term is exempt from IOF.
+  readonly iof: Tax;
+  // rate is null when the title type is exempt from income tax.
+  readonly incomeTax: Tax;
+  readonly total: string;
+}
+
+export interface InvestmentTerm {
+  readonly investmentDate: string;
+  readonly maturityDate: string;
+  // Interest and returns count business days; taxes count calendar days.
+  readonly businessDays: number;
+  readonly calendarDays: number;
 }
 
 export interface SimulationResult {
   readonly calculatedAt: string;
-  // The period calculated, which later edits may have changed.
-  readonly investmentDate: string;
-  readonly maturityDate: string;
   readonly methodologyVersion: string;
   // The simulation, its offer or curve changed since, or the current
   // methodology could produce different figures.
   readonly outdated: boolean;
-  readonly businessDays: number;
-  readonly maturitySummary: MaturitySummary;
+  readonly principal: string;
+  // The period calculated, which later edits may have changed.
+  readonly term: InvestmentTerm;
+  readonly gross: MaturityOutcome;
+  readonly net: MaturityOutcome;
+  // Why gross and net differ.
   readonly taxes: CalculationTaxes;
-}
-
-export interface CalculationTaxes {
-  readonly holdingPeriodCalendarDays: number;
-  // rate is null when the holding period is exempt from IOF. formula is the
-  // calculation written out by the API, shown as is.
-  readonly iof: {
-    readonly base: string;
-    readonly rate: string | null;
-    readonly amount: string;
-    readonly formula: string;
-  };
-  // rate is null when the title type is exempt from income tax.
-  readonly incomeTax: {
-    readonly base: string;
-    readonly rate: string | null;
-    readonly amount: string;
-    readonly formula: string;
-  };
 }
 
 export interface Investment {
@@ -176,8 +189,21 @@ export interface SimulationWorkspace {
     readonly deleted: boolean;
   } | null;
   readonly calculation: SimulationCalculation;
+  // From the current dates on today's UTC date, in any status; null without
+  // an offer or when maturity precedes the investment date.
+  readonly remainingTerm: RemainingTerm | null;
   // The last successful calculation; null until the first one.
   readonly result: SimulationResult | null;
+}
+
+// NOT_STARTED counts the whole term from the investment date; MATURED has no
+// term left.
+export interface RemainingTerm {
+  readonly phase: 'NOT_STARTED' | 'RUNNING' | 'MATURED';
+  readonly calendarDays: number;
+  readonly years: number;
+  readonly months: number;
+  readonly days: number;
 }
 
 export interface DailyBalance {

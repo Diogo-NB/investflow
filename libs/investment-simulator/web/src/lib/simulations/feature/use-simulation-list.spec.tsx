@@ -18,7 +18,7 @@ const emptyPage = { items: [], total: 0, page: 1, pageSize: 20 };
 
 const item = {
   id: 'sim',
-  fromCatalogOffer: false,
+  offerName: 'CDB 105% do CDI',
   principal: '10000',
   investmentDate: '2026-01-02',
   maturityDate: '2026-03-02',
@@ -26,11 +26,11 @@ const item = {
   issuerName: 'Banco Local',
   remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
   calculationStatus: 'CALCULATED',
-  latestCalculation: {
-    id: 'calculation',
+  result: {
     calculatedAt: '2026-10-10T12:00:00.000Z',
     outdated: false,
     netBalance: '10168.47',
+    netAnnualReturn: '0.1112814663816',
   },
 };
 
@@ -206,5 +206,57 @@ describe('useSimulationList', () => {
       }),
     );
     expect(result.current.filtered).toBe(true);
+  });
+
+  it('requests the sort from the URL, which filters nothing', async () => {
+    const api = fakeApi({
+      [listUrl(2, '&titleType=CDB&sort=netAnnualReturn')]: emptyPage,
+    });
+    const { result } = render(
+      api,
+      '/simulacoes?sort=netAnnualReturn&titleType=CDB&page=2',
+    );
+
+    expect(result.current.sort).toBe('netAnnualReturn');
+    expect(result.current.filters).toEqual({ titleType: 'CDB' });
+    await waitFor(() =>
+      expect(api.calls()).toEqual([
+        listUrl(2, '&titleType=CDB&sort=netAnnualReturn'),
+      ]),
+    );
+  });
+
+  it('drops an invalid sort through replace', () => {
+    const { result } = render(
+      fakeApi({ [listUrl(2)]: emptyPage }),
+      '/simulacoes?sort=name&page=2',
+    );
+
+    expect(result.current.sort).toBeUndefined();
+    expect(result.current.correctedSearch).toBe('?page=2');
+  });
+
+  it('starts a changed sort at the first page and keeps it when clearing filters', () => {
+    const api = fakeApi({
+      [listUrl(3, '&titleType=LCI')]: emptyPage,
+      [listUrl(1, '&titleType=LCI&sort=netAnnualReturn')]: emptyPage,
+      [listUrl(1, '&sort=netAnnualReturn')]: emptyPage,
+      [listUrl(1)]: emptyPage,
+    });
+    const { result } = renderHook(
+      withLocation(useSimulationList),
+      harness(api, '/simulacoes?titleType=LCI&page=3'),
+    );
+
+    act(() => result.current.hook.setSort('netAnnualReturn'));
+    expect(result.current.location.search).toBe(
+      '?titleType=LCI&sort=netAnnualReturn',
+    );
+    expect(result.current.hook.filtered).toBe(true);
+    act(() => result.current.hook.clearFilters());
+    expect(result.current.location.search).toBe('?sort=netAnnualReturn');
+    expect(result.current.hook.filtered).toBe(false);
+    act(() => result.current.hook.setSort(null));
+    expect(result.current.location.search).toBe('');
   });
 });

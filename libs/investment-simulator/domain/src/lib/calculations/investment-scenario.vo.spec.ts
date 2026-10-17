@@ -92,10 +92,6 @@ describe('InvestmentScenario', () => {
     expect(create('PREFIXED', null, { end: '2026-01-05' }).isOk()).toBe(true);
   });
 
-  it('counts holding calendar days excluding the investment date', () => {
-    expect(create('PREFIXED', null).value.holdingPeriodCalendarDays).toBe(4);
-  });
-
   it.each([
     ['2026-01-06', '2026-01-06'],
     ['2026-01-07', '2026-01-06'],

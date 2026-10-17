@@ -1,7 +1,10 @@
 import { useRef, type Ref } from 'react';
 import { Link, Navigate } from 'react-router';
 import { formatIsoDate } from '../../dates/calendar-date';
-import { formatMoney } from '../../decimals/format-decimal';
+import {
+  formatMoney,
+  formatReturnPercent,
+} from '../../decimals/format-decimal';
 import { remunerationLabel } from '../../offers/models/offer-terms';
 import { EmptyState } from '../../ui/empty-state';
 import { ListSkeleton } from '../../ui/list-skeleton';
@@ -86,6 +89,17 @@ function NetResult({ item }: { readonly item: SimulationListItem }) {
   );
 }
 
+function NetAnnualReturn({ item }: { readonly item: SimulationListItem }) {
+  return item.result ? (
+    <>{formatReturnPercent(item.result.netAnnualReturn)} a.a.</>
+  ) : (
+    <span className="text-muted">
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">Sem rentabilidade</span>
+    </span>
+  );
+}
+
 function SimulationTable({
   items,
   search,
@@ -102,6 +116,7 @@ function SimulationTable({
         <col className="w-48" />
         <col className="w-40" />
         <col className="w-57" />
+        <col className="w-36" />
         <col className="w-45" />
       </colgroup>
       <thead>
@@ -117,6 +132,9 @@ function SimulationTable({
           </th>
           <th scope="col" className="px-4 py-3 font-medium">
             Período
+          </th>
+          <th scope="col" className="px-4 py-3 text-right font-medium">
+            Rentab. líquida
           </th>
           <th scope="col" className="px-4 py-3 text-right font-medium">
             Líquido no vencimento
@@ -157,6 +175,9 @@ function SimulationTable({
               {formatIsoDate(item.investmentDate)} a{' '}
               {formatIsoDate(item.maturityDate)}
             </td>
+            <td className="px-4 py-3 text-right tabular-nums">
+              <NetAnnualReturn item={item} />
+            </td>
             <td className="px-4 py-3 text-right">
               <NetResult item={item} />
             </td>
@@ -195,6 +216,15 @@ function SimulationRows({
             </span>
             <NetResult item={item} />
             <span className="col-span-2 text-sm text-muted">
+              {item.result && (
+                <>
+                  <span className="font-medium text-fg tabular-nums">
+                    {formatReturnPercent(item.result.netAnnualReturn)} a.a.
+                    líquido
+                  </span>{' '}
+                  ·{' '}
+                </>
+              )}
               {item.titleType} {remunerationLabel(item.remunerationTerms)} ·{' '}
               {formatMoney(item.principal)} ·{' '}
               <span className="whitespace-nowrap tabular-nums">
@@ -279,7 +309,9 @@ export function SimulationListPage() {
 
       <SimulationListFilterBar
         filters={list.filters}
+        sort={list.sort}
         onChange={list.setFilter}
+        onSortChange={list.setSort}
         onClear={clearFilters}
       />
 

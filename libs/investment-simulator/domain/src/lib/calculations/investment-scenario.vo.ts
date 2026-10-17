@@ -90,11 +90,6 @@ export class InvestmentScenario extends ValueObject<InvestmentScenario> {
     return this.props.curve;
   }
 
-  // Calendar days counted from the day after investment through maturity.
-  get holdingPeriodCalendarDays(): number {
-    return this.props.investmentDate.daysUntil(this.props.maturityDate);
-  }
-
   // For indexed remunerations, which create() guarantees have a curve.
   requireCurve(): Curve {
     const curve = this.props.curve;

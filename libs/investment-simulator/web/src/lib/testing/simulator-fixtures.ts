@@ -109,22 +109,34 @@ export function simulationResult(
 ): SimulationResult {
   return {
     calculatedAt: '2026-10-10T12:00:00.000Z',
-    investmentDate: '2026-01-02',
-    maturityDate: '2026-03-02',
     methodologyVersion: 'cdb-252-v1',
     outdated: false,
-    businessDays: 40,
-    maturitySummary: {
-      principal: '10000',
-      grossBalance: '10217.38395154335823',
-      grossEarnings: '217.38395154335823',
-      iof: '0',
-      incomeTax: '48.911389097256118',
-      totalTaxes: '48.911389097256118',
-      netBalance: '10168.472562446102112',
+    principal: '10000',
+    term: {
+      investmentDate: '2026-01-02',
+      maturityDate: '2026-03-02',
+      businessDays: 40,
+      calendarDays: 59,
+    },
+    gross: {
+      finalBalance: '10217.38395154335823',
+      earnings: '217.38395154335823',
+      rateOfReturn: {
+        forPeriod: '0.021738395154335823',
+        annual: '0.144468126410318',
+        monthly: '0.011305617245902',
+      },
+    },
+    net: {
+      finalBalance: '10168.472562446102112',
+      earnings: '168.472562446102112',
+      rateOfReturn: {
+        forPeriod: '0.0168472562446102112',
+        annual: '0.111281466381612',
+        monthly: '0.008830254377311',
+      },
     },
     taxes: {
-      holdingPeriodCalendarDays: 59,
       iof: {
         base: '217.38395154335823',
         rate: null,
@@ -137,6 +149,7 @@ export function simulationResult(
         amount: '48.911389097256118',
         formula: 'R$ 217,38 × 22,5% = R$ 48,91',
       },
+      total: '48.911389097256118',
     },
     ...overrides,
   };
@@ -171,6 +184,7 @@ export const workspace: SimulationWorkspace = {
     cause: { kind: 'SIMULATION_EDITED', refId: null },
     reason: null,
   },
+  remainingTerm: null,
   result: simulationResult(),
 };
 

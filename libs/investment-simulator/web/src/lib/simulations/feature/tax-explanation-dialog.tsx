@@ -2,6 +2,7 @@ import { Dialog } from '@base-ui/react/dialog';
 import type { ReactNode } from 'react';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatPercentOf } from '../../decimals/format-decimal';
+import { InfoIcon } from '../../ui/icons';
 import { quietButton, secondaryButton } from '../../ui/styles';
 import type {
   SimulationResult,
@@ -165,24 +166,6 @@ function IncomeTaxTable({
   );
 }
 
-function InfoIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="20"
-      height="20"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    >
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="M10 9v5" strokeLinecap="round" />
-      <circle cx="10" cy="6.25" r="0.5" fill="currentColor" />
-    </svg>
-  );
-}
-
 export function TaxExplanationDialog({
   calculation,
   rules,
@@ -191,7 +174,7 @@ export function TaxExplanationDialog({
   readonly rules: TaxRules;
 }) {
   const { taxes } = calculation;
-  const days = taxes.holdingPeriodCalendarDays;
+  const days = calculation.term.calendarDays;
   const exemptFrom = rules.iof.exemptFromCalendarDays;
   return (
     <Dialog.Root>
@@ -213,8 +196,8 @@ export function TaxExplanationDialog({
           <Dialog.Description className="m-0">
             Incidem sobre o rendimento e dependem do prazo:{' '}
             <strong className="font-semibold">{days} dias corridos</strong> (
-            {formatIsoDate(calculation.investmentDate)} a{' '}
-            {formatIsoDate(calculation.maturityDate)}).
+            {formatIsoDate(calculation.term.investmentDate)} a{' '}
+            {formatIsoDate(calculation.term.maturityDate)}).
           </Dialog.Description>
 
           <Section

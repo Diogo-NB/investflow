@@ -98,7 +98,7 @@ describe('SimulationCalculationService', () => {
       });
       expect(outcome.result.calculatedAt).toBe(CALCULATED_AT);
       expect(
-        outcome.result.calculation.dailyBalances.at(-1)?.date.toIsoString(),
+        outcome.result.projection.dailyBalances.at(-1)?.date.toIsoString(),
       ).toBe('2026-01-06');
     });
 

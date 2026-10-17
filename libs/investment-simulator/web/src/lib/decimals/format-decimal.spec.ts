@@ -1,4 +1,8 @@
-import { formatMoney, formatPercentOf } from './format-decimal';
+import {
+  formatMoney,
+  formatPercentOf,
+  formatReturnPercent,
+} from './format-decimal';
 
 // Intl separates the currency symbol with a no-break space.
 const money = (decimal: string) => formatMoney(decimal).replace(/\s/g, ' ');
@@ -15,4 +19,14 @@ it('formats fractions as percentages', () => {
   expect(formatPercentOf('1.1')).toBe('110');
   expect(formatPercentOf('0.125')).toBe('12,5');
   expect(formatPercentOf('0.003450427692416233215455407623')).toBe('0,345');
+});
+
+it('formats returns with exactly two decimal places', () => {
+  expect(formatReturnPercent('0.102830000000000000000000000000')).toBe(
+    '10,28%',
+  );
+  expect(formatReturnPercent('0.12')).toBe('12,00%');
+  expect(formatReturnPercent('0.009488792934583')).toBe('0,95%');
+  expect(formatReturnPercent('0')).toBe('0,00%');
+  expect(formatReturnPercent('2.5446')).toBe('254,46%');
 });

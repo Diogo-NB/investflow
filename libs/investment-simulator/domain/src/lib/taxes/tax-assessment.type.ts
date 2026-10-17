@@ -16,9 +16,8 @@ export interface IncomeTaxAssessment {
   readonly amount: Money;
 }
 
+// The holding period it depends on is the term's calendar days.
 export interface TaxAssessment {
-  // Calendar days from the investment (excluded) to maturity (included).
-  readonly holdingPeriodCalendarDays: number;
   readonly iof: IofAssessment;
   readonly incomeTax: IncomeTaxAssessment;
   readonly total: Money;

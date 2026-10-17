@@ -1,4 +1,5 @@
-import { EAppErrorCode } from '@investflow/shared-domain';
+import { Clock } from '@investflow/shared-application';
+import { CalendarDate, EAppErrorCode } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { GetSimulationWorkspaceQueryHandler } from './get-simulation-workspace.query-handler';
@@ -28,17 +29,24 @@ function result(overrides: Partial<Record<string, unknown>> = {}) {
     incomeTaxBase: new Prisma.Decimal('0.500000000000000001'),
     iofRate: null,
     incomeTaxRate: new Prisma.Decimal('0.225'),
-    _count: { balances: 40 },
+    businessDays: 40,
+    netAnnualReturn: new Prisma.Decimal('0.0044'),
+    netMonthlyReturn: new Prisma.Decimal('0.00036'),
+    netPeriodReturn: new Prisma.Decimal('0.0003875'),
+    grossAnnualReturn: new Prisma.Decimal('0.00565'),
+    grossMonthlyReturn: new Prisma.Decimal('0.00047'),
+    grossPeriodReturn: new Prisma.Decimal('0.0004998'),
     ...overrides,
   };
 }
 
-function setup(record: unknown) {
+function setup(record: unknown, today = '2026-02-27') {
   const findFirst = jest.fn().mockResolvedValue(record);
   const prisma = {
     client: { simulation: { findFirst } },
   } as unknown as PrismaService;
-  const handler = new GetSimulationWorkspaceQueryHandler(prisma);
+  const clock = { today: () => CalendarDate.of(today) } as Clock;
+  const handler = new GetSimulationWorkspaceQueryHandler(prisma, clock);
   return (simulationId = 'simulation-id') =>
     handler.execute({ ownerId: 'owner-id', simulationId });
 }
@@ -157,22 +165,34 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     });
     expect(output.value.result).toEqual({
       calculatedAt: '2026-10-10T12:00:00.000Z',
-      investmentDate: '2026-01-02',
-      maturityDate: '2026-03-02',
       methodologyVersion: 'cdb-252-v1',
       outdated: false,
-      businessDays: 40,
-      maturitySummary: {
-        principal: '1000.5',
-        grossBalance: '1001.000000000000000001',
-        grossEarnings: '0.500000000000000001',
-        iof: '0',
-        incomeTax: '0.1125',
-        totalTaxes: '0.1125',
-        netBalance: '1000.887500000000000001',
+      principal: '1000.5',
+      term: {
+        investmentDate: '2026-01-02',
+        maturityDate: '2026-03-02',
+        businessDays: 40,
+        calendarDays: 59,
+      },
+      gross: {
+        finalBalance: '1001.000000000000000001',
+        earnings: '0.500000000000000001',
+        rateOfReturn: {
+          forPeriod: '0.0004998',
+          annual: '0.00565',
+          monthly: '0.00047',
+        },
+      },
+      net: {
+        finalBalance: '1000.887500000000000001',
+        earnings: '0.387500000000000001',
+        rateOfReturn: {
+          forPeriod: '0.0003875',
+          annual: '0.0044',
+          monthly: '0.00036',
+        },
       },
       taxes: {
-        holdingPeriodCalendarDays: 59,
         iof: {
           base: '0.500000000000000001',
           rate: null,
@@ -185,8 +205,46 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
           amount: '0.1125',
           formula: 'R$\u00a00,50 × 22,5% = R$\u00a00,11',
         },
+        total: '0.1125',
       },
     });
+  });
+
+  it.each([
+    [
+      '2026-02-27',
+      { phase: 'RUNNING', calendarDays: 3, years: 0, months: 0, days: 3 },
+    ],
+    [
+      '2025-12-31',
+      { phase: 'NOT_STARTED', calendarDays: 59, years: 0, months: 2, days: 0 },
+    ],
+    [
+      '2026-03-02',
+      { phase: 'RUNNING', calendarDays: 0, years: 0, months: 0, days: 0 },
+    ],
+    [
+      '2026-03-03',
+      { phase: 'MATURED', calendarDays: 0, years: 0, months: 0, days: 0 },
+    ],
+  ])(
+    'computes the remaining term on %s from the current dates',
+    async (today, expected) => {
+      const output = await setup(
+        workspace({ result: null, calculation: { status: 'PENDING' } }),
+        today,
+      )();
+
+      expect(output.value.remainingTerm).toEqual(expected);
+    },
+  );
+
+  it('has no remaining term without an offer', async () => {
+    const output = await setup(
+      workspace({ offer: { deletedAt: new Date() } }),
+    )();
+
+    expect(output.value.remainingTerm).toBeNull();
   });
 
   it.each([

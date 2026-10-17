@@ -19,6 +19,7 @@ import { ETitleType } from '../offers/title-type.enum';
 import { InvestmentCalculationError } from './investment-calculation.error';
 import { InvestmentCalculator } from './investment-calculator.domain-service';
 import { InvestmentScenario } from './investment-scenario.vo';
+import Decimal from 'decimal.js';
 
 const calculator = new InvestmentCalculator();
 
@@ -78,13 +79,13 @@ describe('InvestmentCalculator domain service', () => {
       '2026-01-06',
     ]);
     const expected = 1000 * Math.pow(1.12, 2 / 252);
-    expect(result.maturitySummary.grossBalance.amount.toNumber()).toBeCloseTo(
+    expect(result.gross.finalBalance.amount.toNumber()).toBeCloseTo(
       expected,
       10,
     );
-    expect(result.maturitySummary.principal.equals(input.principal)).toBe(true);
+    expect(result.principal.equals(input.principal)).toBe(true);
     expect(
-      result.maturitySummary.grossBalance.equals(
+      result.gross.finalBalance.equals(
         result.dailyBalances[1].grossBalance,
       ),
     ).toBe(true);
@@ -103,23 +104,23 @@ describe('InvestmentCalculator domain service', () => {
     // Four calendar days, despite only two accrual periods.
     expect(
       result.taxes.iof.amount.amount.equals(
-        result.maturitySummary.grossEarnings.amount.times('0.86'),
+        result.gross.earnings.amount.times('0.86'),
       ),
     ).toBe(true);
     expect(
       result.taxes.incomeTax.amount.amount.equals(
-        result.maturitySummary.grossEarnings.amount
+        result.gross.earnings.amount
           .minus(result.taxes.iof.amount.amount)
           .times('0.225'),
       ),
     ).toBe(true);
     expect(
-      result.maturitySummary.netBalance.equals(
-        result.maturitySummary.grossBalance.subtract(result.taxes.total),
+      result.net.finalBalance.equals(
+        result.gross.finalBalance.subtract(result.taxes.total),
       ),
     ).toBe(true);
     expect(
-      result.maturitySummary.grossBalance.amount.decimalPlaces(),
+      result.gross.finalBalance.amount.decimalPlaces(),
     ).toBeGreaterThan(2);
   });
 
@@ -136,12 +137,38 @@ describe('InvestmentCalculator domain service', () => {
     ).value;
     expect(result.dailyBalances).toHaveLength(252);
     expect(
-      result.maturitySummary.grossBalance.amount
+      result.gross.finalBalance.amount
         .minus(1120)
         .abs()
         .lessThan('0.000000000001'),
     ).toBe(true);
   });
+
+  it.each([
+    [ETitleType.CDB, '0.099'],
+    [ETitleType.LCI, '0.12'],
+    [ETitleType.LCA, '0.12'],
+  ])(
+    'projects the %s term and its gross and net rates of return',
+    (titleType, netAnnual) => {
+      const result = calculator.calculate(
+        scenario({ titleType, end: '2027-01-07' }),
+      ).value;
+      expect(result.term.businessDays).toBe(252);
+      // A year of 370 calendar days, in the 17.5% income-tax bracket.
+      expect(result.term.calendarDays).toBe(370);
+      const gross = result.gross.rateOfReturn;
+      const net = result.net.rateOfReturn;
+      expect(gross.annual.toFixed(12)).toBe('0.120000000000');
+      expect(gross.forPeriod.toFixed(12)).toBe('0.120000000000');
+      expect(net.annual.toFixed(12)).toBe(new Decimal(netAnnual).toFixed(12));
+      expect(
+        result.net.finalBalance.equals(
+          result.gross.finalBalance.subtract(result.taxes.total),
+        ),
+      ).toBe(true);
+    },
+  );
 
   it('skips Good Friday and the weekend without adding accrual periods', () => {
     const cdi = curve(EEconomicIndex.CDI, [
@@ -158,14 +185,14 @@ describe('InvestmentCalculator domain service', () => {
     ).value;
     expect(result.dailyBalances).toHaveLength(1);
     expect(result.dailyBalances[0].date.toIsoString()).toBe('2026-04-06');
-    expect(result.maturitySummary.grossBalance.amount.toNumber()).toBeCloseTo(
+    expect(result.gross.finalBalance.amount.toNumber()).toBeCloseTo(
       1000 * Math.pow(1.12, 1 / 252),
       10,
     );
     // Taxes count four calendar days across the holiday and weekend.
     expect(
       result.taxes.iof.amount.amount.equals(
-        result.maturitySummary.grossEarnings.amount.times('0.86'),
+        result.gross.earnings.amount.times('0.86'),
       ),
     ).toBe(true);
   });
@@ -182,7 +209,7 @@ describe('InvestmentCalculator domain service', () => {
         ).value;
         const expectedFactor = 1 + (Math.pow(1.12, 1 / 252) - 1) * Number(rate);
         expect(
-          result.maturitySummary.grossBalance.amount.toNumber(),
+          result.gross.finalBalance.amount.toNumber(),
         ).toBeCloseTo(1000 * expectedFactor * expectedFactor, 10);
       },
     );
@@ -216,7 +243,7 @@ describe('InvestmentCalculator domain service', () => {
           curve: curve(index, [['2026-01-02', '2026-01-05', '0']]),
         }),
       ).value;
-      expect(result.maturitySummary.grossBalance.amount.toString()).toBe(
+      expect(result.gross.finalBalance.amount.toString()).toBe(
         '1000',
       );
       expect(result.taxes.total.isZero).toBe(true);
@@ -310,15 +337,15 @@ describe('InvestmentCalculator domain service', () => {
     ).value;
     expect(result.methodologyVersion).toBe(version);
     expect(
-      result.maturitySummary.grossBalance.equals(
-        cdb.maturitySummary.grossBalance,
+      result.gross.finalBalance.equals(
+        cdb.gross.finalBalance,
       ),
     ).toBe(true);
     expect(result.taxes.incomeTax.rate).toBeNull();
     expect(result.taxes.total.isZero).toBe(true);
     expect(
-      result.maturitySummary.netBalance.equals(
-        result.maturitySummary.grossBalance,
+      result.net.finalBalance.equals(
+        result.gross.finalBalance,
       ),
     ).toBe(true);
     expect(cdb.taxes.total.isPositive).toBe(true);
@@ -343,7 +370,7 @@ describe('InvestmentCalculator domain service', () => {
         curve: curve(EEconomicIndex.SELIC, [['2026-01-02', '2026-01-05', '0']]),
       }),
     ).value;
-    expect(result.maturitySummary.netBalance.amount.toString()).toBe(
+    expect(result.net.finalBalance.amount.toString()).toBe(
       '1000.123456789123456',
     );
   });

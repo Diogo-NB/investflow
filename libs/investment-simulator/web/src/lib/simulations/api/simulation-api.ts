@@ -8,7 +8,10 @@ import type {
   SimulationOptions,
   SimulationWorkspace,
 } from '../models/simulation.types';
-import type { SimulationListFilters } from '../utils/simulation-list-search';
+import type {
+  SimulationListFilters,
+  SimulationListSort,
+} from '../utils/simulation-list-search';
 
 const BASE = '/api/investment-simulator';
 export const SIMULATION_PAGE_SIZE = 20;
@@ -16,6 +19,7 @@ export const SIMULATION_PAGE_SIZE = 20;
 export interface SimulationListRequest extends SimulationListFilters {
   readonly page: number;
   readonly pageSize?: number;
+  readonly sort?: SimulationListSort;
 }
 
 export const simulationKeys = {

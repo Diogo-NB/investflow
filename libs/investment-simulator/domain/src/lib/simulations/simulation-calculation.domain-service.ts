@@ -67,21 +67,19 @@ export class SimulationCalculationService {
     if (scenario.isErr()) {
       return { kind: 'INVALID', inputs, reason: scenario.error };
     }
-    const calculation = this.calculator.calculate(scenario.value);
-    if (calculation.isErr()) {
-      if (calculation.error.kind === 'unexpected') throw calculation.error;
-      return { kind: 'INVALID', inputs, reason: calculation.error };
+    const projection = this.calculator.calculate(scenario.value);
+    if (projection.isErr()) {
+      if (projection.error.kind === 'unexpected') throw projection.error;
+      return { kind: 'INVALID', inputs, reason: projection.error };
     }
     return {
       kind: 'CALCULATED',
       result: SimulationResult.create({
         inputs: {
           ...inputs,
-          methodologyVersion: calculation.value.methodologyVersion,
+          methodologyVersion: projection.value.methodologyVersion,
         },
-        investmentDate: investment.investmentDate,
-        maturityDate: offer.maturityDate,
-        calculation: calculation.value,
+        projection: projection.value,
         calculatedAt: at,
       }),
     };

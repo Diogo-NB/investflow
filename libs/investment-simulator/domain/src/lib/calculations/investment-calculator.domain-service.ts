@@ -16,11 +16,11 @@ import {
 } from './investment-calculation.error';
 import {
   DailyInvestmentBalance,
-  InvestmentCalculation,
-} from './investment-calculation.type';
+  InvestmentProjection,
+} from './investment-projection.vo';
 import { InvestmentScenario } from './investment-scenario.vo';
+import { BUSINESS_DAYS_PER_YEAR, InvestmentTerm } from './investment-term.vo';
 
-const BUSINESS_DAYS_PER_YEAR = 252;
 const FULL_RATE = new Decimal(1);
 
 // The rate of one business day remunerates until the next business day, where
@@ -83,7 +83,7 @@ export class InvestmentCalculator {
 
   calculate(
     scenario: InvestmentScenario,
-  ): Result<InvestmentCalculation, InvestmentCalculationError> {
+  ): Result<InvestmentProjection, InvestmentCalculationError> {
     const checked = this.check(scenario);
     if (checked.isErr()) return checked;
     const rates = this.accrualRates(scenario, this.accrualPeriods(scenario));
@@ -163,28 +163,23 @@ export class InvestmentCalculator {
   private compute(
     scenario: InvestmentScenario,
     rates: readonly AccrualRate[],
-  ): InvestmentCalculation {
-    const principal = scenario.principal;
+  ): InvestmentProjection {
+    const { principal, titleType } = scenario;
+    const term = InvestmentTerm.of({
+      investmentDate: scenario.investmentDate,
+      maturityDate: scenario.maturityDate,
+      businessDays: rates.length,
+    });
     const dailyBalances = this.accrue(principal, rates);
-    const grossBalance = dailyBalances[dailyBalances.length - 1].grossBalance;
-    const grossEarnings = grossBalance.subtract(principal);
-    const taxes = this.taxes.assess(
-      scenario.titleType,
-      grossEarnings,
-      scenario.holdingPeriodCalendarDays,
-    );
-    return {
-      methodologyVersion:
-        TITLE_TYPE_RULES[scenario.titleType].methodologyVersion,
+    const grossEarnings = dailyBalances[dailyBalances.length - 1].grossBalance
+      .subtract(principal);
+    return InvestmentProjection.create({
+      methodologyVersion: TITLE_TYPE_RULES[titleType].methodologyVersion,
+      principal,
+      term,
       dailyBalances,
-      maturitySummary: {
-        principal,
-        grossBalance,
-        grossEarnings,
-        netBalance: grossBalance.subtract(taxes.total),
-      },
-      taxes,
-    };
+      taxes: this.taxes.assess(titleType, grossEarnings, term.calendarDays),
+    });
   }
 
   private accrue(

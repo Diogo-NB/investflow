@@ -2,10 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { formatInstant, formatIsoDate } from '../../dates/calendar-date';
-import { formatMoney, formatPercentOf } from '../../decimals/format-decimal';
+import {
+  formatMoney,
+  formatPercentOf,
+  formatReturnPercent,
+} from '../../decimals/format-decimal';
+import type { RemunerationKind } from '../../offers/models/offer-terms';
 import { useApiFetch } from '../../routes/investment-simulator-deps';
 import {
   AlertTriangleIcon,
+  CalendarIcon,
   CheckCircleIcon,
   CurveIcon,
   RefreshIcon,
@@ -25,8 +31,10 @@ import {
   describeCause,
   describeReason,
 } from '../utils/calculation-status';
+import { describeRemainingTerm } from '../utils/remaining-term';
 import type { SaveProblem } from './use-simulation-workspace';
 import { MonthlyBalanceTable } from './monthly-balance-table';
+import { RateOfReturnTable } from './rate-of-return-table';
 import { TaxExplanationDialog } from './tax-explanation-dialog';
 
 interface CalculationPanelProps {
@@ -47,34 +55,29 @@ interface CalculationPanelProps {
   readonly onReload: () => void;
 }
 
-type SummaryKey = keyof SimulationResult['maturitySummary'];
-
-function rowLabel(
-  key: SummaryKey,
-  label: string,
-  taxes: SimulationResult['taxes'],
-): string {
-  if (key === 'iof') {
-    return taxes.iof.rate === null
-      ? `${label} · isento pelo prazo`
-      : `${label} · ${formatPercentOf(taxes.iof.rate)}% do rendimento`;
-  }
-  if (key === 'incomeTax') {
-    return taxes.incomeTax.rate === null
-      ? `${label} · isento`
-      : `${label} · ${formatPercentOf(taxes.incomeTax.rate)}%`;
-  }
-  return label;
+// Principal to net value: the gross outcome, then the taxes between them.
+function summaryRows({
+  principal,
+  gross,
+  taxes,
+}: SimulationResult): readonly [string, string][] {
+  const iof =
+    taxes.iof.rate === null
+      ? 'IOF · isento pelo prazo'
+      : `IOF · ${formatPercentOf(taxes.iof.rate)}% do rendimento`;
+  const incomeTax =
+    taxes.incomeTax.rate === null
+      ? 'Imposto de renda · isento'
+      : `Imposto de renda · ${formatPercentOf(taxes.incomeTax.rate)}%`;
+  return [
+    ['Valor aplicado', principal],
+    ['Montante bruto', gross.finalBalance],
+    ['Rendimento bruto', gross.earnings],
+    [iof, taxes.iof.amount],
+    [incomeTax, taxes.incomeTax.amount],
+    ['Total de tributos', taxes.total],
+  ];
 }
-
-const SUMMARY_ROWS: readonly [SummaryKey, string][] = [
-  ['principal', 'Valor aplicado'],
-  ['grossBalance', 'Montante bruto'],
-  ['grossEarnings', 'Rendimento bruto'],
-  ['iof', 'IOF'],
-  ['incomeTax', 'Imposto de renda'],
-  ['totalTaxes', 'Total de tributos'],
-];
 
 function StaleNotice({
   result,
@@ -240,12 +243,14 @@ function capitalize(text: string): string {
 function CalculationResult({
   simulationId,
   result,
+  remunerationKind,
   calculation,
   unsavedEdits,
   taxRules,
 }: {
   readonly simulationId: string;
   readonly result: SimulationResult;
+  readonly remunerationKind: RemunerationKind;
   readonly calculation: SimulationCalculation;
   readonly unsavedEdits: boolean;
   readonly taxRules: TaxRules;
@@ -254,7 +259,6 @@ function CalculationResult({
   const balances = useQuery(
     monthlyBalancesQuery(fetchFn, simulationId, result.calculatedAt),
   );
-  const summary = result.maturitySummary;
   // Figures recede while a newer calculation is on its way.
   const figures = `transition-opacity duration-300 ${calculation.status === 'PENDING' ? 'opacity-60' : ''}`;
   return (
@@ -275,32 +279,47 @@ function CalculationResult({
         />
         <div className={figures}>
           <p className="m-0 text-sm text-muted">Valor líquido no vencimento</p>
-          <p className="m-0 text-2xl font-semibold text-accent tabular-nums sm:text-3xl">
-            {formatMoney(summary.netBalance)}
+          <p className="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-2xl font-semibold text-accent tabular-nums sm:text-3xl">
+              {formatMoney(result.net.finalBalance)}
+            </span>
+            <span className="text-sm text-muted">
+              <strong className="font-semibold text-fg tabular-nums">
+                {formatReturnPercent(result.net.rateOfReturn.annual)} ao ano
+              </strong>
+              , já descontados os tributos
+            </span>
           </p>
+        </div>
+        <div className={figures}>
+          <RateOfReturnTable
+            result={result}
+            remunerationKind={remunerationKind}
+          />
         </div>
         <dl
           className={`m-0 grid grid-cols-[1fr_auto] gap-x-6 text-base ${figures}`}
         >
-          {SUMMARY_ROWS.map(([key, label]) => (
-            <div key={key} className="contents">
+          {summaryRows(result).map(([label, amount]) => (
+            <div key={label} className="contents">
               <dt className="border-b border-border py-2 text-muted">
-                {rowLabel(key, label, result.taxes)}
+                {label}
               </dt>
               <dd className="m-0 border-b border-border py-2 text-right tabular-nums">
-                {formatMoney(summary[key])}
+                {formatMoney(amount)}
               </dd>
             </div>
           ))}
           <dt className="py-2 font-semibold">Valor líquido</dt>
           <dd className="m-0 py-2 text-right font-semibold tabular-nums">
-            {formatMoney(summary.netBalance)}
+            {formatMoney(result.net.finalBalance)}
           </dd>
         </dl>
         <TaxExplanationDialog calculation={result} rules={taxRules} />
         <p className="m-0 text-sm text-muted">
-          Aplicação em {formatIsoDate(result.investmentDate)}, vencimento em{' '}
-          {formatIsoDate(result.maturityDate)} · {result.businessDays} dias
+          Aplicação em {formatIsoDate(result.term.investmentDate)}, vencimento
+          em {formatIsoDate(result.term.maturityDate)} ·{' '}
+          {result.term.businessDays} dias
           úteis. IOF e imposto de renda incidem no vencimento. Calculado em{' '}
           {formatInstant(result.calculatedAt)} · metodologia{' '}
           {result.methodologyVersion}.
@@ -335,6 +354,15 @@ export function CalculationPanel({
   const result = saved?.result ?? null;
   return (
     <div className="grid content-start gap-6">
+      {saved?.remainingTerm && (
+        <p className="m-0 flex items-center gap-2 font-medium">
+          <CalendarIcon className="size-5 shrink-0 text-muted" />
+          {describeRemainingTerm(saved.remainingTerm, {
+            investmentDate: saved.simulation.investment.investmentDate,
+            maturityDate: saved.offer.maturityDate,
+          })}
+        </p>
+      )}
       <div aria-live="polite" className="grid gap-6 empty:hidden">
         {pending ? (
           <p
@@ -382,6 +410,7 @@ export function CalculationPanel({
         <CalculationResult
           simulationId={saved.simulation.id}
           result={result}
+          remunerationKind={saved.offer.remunerationTerms.kind}
           calculation={saved.calculation}
           unsavedEdits={unsavedEdits}
           taxRules={taxRules}

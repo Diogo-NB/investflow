@@ -58,7 +58,7 @@ export function SelectField({
         ref={ref}
         {...control}
         onBlur={onBlur}
-        className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-control border border-border bg-surface px-3 text-left text-base text-fg outline-none hover:border-muted focus-visible:border-accent aria-invalid:border-error data-disabled:cursor-default data-disabled:bg-bg data-disabled:text-muted"
+        className="flex min-h-11 w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-control border border-border bg-surface px-3 text-left text-base text-fg outline-none hover:border-muted focus-visible:border-accent aria-invalid:border-error data-disabled:cursor-default data-disabled:bg-bg data-disabled:text-muted"
       >
         <Select.Value
           placeholder={placeholder}

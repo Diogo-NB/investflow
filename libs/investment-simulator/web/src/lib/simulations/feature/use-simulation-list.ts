@@ -10,7 +10,9 @@ import { parsePage, toSearch, withPage } from '../../pagination/page-search';
 import {
   LIST_FILTERS,
   parseFilters,
+  parseSort,
   type SimulationListFilter,
+  type SimulationListSort,
 } from '../utils/simulation-list-search';
 
 export type SimulationListState =
@@ -29,10 +31,11 @@ export function useSimulationList() {
   const fetchFn = useApiFetch();
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, invalid } = parseFilters(searchParams);
+  const { sort, invalid: invalidSort } = parseSort(searchParams);
   const requested = parsePage(searchParams.get('page'));
   const page = requested ?? 1;
   const query = useQuery({
-    ...simulationListQuery(fetchFn, { page, ...filters }),
+    ...simulationListQuery(fetchFn, { page, ...filters, sort }),
     placeholderData: keepPreviousData,
     // Only while a row is calculating, so its status settles on screen.
     refetchInterval: ({ state }) =>
@@ -53,9 +56,12 @@ export function useSimulationList() {
         ? lastPage
         : null;
   const correctedSearch = (() => {
-    if (invalid.length === 0 && correctedPage === null) return null;
+    if (invalid.length === 0 && !invalidSort && correctedPage === null) {
+      return null;
+    }
     const next = new URLSearchParams(searchParams);
     for (const name of invalid) next.delete(name);
+    if (invalidSort) next.delete('sort');
     return withPage(next, correctedPage ?? page);
   })();
 
@@ -72,8 +78,9 @@ export function useSimulationList() {
         ? { status: 'error', retrying: query.isFetching }
         : { status: 'loading' };
 
-  // A different filter means a different list, which starts at its first page.
-  function updateFilters(change: (next: URLSearchParams) => void) {
+  // A different filter or order means a different list, which starts at its
+  // first page.
+  function updateList(change: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(searchParams);
     change(next);
     next.delete('page');
@@ -83,18 +90,24 @@ export function useSimulationList() {
   return {
     page,
     filters,
+    sort,
     filtered: Object.keys(filters).length > 0,
     state,
     correctedSearch,
     search: toSearch(searchParams),
     setFilter: (name: SimulationListFilter, value: string | null) =>
-      updateFilters((next) => {
+      updateList((next) => {
         if (value) next.set(name, value);
         else next.delete(name);
       }),
     clearFilters: () =>
-      updateFilters((next) => {
+      updateList((next) => {
         for (const name of LIST_FILTERS) next.delete(name);
+      }),
+    setSort: (value: SimulationListSort | null) =>
+      updateList((next) => {
+        if (value) next.set('sort', value);
+        else next.delete('sort');
       }),
     retry: () => void query.refetch(),
   };

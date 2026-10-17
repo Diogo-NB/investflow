@@ -2,6 +2,8 @@ import {
   ESimulationCalculationCauseKind,
   ESimulationCalculationStatus,
   InvestmentInputs,
+  InvestmentProjection,
+  InvestmentTerm,
   Simulation,
   SimulationCalculation,
   SimulationResult,
@@ -84,7 +86,7 @@ export class SimulationMapper {
       result: result
         ? SimulationMapper.resultToPersistence(simulation.id, result)
         : null,
-      balances: (result?.calculation.dailyBalances ?? []).map((balance) => ({
+      balances: (result?.projection.dailyBalances ?? []).map((balance) => ({
         simulationId: simulation.id,
         date: balance.date.toUtcDate(),
         grossBalance: balance.grossBalance.amount.toFixed(),
@@ -144,6 +146,8 @@ export class SimulationMapper {
     };
   }
 
+  // The stored outcomes and rates of return are a read model; the domain
+  // derives them again from the balances and taxes.
   private static resultToDomain(
     record: SimulationResultRecord,
   ): SimulationResult {
@@ -154,18 +158,21 @@ export class SimulationMapper {
         curveRevision: record.curveRevision,
         methodologyVersion: record.methodologyVersion,
       },
-      investmentDate: CalendarDate.fromUtcDate(record.investmentDate).value,
-      maturityDate: CalendarDate.fromUtcDate(record.maturityDate).value,
-      calculation: {
+      projection: InvestmentProjection.create({
         methodologyVersion: record.methodologyVersion,
-        maturitySummary: {
-          principal: money(record.principal),
-          grossBalance: money(record.grossBalance),
-          grossEarnings: money(record.grossEarnings),
-          netBalance: money(record.netBalance),
-        },
+        principal: money(record.principal),
+        term: InvestmentTerm.of({
+          investmentDate: CalendarDate.fromUtcDate(record.investmentDate).value,
+          maturityDate: CalendarDate.fromUtcDate(record.maturityDate).value,
+          businessDays: record.businessDays,
+        }),
+        dailyBalances: record.balances.map((balance) => ({
+          date: CalendarDate.fromUtcDate(balance.date).value,
+          grossBalance: money(balance.grossBalance),
+          dailyGrossEarnings: money(balance.dailyGrossEarnings),
+          accumulatedGrossEarnings: money(balance.accumulatedGrossEarnings),
+        })),
         taxes: {
-          holdingPeriodCalendarDays: record.holdingPeriodCalendarDays,
           iof: {
             base: money(record.taxableEarnings),
             rate: record.iofRate ? Rate.of(record.iofRate.toFixed()) : null,
@@ -180,13 +187,7 @@ export class SimulationMapper {
           },
           total: money(record.totalTaxes),
         },
-        dailyBalances: record.balances.map((balance) => ({
-          date: CalendarDate.fromUtcDate(balance.date).value,
-          grossBalance: money(balance.grossBalance),
-          dailyGrossEarnings: money(balance.dailyGrossEarnings),
-          accumulatedGrossEarnings: money(balance.accumulatedGrossEarnings),
-        })),
-      },
+      }),
       calculatedAt: UtcInstant.fromDate(record.calculatedAt).value,
     });
   }
@@ -195,9 +196,8 @@ export class SimulationMapper {
     simulationId: string,
     result: SimulationResult,
   ): NonNullable<SimulationPersistenceData['result']> {
-    const { inputs, calculation } = result;
-    const summary = calculation.maturitySummary;
-    const { taxes } = calculation;
+    const { inputs, projection } = result;
+    const { term, taxes, gross, net } = projection;
     return {
       simulationId,
       simulationRevision: inputs.simulationRevision,
@@ -205,13 +205,14 @@ export class SimulationMapper {
       curveRevision: inputs.curveRevision,
       methodologyVersion: inputs.methodologyVersion,
       calculatedAt: result.calculatedAt.date,
-      investmentDate: result.investmentDate.toUtcDate(),
-      maturityDate: result.maturityDate.toUtcDate(),
-      principal: summary.principal.amount.toFixed(),
-      grossBalance: summary.grossBalance.amount.toFixed(),
-      grossEarnings: summary.grossEarnings.amount.toFixed(),
-      netBalance: summary.netBalance.amount.toFixed(),
-      holdingPeriodCalendarDays: taxes.holdingPeriodCalendarDays,
+      investmentDate: term.investmentDate.toUtcDate(),
+      maturityDate: term.maturityDate.toUtcDate(),
+      businessDays: term.businessDays,
+      holdingPeriodCalendarDays: term.calendarDays,
+      principal: projection.principal.amount.toFixed(),
+      grossBalance: gross.finalBalance.amount.toFixed(),
+      grossEarnings: gross.earnings.amount.toFixed(),
+      netBalance: net.finalBalance.amount.toFixed(),
       taxableEarnings: taxes.iof.base.amount.toFixed(),
       iofRate: taxes.iof.rate?.value.toFixed() ?? null,
       iof: taxes.iof.amount.amount.toFixed(),
@@ -219,6 +220,12 @@ export class SimulationMapper {
       incomeTaxRate: taxes.incomeTax.rate?.value.toFixed() ?? null,
       incomeTax: taxes.incomeTax.amount.amount.toFixed(),
       totalTaxes: taxes.total.amount.toFixed(),
+      grossPeriodReturn: gross.rateOfReturn.forPeriod.toFixed(),
+      grossAnnualReturn: gross.rateOfReturn.annual.toFixed(),
+      grossMonthlyReturn: gross.rateOfReturn.monthly.toFixed(),
+      netPeriodReturn: net.rateOfReturn.forPeriod.toFixed(),
+      netAnnualReturn: net.rateOfReturn.annual.toFixed(),
+      netMonthlyReturn: net.rateOfReturn.monthly.toFixed(),
     };
   }
 }

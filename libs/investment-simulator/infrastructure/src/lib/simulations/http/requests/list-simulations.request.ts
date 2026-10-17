@@ -55,4 +55,8 @@ export class ListSimulationsRequest
   @IsOptional()
   @IsEnum(ESimulationCalculationStatus)
   calculationStatus?: ESimulationCalculationStatus;
+
+  @IsOptional()
+  @IsIn(['netAnnualReturn'])
+  sort?: 'netAnnualReturn';
 }

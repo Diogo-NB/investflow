@@ -1,9 +1,5 @@
-import {
-  CalendarDate,
-  UtcInstant,
-  ValueObject,
-} from '@investflow/shared-domain';
-import { InvestmentCalculation } from '../calculations/investment-calculation.type';
+import { UtcInstant, ValueObject } from '@investflow/shared-domain';
+import { InvestmentProjection } from '../calculations/investment-projection.vo';
 import { TITLE_TYPE_RULES } from '../offers/title-type-rules';
 import { ETitleType } from '../offers/title-type.enum';
 
@@ -18,10 +14,8 @@ export interface SimulationResultInputs {
 
 export interface SimulationResultProps {
   readonly inputs: SimulationResultInputs;
-  // The period calculated, which later edits may have changed.
-  readonly investmentDate: CalendarDate;
-  readonly maturityDate: CalendarDate;
-  readonly calculation: InvestmentCalculation;
+  // Its term is the period calculated, which later edits may have changed.
+  readonly projection: InvestmentProjection;
   readonly calculatedAt: UtcInstant;
 }
 
@@ -64,16 +58,8 @@ export class SimulationResult extends ValueObject<SimulationResult> {
     return this.props.inputs;
   }
 
-  get investmentDate(): CalendarDate {
-    return this.props.investmentDate;
-  }
-
-  get maturityDate(): CalendarDate {
-    return this.props.maturityDate;
-  }
-
-  get calculation(): InvestmentCalculation {
-    return this.props.calculation;
+  get projection(): InvestmentProjection {
+    return this.props.projection;
   }
 
   get calculatedAt(): UtcInstant {

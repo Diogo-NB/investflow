@@ -53,11 +53,19 @@ const record: SimulationRecord = {
     incomeTax: decimal('2.2'),
     totalTaxes: decimal('2.2'),
     netBalance: decimal('1007.8'),
-    holdingPeriodCalendarDays: 4,
+    holdingPeriodCalendarDays: 3,
     taxableEarnings: decimal('9.876543210987654321098765432109'),
     incomeTaxBase: decimal('9.876543210987654321098765432109'),
     iofRate: null,
     incomeTaxRate: decimal('0.225'),
+    businessDays: 1,
+    // A read model the domain derives again; deliberately wrong here.
+    netAnnualReturn: decimal('9'),
+    netMonthlyReturn: decimal('9'),
+    netPeriodReturn: decimal('9'),
+    grossAnnualReturn: decimal('9'),
+    grossMonthlyReturn: decimal('9'),
+    grossPeriodReturn: decimal('9'),
     balances: [
       {
         simulationId: id,
@@ -98,10 +106,22 @@ describe('SimulationMapper', () => {
       offerRevision: 4,
       investmentDate: new Date('2026-01-02T00:00:00.000Z'),
       maturityDate: new Date('2026-01-05T00:00:00.000Z'),
-      grossEarnings: '9.876543210987654321098765432109',
+      // Derived from the balances at decimal.js precision, not read back.
+      grossEarnings: '9.8765432109876543211',
       iofRate: null,
       incomeTaxRate: '0.225',
+      businessDays: 1,
+      holdingPeriodCalendarDays: 3,
+      netBalance: '1007.8',
     });
+    const { gross, net } = simulation.result!.projection;
+    expect(data.result).toMatchObject({
+      grossPeriodReturn: gross.rateOfReturn.forPeriod.toFixed(),
+      grossAnnualReturn: gross.rateOfReturn.annual.toFixed(),
+      netAnnualReturn: net.rateOfReturn.annual.toFixed(),
+      netMonthlyReturn: net.rateOfReturn.monthly.toFixed(),
+    });
+
     expect(data.balances).toEqual([
       {
         simulationId: id,

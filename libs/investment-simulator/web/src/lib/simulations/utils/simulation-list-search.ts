@@ -15,6 +15,9 @@ export interface SimulationListFilters {
 
 export type SimulationListFilter = keyof SimulationListFilters;
 
+// Newest first when absent.
+export type SimulationListSort = 'netAnnualReturn';
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The URL uses the API's parameter names and values.
@@ -51,7 +54,19 @@ export function parseFilters(params: URLSearchParams): {
   return { filters, invalid };
 }
 
+/** The sort, and whether the URL holds an invalid one. */
+export function parseSort(params: URLSearchParams): {
+  readonly sort: SimulationListSort | undefined;
+  readonly invalid: boolean;
+} {
+  const value = params.get('sort');
+  if (value === null) return { sort: undefined, invalid: false };
+  return value === 'netAnnualReturn'
+    ? { sort: value, invalid: false }
+    : { sort: undefined, invalid: true };
+}
+
 /** The list's own parameters, carried to a simulation and back to the list. */
 export function listSearch(params: URLSearchParams): string {
-  return pickSearch(params, [...LIST_FILTERS, 'page']);
+  return pickSearch(params, [...LIST_FILTERS, 'sort', 'page']);
 }

@@ -107,7 +107,8 @@ calculator then runs a linear pipeline:
    `InvestmentCalculator.unsupportedReason()` tells screens which terms cannot
    be priced yet.
 3. Daily balances compound the daily accrual factor, cached per rate.
-4. `TaxCalculator` derives the maturity summary for the title type.
+4. `TaxCalculator` assesses IOF and income tax on the gross earnings over the
+   term's calendar days, and the result is an `InvestmentProjection`.
 
 Only steps 1 and 2 return expected failures. Steps 3 and 4 are plain
 arithmetic, wrapped once so that numeric overflow becomes
@@ -121,9 +122,27 @@ title's figures.
 The rate on an interval's starting business day produces the balance at its
 ending business day. A Friday-to-Monday interval accrues one factor using
 Friday's rate. Maturity needs no index value of its own. Daily rows contain gross
-balance, daily gross earnings, and accumulated gross earnings. The maturity
-summary contains principal, gross balance, gross earnings, IOF, income tax, total
-taxes, and net balance.
+balance, daily gross earnings, and accumulated gross earnings.
+
+`InvestmentProjection` is the investment held to maturity. It stores only what
+the calculation produced and derives the rest, so its figures cannot disagree:
+
+- `principal`, the `methodologyVersion`, and the `InvestmentTerm`: investment
+  and maturity dates, business days (interest and returns, one per daily row)
+  and calendar days (taxes).
+- `dailyBalances`, all gross, since taxes are due only at maturity.
+- `taxes`, the `TaxAssessment` of IOF and income tax with their bases, rates,
+  and total.
+- `gross` and `net`, two `MaturityOutcome`s on the same principal: the final
+  balance (the last daily balance, or that less every tax), the earnings
+  (rendimento), and the `RateOfReturn` (rentabilidade) for the period,
+  annualized over 252 business days (so a prefixed offer's gross annual
+  return equals its rate), and as the equivalent constant monthly rate.
+
+`RateOfReturn` is what an amount earned relative to the principal; `Rate`
+stays for contracted and tax rates. Returns assume the investment is held to
+maturity and add no methodology version, since they change no existing
+figure; a future change to their definition must bump it.
 
 `TaxCalculator` is a separate, infallible domain service. `IncomeTaxPolicy` owns the
 regressive income-tax schedule, selecting a `Rate` by holding period in calendar
@@ -167,12 +186,18 @@ so the calculation is retried, and passing a curve other than the referenced
 one is an invariant breach.
 
 `SimulationResult` is the single current result: the whole
-`InvestmentCalculation` (methodology version, maturity summary, tax
-assessment, and every daily balance), the period it covered, the `calculatedAt`
-instant, and the inputs it was calculated from (simulation, offer, and curve
+`InvestmentProjection` (whose term is the period it covered), the
+`calculatedAt` instant, and the inputs it was calculated from (simulation, offer, and curve
 revisions and the methodology version). A new successful calculation replaces
 it. `SimulationResult.targetFor()` and `isCurrent()` take plain values, so read
 models can flag a result whose premises or methodology changed since.
+
+`RemainingTerm.at(today, investmentDate, maturityDate)` is computed at read time
+from the current dates, not the result. It counts calendar days from today, or
+from the investment date while that is in the future (`NOT_STARTED`); it is
+zero on the maturity date and `MATURED` afterwards. Its split into years,
+months, and days adds calendar months to the start as the LCI and LCA minimum
+term does.
 
 ## Building
 

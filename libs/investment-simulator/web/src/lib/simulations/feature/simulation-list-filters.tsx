@@ -33,10 +33,17 @@ import type {
 import type {
   SimulationListFilter,
   SimulationListFilters,
+  SimulationListSort,
 } from '../utils/simulation-list-search';
 
 // Base UI keeps an empty value for the placeholder, so "all" needs its own.
 const ALL = 'ALL';
+const NEWEST = 'NEWEST';
+
+const SORT_OPTIONS: readonly SelectOption[] = [
+  { value: NEWEST, label: 'Mais recentes' },
+  { value: 'netAnnualReturn', label: 'Maior rentabilidade líquida' },
+];
 
 const TITLE_TYPE_OPTIONS: SelectOption[] = [
   { value: ALL, label: 'Todos' },
@@ -155,11 +162,15 @@ function FilterSelect({
 
 export function SimulationListFilterBar({
   filters,
+  sort,
   onChange,
+  onSortChange,
   onClear,
 }: {
   readonly filters: SimulationListFilters;
+  readonly sort: SimulationListSort | undefined;
   readonly onChange: (name: SimulationListFilter, value: string | null) => void;
+  readonly onSortChange: (sort: SimulationListSort | null) => void;
   readonly onClear: () => void;
 }) {
   const fetchFn = useApiFetch();
@@ -172,22 +183,40 @@ export function SimulationListFilterBar({
 
   return (
     <div role="search" aria-label="Filtrar simulações" className="grid gap-4">
-      <button
-        type="button"
-        className={`${secondaryButton} justify-self-start sm:hidden`}
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <FilterIcon className="size-5 shrink-0" />
-        {active > 0 ? `Filtros (${active})` : 'Filtros'}
-        <span
-          aria-hidden="true"
-          className={`text-muted transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
+      {/* Sorting narrows nothing, so it stays out of the collapsed filters. */}
+      <div className="flex items-end gap-3">
+        <button
+          type="button"
+          className={`${secondaryButton} shrink-0 sm:hidden`}
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          onClick={() => setExpanded(!expanded)}
         >
-          ▾
-        </span>
-      </button>
+          <FilterIcon className="size-5 shrink-0" />
+          {active > 0 ? `Filtros (${active})` : 'Filtros'}
+          <span
+            aria-hidden="true"
+            className={`text-muted transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
+          >
+            ▾
+          </span>
+        </button>
+        <div className="min-w-0 flex-1 sm:ml-auto sm:max-w-72">
+          <FormField label="Ordenar por">
+            {(control) => (
+              <SelectField
+                {...control}
+                value={sort ?? NEWEST}
+                placeholder="Mais recentes"
+                options={SORT_OPTIONS}
+                onValueChange={(next) =>
+                  onSortChange(next === NEWEST ? null : 'netAnnualReturn')
+                }
+              />
+            )}
+          </FormField>
+        </div>
+      </div>
       <div
         id={panelId}
         className={`${expanded ? 'grid' : 'hidden'} items-end gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]`}

@@ -29,7 +29,6 @@ export class TaxCalculator {
       ? incomeTaxBase.times(incomeTaxRate.value)
       : Money.zero(incomeTaxBase.currency);
     return {
-      holdingPeriodCalendarDays,
       iof: {
         base: iofBase,
         rate: this.iofPolicy.rateForHoldingPeriod(holdingPeriodCalendarDays),

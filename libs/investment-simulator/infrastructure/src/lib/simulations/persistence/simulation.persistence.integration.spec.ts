@@ -25,6 +25,7 @@ import {
   Rate,
   UtcInstant,
 } from '@investflow/shared-domain';
+import { Clock } from '@investflow/shared-application';
 import {
   PrismaService,
   TransactionalDomainEventRecorder,
@@ -324,24 +325,21 @@ integration('Simulation PostgreSQL persistence', () => {
 
   it('stores a full year of daily balances and restores the result exactly', async () => {
     const { simulation } = await savedSimulation();
-    const result = simulation.result?.calculation;
+    const result = simulation.result?.projection;
     expect(result?.dailyBalances.length).toBeGreaterThan(240);
 
     const loaded = (await load(simulation.id)).result;
 
     expect(loaded?.inputs).toEqual(simulation.result?.inputs);
     expect(loaded?.calculatedAt.equals(at('2026-10-09'))).toBe(true);
-    for (const key of Object.keys(
-      result?.maturitySummary ?? {},
-    ) as (keyof NonNullable<typeof result>['maturitySummary'])[]) {
-      expect(loaded?.calculation.maturitySummary[key].amount.toFixed()).toBe(
-        result?.maturitySummary[key].amount.toFixed(),
-      );
-    }
-    expect(loaded?.calculation.dailyBalances).toHaveLength(
+    expect(loaded?.projection.equals(result!)).toBe(true);
+    expect(loaded?.projection.net.finalBalance.amount.toFixed()).toBe(
+      result?.net.finalBalance.amount.toFixed(),
+    );
+    expect(loaded?.projection.dailyBalances).toHaveLength(
       result?.dailyBalances.length ?? 0,
     );
-    loaded?.calculation.dailyBalances.forEach((balance, index) => {
+    loaded?.projection.dailyBalances.forEach((balance, index) => {
       const original = result?.dailyBalances[index];
       expect(balance.date.toIsoString()).toBe(original?.date.toIsoString());
       expect(balance.grossBalance.amount.toFixed()).toBe(
@@ -356,7 +354,7 @@ integration('Simulation PostgreSQL persistence', () => {
   it('stores an LCI income tax exemption as a null rate', async () => {
     const { simulation } = await savedSimulation(ETitleType.LCI);
 
-    const loaded = (await load(simulation.id)).result?.calculation;
+    const loaded = (await load(simulation.id)).result?.projection;
 
     expect(loaded?.methodologyVersion).toBe('lci-252-v1');
     expect(loaded?.taxes.incomeTax.rate).toBeNull();
@@ -401,9 +399,9 @@ integration('Simulation PostgreSQL persistence', () => {
       await prisma.client.simulationResultBalance.count({
         where: { simulationId: simulation.id },
       }),
-    ).toBe(recalculated.result?.calculation.dailyBalances.length);
+    ).toBe(recalculated.result?.projection.dailyBalances.length);
     expect(
-      reloaded.result?.calculation.dailyBalances.at(-1)?.date.toIsoString(),
+      reloaded.result?.projection.dailyBalances.at(-1)?.date.toIsoString(),
     ).toBe('2026-03-02');
   });
 
@@ -434,7 +432,9 @@ integration('Simulation PostgreSQL persistence', () => {
 
   it('reads the result as outdated after its offer changes until it is calculated again', async () => {
     const { simulation, offer, curve } = await savedSimulation();
-    const workspace = new GetSimulationWorkspaceQueryHandler(prisma);
+    const workspace = new GetSimulationWorkspaceQueryHandler(prisma, {
+      today: () => CalendarDate.of('2026-10-16'),
+    } as Clock);
     const list = new ListSimulationsQueryHandler(prisma);
     const read = async () => ({
       workspace: (
@@ -462,6 +462,16 @@ integration('Simulation PostgreSQL persistence', () => {
       deleted: false,
     });
     expect(before.workspace.result?.outdated).toBe(false);
+    expect(before.workspace.remainingTerm).toEqual({
+      phase: 'RUNNING',
+      calendarDays: 80,
+      years: 0,
+      months: 2,
+      days: 19,
+    });
+    expect(before.workspace.result?.gross.rateOfReturn.annual).toBe(
+      simulation.result?.projection.gross.rateOfReturn.annual.toFixed(),
+    );
     expect(before.listed).toMatchObject({
       offerName: 'Integration 105% do CDI',
       issuerName,
@@ -519,7 +529,7 @@ integration('Simulation PostgreSQL persistence', () => {
 
   it('groups the result by month and hides it with its simulation', async () => {
     const { simulation, curve } = await savedSimulation();
-    const result = simulation.result?.calculation;
+    const result = simulation.result?.projection;
     const get = new ListSimulationMonthlyBalancesQueryHandler(prisma);
     const query = { ownerId, simulationId: simulation.id };
 
@@ -544,7 +554,7 @@ integration('Simulation PostgreSQL persistence', () => {
     );
     expect(
       total.equals(
-        result?.maturitySummary.grossEarnings.amount.toFixed() ?? '',
+        result?.gross.earnings.amount.toFixed() ?? '',
       ),
     ).toBe(true);
     expect(
@@ -569,5 +579,49 @@ integration('Simulation PostgreSQL persistence', () => {
     await expect(
       prisma.client.curve.delete({ where: { id: curve.id } }),
     ).rejects.toThrow();
+  });
+
+  it('lists by net annual return, simulations without a result last', async () => {
+    const { offer, curve } = await savedSimulation(ETitleType.LCI);
+    await savedSimulation(ETitleType.CDB);
+    const uncalculated = Simulation.create(
+      { ownerId, offerId: offer.id, investment: investmentOf(curve) },
+      cause(),
+      at('2026-10-09'),
+    );
+    expect((await simulations.save(uncalculated)).isOk()).toBe(true);
+    const list = new ListSimulationsQueryHandler(prisma);
+
+    const { items, total } = (
+      await list.execute({
+        ownerId,
+        page: 1,
+        pageSize: 100,
+        sort: 'netAnnualReturn',
+      })
+    ).value;
+
+    expect(items).toHaveLength(total);
+    const firstWithout = items.findIndex((item) => !item.result);
+    expect(firstWithout).toBeGreaterThan(0);
+    expect(items.slice(firstWithout).every((item) => !item.result)).toBe(true);
+    const returns = items
+      .slice(0, firstWithout)
+      .map((item) => new Prisma.Decimal(item.result?.netAnnualReturn ?? ''));
+    returns.slice(1).forEach((value, index) => {
+      expect(value.lessThanOrEqualTo(returns[index])).toBe(true);
+    });
+    // The exempt LCI earns more after taxes than the same CDB.
+    expect(items[0].titleType).toBe('LCI');
+
+    const paged = (
+      await list.execute({
+        ownerId,
+        page: 2,
+        pageSize: firstWithout,
+        sort: 'netAnnualReturn',
+      })
+    ).value.items;
+    expect(paged[0].id).toBe(items[firstWithout].id);
   });
 });

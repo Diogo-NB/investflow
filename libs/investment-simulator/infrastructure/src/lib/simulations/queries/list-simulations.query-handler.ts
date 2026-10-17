@@ -23,6 +23,8 @@ export interface ListSimulationsQuery {
     | 'CDI_PERCENTAGE'
     | 'SELIC_PERCENTAGE';
   readonly calculationStatus?: 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
+  // Newest first when omitted.
+  readonly sort?: 'netAnnualReturn';
 }
 
 // Terms come from the offer the simulation uses.
@@ -48,6 +50,8 @@ export interface SimulationListItem {
     readonly calculatedAt: string;
     readonly outdated: boolean;
     readonly netBalance: string;
+    // A fraction: 0.1028 is 10.28% a year.
+    readonly netAnnualReturn: string;
   } | null;
 }
 
@@ -79,6 +83,7 @@ const simulationSelect = {
       methodologyVersion: true,
       calculatedAt: true,
       netBalance: true,
+      netAnnualReturn: true,
     },
   },
 } satisfies Prisma.SimulationSelect;
@@ -86,6 +91,11 @@ const simulationSelect = {
 type SimulationRecord = Prisma.SimulationGetPayload<{
   select: typeof simulationSelect;
 }>;
+
+const newestFirst: Prisma.SimulationOrderByWithRelationInput[] = [
+  { createdAt: 'desc' },
+  { id: 'asc' },
+];
 
 @Injectable()
 export class ListSimulationsQueryHandler
@@ -114,14 +124,17 @@ export class ListSimulationsQueryHandler
               : {},
           ],
         };
+        const skip = (query.page - 1) * query.pageSize;
         const [records, total] = await Promise.all([
-          this.prisma.client.simulation.findMany({
-            where,
-            select: simulationSelect,
-            orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-            skip: (query.page - 1) * query.pageSize,
-            take: query.pageSize,
-          }),
+          query.sort === 'netAnnualReturn'
+            ? this.findByNetAnnualReturn(where, skip, query.pageSize)
+            : this.prisma.client.simulation.findMany({
+                where,
+                select: simulationSelect,
+                orderBy: newestFirst,
+                skip,
+                take: query.pageSize,
+              }),
           this.prisma.client.simulation.count({ where }),
         ]);
         return {
@@ -133,6 +146,40 @@ export class ListSimulationsQueryHandler
       },
       (cause) => new SimulationQueryError(cause),
     );
+  }
+
+  // Ordering by the optional result alone would put simulations without one
+  // first (PostgreSQL sorts NULL first when descending, and Prisma offers no
+  // nulls option for relation fields), so they are paged as a second segment.
+  private async findByNetAnnualReturn(
+    where: Prisma.SimulationWhereInput,
+    skip: number,
+    take: number,
+  ): Promise<SimulationRecord[]> {
+    const withResult = { AND: [where, { result: { isNot: null } }] };
+    const ranked = await this.prisma.client.simulation.count({
+      where: withResult,
+    });
+    const rankedRecords =
+      skip < ranked
+        ? await this.prisma.client.simulation.findMany({
+            where: withResult,
+            select: simulationSelect,
+            orderBy: [{ result: { netAnnualReturn: 'desc' } }, ...newestFirst],
+            skip,
+            take,
+          })
+        : [];
+    const remaining = take - rankedRecords.length;
+    if (remaining === 0) return rankedRecords;
+    const unranked = await this.prisma.client.simulation.findMany({
+      where: { AND: [where, { result: { is: null } }] },
+      select: simulationSelect,
+      orderBy: newestFirst,
+      skip: Math.max(0, skip - ranked),
+      take: remaining,
+    });
+    return [...rankedRecords, ...unranked];
   }
 
   private toOutput(record: SimulationRecord): SimulationListItem {
@@ -170,6 +217,7 @@ export class ListSimulationsQueryHandler
               ),
             ),
             netBalance: result.netBalance.toFixed(),
+            netAnnualReturn: result.netAnnualReturn.toFixed(),
           }
         : null,
     };

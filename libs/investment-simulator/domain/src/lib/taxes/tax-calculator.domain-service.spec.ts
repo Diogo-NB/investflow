@@ -29,7 +29,6 @@ describe('TaxCalculator domain service', () => {
 
   it('assesses each tax with its base and rate', () => {
     const assessment = calculate(10);
-    expect(assessment.holdingPeriodCalendarDays).toBe(10);
     expect(assessment.iof.base.amount.toString()).toBe('100');
     expect(assessment.iof.rate?.value.toString()).toBe('0.66');
     expect(assessment.incomeTax.base.amount.toString()).toBe('34');
