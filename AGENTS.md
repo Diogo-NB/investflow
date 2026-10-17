@@ -168,6 +168,15 @@ acceptable only for a true utility: it computes no business rule, is domain
 agnostic, and receives no port or other application dependency, such as
 `libs/investment-simulator/web/src/lib/decimals/format-decimal.ts`.
 
+Model for understanding, following DDD. Before changing a domain shape, map
+the PRD's terms to named types, group data by the business question it
+answers, and derive any fact that follows from other state instead of storing
+it twice. When extending an existing type would leave it unclear, remodel it
+in the same change rather than appending fields. Plans that touch the domain
+state the model first: the types, the vocabulary they encode, and what is
+stored versus derived. See "Model review" in
+`$investflow-domain-application`.
+
 `AppError` messages are user-facing, concise pt-BR that clients show as is.
 The stable `code` is the contract for behavior and tests. Every code is a member
 of the single `EAppErrorCode` enum in `@investflow/shared-domain`. 5xx responses

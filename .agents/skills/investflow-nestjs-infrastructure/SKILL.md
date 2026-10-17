@@ -119,6 +119,17 @@ these conversions. Persisted values are expected to be valid; failed
 conversions throw and are captured by the repository's `Result.fromPromise`
 around lookup and mapping.
 
+Some columns exist only for querying, such as a value stored for sorting,
+filtering, or aggregation that the domain can derive. Treat them as a read
+model:
+
+- the mapper writes them from the domain object;
+- `toDomain()` never reads them back, and the domain derives them again;
+- query handlers may read them directly.
+
+Document such columns in the schema. Do not add fields to a domain type only
+because a query needs a column.
+
 ### Repository lookup Results
 
 Prefer one `Result.fromPromise` around both the asynchronous lookup and its

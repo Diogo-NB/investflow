@@ -16,6 +16,42 @@ shared domain and application primitives they use, and nearby tests. Read
 `docs/architecture/project-structure.md` when the change affects layer
 placement, public contracts, or project boundaries.
 
+## Model review
+
+Review the domain model before changing its shape, not only the behavior you
+add. The test is whether a developer seeing the types for the first time can
+tell what each one means and how they relate. Prefer understandability over a
+minimal diff: when adding to an existing type would leave it unclear, remodel
+it.
+
+- **Speak the ubiquitous language.** Map the product terms in the PRD (pt-BR)
+  to type names before writing code. Each business concept becomes a named
+  type, not a field in a generic container. For example, rendimento
+  (earnings in R$) and rentabilidade (rate of return) are different
+  concepts, and bruto/líquido (gross/net) are two outcomes of the same
+  investment.
+- **Group by the question the business asks.** Put together what answers
+  one question, such as "what do I get at maturity, gross or net?", rather
+  than what one step happened to compute. Avoid catch-all names such as
+  `summary`, `data`, `info`, or `details`, and flat interfaces that mix
+  concerns.
+- **Keep one source per fact.** Derive what follows from other state in a
+  factory or getter (net from gross minus taxes, rates from amounts and
+  term, counts from collections), and enforce the relationship as an
+  invariant. A stored copy needs a reason that belongs to the domain.
+  Storage needs such as sorting or aggregation belong to persistence and
+  never shape the domain type.
+- **Check names for collisions.** Before reusing a name such as `Rate`,
+  `Calculation`, or `Result`, look up what it already means in the context.
+  Pick a distinct name when the meaning differs.
+- **Treat extension as a trigger.** Adding fields to an existing type means
+  re-reading the whole type against these rules. When the model no longer
+  reads clearly, restructure it in the same change: rename, split, or derive
+  instead of appending.
+
+When planning, state the model before the file list: the types, the
+vocabulary mapping, and what is stored versus derived.
+
 ## Layer boundaries
 
 - Domain code depends only on its own domain project and shared-domain code. It
