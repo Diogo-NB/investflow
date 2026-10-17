@@ -24,7 +24,7 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-16. D0 to D7 are done; D4b is paused after its first
+Last updated 2026-10-17. D0 to D8 are done; D4b is paused after its first
 step.
 
 Built:
@@ -122,6 +122,19 @@ Built:
   screens count affected simulations from the `offerId` and `curveId`
   filters' totals.
 
+- **Simulation comparison:** `GET simulation-comparisons?ids=a,b` reads 2 to 6
+  of the owner's simulations in the requested order, each in the workspace's
+  shape, and answers `404` when any is missing. The `SimulationComparison`
+  value object ranks them by the net annual return of their last successful
+  result, current or not: position, leader, and the gap to the leader in rate
+  and, when every ranked result has the same principal and dates
+  (`amountsComparable`), in money; `settled` says whether every result is
+  current. Nothing is stored. `/simulacoes` selects simulations with
+  checkboxes kept in the `comparar` URL parameter and a sticky bar, the
+  workspace adds one with "Comparar com…", and `/simulacoes/comparar?ids=…`
+  shows a verdict, a table on desktop and ranked cards below 1024px, removes
+  and adds simulations, and polls while any is calculating.
+
 Differs from the target model:
 
 - Editing or deleting an offer or curve does not queue the simulations that
@@ -137,11 +150,9 @@ the requeue after a methodology version change (see "Deferred Work" in
 
 ## Next Steps
 
-1. Settle D8's open points and build it.
-2. Settle the portfolio membership decision (see D9) so D9 can start; it can
-   run alongside D8.
-3. Settle the portfolio aggregation decisions (see D10) before D10.
-4. D4b stays paused until it is explicitly resumed.
+1. Settle the portfolio membership decision (see D9) so D9 can start.
+2. Settle the portfolio aggregation decisions (see D10) before D10.
+3. D4b stays paused until it is explicitly resumed.
 
 ## Overview
 
@@ -149,7 +160,7 @@ the requeue after a methodology version change (see "Deferred Work" in
 | --- | ----------------------------------------------------------------- | ----------------------------- | ----------- |
 | D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | Paused      |
 | D7  | Simulation return rates and remaining term                        | —                             | Done        |
-| D8  | Side-by-side simulation comparison                                | D7                            | Not started |
+| D8  | Side-by-side simulation comparison                                | D7                            | Done        |
 | D9  | Portfolios: management, membership, and derived status            | membership decision           | Not started |
 | D10 | Portfolio totals and average return                               | D7, D9, aggregation decisions | Not started |
 | D11 | Portfolio comparison                                              | D8, D10                       | Not started |
@@ -162,11 +173,9 @@ D8, D10                 ──► D11
 D4a                     ──► D4b (paused)
 ```
 
-Recommended order: D8, D9, D10, D11. D7 went first because comparing
+Recommended order: D9, D10, D11. D7 went first because comparing
 simulations with different terms needs their annualized return, and a
-portfolio's average return builds on the simulations' rates. D9 needs no
-return rates and can be built alongside D8 once its membership decision is
-settled. D11 comes last because it reuses the comparison screen's patterns
+portfolio's average return builds on the simulations' rates. D11 comes last because it reuses the comparison screen's patterns
 and the portfolio totals.
 
 D4b keeps its place in the plan and its settled design below, but none of the
@@ -233,37 +242,6 @@ The flow is in walkthroughs 5 and 6 of
 **Done when** editing a curve recalculates every simulation that uses it, and
 deleting it moves them to "Requer ação".
 
-## D8 — Side-by-side simulation comparison
-
-The PRD asks to compare two or more simulations side by side. "Duplicar"
-already prepares a variant for comparison; this deliverable adds the
-comparison itself.
-
-To settle when the deliverable starts:
-
-- How many simulations one comparison holds (a small cap keeps the screen
-  readable on mobile).
-- Whether a comparison is only a URL (`/simulacoes/comparar?ids=…`, nothing
-  stored), which is the simplest option, or a saved item.
-- Which business facts the server marks, such as the best net amount or
-  annualized return, and how it treats simulations that are not up to date.
-
-Scope:
-
-- Selecting simulations in `/simulacoes` (respecting the current filters)
-  and opening the comparison.
-- A screen-oriented query that returns, for each requested simulation the
-  user owns: its offer and curve, the investment, the status with its cause,
-  and the last successful result's term, gross and net outcomes (amounts and
-  rates of return), and taxes, in the workspace's result shape. Unknown
-  or foreign ids answer `404` like the single read.
-- The screen polls while any simulation is calculating, as the workspace
-  does, and links each column to its simulation.
-
-**Done when** a user can pick simulations with different offers and terms
-from the list and compare their net amounts, taxes, and return rates side by
-side, with each one's status visible.
-
 ## D9 — Portfolios: management, membership, and derived status
 
 A portfolio has a name and a description and groups simulations of its owner.
@@ -293,6 +271,9 @@ Scope:
   edit, delete, and show a portfolio with its simulations, their statuses,
   and their last results; the simulation workspace shows the portfolios a
   simulation belongs to.
+- A portfolio's "Comparar" opens `/simulacoes/comparar?ids=…` with its
+  simulations (up to the comparison's six), so groups of alternatives are kept
+  as portfolios rather than as saved comparisons.
 
 **Done when** a user can manage portfolios and their simulations, and a
 portfolio's derived status follows its simulations' statuses.
@@ -328,8 +309,9 @@ return.
 Scope:
 
 - Selecting portfolios and comparing their totals, average returns, and
-  statuses side by side, reusing D8's approach to selection, the URL, and
-  polling.
+  statuses side by side, reusing D8's approach: the selection in the URL with
+  a sticky bar, a verdict ranked on the server, a table on desktop and ranked
+  cards below 1024px, and polling only while something is calculating.
 
 **Done when** a user can compare two or more portfolios' totals and average
 returns side by side.

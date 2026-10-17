@@ -29,3 +29,8 @@ export function formatPercentOf(fraction: string): string {
 export function formatReturnPercent(fraction: string): string {
   return `${returnPercent.format(shiftDecimal(fraction, 2) as NumericString)}%`;
 }
+
+/** A difference between two rates of return, in percentage points. */
+export function formatPercentagePoints(fraction: string): string {
+  return `${returnPercent.format(shiftDecimal(fraction, 2) as NumericString)} p.p.`;
+}

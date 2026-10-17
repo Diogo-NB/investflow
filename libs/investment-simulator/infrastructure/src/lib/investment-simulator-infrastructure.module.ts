@@ -21,6 +21,8 @@ import { SimulationCalculationConsumer } from './simulations/messaging/simulatio
 import { PrismaSimulationRepository } from './simulations/persistence/prisma-simulation.repository';
 import { ListSimulationMonthlyBalancesQueryHandler } from './simulations/queries/list-simulation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from './simulations/queries/list-simulations.query-handler';
+import { SimulationComparisonController } from './simulation-comparisons/http/simulation-comparison.controller';
+import { GetSimulationComparisonQueryHandler } from './simulation-comparisons/queries/get-simulation-comparison.query-handler';
 import { SimulationWorkspaceController } from './simulation-workspaces/http/simulation-workspace.controller';
 import { GetSimulationOptionsQueryHandler } from './simulation-workspaces/queries/get-simulation-options.query-handler';
 import { GetSimulationWorkspaceQueryHandler } from './simulation-workspaces/queries/get-simulation-workspace.query-handler';
@@ -34,6 +36,7 @@ import { OffersModule } from './offers/offers.module';
     InvestmentSimulatorController,
     SimulationController,
     SimulationWorkspaceController,
+    SimulationComparisonController,
     BusinessCalendarController,
   ],
   providers: [
@@ -59,6 +62,7 @@ import { OffersModule } from './offers/offers.module';
     ListSimulationMonthlyBalancesQueryHandler,
     GetSimulationOptionsQueryHandler,
     GetSimulationWorkspaceQueryHandler,
+    GetSimulationComparisonQueryHandler,
   ],
 })
 export class InvestmentSimulatorInfrastructureModule {}

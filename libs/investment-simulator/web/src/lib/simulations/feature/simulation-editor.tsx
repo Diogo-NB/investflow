@@ -4,7 +4,13 @@ import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
 import { remunerationLabel } from '../../offers/models/offer-terms';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
-import { CopyIcon, PlusIcon, SimulationIcon, TrashIcon } from '../../ui/icons';
+import {
+  CompareIcon,
+  CopyIcon,
+  PlusIcon,
+  SimulationIcon,
+  TrashIcon,
+} from '../../ui/icons';
 import { PageLabel } from '../../ui/page-label';
 import { PageTitle } from '../../ui/page-title';
 import { quietButton, secondaryButton } from '../../ui/styles';
@@ -13,7 +19,10 @@ import type {
   SimulationWorkspace,
 } from '../models/simulation.types';
 import type { SimulationFormValues } from '../utils/simulation-form';
-import { listSearch } from '../utils/simulation-list-search';
+import {
+  listSearch,
+  listSearchSelecting,
+} from '../utils/simulation-list-search';
 import { CalculationPanel } from './calculation-panel';
 import { SimulationFormPanel } from './simulation-form-panel';
 import { useSimulationForm } from './use-simulation-form';
@@ -143,6 +152,13 @@ export function SimulationEditor({
             >
               <CopyIcon className="size-4 shrink-0" />
               Duplicar
+            </Link>
+            <Link
+              to={`/simulacoes${listSearchSelecting(searchParams, simulation.id)}`}
+              className={secondaryButton}
+            >
+              <CompareIcon className="size-4 shrink-0" />
+              Comparar com…
             </Link>
             <button
               type="button"

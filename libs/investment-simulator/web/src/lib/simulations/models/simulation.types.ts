@@ -196,6 +196,32 @@ export interface SimulationWorkspace {
   readonly result: SimulationResult | null;
 }
 
+// Where a simulation stands among those compared, by net annual return.
+export interface ComparisonStanding {
+  // Ties share a position, and the next one skips: 1, 1, 3.
+  readonly position: number;
+  readonly leader: boolean;
+  // Decimal fractions: the leader's net annual return minus this one's.
+  readonly netAnnualReturnGap: string;
+  // The leader's net final balance minus this one's; null unless the amounts
+  // are comparable.
+  readonly netBalanceGap: string | null;
+}
+
+export interface ComparedSimulation extends SimulationWorkspace {
+  // Ranked from the last successful result, current or not; null without one.
+  readonly standing: ComparisonStanding | null;
+}
+
+export interface SimulationComparison {
+  // Every simulation is calculated and current, so the ranking is final.
+  readonly settled: boolean;
+  // Same principal, investment date, and maturity across ranked results.
+  readonly amountsComparable: boolean;
+  // In the requested order.
+  readonly simulations: readonly ComparedSimulation[];
+}
+
 // NOT_STARTED counts the whole term from the investment date; MATURED has no
 // term left.
 export interface RemainingTerm {

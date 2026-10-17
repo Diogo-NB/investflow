@@ -259,4 +259,62 @@ describe('useSimulationList', () => {
     act(() => result.current.hook.setSort(null));
     expect(result.current.location.search).toBe('');
   });
+
+  describe('selection for comparison', () => {
+    const ids = [1, 2, 3, 4, 5, 6, 7].map(
+      (n) => `00000000-0000-4000-8000-00000000000${n}`,
+    );
+
+    it('keeps the selection across filters and pages', async () => {
+      const api = fakeApi({});
+      const { result } = renderHook(
+        withLocation(useSimulationList),
+        harness(api, '/simulacoes?page=2'),
+      );
+
+      act(() => result.current.hook.toggleSelected(ids[0]));
+      expect(result.current.hook.selected).toEqual([ids[0]]);
+      expect(result.current.hook.comparisonSearch).toBeNull();
+      expect(result.current.hook.page).toBe(2);
+
+      act(() => result.current.hook.toggleSelected(ids[1]));
+      act(() => result.current.hook.setFilter('titleType', 'CDB'));
+      expect(result.current.hook.selected).toEqual([ids[0], ids[1]]);
+      expect(result.current.hook.comparisonSearch).toBe(
+        `?ids=${ids[0]}%2C${ids[1]}`,
+      );
+
+      act(() => result.current.hook.toggleSelected(ids[0]));
+      expect(result.current.hook.selected).toEqual([ids[1]]);
+      act(() => result.current.hook.clearSelection());
+      expect(result.current.location.search).toBe('?titleType=CDB');
+    });
+
+    it('stops at the comparison limit', async () => {
+      const api = fakeApi({});
+      const { result } = render(
+        api,
+        `/simulacoes?comparar=${ids.slice(0, 5).join(',')}`,
+      );
+
+      expect(result.current.canSelectMore).toBe(true);
+      act(() => result.current.toggleSelected(ids[5]));
+      expect(result.current.canSelectMore).toBe(false);
+      act(() => result.current.toggleSelected(ids[6]));
+      expect(result.current.selected).toEqual(ids.slice(0, 6));
+    });
+
+    it('corrects malformed, repeated, or excess ids', () => {
+      const api = fakeApi({});
+      const { result } = render(
+        api,
+        `/simulacoes?comparar=${[ids[0], 'x', ids[0], ...ids.slice(1)].join(',')}`,
+      );
+
+      expect(result.current.selected).toEqual(ids.slice(0, 6));
+      expect(result.current.correctedSearch).toBe(
+        `?comparar=${ids.slice(0, 6).join('%2C')}`,
+      );
+    });
+  });
 });

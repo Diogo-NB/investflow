@@ -3,6 +3,7 @@ import { jsonBody, requestJson, type FetchFn } from '../../http/request-json';
 import type { PaginatedResult } from '../../pagination/paginated-result.type';
 import type {
   MonthlyBalance,
+  SimulationComparison,
   SimulationInput,
   SimulationListItem,
   SimulationOptions,
@@ -29,6 +30,8 @@ export const simulationKeys = {
     [...simulationKeys.lists(), request] as const,
   options: () => [...simulationKeys.all, 'options'] as const,
   workspace: (id: string) => [...simulationKeys.all, 'workspace', id] as const,
+  comparison: (ids: readonly string[]) =>
+    [...simulationKeys.all, 'comparison', ids] as const,
   monthlyBalances: (simulationId: string, calculatedAt: string) =>
     [
       ...simulationKeys.all,
@@ -82,6 +85,21 @@ export function simulationWorkspaceQuery(fetchFn: FetchFn, id: string) {
       requestJson<SimulationWorkspace>(
         fetchFn,
         `${BASE}/simulation-workspaces/${id}`,
+        { signal },
+      ),
+  });
+}
+
+export function simulationComparisonQuery(
+  fetchFn: FetchFn,
+  ids: readonly string[],
+) {
+  return queryOptions({
+    queryKey: simulationKeys.comparison(ids),
+    queryFn: ({ signal }) =>
+      requestJson<SimulationComparison>(
+        fetchFn,
+        `${BASE}/simulation-comparisons?${new URLSearchParams({ ids: ids.join(',') })}`,
         { signal },
       ),
   });

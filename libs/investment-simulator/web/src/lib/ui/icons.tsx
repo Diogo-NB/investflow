@@ -47,6 +47,23 @@ export function CheckCircleIcon(props: IconProps) {
   );
 }
 
+export function CompareIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="2.75" y="3.75" width="5.5" height="12.5" rx="1.25" />
+      <rect x="11.75" y="3.75" width="5.5" height="12.5" rx="1.25" />
+    </Icon>
+  );
+}
+
+export function StarIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m10 2.75 2.2 4.6 5 .65-3.65 3.45.92 4.95L10 14l-4.47 2.4.92-4.95L2.8 8l5-.65L10 2.75Z" />
+    </Icon>
+  );
+}
+
 export function AlertTriangleIcon(props: IconProps) {
   return (
     <Icon {...props}>

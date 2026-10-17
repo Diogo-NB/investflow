@@ -11,68 +11,24 @@ import { ListSkeleton } from '../../ui/list-skeleton';
 import { PageLabel } from '../../ui/page-label';
 import { PageTitle } from '../../ui/page-title';
 import { PaginationNav } from '../../ui/pagination-nav';
-import { primaryButton, secondaryButton, surface } from '../../ui/styles';
 import {
-  AlertTriangleIcon,
-  OfferIcon,
-  PlusIcon,
-  SimulationIcon,
-  SpinningRefreshIcon,
-  XCircleIcon,
-  XIcon,
-} from '../../ui/icons';
-import { calculationStatusLabel } from '../utils/calculation-status';
+  primaryButton,
+  quietButton,
+  secondaryButton,
+  surface,
+} from '../../ui/styles';
+import { CompareIcon, PlusIcon, SimulationIcon, XIcon } from '../../ui/icons';
+import { CalculationStatusTag } from '../ui/calculation-status-tag';
+import {
+  MAX_COMPARED,
+  MIN_COMPARED,
+} from '../utils/simulation-comparison-search';
 import type { SimulationListItem } from '../models/simulation.types';
 import { SimulationListFilterBar } from './simulation-list-filters';
 import {
   useSimulationList,
   type SimulationListState,
 } from './use-simulation-list';
-
-const TAG_BASE =
-  'inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-sm font-medium';
-
-function StatusTag({ item }: { readonly item: SimulationListItem }) {
-  const label = calculationStatusLabel(item.calculationStatus);
-  switch (item.calculationStatus) {
-    case 'PENDING':
-      return (
-        <span
-          className={`${TAG_BASE} border-accent/30 bg-accent-soft text-accent`}
-        >
-          <SpinningRefreshIcon className="size-4" />
-          {label}
-        </span>
-      );
-    case 'INVALID':
-      return (
-        <span
-          className={`${TAG_BASE} border-warning/40 bg-warning-soft text-warning`}
-        >
-          <AlertTriangleIcon className="size-4 shrink-0" />
-          {label}
-        </span>
-      );
-    case 'FAILED':
-      return (
-        <span
-          className={`${TAG_BASE} border-error/40 bg-error-soft text-error`}
-        >
-          <XCircleIcon className="size-4 shrink-0" />
-          {label}
-        </span>
-      );
-    case 'CALCULATED':
-      return item.result?.outdated ? (
-        <span
-          className={`${TAG_BASE} border-warning/40 bg-warning-soft text-warning`}
-        >
-          <AlertTriangleIcon className="size-4 shrink-0" />
-          Desatualizado
-        </span>
-      ) : null;
-  }
-}
 
 function NetResult({ item }: { readonly item: SimulationListItem }) {
   return (
@@ -84,7 +40,10 @@ function NetResult({ item }: { readonly item: SimulationListItem }) {
       ) : (
         <span className="text-sm text-muted">Sem resultado</span>
       )}
-      <StatusTag item={item} />
+      <CalculationStatusTag
+        status={item.calculationStatus}
+        outdated={item.result?.outdated ?? false}
+      />
     </span>
   );
 }
@@ -100,12 +59,43 @@ function NetAnnualReturn({ item }: { readonly item: SimulationListItem }) {
   );
 }
 
+interface Selection {
+  readonly selected: readonly string[];
+  readonly canSelectMore: boolean;
+  readonly onToggle: (id: string) => void;
+}
+
+// Above the row's stretched link, so ticking it doesn't open the simulation.
+function SelectBox({
+  item,
+  selection,
+}: {
+  readonly item: SimulationListItem;
+  readonly selection: Selection;
+}) {
+  const checked = selection.selected.includes(item.id);
+  return (
+    <label className="relative z-10 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-control hover:bg-accent-soft has-disabled:cursor-default has-disabled:hover:bg-transparent">
+      <input
+        type="checkbox"
+        className="size-5 cursor-[inherit] accent-accent"
+        checked={checked}
+        disabled={!checked && !selection.canSelectMore}
+        onChange={() => selection.onToggle(item.id)}
+      />
+      <span className="sr-only">Comparar {item.offerName}</span>
+    </label>
+  );
+}
+
 function SimulationTable({
   items,
   search,
+  selection,
 }: {
   readonly items: readonly SimulationListItem[];
   readonly search: string;
+  readonly selection: Selection;
 }) {
   // Fixed widths keep the columns in place as filters and pages change rows.
   return (
@@ -151,7 +141,9 @@ function SimulationTable({
           >
             <td className="px-4 py-3">
               <span className="flex items-start gap-3">
-                <OfferIcon className="mt-0.5 size-5 shrink-0 text-muted transition-colors duration-150 group-hover:text-accent" />
+                <span className="-my-2.5 -ml-3">
+                  <SelectBox item={item} selection={selection} />
+                </span>
                 <span>
                   <Link
                     to={{ pathname: item.id, search }}
@@ -191,27 +183,32 @@ function SimulationTable({
 function SimulationRows({
   items,
   search,
+  selection,
 }: {
   readonly items: readonly SimulationListItem[];
   readonly search: string;
+  readonly selection: Selection;
 }) {
   return (
     <ul className="m-0 grid list-none p-0 lg:hidden">
       {items.map((item) => (
-        <li key={item.id} className="border-b border-border last:border-b-0">
+        <li
+          key={item.id}
+          className="flex items-start border-b border-border last:border-b-0"
+        >
+          <span className="pt-2.5 pl-1">
+            <SelectBox item={item} selection={selection} />
+          </span>
           <Link
             to={{ pathname: item.id, search }}
-            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 p-4 text-fg no-underline transition-colors duration-150 hover:bg-accent-soft"
+            className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 py-4 pr-4 pl-2 text-fg no-underline transition-colors duration-150 hover:bg-accent-soft"
           >
-            <span className="flex items-start gap-2">
-              <OfferIcon className="mt-0.5 size-5 shrink-0 text-muted" />
-              <span>
-                <span className="block font-medium text-accent">
-                  {item.offerName}
-                </span>
-                <span className="block text-sm text-muted">
-                  {item.issuerName ?? 'Sem emissor'}
-                </span>
+            <span>
+              <span className="block font-medium text-accent">
+                {item.offerName}
+              </span>
+              <span className="block text-sm text-muted">
+                {item.issuerName ?? 'Sem emissor'}
               </span>
             </span>
             <NetResult item={item} />
@@ -275,10 +272,75 @@ function ResultSummary({
   );
 }
 
+// Stays mounted so its live region announces the first selection.
+function ComparisonBar({
+  count,
+  full,
+  comparisonSearch,
+  onClear,
+}: {
+  readonly count: number;
+  readonly full: boolean;
+  readonly comparisonSearch: string | null;
+  readonly onClear: () => void;
+}) {
+  const hint =
+    comparisonSearch === null
+      ? `Selecione ao menos ${MIN_COMPARED} para comparar.`
+      : full
+        ? `Máximo de ${MAX_COMPARED}.`
+        : null;
+  return (
+    <div
+      aria-live="polite"
+      className={count ? 'sticky bottom-4 z-20' : 'sr-only'}
+    >
+      {count > 0 && (
+        <div
+          role="region"
+          aria-label="Simulações para comparar"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-surface border-2 border-accent bg-surface px-4 py-3"
+        >
+          <p className="m-0">
+            <span className="font-medium">
+              {count} {count === 1 ? 'selecionada' : 'selecionadas'}
+            </span>
+            {hint && <span className="text-sm text-muted"> · {hint}</span>}
+          </p>
+          <div className="flex gap-2">
+            <button type="button" className={quietButton} onClick={onClear}>
+              Limpar
+            </button>
+            {comparisonSearch === null ? (
+              <button type="button" className={primaryButton} disabled>
+                <CompareIcon className="size-5 shrink-0" />
+                Comparar
+              </button>
+            ) : (
+              <Link
+                to={{ pathname: 'comparar', search: comparisonSearch }}
+                className={primaryButton}
+              >
+                <CompareIcon className="size-5 shrink-0" />
+                Comparar
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SimulationListPage() {
   const list = useSimulationList();
   const { page, state, correctedSearch, search, retry } = list;
   const summaryRef = useRef<HTMLParagraphElement>(null);
+  const selection: Selection = {
+    selected: list.selected,
+    canSelectMore: list.canSelectMore,
+    onToggle: list.toggleSelected,
+  };
 
   function clearFilters() {
     list.clearFilters();
@@ -380,8 +442,16 @@ export function SimulationListPage() {
           <div
             className={`transition-opacity duration-150 motion-safe:animate-fade-in ${state.updating ? 'opacity-50' : ''}`}
           >
-            <SimulationTable items={state.items} search={search} />
-            <SimulationRows items={state.items} search={search} />
+            <SimulationTable
+              items={state.items}
+              search={search}
+              selection={selection}
+            />
+            <SimulationRows
+              items={state.items}
+              search={search}
+              selection={selection}
+            />
           </div>
         )}
       </div>
@@ -393,6 +463,13 @@ export function SimulationListPage() {
           lastPage={state.lastPage}
         />
       )}
+
+      <ComparisonBar
+        count={list.selected.length}
+        full={!list.canSelectMore}
+        comparisonSearch={list.comparisonSearch}
+        onClear={list.clearSelection}
+      />
     </section>
   );
 }

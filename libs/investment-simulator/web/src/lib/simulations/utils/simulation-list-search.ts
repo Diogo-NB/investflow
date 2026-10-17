@@ -1,9 +1,13 @@
-import { pickSearch } from '../../pagination/page-search';
+import { pickSearch, toSearch } from '../../pagination/page-search';
 import type {
   RemunerationKind,
   TitleType,
 } from '../../offers/models/offer-terms';
 import type { CalculationStatus } from '../models/simulation.types';
+import {
+  MAX_COMPARED,
+  parseSimulationIds,
+} from './simulation-comparison-search';
 
 export interface SimulationListFilters {
   readonly offerId?: string;
@@ -66,7 +70,24 @@ export function parseSort(params: URLSearchParams): {
     : { sort: undefined, invalid: true };
 }
 
+/** The simulations selected for comparison, kept across filters and pages. */
+export function parseSelection(params: URLSearchParams) {
+  return parseSimulationIds(params.get('comparar'));
+}
+
 /** The list's own parameters, carried to a simulation and back to the list. */
 export function listSearch(params: URLSearchParams): string {
-  return pickSearch(params, [...LIST_FILTERS, 'sort', 'page']);
+  return pickSearch(params, [...LIST_FILTERS, 'sort', 'page', 'comparar']);
+}
+
+/**
+ * The list search with this simulation selected for comparison. At the limit
+ * it takes the place of the last one selected.
+ */
+export function listSearchSelecting(params: URLSearchParams, id: string) {
+  const next = new URLSearchParams(listSearch(params));
+  const { ids } = parseSelection(next);
+  const selected = ids.includes(id) ? ids : [id, ...ids].slice(0, MAX_COMPARED);
+  next.set('comparar', selected.join(','));
+  return toSearch(next);
 }

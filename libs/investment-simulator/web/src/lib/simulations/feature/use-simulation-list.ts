@@ -8,8 +8,14 @@ import {
 import type { SimulationListItem } from '../models/simulation.types';
 import { parsePage, toSearch, withPage } from '../../pagination/page-search';
 import {
+  comparisonSearch,
+  MAX_COMPARED,
+  MIN_COMPARED,
+} from '../utils/simulation-comparison-search';
+import {
   LIST_FILTERS,
   parseFilters,
+  parseSelection,
   parseSort,
   type SimulationListFilter,
   type SimulationListSort,
@@ -32,6 +38,8 @@ export function useSimulationList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, invalid } = parseFilters(searchParams);
   const { sort, invalid: invalidSort } = parseSort(searchParams);
+  const { ids: selected, invalid: invalidSelection } =
+    parseSelection(searchParams);
   const requested = parsePage(searchParams.get('page'));
   const page = requested ?? 1;
   const query = useQuery({
@@ -56,12 +64,18 @@ export function useSimulationList() {
         ? lastPage
         : null;
   const correctedSearch = (() => {
-    if (invalid.length === 0 && !invalidSort && correctedPage === null) {
+    if (
+      invalid.length === 0 &&
+      !invalidSort &&
+      !invalidSelection &&
+      correctedPage === null
+    ) {
       return null;
     }
     const next = new URLSearchParams(searchParams);
     for (const name of invalid) next.delete(name);
     if (invalidSort) next.delete('sort');
+    if (invalidSelection) setSelection(next, selected);
     return withPage(next, correctedPage ?? page);
   })();
 
@@ -87,6 +101,13 @@ export function useSimulationList() {
     setSearchParams(next);
   }
 
+  // Replaces the history entry: ticking boxes is not navigation.
+  function updateSelection(ids: readonly string[]) {
+    const next = new URLSearchParams(searchParams);
+    setSelection(next, ids);
+    setSearchParams(next, { replace: true });
+  }
+
   return {
     page,
     filters,
@@ -109,6 +130,23 @@ export function useSimulationList() {
         if (value) next.set('sort', value);
         else next.delete('sort');
       }),
+    selected,
+    canSelectMore: selected.length < MAX_COMPARED,
+    // Null until enough simulations are selected.
+    comparisonSearch:
+      selected.length >= MIN_COMPARED ? comparisonSearch(selected) : null,
+    toggleSelected: (id: string) =>
+      updateSelection(
+        selected.includes(id)
+          ? selected.filter((selectedId) => selectedId !== id)
+          : [...selected, id].slice(0, MAX_COMPARED),
+      ),
+    clearSelection: () => updateSelection([]),
     retry: () => void query.refetch(),
   };
+}
+
+function setSelection(params: URLSearchParams, ids: readonly string[]) {
+  if (ids.length) params.set('comparar', ids.join(','));
+  else params.delete('comparar');
 }

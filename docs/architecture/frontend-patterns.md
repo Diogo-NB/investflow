@@ -439,6 +439,39 @@ any of them changes.
     date ("Calculando", "Requer ação", "Falha técnica"). Desktop
     uses a table with fixed column widths; below 1024px, labeled rows. The whole row or card opens the
     simulation: one link per entry, stretched over the table row on desktop.
+  - Each row or card has a checkbox, "Comparar {oferta}", in place of the
+    offer icon and above the stretched link. The selection is the `comparar`
+    URL parameter (comma-separated ids, 2 to 6), kept across filters, sort,
+    and pages, carried to a simulation and back, and changed with `replace`.
+    At six, unticked boxes are disabled. While anything is selected, a bar
+    sticks to the bottom of the list with "N selecionadas", "Limpar", and
+    "Comparar", disabled below two with a hint; it sits in a live region
+    mounted before the first selection.
+- `/simulacoes/comparar?ids=…` compares 2 to 6 simulations, nothing stored.
+  - It reads one screen query and polls every 3 seconds only while a
+    simulation is calculating. A deleted or unknown id answers 404 and the
+    screen says one simulation was not found, linking back to the selection.
+    Fewer than two valid ids return to the list with them selected; malformed
+    ids are dropped with `replace`.
+  - A verdict on top answers which one yields the most: the leader by net
+    annual return (ties named together), the gap of each other one in p.p.,
+    and in R$ only when the server marks the amounts comparable (same
+    principal, investment date, and maturity). It says when only one has a
+    result, names those without one, and calls the comparison provisional
+    while any simulation is not up to date. Outdated results still rank,
+    tagged "Resultado anterior".
+  - Desktop shows a table, one column per simulation in the selection order
+    so columns stay put while results arrive, with a sticky label column and
+    row groups Premissas, Líquido, Tributos, and Bruto. Each column header
+    links to the simulation, shows its position and status, and has a remove
+    button. The ranked rows mark "Melhor" with text and an icon, and the gap
+    below the others. Below 1024px the same simulations are ranked cards with
+    the headline rate, net amount, IR, and liquidity, and a "Detalhes"
+    disclosure with every row. "Mostrar só diferenças" hides rows whose shown
+    values are all equal.
+  - "Adicionar" and the breadcrumb return to the list with the selection.
+    The workspace's "Comparar com…" opens the list with that simulation added
+    to the selection.
 - `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
   (stacked below 1024px):
   - "Oferta": chosen from the offers visible to the user (system and own)

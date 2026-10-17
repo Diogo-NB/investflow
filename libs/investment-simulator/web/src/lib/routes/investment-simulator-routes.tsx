@@ -42,6 +42,15 @@ export function investmentSimulatorRoutes(
             ),
         },
         { path: 'nova', lazy: workspace },
+        {
+          path: 'comparar',
+          lazy: () =>
+            import('../simulations/feature/simulation-comparison-page').then(
+              (module) => ({
+                Component: module.SimulationComparisonPage,
+              }),
+            ),
+        },
         { path: ':simulationId', lazy: workspace },
       ],
     },

@@ -30,6 +30,7 @@ export * from './lib/simulations/simulation.error';
 export * from './lib/simulations/investment-inputs.vo';
 export * from './lib/simulations/simulation-result.vo';
 export * from './lib/simulations/remaining-term.vo';
+export * from './lib/simulations/simulation-comparison.vo';
 export * from './lib/simulations/simulation.events';
 export * from './lib/simulations/simulation-calculation.vo';
 export * from './lib/simulations/simulation-calculation.domain-service';

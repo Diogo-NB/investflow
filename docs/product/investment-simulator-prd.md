@@ -117,7 +117,8 @@ documentação de curvas.
 ### Simulações de Títulos Bancários
 
 - Criar, consultar, editar e excluir simulações.
-- Comparar duas ou mais simulações lado a lado.
+- Comparar de duas a seis simulações lado a lado (ver
+  [Comparação de Simulações](#comparação-de-simulações)).
 - "Duplicar" uma simulação cria outra com as mesmas escolhas, para comparação.
 
 Uma simulação sempre usa uma oferta. Ela é composta por:
@@ -464,6 +465,32 @@ data em UTC:
   inteiros, depois os dias restantes. Somar um mês mantém o dia ou o limita ao
   último dia do mês, de modo que de 31/01 a 28/02 há 1 mês. O prazo total
   exibido antes da aplicação usa a mesma regra.
+
+### Comparação de Simulações
+
+Decisão de 2026-10-16.
+
+A comparação responde qual simulação rende mais e por quê:
+
+- reúne de duas a seis simulações do usuário, escolhidas na lista. Não é
+  salva: existe apenas no endereço da tela. Grupos que o usuário quer manter
+  são portfólios;
+- ordena pela rentabilidade líquida ao ano do último resultado bem sucedido
+  de cada simulação, a única medida justa entre prazos diferentes e entre
+  títulos tributados e isentos. Empates dividem a posição, e todas as
+  empatadas são as melhores;
+- mostra a diferença de cada simulação para a melhor em pontos percentuais
+  ao ano. Quando ao menos duas simulações com resultado têm o mesmo valor
+  inicial, a mesma data de aplicação e o mesmo vencimento, os montantes também
+  se comparam diretamente, e a diferença aparece também em reais. Nesse caso a
+  melhor pela rentabilidade é também a de maior montante líquido;
+- uma simulação calculando, que requer ação, com falha técnica ou
+  desatualizada entra na ordem pelo seu último resultado, identificado como
+  anterior às alterações, e a comparação aparece como provisória. Uma
+  simulação sem resultado fica fora da ordem;
+- mostra lado a lado as premissas (título, emissor, remuneração, curva,
+  liquidez, valor inicial, datas e prazo restante), o resultado líquido, os
+  tributos e o resultado bruto de cada simulação, com o estado do cálculo.
 
 ### Liquidez e Resgate
 

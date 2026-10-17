@@ -1,6 +1,7 @@
 import {
   formatMoney,
   formatPercentOf,
+  formatPercentagePoints,
   formatReturnPercent,
 } from './format-decimal';
 
@@ -29,4 +30,9 @@ it('formats returns with exactly two decimal places', () => {
   expect(formatReturnPercent('0.009488792934583')).toBe('0,95%');
   expect(formatReturnPercent('0')).toBe('0,00%');
   expect(formatReturnPercent('2.5446')).toBe('254,46%');
+});
+
+it('formats rate differences in percentage points', () => {
+  expect(formatPercentagePoints('0.0033')).toBe('0,33 p.p.');
+  expect(formatPercentagePoints('0.00283746')).toBe('0,28 p.p.');
 });
