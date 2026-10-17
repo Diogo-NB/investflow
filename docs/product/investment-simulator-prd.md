@@ -98,9 +98,13 @@ dono.
 - A interface apresenta as curvas agrupadas por índice e por origem (do
   sistema ou minhas). O agrupamento é apenas apresentação.
 
-Valores de usuários são informados manualmente; curvas do sistema
-vêm da carga inicial e, futuramente, de processos de importação. A falta de
-cobertura necessária impede o cálculo. As regras dos intervalos estão na
+Valores de usuários são informados manualmente. As curvas do sistema são as
+de CDI e SELIC efetiva, mantidas por um processo automático que importa, em
+uma frequência definida, os valores publicados pelo Banco Central. O último intervalo de uma curva pode não ter
+fim: seu valor é mantido em diante, e a interface sempre o identifica. As
+curvas importadas mantêm a última taxa publicada, o que permite simular
+ofertas que ainda não venceram. A falta de cobertura necessária impede o
+cálculo. As regras dos intervalos, da taxa mantida e da importação estão na
 documentação de curvas.
 
 ### Portfólios
@@ -234,6 +238,12 @@ Por portfólio:
 No MVP, apresentar resultados em tabelas simples; a evolução do saldo de uma
 simulação também tem um gráfico. Os demais gráficos e a exportação para
 PDF/CSV ficam fora do escopo.
+
+Provisoriamente, o gráfico da evolução do saldo marca o dia de hoje com o
+saldo bruto estimado para essa data, quando hoje está entre a aplicação e o
+vencimento. A marcação apenas lê o resultado e não substitui o saldo hoje,
+que ainda precisa ser definido (ver
+[Pendências de Produto](#pendências-de-produto)).
 
 ## Regras de Cálculo
 
@@ -539,8 +549,8 @@ validada antes da implementação.
 
 - Notificar o usuário em tempo real quando resultados de suas simulações mudam,
   por exemplo quando novos valores chegam a uma curva do sistema.
-- Importar índices de fontes como Banco Central, ANBIMA ou BrasilAPI para
-  manter as curvas do sistema.
+- Importar outros índices e fontes, como ANBIMA ou BrasilAPI, para manter as
+  curvas do sistema.
 - Consultar a auditoria das alterações de ofertas e curvas.
 - Suportar Tesouro Direto, debêntures, CRI e CRA.
 - Comparar rendimento líquido entre diferentes tipos de título.
@@ -566,3 +576,19 @@ validada antes da implementação.
 - Definir comportamento após vencimento e eventual resgate. A exibição do
   prazo restante de uma simulação vencida já está definida em
   [Rentabilidade e Prazo Restante](#rentabilidade-e-prazo-restante).
+- Definir o saldo hoje: quanto uma simulação vale na data de hoje, para
+  acompanhar um investimento ao longo do prazo. É uma funcionalidade
+  necessária, com conceito de domínio próprio, e não uma leitura do resultado
+  calculado até o vencimento. Precisa de refinamento:
+  - a data de referência: hoje ou a data do último valor publicado da curva;
+  - bruto ou líquido, já que os tributos de um resgate hoje dependem das
+    regras de liquidez e resgate, ainda pendentes;
+  - prefixados, curvas manuais e trechos com taxa mantida, em que o saldo é
+    uma estimativa;
+  - simulações ainda não aplicadas e vencidas;
+  - se uma simulação passa a representar um investimento realizado, distinto
+    de uma hipótese;
+  - o valor atual de um portfólio.
+
+  Até lá, o gráfico da evolução do saldo apenas marca o dia de hoje (ver
+  [Resultados](#resultados)).

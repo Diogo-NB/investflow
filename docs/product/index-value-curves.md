@@ -80,7 +80,7 @@ seja uma curva de juros a termo extraída de preços de mercado.
 
 | Decisão                      | Regra                                                                                                   |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Representação por intervalos | Os valores possuem início e fim explícitos.                                                             |
+| Representação por intervalos | Os valores possuem início e fim explícitos; somente o último intervalo pode não ter fim.                |
 | Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.         |
 | Convenção única              | Todos os valores de uma curva utilizam a convenção do seu índice.                                       |
 | Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                        |
@@ -97,6 +97,8 @@ seja uma curva de juros a termo extraída de preços de mercado.
 | Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                   |
 | Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                |
 | Cadastro de intervalos       | Tabela editável com uma linha por intervalo (início, fim e valor), mantida contígua; no IPCA, meses.    |
+| Último intervalo sem fim     | Somente o último intervalo pode não ter fim; seu valor vale em diante, sempre identificado como tal.    |
+| Curvas observadas            | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante. |
 
 As regras exatas do CDI e do híbrido foram objeto de pesquisa de mercado
 solicitada durante a definição do produto. O CDI e as pendências do IPCA estão
@@ -212,17 +214,20 @@ Cobertura é verificada para a curva escolhida, os dados exigidos pela oferta
 e o calendário utilizado. Ter um primeiro e um último valor não comprova
 cobertura de todo o intervalo entre eles.
 
-| Situação                                            | Consequência                                                |
-| --------------------------------------------------- | ----------------------------------------------------------- |
-| Taxa de juros necessária coberta por um intervalo   | Usar o valor declarado.                                     |
-| Dia não útil excluído da capitalização              | Não exigir uma taxa de juros para esse dia.                 |
-| Taxa necessária ausente entre trechos               | Impedir o cálculo.                                          |
-| Taxa necessária anterior ou posterior aos trechos   | Impedir o cálculo.                                          |
-| Competência de inflação exigida pela oferta ausente | Impedir o cálculo.                                          |
-| Valor explicitamente igual a zero                   | Interpretar conforme a convenção; não tratar como ausência. |
+| Situação                                             | Consequência                                                |
+| ---------------------------------------------------- | ----------------------------------------------------------- |
+| Taxa de juros necessária coberta por um intervalo    | Usar o valor declarado.                                     |
+| Dia não útil excluído da capitalização               | Não exigir uma taxa de juros para esse dia.                 |
+| Taxa necessária ausente entre trechos                | Impedir o cálculo.                                          |
+| Taxa necessária anterior aos trechos                 | Impedir o cálculo.                                          |
+| Taxa necessária posterior a um último trecho com fim | Impedir o cálculo.                                          |
+| Competência de inflação exigida pela oferta ausente  | Impedir o cálculo.                                          |
+| Valor explicitamente igual a zero                    | Interpretar conforme a convenção; não tratar como ausência. |
 
 Uma lacuna não deve ser preenchida automaticamente com zero, com o último
-valor conhecido ou com uma interpolação. O período descoberto deve ser
+valor conhecido ou com uma interpolação. Um último intervalo sem fim não é
+preenchimento: é um valor declarado (ver
+[Taxa Mantida e Curvas Observadas](#taxa-mantida-e-curvas-observadas)). O período descoberto deve ser
 identificado para que o usuário possa corrigir a curva ou escolher outra. O
 cálculo deverá determinar as referências necessárias; a curva
 não escolhe dias úteis nem competências defasadas por conta própria. A forma
@@ -252,7 +257,8 @@ valor. Fins de semana e feriados sem valor não são lacunas, pois a
 capitalização por dias úteis não os lê.
 
 A cobertura continua sendo verificada a cada cálculo: uma simulação pode
-precisar de datas antes do primeiro intervalo ou depois do último. Uma mesma
+precisar de datas antes do primeiro intervalo ou depois do último, quando ele
+tem fim. Uma mesma
 curva pode servir a uma simulação curta e não servir a outra mais longa, e
 uma edição pode mudar essa suficiência.
 
@@ -317,13 +323,66 @@ quando uma trajetória combina histórico com expectativas futuras.
 
 Uma previsão informada explicitamente é um dado da curva escolhida. Ela
 não é uma autorização para preencher lacunas ou extrapolar além dos períodos
-declarados. O detalhamento de origem e de classificação por trecho permanece
-pendente.
+declarados. Nas curvas observadas do sistema, a data do último valor
+publicado separa o histórico da taxa mantida (ver
+[Taxa Mantida e Curvas Observadas](#taxa-mantida-e-curvas-observadas)). O
+detalhamento de origem e de classificação por trecho permanece pendente.
 
 Uma simulação retrospectiva com dados hoje conhecidos não equivale a
 reproduzir somente as informações disponíveis ao investidor na época. Esse
 segundo comportamento exigiria conhecer quando cada dado foi publicado ou
 estava disponível; não está definido no escopo atual.
+
+## Taxa Mantida e Curvas Observadas
+
+Decisão de 2026-10-17. Uma curva com somente valores já publicados termina
+no dia anterior ao atual, pois o CDI de um dia é publicado no dia seguinte.
+Ela não serviria para simular uma oferta que ainda não venceu, nem uma
+aplicação feita hoje. A taxa mantida permite essas simulações sem esconder do
+usuário que o futuro é uma premissa.
+
+### Último Intervalo Sem Fim
+
+- Em qualquer curva, o último intervalo pode não ter fim. Seu valor vale para
+  todas as referências a partir do seu início.
+- É conteúdo declarado da curva, e não um prolongamento automático: o dono o
+  escolhe ao editar, e uma cópia o mantém. Uma curva cujo último intervalo tem
+  fim continua não sendo prolongada.
+- Nas curvas mensais (IPCA), o intervalo sem fim começa no primeiro dia de um
+  mês e vale para todas as competências seguintes.
+- A taxa mantida é sempre explícita. As telas que mostram uma curva
+  apresentam o trecho como "dd/mm/aaaa em diante" e o gráfico o identifica. Uma
+  simulação cujo período alcança o trecho informa, junto da curva, a data a
+  partir da qual usa a taxa mantida.
+
+### Curvas Observadas do Sistema
+
+- O sistema mantém uma curva de CDI e uma de SELIC efetiva com os valores
+  publicados pelo Banco Central, na convenção desses índices (taxa anual
+  efetiva, base 252).
+- O último intervalo dessas curvas não tem fim: a última taxa publicada é
+  mantida em diante.
+- Essas são as curvas do sistema. Um processo automático as mantém,
+  importando os valores publicados em uma frequência definida.
+- A importação compara o último valor publicado com o último intervalo. Um
+  valor igual não altera a curva. Um valor diferente encerra o intervalo sem
+  fim no dia útil anterior e abre um novo intervalo sem fim com o novo valor.
+  Dias consecutivos com o mesmo valor formam um único intervalo.
+- Assim, a curva só muda, com nova revisão e recálculo das simulações, quando
+  a taxa muda; no CDI, isso acontece em torno das reuniões do Copom.
+- As telas da curva informam a origem dos valores, a data do último valor
+  publicado e que a última taxa é mantida em diante.
+- Quem quiser outra premissa para o futuro duplica a curva e edita os
+  intervalos futuros. A cópia é independente e não recebe os novos valores
+  publicados.
+
+### Dias Sem Valor Publicado (Decisão Provisória)
+
+O calendário do produto não inclui fechamentos exclusivos da B3 nem
+alterações extraordinárias (ver o PRD). Nesses dias, ele exige uma taxa que o
+Banco Central não publica. Provisoriamente, a importação repete o valor do dia
+útil anterior nesses dias, para que a curva continue sem lacunas. A decisão
+pode ser revista (ver [Pendências de Produto](#pendências-de-produto)).
 
 ## Relação com os Cálculos
 
@@ -455,7 +514,8 @@ escolhida por outra.
 
 ## Regras de Consistência
 
-- Início e fim inclusivos, com início menor ou igual ao fim.
+- Início e fim inclusivos, com início menor ou igual ao fim; somente o último
+  intervalo pode não ter fim.
 - Ausência de sobreposição entre trechos de uma curva, mesmo quando seus
   valores são iguais; cada referência necessária resolve para um único valor.
 - Identificação explícita da competência em curvas de inflação.
@@ -472,16 +532,18 @@ escolhida por outra.
 | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | Perfil contratual do IPCA | Definir atualização, aniversário, defasagem, proporcionalização e tratamento das extremidades do investimento. |
 | Histórico e projeções     | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários.      |
+| Dias sem valor publicado  | Rever a repetição provisória do valor anterior nos dias úteis do produto sem valor do Banco Central.           |
 
 A decisão de impedir cálculo sem cobertura não é reaberta por essas
 pendências. Interpolação, prolongamento e substituição automática de curvas
-não estão autorizados como comportamento implícito.
+não estão autorizados como comportamento implícito; o último intervalo sem
+fim é explícito e declarado na curva.
 
 ## Fora do Escopo Atual
 
 - Detalhamento técnico de classes, APIs e persistência neste documento.
-- Processos de importação automática de séries de fontes externas; o modelo
-  já admite curvas do sistema mantidas por eles.
+- Importação de outros índices e fontes além do CDI e da SELIC efetiva do
+  Banco Central.
 - Construção automática de previsões ou curvas a termo.
 - Preenchimento automático de dados ausentes.
 - Substituição automática de um índice por outro.

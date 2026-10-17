@@ -834,3 +834,28 @@ compute)` function in a capability folder (such as `collections/`),
     long-lived service), and the key (`Decimal` values are keyed by string).
   - No `memoize(fn)` wrapper that hides where the cache lives.
   - The calculator and the new call sites use it, with a focused spec.
+
+### "Saldo hoje" balance (deferred 2026-10-17)
+
+How much a simulation is worth today, so a user can follow an investment
+through its term. It is a required feature, not an optional nicety.
+
+- **Today:** the balance chart only marks today with the gross balance of
+  the result's last daily balance on or before it, labelled as an estimate
+  (roadmap D13). That marker is a read of the result calculated to maturity;
+  it is not this feature.
+- **Why deferred:** it needs product refinement and a domain concept and
+  space of its own. The open questions are in the PRD's "Pendências de
+  Produto": the reference date, gross or net (early redemption taxes depend
+  on undefined liquidity and redemption rules), prefixed and manual-curve
+  simulations and kept rates, simulations not yet invested or matured,
+  whether a simulation can represent a realized investment, and a
+  portfolio's current value.
+- **Done means:**
+  - The PRD records the refined rules as a dated decision, and the domain
+    models "saldo hoje" as its own concept instead of a lookup in the
+    maturity projection.
+  - The screens that need it (the workspace, and whichever the decision
+    names among the list, the comparison, and portfolios) show it, and the
+    D13 marker is replaced or reconciled with it.
+  - Tests cover the reference date, the edge states, and the gross/net rule.
