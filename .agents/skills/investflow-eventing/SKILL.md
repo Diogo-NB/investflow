@@ -105,7 +105,8 @@ an outbox poller is active by importing `OutboxModule`.
   queue with `SqsConsumersModule.register`, like any queue.
 - Use one SQS FIFO queue with a FIFO dead-letter queue per consumer.
   Provision it by adding a `consumer_queue <name> '<event pattern>'` line to
-  `infra/floci/init/provision.sh`, and add its URL to `.env.example`.
+  `infra/floci/init/provision.sh` (it creates `<name>.fifo` and
+  `<name>-dlq.fifo`), and add both URLs to `.env.example`.
 
 ## Boundaries
 

@@ -26,8 +26,9 @@ migrating existing rows.
 ## Current State
 
 Last updated 2026-10-26. D0 to D8 are done; D4b resumed on 2026-10-26, was
-redesigned, and its first pull request (fact events, terms and values
-revisions, the worker's early return) is done.
+redesigned, and its first two pull requests (fact events, terms and values
+revisions, the worker's early return; FIFO queues grouped per aggregate) are
+done.
 
 Built:
 
@@ -142,10 +143,6 @@ Differs from the target model:
 - Editing or deleting an offer or curve does not queue the simulations that
   use it; they are flagged "Desatualizado" until saved again (D4b, designed).
   The offer and curve screens say so in their impact notices.
-- The queues are standard, not FIFO: two calculations of one simulation can
-  overlap, and an outcome calculated from an older offer or curve revision
-  can land after a newer one and stay "Desatualizado" until saved again. D4b
-  makes the queues FIFO, grouped per aggregate.
 
 Not started and outside this roadmap: IPCA calculation, early redemption, the
 requeue after a methodology version change, and the "saldo hoje" balance,
@@ -155,7 +152,7 @@ PRD's "Pendências de Produto").
 
 ## Next Steps
 
-1. Build D4b's remaining pull requests: FIFO queues, then fan-out.
+1. Build D4b's last pull request: fan-out.
 2. Settle the portfolio membership decision (see D9) so D9 can start.
 3. Settle the portfolio aggregation decisions (see D10) before D10.
 4. Settle D12's decisions before D12.
@@ -237,8 +234,7 @@ The flow is in walkthroughs 5 and 6 of
 - **Deletion fans out like a change**; the worker finds the premise missing
   and records `INVALID` ("Sem oferta, escolha outra" / "Sem curva, escolha
   outra"). Fan-out never writes `INVALID` itself.
-- **Exclusivity per simulation, not a wider guard.** Every consumer queue
-  becomes SQS FIFO with content-based deduplication, grouped by
+- **Done (PR B): exclusivity per simulation, not a wider guard.** Every consumer queue is SQS FIFO with content-based deduplication, grouped by
   `$.detail.aggregateId` on the rule target ("Exclusivity per aggregate"
   under "Messaging Transport"): one calculation per simulation runs at a
   time, so the calculation a fan-out queues runs after any in flight and

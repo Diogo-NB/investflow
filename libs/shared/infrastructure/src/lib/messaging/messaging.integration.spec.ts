@@ -46,7 +46,8 @@ const region = process.env['AWS_REGION'] ?? 'us-east-1';
 const eventBusName = process.env['EVENT_BUS_NAME'] ?? 'investflow';
 const runId = generateUuid().slice(0, 8);
 const context = `test-${runId}`;
-const queueName = `messaging-test-${runId}`;
+const ruleName = `messaging-test-${runId}`;
+const queueName = `${ruleName}.fifo`;
 const queueUrlConfigKey = 'MESSAGING_TEST_QUEUE_URL';
 
 class TestAggregate extends AggregateRoot {
@@ -103,7 +104,10 @@ integration('Messaging through EventBridge and SQS', () => {
 
   beforeAll(async () => {
     const queue = await sqs.send(
-      new CreateQueueCommand({ QueueName: queueName }),
+      new CreateQueueCommand({
+        QueueName: queueName,
+        Attributes: { FifoQueue: 'true', ContentBasedDeduplication: 'true' },
+      }),
     );
     queueUrl = queue.QueueUrl ?? '';
     const attributes = await sqs.send(
@@ -114,16 +118,22 @@ integration('Messaging through EventBridge and SQS', () => {
     );
     await eventBridge.send(
       new PutRuleCommand({
-        Name: queueName,
+        Name: ruleName,
         EventBusName: eventBusName,
         EventPattern: JSON.stringify({ source: [`investflow.${context}`] }),
       }),
     );
     await eventBridge.send(
       new PutTargetsCommand({
-        Rule: queueName,
+        Rule: ruleName,
         EventBusName: eventBusName,
-        Targets: [{ Id: queueName, Arn: attributes.Attributes?.['QueueArn'] }],
+        Targets: [
+          {
+            Id: ruleName,
+            Arn: attributes.Attributes?.['QueueArn'],
+            SqsParameters: { MessageGroupId: '$.detail.aggregateId' },
+          },
+        ],
       }),
     );
 
@@ -165,13 +175,13 @@ integration('Messaging through EventBridge and SQS', () => {
     } finally {
       await eventBridge.send(
         new RemoveTargetsCommand({
-          Rule: queueName,
+          Rule: ruleName,
           EventBusName: eventBusName,
-          Ids: [queueName],
+          Ids: [ruleName],
         }),
       );
       await eventBridge.send(
-        new DeleteRuleCommand({ Name: queueName, EventBusName: eventBusName }),
+        new DeleteRuleCommand({ Name: ruleName, EventBusName: eventBusName }),
       );
       await sqs.send(new DeleteQueueCommand({ QueueUrl: queueUrl }));
     }

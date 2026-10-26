@@ -6,9 +6,9 @@ the rules behind it are in "Messaging Transport" and "Mutable Premises And
 Asynchronous Recalculation" in [Project Structure](./project-structure.md).
 
 > **Status.** The event transport (outbox, EventBridge, SQS, consumers) and a
-> simulation's own asynchronous calculation (D4a) are built. Recalculation
-> after offer and curve changes (D4b, walkthroughs 5 and 6) and FIFO queues
-> grouped per aggregate are designed but not built; see the
+> simulation's own asynchronous calculation (D4a) are built, on FIFO queues
+> grouped per aggregate. Recalculation after offer and curve changes (D4b,
+> walkthroughs 5 and 6) is designed but not built; see the
 > [roadmap](../product/implementation-roadmap.md).
 
 ## In One Picture

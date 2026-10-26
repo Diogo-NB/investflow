@@ -393,10 +393,8 @@ request. A simulation's own calculation is asynchronous (D4a): saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
 calculates; a dead-letter consumer records `FAILED`. Still pending (D4b,
 paused on 2026-10-13 after D5 took its place and resumed on 2026-10-26):
-offer and curve changes do not queue the simulations that use them, events do
-not carry the actor, and the queues are not FIFO yet, so two calculations of
-one simulation can still overlap (see "Exclusivity per aggregate" under
-Messaging Transport). The design below was settled on 2026-10-12 and revised
+offer and curve changes do not queue the simulations that use them, and events
+do not carry the actor. The design below was settled on 2026-10-12 and revised
 on 2026-10-26.
 Deliverables and their order are in
 `docs/product/implementation-roadmap.md`.
@@ -611,7 +609,7 @@ This replaces the earlier SNS topic per context.
   the event type; the `detail` is the serialized domain event. Each consumer
   owns one SQS queue fed by an EventBridge rule on `source` and `detail-type`.
   Publishers never know their consumers, and a new consumer is a new rule.
-- **Exclusivity per aggregate.** Decided 2026-10-26: every consumer queue is
+- **Exclusivity per aggregate.** Decided and built 2026-10-26: every consumer queue is
   an SQS FIFO queue (`<name>.fifo`, with a FIFO dead-letter queue) with
   content-based deduplication, and its rule target sets
   `SqsParameters.MessageGroupId` to the dynamic path `$.detail.aggregateId`.

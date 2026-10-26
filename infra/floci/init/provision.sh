@@ -11,20 +11,24 @@ aws() { command aws --endpoint-url "$ENDPOINT" "$@"; }
 aws events describe-event-bus --name "$BUS" >/dev/null 2>&1 ||
   aws events create-event-bus --name "$BUS" >/dev/null
 
-# Creates a consumer queue with its dead-letter queue and routes the events
-# matching the pattern to it. A message is dead-lettered after 5 failed
-# receives.
+# Creates a FIFO consumer queue with its FIFO dead-letter queue and routes the
+# events matching the pattern to it. Messages are grouped by aggregate, so one
+# message per aggregate is in flight at a time; locally Floci does not evaluate
+# the group path and the whole queue is one group. EventBridge sends no
+# deduplication id, so FIFO queues need content-based deduplication. A message
+# is dead-lettered after 5 failed receives.
 consumer_queue() {
   local name=$1 pattern=$2
   local dlq_url dlq_arn queue_url queue_arn rule_arn
 
-  dlq_url=$(aws sqs create-queue --queue-name "$name-dlq" \
-    --attributes MessageRetentionPeriod=1209600 \
+  dlq_url=$(aws sqs create-queue --queue-name "$name-dlq.fifo" \
+    --attributes FifoQueue=true,ContentBasedDeduplication=true,MessageRetentionPeriod=1209600 \
     --query QueueUrl --output text)
   dlq_arn=$(aws sqs get-queue-attributes --queue-url "$dlq_url" \
     --attribute-names QueueArn --query Attributes.QueueArn --output text)
 
-  queue_url=$(aws sqs create-queue --queue-name "$name" \
+  queue_url=$(aws sqs create-queue --queue-name "$name.fifo" \
+    --attributes FifoQueue=true,ContentBasedDeduplication=true \
     --query QueueUrl --output text)
   queue_arn=$(aws sqs get-queue-attributes --queue-url "$queue_url" \
     --attribute-names QueueArn --query Attributes.QueueArn --output text)
@@ -43,7 +47,11 @@ JSON
   )"
 
   aws events put-targets --rule "$name" --event-bus-name "$BUS" \
-    --targets "Id=$name,Arn=$queue_arn" >/dev/null
+    --targets "$(
+      cat <<JSON
+[{"Id": "$name", "Arn": "$queue_arn", "SqsParameters": {"MessageGroupId": "\$.detail.aggregateId"}}]
+JSON
+    )" >/dev/null
 }
 
 consumer_queue simulation-calculations \

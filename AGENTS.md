@@ -97,7 +97,7 @@ frontend testing policy.
   were dropped. Offers, curves, and simulations are built on this model, and
   a simulation's own calculation runs asynchronously (D4a); offer and curve
   changes do not recalculate their simulations yet (D4b, in progress: fact
-  events and terms/values revisions shipped). See "Mutable
+  events, terms/values revisions, and FIFO queues shipped). See "Mutable
   Premises And Asynchronous Recalculation" in
   `docs/architecture/project-structure.md` before touching offers, curves,
   simulations, or eventing.
