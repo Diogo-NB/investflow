@@ -87,14 +87,24 @@ an outbox poller is active by importing `OutboxModule`.
   message with one worker, redelivery recovers crashed workers, and the
   dead-letter queue ends retries. Do not add leases, claims, or retry counters
   to domain or application code.
+- Queues are SQS FIFO, grouped by `$.detail.aggregateId`, so one message per
+  aggregate is in flight at a time across every consumer instance. Rely on
+  that exclusivity, never on delivery order, and read current state. Do not
+  add generation counters or per-input conditions to keep asynchronously
+  derived state current. Handle messages of one group sequentially, even when
+  a listener processes different groups concurrently, and keep a handler
+  within the visibility timeout or extend it while working.
+- Floci enforces FIFO groups but does not evaluate the dynamic group path,
+  so locally every queue is one group and runs serially. Do not work around
+  it; behavior that depends on parallel groups is verified on real AWS.
 - A consumer whose work lost a race (its conditional save finds that the
   state moved on) returns normally, so the message is acknowledged: the
   change that moved it raised its own event. Throw only for failures that a
   retry can fix.
 - To record that retries were exhausted, bind a consumer to the dead-letter
   queue with `SqsConsumersModule.register`, like any queue.
-- Use one SQS queue with a dead-letter queue per consumer. Provision it by
-  adding a `consumer_queue <name> '<event pattern>'` line to
+- Use one SQS FIFO queue with a FIFO dead-letter queue per consumer.
+  Provision it by adding a `consumer_queue <name> '<event pattern>'` line to
   `infra/floci/init/provision.sh`, and add its URL to `.env.example`.
 
 ## Boundaries

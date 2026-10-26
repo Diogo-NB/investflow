@@ -392,9 +392,12 @@ simulation, offer, and curve revisions and the methodology version it used;
 request. A simulation's own calculation is asynchronous (D4a): saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
 calculates; a dead-letter consumer records `FAILED`. Still pending (D4b,
-paused on 2026-10-13 after D5 took its place): offer and curve changes do not
-queue the simulations that use them, events do not carry the actor, and the
-worker's guard covers only the simulation revision. The design below was settled on 2026-10-12.
+paused on 2026-10-13 after D5 took its place and resumed on 2026-10-26):
+offer and curve changes do not queue the simulations that use them, events do
+not carry the actor, and the queues are not FIFO yet, so two calculations of
+one simulation can still overlap (see "Exclusivity per aggregate" under
+Messaging Transport). The design below was settled on 2026-10-12 and revised
+on 2026-10-26.
 Deliverables and their order are in
 `docs/product/implementation-roadmap.md`.
 
@@ -446,9 +449,24 @@ Deliverables and their order are in
   `forbidden`.
 - Every change to an offer or curve raises a past-tense domain
   event persisted through the transactional outbox (see
-  `$investflow-eventing`). Events carry identifiers only (the changed item
-  and, from D4b, the actor). Consumers read current state, so events never
-  carry revisions or values, and their size does not grow with the content.
+  `$investflow-eventing`). Events carry identifiers only. Consumers read
+  current state, so events never carry revisions or values, and their size
+  does not grow with the content.
+- Events name what happened, never a generic "changed" (decided 2026-10-26,
+  not built yet): an offer raises `OfferTermsChanged` (maturity,
+  remuneration), `OfferDetailsChanged` (name, issuer, liquidity), and
+  `OfferDeleted`; a curve raises `CurveValuesChanged` (intervals),
+  `CurveDetailsChanged` (name, description), and `CurveDeleted`. Only terms,
+  values, and deletion affect a calculation. Liquidity joins the terms when
+  early redemption is calculated.
+- Offers and curves keep two counters (decided 2026-10-26, not built yet):
+  `revision`, raised by every change, guards concurrent edits (`409`);
+  `termsRevision` on offers and `valuesRevision` on curves, raised only by
+  changes that affect a calculation, are what results record. Renaming an
+  offer or describing a curve therefore leaves its simulations up to date.
+  Today a single `OfferChanged` or `CurveChanged` covers every edit and
+  results record the full revisions, so a rename flags every simulation
+  using it "Desatualizado".
 
 ### Recalculation
 
@@ -457,7 +475,8 @@ flow with diagrams and every failure case.
 
 A simulation has one current result. It stores what it was computed from: the
 simulation revision, the offer revision, the curve revision, and the
-methodology version. The target is read from the current references, not
+methodology version (to become the offer's `termsRevision` and the curve's
+`valuesRevision`, see Model). The target is read from the current references, not
 copied, so it can never drift from them.
 
 The calculation state is a `SimulationCalculation` value object of the
@@ -475,7 +494,10 @@ Every status also records `changedAt`, the simulation, offer, and curve
 revisions it applies to, and the cause of the last queuing: its kind
 (`CREATED`, `SIMULATION_EDITED`, `OFFER_CHANGED`, `OFFER_DELETED`,
 `CURVE_CHANGED`, `CURVE_DELETED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`),
-the offer or curve id, and the actor (`null` for system processes). The cause
+the offer or curve id, and the actor (`null` for system processes). D4b
+removes the four offer and curve kinds and the offer or curve id: fan-out
+writes no calculation rows, so nothing would set them, and premise events
+therefore carry no actor either. The cause
 is set when the simulation is queued and kept by the outcome, so "Requer
 ação" shows both the reason and the change that led to it. Only the current
 state is kept; a transition history is deferred work.
@@ -499,40 +521,66 @@ state is kept; a transition history is deferred work.
   `Simulation.recordCalculation()` accepts an outcome only for the
   simulation's current revision and owns the state transition.
 - **Delivery is the queue's job.** The calculation consumer reads the
-  `simulation-calculations` queue. The visibility timeout keeps a message with
-  one worker; a worker that dies leaves its message to reappear; a failing
+  `simulation-calculations` queue, a FIFO queue grouped by simulation, so one
+  calculation per simulation is in flight at a time across every worker (see
+  "Exclusivity per aggregate" under Messaging Transport). The visibility
+  timeout keeps a message with one worker; a worker that dies leaves its
+  message to reappear; a failing
   message is retried until `maxReceiveCount` and then dead-lettered; a
   consumer bound to the dead-letter queue sets `FAILED` while the simulation
   is still `PENDING`; `EventDispatcher` skips duplicate deliveries. There are
   no leases, claims, or `CALCULATING` status, and domain code knows nothing
   about queues.
-- **Conditional writes.** Edits and fan-out always overwrite the calculation
-  row with `PENDING`, whatever is in flight. A worker calculates from current
+- **Conditional writes.** Edits always overwrite the calculation row with
+  `PENDING`, whatever is in flight; fan-out writes no calculation rows (see
+  Fan-out). A worker calculates from current
   state, never from the event payload, and its save requires the row to still
-  apply to the simulation revision it read (from D4b, also the offer and curve
-  revisions); a `FAILED` write also requires the row to still be `PENDING`, so
-  a late dead-letter delivery never replaces an outcome written meanwhile.
-  Otherwise it discards the outcome and acknowledges the message:
-  whatever made its inputs out of date queued its own message. Late,
-  duplicate, or concurrent deliveries therefore cannot replace a newer state.
-- **Fan-out.** Changing or deleting an offer or curve queues every simulation
-  that references it, one message per page of about 500 simulation ids
-  (ordered by id after a cursor). A page bulk-updates their
-  `simulation_calculation` rows to `PENDING` with the cause, records one
-  `SimulationCalculationRequested` per simulation through
-  `DomainEventRecorder`, and, when full, records a continuation event
-  (premise, cause, actor, last id) that the same consumer handles. A system
-  curve update can reach every user's simulations, so fan-out never loads
-  aggregates, never writes the `simulation` rows, and keeps each page its own
-  retryable transaction.
-- **Deletion requeues like a change.** Deleting an offer or curve queues its
-  simulations with `OFFER_DELETED` or `CURVE_DELETED`; the worker finds the
-  premise missing and records `INVALID` with `OFFER_NOT_FOUND` or
-  `CURVE_NOT_FOUND`. Fan-out only ever writes `PENDING`: a simulation switched
-  to another premise during fan-out is merely recalculated, whereas writing
-  `INVALID` in bulk could strand a valid simulation in a terminal state.
-- **`INVALID` is scoped to its inputs.** Any change to them returns the
-  simulation to `PENDING`.
+  apply to the simulation revision it read; a `FAILED` write also requires the
+  row to still be `PENDING`, so a late dead-letter delivery never replaces an
+  outcome written meanwhile. Otherwise it discards the outcome and
+  acknowledges the message: whatever made its inputs out of date queued its
+  own message. The check does not cover the offer and curve revisions, and
+  does not need to: a premise change queues a message in the same simulation
+  group, which is delivered only after the running calculation finishes and
+  then calculates from the latest premises. An outcome from an older premise
+  can therefore land, shown "Desatualizado", but it is never the last write.
+  Late, duplicate, or concurrent deliveries therefore cannot leave a stale
+  state behind.
+- **Fan-out** (decided 2026-10-26, not built yet). A splitter in the
+  simulations feature: `SimulationRecalculationConsumer` handles the facts
+  that affect a calculation (`OfferTermsChanged`, `OfferDeleted`,
+  `CurveValuesChanged`, `CurveDeleted`) directly, with no intermediate
+  "recalculation requested" event, so offers and curves know nothing about
+  simulations. Its use case reads the ids of the live simulations that use
+  the premise from the repository (`SimulationRepository.idsUsingOffer()` and
+  `idsUsingCurve()`, which return arrays) and records one
+  `SimulationCalculationRequested` per id through `DomainEventRecorder`, all
+  in the consumer's single unit of work: all or nothing, no paging, no
+  aggregates loaded, no calculation rows written. The calculation worker
+  then handles each request as usual. That transaction grows with the number
+  of simulations, a deliberate simplification (see "Fan-out at scale" in
+  Deferred Work). While a recalculation is on its way the screen shows the
+  derived "Desatualizado", not "Calculando" (see "Recalculation status on
+  screen" in Deferred Work). The fan-out queue has a dead-letter queue but
+  no consumer bound to it: a dead-lettered fan-out wrote nothing, so its
+  simulations stay honestly "Desatualizado" until saved again or until the
+  message is redriven, which an alarm on the dead-letter queue should
+  prompt.
+- **Workers skip current work.** `CalculateSimulationUseCase` returns early,
+  acknowledging the message, when the calculation already applies to the
+  current inputs: a `CALCULATED` or `INVALID` outcome recorded for the
+  current simulation revision, offer `termsRevision`, curve
+  `valuesRevision`, and methodology version, or an `INVALID` for a missing
+  offer or curve that is still missing. `PENDING` and `FAILED` always
+  calculate. Replays, duplicates, and overlapping fan-outs therefore cost one
+  read.
+- **Deletion requeues like a change.** Deleting an offer or curve fans out
+  like a terms or values change; the worker finds the premise missing and
+  records `INVALID` with `OFFER_NOT_FOUND` or `CURVE_NOT_FOUND`. Fan-out
+  never writes `INVALID` itself: a simulation switched to another premise
+  meanwhile is merely recalculated.
+- **`INVALID` is scoped to its inputs.** Any change to them queues a new
+  calculation.
 - **Convergence without a sweep.** The outbox writes each event in the same
   transaction as its change, and SQS redelivers a message until it is handled
   or dead-lettered, so no change is left without a calculation. A methodology
@@ -566,6 +614,25 @@ This replaces the earlier SNS topic per context.
   the event type; the `detail` is the serialized domain event. Each consumer
   owns one SQS queue fed by an EventBridge rule on `source` and `detail-type`.
   Publishers never know their consumers, and a new consumer is a new rule.
+- **Exclusivity per aggregate.** Decided 2026-10-26: every consumer queue is
+  an SQS FIFO queue (`<name>.fifo`, with a FIFO dead-letter queue) with
+  content-based deduplication, and its rule target sets
+  `SqsParameters.MessageGroupId` to the dynamic path `$.detail.aggregateId`.
+  SQS never delivers a second message of a group while one is in flight,
+  across every consumer instance, and a failing message holds its group until
+  it succeeds or is dead-lettered. Correctness relies on that exclusivity, not
+  on delivery order (EventBridge does not guarantee order, and the outbox
+  publishes rows of one transaction in no particular order): consumers read
+  current state, so the last message of a group always works from the latest
+  state. This covers any state derived asynchronously per aggregate, so no
+  consumer needs generation counters or a condition per input. Two rules come
+  with it:
+  - A listener may handle messages of different groups concurrently, but
+    messages of one group strictly in the order received.
+  - A handler must finish within the visibility timeout, or extend it while
+    working; otherwise its message reappears beside it. `EventDispatcher`
+    still runs the same event once, but a newer message of the group could
+    then run alongside it.
 - **Retries.** Every queue has a dead-letter queue. A message that is not
   deleted becomes visible again after the visibility timeout (30 seconds) and is
   dead-lettered after 5 receives. Retry policy is queue configuration, not code.
@@ -589,7 +656,15 @@ This replaces the earlier SNS topic per context.
   since its 2026.03 release. `infra/floci/init/provision.sh` runs on every
   container start (Floci keeps state in memory) and creates the bus and each
   consumer queue through `consumer_queue`. The SDK reaches Floci through
-  `AWS_ENDPOINT_URL`; no code knows about the emulator.
+  `AWS_ENDPOINT_URL`; no code knows about the emulator. Known gap, verified on
+  2026-10-26 with Floci 2.1.0: Floci enforces FIFO groups, but it does not
+  evaluate dynamic target paths, so every message of a queue gets the literal
+  group `$.detail.aggregateId`. Locally each queue is therefore a single
+  group, processed strictly one message at a time: still correct, with no
+  parallelism. Dynamic paths on rule targets are documented by AWS but not yet
+  verified on real infrastructure; verify them in a homolog environment
+  before relying on parallel consumers. If the path were not evaluated, AWS
+  would behave like Floci: serial, never incorrect.
 - **Ports.** `MessageBroker` (publishing) and `EventDispatcher` (deduplication
   per consumer, transaction, and `@OnEvent` dispatch) are transport-neutral.
   Only `EventBridgeMessageBroker`, `SqsEventListener`, and the provisioning
@@ -788,6 +863,39 @@ instant), for support and for explaining past recalculations.
   - A retention rule bounds its size, for example the last N transitions per
     simulation.
   - Tests cover recording from each write path and retention.
+
+### Fan-out at scale (deferred 2026-10-26)
+
+- **Today (once D4b ships):** fan-out records every
+  `SimulationCalculationRequested` for a premise in one unit of work, and the
+  outbox poller publishes about 100 events per second. A system curve used
+  by hundreds of thousands of simulations would need one very large
+  transaction, could outlast the 30-second visibility timeout and be
+  dead-lettered, and would take hours to publish.
+- **Revisit with:** recording through the outbox in bounded chunks (a
+  dispatcher mode whose handler opens its own units of work, ids streamed
+  from the repository, a visibility heartbeat), or publishing directly in
+  batches; batched `PutEvents` and polling until empty; and listeners that
+  handle different message groups concurrently.
+- **Done when** a premise reaching any number of simulations fans out in
+  bounded transactions within the visibility timeout, and publishing keeps
+  up.
+
+### Recalculation status on screen (deferred 2026-10-26)
+
+- **Today (once D4b ships):** fan-out writes no calculation rows, so a
+  simulation waiting for the recalculation of a premise change shows the
+  derived "Desatualizado" until its new result lands, never "Calculando".
+  For the same reason a fan-out calculation that exhausts its retries is
+  not recorded `FAILED` (the dead-letter consumer writes `FAILED` only over
+  `PENDING`): the simulation stays "Desatualizado", never "Falha técnica".
+- **Revisit with:** a derived "Recalculando" status (the result's term or
+  value revisions differ from the current ones, so a recalculation is on its
+  way), with the cause from the input that differs and the actor from the
+  premise's owner, in the workspace, the list (including its
+  `calculationStatus` filter), and the comparison.
+- **Done when** the screens say a simulation is being recalculated because
+  its offer or curve changed, and say when that recalculation failed.
 
 ### Requeue after a methodology version change (deferred 2026-10-12)
 

@@ -7,8 +7,9 @@ Asynchronous Recalculation" in [Project Structure](./project-structure.md).
 
 > **Status.** The event transport (outbox, EventBridge, SQS, consumers) and a
 > simulation's own asynchronous calculation (D4a) are built. Recalculation
-> after offer and curve changes (D4b, walkthroughs 5 and 6) is designed but
-> not built; see the [roadmap](../product/implementation-roadmap.md).
+> after offer and curve changes (D4b, walkthroughs 5 and 6) and FIFO queues
+> grouped per aggregate are designed but not built; see the
+> [roadmap](../product/implementation-roadmap.md).
 
 ## In One Picture
 
@@ -32,8 +33,10 @@ Three ideas carry the whole design:
    never a change without its event, or an event without its change.
 2. **The queue does the delivery work.** SQS hands a message to one worker at
    a time, gives it to another if that worker dies, retries failures, and
-   gives up into a dead-letter queue. Our code never counts retries or holds
-   locks.
+   gives up into a dead-letter queue. Queues are FIFO and grouped by the
+   event's aggregate, so one message per aggregate (one calculation per
+   simulation) is in flight at a time across every worker. Our code never
+   counts retries or holds locks.
 3. **Consumers read current state.** Events carry identifiers only. A consumer
    loads what it needs from the database, so a late or duplicate event can
    never apply stale data.
@@ -42,14 +45,15 @@ Three ideas carry the whole design:
 
 | Term               | What it is                                                                                                   |
 | ------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Domain event       | A past-tense fact, such as `OfferChanged`. Carries identifiers, never values.                                |
+| Domain event       | A past-tense fact, such as `OfferTermsChanged`. Carries identifiers, never values.                           |
 | Unit of work       | `UnitOfWork.run()`: the transaction of a request or consumer. Its recorded events are written with it.       |
 | Recorder           | `DomainEventRecorder`: records events in the unit of work. Repositories use it on save; services directly.   |
 | Outbox             | The `outbox_events` table. Events wait here until published.                                                 |
 | Outbox poller      | `OutboxPollerService`. Publishes unpublished rows every second and backs off per event on failure.           |
 | Bus                | The EventBridge bus `investflow`. Publishers send every event here and know nothing about consumers.         |
 | Rule               | An EventBridge rule that copies matching events (by `source` and `detail-type`) into one consumer's queue.   |
-| Queue              | One SQS queue per consumer, created by `consumer_queue` in `infra/floci/init/provision.sh`.                  |
+| Queue              | One SQS FIFO queue per consumer, created by `consumer_queue` in `infra/floci/init/provision.sh`.             |
+| Message group      | The event's `aggregateId`. SQS delivers a group's next message only after the current one is deleted.        |
 | Visibility timeout | 30 seconds during which a received message is hidden from other workers. If it is not deleted, it reappears. |
 | Dead-letter queue  | Where SQS moves a message after 5 failed receives. Every consumer queue has one.                             |
 | Consumer           | A plain class with `@OnEvent('EventType')` methods that call a use case. Knows nothing about SQS.            |
@@ -131,26 +135,27 @@ Each simulation has one row in `simulation_calculation`, next to its
 `simulation_result`. It is part of the `Simulation` aggregate as the
 `SimulationCalculation` value object.
 
-| Field                                                     | Holds                                                                            |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `status`                                                  | `PENDING`, `CALCULATED`, `INVALID`, or `FAILED`                                  |
-| `changed_at`                                              | When it entered this status                                                      |
-| `cause_kind`                                              | Why it was last queued (list below)                                              |
-| `cause_ref_id`                                            | The offer or curve id, when a premise caused it                                  |
-| `cause_actor_id`                                          | Who made the change; `null` for system processes                                 |
-| `simulation_revision`, `offer_revision`, `curve_revision` | The inputs this status applies to; the worker's guard checks them                |
-| `reason_code`, `reason_metadata`                          | Only for `INVALID`: the stable error code and details, such as uncovered periods |
+| Field                                                     | Holds                                                                                                      |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `status`                                                  | `PENDING`, `CALCULATED`, `INVALID`, or `FAILED`                                                            |
+| `changed_at`                                              | When it entered this status                                                                                |
+| `cause_kind`                                              | Why it was last queued (list below)                                                                        |
+| `cause_actor_id`                                          | Who made the change; `null` for system processes                                                           |
+| `simulation_revision`, `offer_revision`, `curve_revision` | The inputs this status applies to (from D4b, the offer's `termsRevision` and the curve's `valuesRevision`) |
+| `reason_code`, `reason_metadata`                          | Only for `INVALID`: the stable error code and details, such as uncovered periods                           |
 
-Causes: `CREATED`, `SIMULATION_EDITED`, `OFFER_CHANGED`, `OFFER_DELETED`,
-`CURVE_CHANGED`, `CURVE_DELETED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`.
+Causes: `CREATED`, `SIMULATION_EDITED`, `METHODOLOGY_CHANGED`,
+`RETRY_REQUESTED`. D4b removes `OFFER_CHANGED`, `OFFER_DELETED`,
+`CURVE_CHANGED`, `CURVE_DELETED`, and `cause_ref_id`: fan-out writes no
+calculation rows, so nothing would set them.
 
 The cause is set when the simulation is queued, and the worker keeps it when
-it writes the outcome. "The worker did it" explains nothing; "the curve CDI
-otimista was edited" does:
+it writes the outcome. "The worker did it" explains nothing; "the
+simulation was edited" does:
 
 ```mermaid
 flowchart LR
-  E["Curve 'CDI otimista' edited"] --> P["PENDING · CURVE_CHANGED"]
+  E["Simulation edited"] --> P["PENDING · SIMULATION_EDITED"]
   P --> I["INVALID · COVERAGE_MISSING · cause kept"]
 ```
 
@@ -262,7 +267,7 @@ meanwhile. If a newer message for the same revision is already in flight (a
 retry, or saving without changes), the screen may show "Falha técnica" briefly
 before that calculation replaces it.
 
-### Walkthrough 5: An Offer or Curve Is Edited (D4b)
+### Walkthrough 5: An Offer's Terms or a Curve's Values Change (D4b)
 
 ```mermaid
 sequenceDiagram
@@ -274,59 +279,63 @@ sequenceDiagram
   participant F as Fan-out consumer
   participant W as Worker
 
-  B->>A: PATCH /offers/:id
-  A->>DB: offer revision 6, OfferChanged (offer id, actor) in the outbox
-  DB-->>Q: delivered to the fan-out consumer's queue
-  Q-->>F: receive OfferChanged
-  loop each page of affected simulation ids
-    F->>DB: one transaction: PENDING (OFFER_CHANGED) + one event per simulation
-  end
-  DB-->>Q: N calculation messages
-  Q-->>W: same worker as walkthrough 1
-  W->>DB: save only if the offer is still revision 6
+  B->>A: PATCH /offers/:id (new rate)
+  A->>DB: offer termsRevision 4, OfferTermsChanged (offer id) in the outbox
+  DB-->>Q: delivered to the fan-out queue (group: offer id)
+  Q-->>F: receive OfferTermsChanged
+  F->>DB: one transaction: read the ids of the simulations using the offer, one SimulationCalculationRequested each
+  DB-->>Q: N calculation messages (group: simulation id)
+  Q-->>W: same worker as walkthrough 1, after any calculation of the simulation already running
+  W->>DB: skips if already current, else calculates from offer termsRevision 4
 ```
 
-Fan-out never loads simulations or writes the `simulation` rows, and never
-runs in one big transaction: a system curve edit can reach every user's
-simulations. Each page is one message of about 500 simulations; a full page
-records a continuation event for the next one, handled by the same consumer.
-The page records its events through `DomainEventRecorder`, without
-aggregates.
+Only facts that affect a calculation fan out: `OfferTermsChanged`,
+`OfferDeleted`, `CurveValuesChanged`, and `CurveDeleted`. Renaming an offer or
+describing a curve (`OfferDetailsChanged`, `CurveDetailsChanged`) reaches no
+consumer and leaves its simulations up to date. Fan-out never loads
+simulations and writes no calculation rows: until each result lands, the
+screen shows "Desatualizado", derived from the term revisions. It records
+all its requests in one transaction, a simplification listed under
+"Fan-out at scale" in the Deferred Work of
+[Project Structure](./project-structure.md).
 
 ### Walkthrough 6: An Offer or Curve Is Deleted (D4b)
 
-Deletion goes through the same path as walkthrough 5, with the cause
-`OFFER_DELETED` or `CURVE_DELETED` (the id, the actor). The worker finds the
+Deletion goes through the same path as walkthrough 5. The worker finds the
 premise missing and records `INVALID` with the reason ("Sem oferta, escolha
-outra" or "Sem curva, escolha outra"), keeping the cause. Fan-out never writes
-`INVALID` itself: if a user switched a simulation to another premise while
-fan-out ran, a wrong `PENDING` only costs a recalculation, while a wrong
-`INVALID` would stay until the next edit. Choosing another offer or curve is an
-edit, which queues a calculation.
+outra" or "Sem curva, escolha outra"). Fan-out never writes `INVALID`
+itself: if a user switched a simulation to another premise meanwhile, the
+worker merely recalculates it from the new one. Choosing another offer or
+curve is an edit, which queues a calculation.
 
 ### The Guard: Three Rules
 
 1. **Edits always win.** User edits and fan-out set `PENDING` without looking
    at the calculation state.
 2. **Workers write only if still current.** The save requires the
-   calculation row to still apply to the simulation revision the worker read
-   (from D4b, also the offer and curve revisions).
+   calculation row to still apply to the simulation revision the worker read.
 3. **Losing is harmless.** A worker that loses discards its outcome and
    acknowledges the message; the newer change already queued a newer
    calculation.
 
+The guard does not check the offer and curve revisions. It does not need to:
+messages are grouped by simulation, so the calculation queued by a premise
+change waits for the running one and then reads the latest premises. An
+outcome from an older premise may land first and show "Desatualizado" for a
+moment, but it is never the last write.
+
 ### When Things Go Wrong
 
-| Situation                                | Outcome                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------- |
-| The same message arrives twice           | `processed_events` runs it once.                                          |
-| Two messages for one simulation race     | The second save finds the row moved on and discards.                      |
-| The user edits during a calculation      | The old outcome is discarded; the new message calculates.                 |
-| The premise changes during a calculation | The old outcome is discarded; fan-out queued a new message (D4b).         |
-| A worker dies mid-calculation            | The message reappears after 30 seconds and another worker takes it.       |
-| A technical error keeps happening        | After 5 receives the message is dead-lettered and the status is `FAILED`. |
-| A business rule fails                    | `INVALID` with the reason, recorded once and never retried.               |
-| The simulation was deleted               | The worker finds nothing to calculate and acknowledges the message.       |
+| Situation                                | Outcome                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| The same message arrives twice           | `processed_events` runs it once.                                               |
+| Two messages for one simulation          | Their group delivers them one after the other; the second reads current state. |
+| The user edits during a calculation      | The old outcome is discarded; the new message calculates.                      |
+| The premise changes during a calculation | The old outcome may land; fan-out's message (D4b) runs next and replaces it.   |
+| A worker dies mid-calculation            | The message reappears after 30 seconds and another worker takes it.            |
+| A technical error keeps happening        | After 5 receives the message is dead-lettered and the status is `FAILED`.      |
+| A business rule fails                    | `INVALID` with the reason, recorded once and never retried.                    |
+| The simulation was deleted               | The worker finds nothing to calculate and acknowledges the message.            |
 
 ## How the Screen Stays Current
 
@@ -377,8 +386,9 @@ sequenceDiagram
    `@Injectable()` class with one `@OnEvent('EventType')` method per event,
    each calling a use case. Class names must be unique.
 2. Add `consumer_queue <name> '<event pattern>'` to
-   `infra/floci/init/provision.sh`. It creates the queue, its dead-letter
-   queue, and the rule.
+   `infra/floci/init/provision.sh`. It creates the FIFO queue, its FIFO
+   dead-letter queue, and the rule, whose target groups messages by
+   `$.detail.aggregateId`.
 3. Add the queue URL to `.env.example` and bind the consumer in the host
    with `SqsConsumersModule.register([{ consumer, queueUrlConfigKey }])`.
 4. Make the effect idempotent and read current state. Throw only for failures

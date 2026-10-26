@@ -621,8 +621,12 @@ independent; the screens group them, and no grouping is stored.
   fixed information. Changing the remuneration kind clears the rate, because
   its unit changed. Before saving, it states how many of the user's
   simulations use the offer. Until offer changes recalculate them (D4b,
-  paused), the notice reads "N simulações usam esta oferta e ficarão
+  designed), the notice reads "N simulações usam esta oferta e ficarão
   desatualizadas até serem salvas novamente"; it is hidden when none do.
+  From D4b it appears only while the edit changes the terms (maturity,
+  remuneration) and reads "As N simulações que usam esta oferta serão
+  recalculadas."; editing only the name, issuer, or liquidity shows no
+  notice.
   A system offer has no editor; its details offer only "Duplicar". The PATCH sends the edited revision and
   only changed fields. A revision conflict says the offer changed elsewhere
   and keeps the user's input until they reload. A successful save clears the
@@ -734,9 +738,11 @@ grouping is stored. Visibility and ownership follow Offer behavior.
     and projected values are not distinguished yet (open question in the
     curve specification).
 - The editor follows the offer editor's impact notice, revision conflict, and
-  save rules. Until curve changes recalculate simulations (D4b, paused), the
+  save rules. Until curve changes recalculate simulations (D4b, designed), the
   notice reads "N simulações usam esta curva e ficarão desatualizadas até
-  serem salvas novamente". The PATCH sends only changed fields, comparing
+  serem salvas novamente". From D4b it appears only while the edit changes
+  the intervals and reads "As N simulações que usam esta curva serão
+  recalculadas."; editing only the name or description shows no notice. The PATCH sends only changed fields, comparing
   intervals after the same conversion and ordering, so retyping a value
   identically changes nothing.
 - Deleting a curve states how many of the user's simulations will require a

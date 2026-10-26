@@ -7,7 +7,7 @@ Delivery plan for the investment simulator. Product rules are in the
 in [Frontend Patterns](../architecture/frontend-patterns.md).
 
 The mutable-premises redesign (decided 2026-10-11, D0 to D6) has shipped
-except D4b, which stays paused. This plan adds the next features: side-by-side
+except D4b, resumed on 2026-10-26. This plan adds the next features: side-by-side
 simulation comparison, portfolios, and the index curves observed from the
 Banco Central with their kept rate.
 
@@ -25,8 +25,8 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-17. D0 to D8 are done; D4b is paused after its first
-step.
+Last updated 2026-10-26. D0 to D8 are done; D4b resumed on 2026-10-26 after
+its first step and is designed, ready to build.
 
 Built:
 
@@ -138,12 +138,16 @@ Built:
 
 Differs from the target model:
 
+- Renaming an offer or describing a curve flags its simulations
+  "Desatualizado", because one generic event and one revision cover every
+  edit (D4b separates the calculation's terms).
 - Editing or deleting an offer or curve does not queue the simulations that
-  use it; they are flagged "Desatualizado" until saved again (D4b, paused).
+  use it; they are flagged "Desatualizado" until saved again (D4b, designed).
   The offer and curve screens say so in their impact notices.
-- The worker's guard covers only the simulation revision: an outcome
-  calculated from an older offer or curve revision can land after a newer
-  one, and is then shown as "Desatualizado" (D4b adds those revisions).
+- The queues are standard, not FIFO: two calculations of one simulation can
+  overlap, and an outcome calculated from an older offer or curve revision
+  can land after a newer one and stay "Desatualizado" until saved again. D4b
+  makes the queues FIFO, grouped per aggregate.
 
 Not started and outside this roadmap: IPCA calculation, early redemption, the
 requeue after a methodology version change, and the "saldo hoje" balance,
@@ -153,16 +157,16 @@ PRD's "Pendências de Produto").
 
 ## Next Steps
 
-1. Settle the portfolio membership decision (see D9) so D9 can start.
-2. Settle the portfolio aggregation decisions (see D10) before D10.
-3. Settle D12's decisions before D12.
-4. D4b stays paused until it is explicitly resumed.
+1. Build D4b (designed 2026-10-26) in its three pull requests.
+2. Settle the portfolio membership decision (see D9) so D9 can start.
+3. Settle the portfolio aggregation decisions (see D10) before D10.
+4. Settle D12's decisions before D12.
 
 ## Overview
 
 | #   | Deliverable                                                       | Depends on                    | Status      |
 | --- | ----------------------------------------------------------------- | ----------------------------- | ----------- |
-| D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | Paused      |
+| D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | Designed    |
 | D7  | Simulation return rates and remaining term                        | —                             | Done        |
 | D8  | Side-by-side simulation comparison                                | D7                            | Done        |
 | D9  | Portfolios: management, membership, and derived status            | membership decision           | Not started |
@@ -176,7 +180,7 @@ PRD's "Pendências de Produto").
 D7                      ──► D8
 D7, D9 + (aggregation decisions) ──► D10
 D8, D10                 ──► D11
-D4a                     ──► D4b (paused)
+D4a                     ──► D4b
 (D12 decisions)         ──► D12
 ```
 
@@ -186,69 +190,106 @@ simulations with different terms needs their annualized return, and a
 portfolio's average return builds on the simulations' rates. D11 comes last because it reuses the comparison screen's patterns
 and the portfolio totals.
 
-D4b keeps its place in the plan and its settled design below, but none of the
-new deliverables depends on it: comparison and portfolios read each
-simulation's status and last successful result, and those already show
-"Desatualizado" while D4b is paused. Once D4b ships, their statuses converge
+None of the new deliverables depends on D4b: comparison and portfolios read
+each simulation's status and last successful result, and those already show
+"Desatualizado" until D4b ships. Once D4b ships, their statuses converge
 on their own.
 
 ## D4b — Recalculation from premise changes
 
-**Paused (2026-10-13).** Step 1 is done; the remaining points below are
-settled but not built. Impact counts moved into D5 as the filtered simulation
-list. When D4b resumes, replace the offer and curve screens' interim copy
+**Resumed (2026-10-26)** after a pause from 2026-10-13, and redesigned on
+2026-10-26. Step 1 is done; the rest is decided but not built, and the open
+points are listed last. Impact counts moved into D5 as the filtered
+simulation list. Replace the offer and curve screens' interim copy
 ("ficarão desatualizadas até serem salvas novamente") with the recalculation
 notice.
 
 The flow is in walkthroughs 5 and 6 of
-[Event Flow](../architecture/event-flow.md). Decisions settled on 2026-10-12:
+[Event Flow](../architecture/event-flow.md); the rules are under
+"Recalculation" and "Messaging Transport" in
+[Project Structure](../architecture/project-structure.md).
 
 - **Done (step 1): events are recorded in the unit of work, not by the
-  repository.**
-  - The `DomainEventRecorder` port (shared-domain) lets domain services,
-    application services, and repositories record events.
-  - `UnitOfWork.run()` buffers them and writes them to `outbox_events` in
-    chunks of 1,000 rows right before commit. Recording outside a unit of work
-    throws.
-  - This resolved the earlier open decision on how fan-out writes events
-    without loading aggregates: there is no separate outbox port.
-- **Actor on events:** offer and curve events carry the actor id, so fan-out
-  can record who caused a recalculation.
-- **Page fan-out:** a consumer for `OfferChanged`, `OfferDeleted`,
-  `CurveChanged`, and `CurveDeleted` processes one page of about 500
-  simulation ids (ordered by id after a cursor) per message. Each page:
-  - bulk-updates their `simulation_calculation` rows to `PENDING` with the
-    cause (kind, offer or curve id, actor), without loading aggregates or
-    touching `simulation`;
-  - records one `SimulationCalculationRequested` per simulation;
-  - when full, records a continuation event
-    (`{ premise, premiseId, causeKind, actorId, afterSimulationId }`) handled
-    by the same consumer.
-
-  Each page is its own transaction, retried and dead-lettered on its own.
-
-- **Deletion requeues like a change**, with `OFFER_DELETED` or
-  `CURVE_DELETED`. The worker finds the premise missing and records `INVALID`
-  ("Sem oferta, escolha outra" / "Sem curva, escolha outra"). Fan-out never
-  writes `INVALID`: a race with a user switching premises would strand a valid
-  simulation in a terminal state, while a wrong `PENDING` self-corrects.
-- **Worker guard:** the worker's conditional save also requires the offer and
-  curve revisions it read. An outcome calculated before a premise edit or
-  delete is discarded, since fan-out queued a newer calculation.
-- **Publishing throughput:** the poller publishes one event per EventBridge
-  call, sequentially, roughly 20 to 50 events per second, and after a full
-  batch it waits for the next tick. A system curve edit can queue thousands of
-  calculations. Instead, send up to 10 entries per `PutEvents` (checking each
-  entry's result), mark a batch with one update, and poll again immediately
-  when a batch was full.
-- **Outbox ordering stays by `created_at`:** rows recorded in one transaction
-  publish in no particular order. Add a position column only when a consumer
-  needs order.
+  repository.** The `DomainEventRecorder` port lets services record events
+  without aggregates, and `UnitOfWork.run()` writes them to `outbox_events`
+  in chunks of 1,000 rows right before commit.
+- **Only calculation-relevant changes recalculate.** Generic `OfferChanged`
+  and `CurveChanged` split into `OfferTermsChanged` / `OfferDetailsChanged`
+  and `CurveValuesChanged` / `CurveDetailsChanged`. Offers and curves keep
+  `revision` for the `409` check and add `termsRevision` and
+  `valuesRevision`, which results record instead of the full revisions, so
+  renaming no longer flags simulations "Desatualizado".
+- **Fan-out is a splitter in the simulations feature.**
+  `SimulationRecalculationConsumer` handles `OfferTermsChanged`,
+  `OfferDeleted`, `CurveValuesChanged`, and `CurveDeleted` directly, with no
+  intermediate event. Its use case reads the ids of the live simulations
+  that use the premise from the repository and records one
+  `SimulationCalculationRequested` per id, all in the consumer's single unit
+  of work: all or nothing, no paging, no aggregates loaded, and no
+  calculation rows written. It scales with one transaction per premise
+  change, a deliberate simplification to revisit ("Fan-out at scale" in
+  Deferred Work).
+- **The screen shows "Desatualizado" while a recalculation is on its way**,
+  derived as today, not "Calculando"; a derived "Recalculando" status is
+  deferred ("Recalculation status on screen" in Deferred Work).
+- **Workers skip current work.** `CalculateSimulationUseCase` returns early
+  when the calculation already applies to the current inputs (simulation
+  revision, offer `termsRevision`, curve `valuesRevision`, methodology
+  version).
+- **Deletion fans out like a change**; the worker finds the premise missing
+  and records `INVALID` ("Sem oferta, escolha outra" / "Sem curva, escolha
+  outra"). Fan-out never writes `INVALID` itself.
+- **Exclusivity per simulation, not a wider guard.** Every consumer queue
+  becomes SQS FIFO with content-based deduplication, grouped by
+  `$.detail.aggregateId` on the rule target ("Exclusivity per aggregate"
+  under "Messaging Transport"): one calculation per simulation runs at a
+  time, so the calculation a fan-out queues runs after any in flight and
+  reads the latest premises. The worker's check on the simulation revision
+  stays as it is. Scope: `provision.sh` creates `.fifo` queues and
+  dead-letter queues with the dynamic group, and the queue URLs in
+  `.env.example` change. Floci enforces groups but not the dynamic path, so
+  locally each queue is serial (documented gap); verify the path in a
+  homolog environment before relying on parallel consumers.
+- **Outbox ordering stays by `created_at`:** FIFO groups give exclusivity,
+  not order, and consumers read current state, so no consumer needs order.
 - **Methodology requeue: deferred.** See "Deferred Work" in
   [Project Structure](../architecture/project-structure.md).
 
-**Done when** editing a curve recalculates every simulation that uses it, and
-deleting it moves them to "Requer ação".
+- **No offer or curve causes.** Fan-out writes no calculation rows, so the
+  cause kinds `OFFER_CHANGED`, `OFFER_DELETED`, `CURVE_CHANGED`, and
+  `CURVE_DELETED`, the `cause_ref_id` column, and their frontend types are
+  removed, and premise events carry no actor.
+- **A dead-lettered fan-out has no consumer.** It wrote nothing, so its
+  simulations stay "Desatualizado"; an alarm on the dead-letter queue
+  prompts a redrive. A fan-out calculation that exhausts its retries is not
+  recorded `FAILED` either, since nothing marked it `PENDING` (see
+  "Recalculation status on screen" in Deferred Work).
+- **"Current" for the early return:** a `CALCULATED` or `INVALID` outcome
+  for the current simulation revision, offer `termsRevision`, curve
+  `valuesRevision`, and methodology version, or an `INVALID` for a premise
+  that is still missing. `PENDING` and `FAILED` always calculate.
+- **Ids come from `SimulationRepository.idsUsingOffer()` and
+  `idsUsingCurve()`**, arrays of live simulations; no new port.
+- **Publishing throughput: deferred** to "Fan-out at scale" (batched
+  `PutEvents`, polling until empty, concurrent listeners).
+- **Editor notices:** the offer and curve editors promise "As N simulações
+  que usam esta oferta (curva) serão recalculadas." only while the edit
+  changes terms or intervals, and show nothing for name, issuer, liquidity,
+  or description (see [Frontend Patterns](../architecture/frontend-patterns.md)).
+- **`SimulationCalculationRequested` is reused** for fan-out; its comment
+  widens from "Tentar novamente" to any calculation requested without
+  changing the simulation.
+- **Delivery in three pull requests**, each keeping `pnpm check` green:
+  1. Fact events (`OfferTermsChanged`, `OfferDetailsChanged`,
+     `CurveValuesChanged`, `CurveDetailsChanged`), `termsRevision` and
+     `valuesRevision` recorded by results (renaming stops flagging
+     simulations), and the worker's early return.
+  2. FIFO queues grouped per aggregate.
+  3. Fan-out, the editor notices, and the removal of the unused causes.
+
+**Done when** changing a curve's values or an offer's terms recalculates
+every simulation that uses it, renaming either recalculates nothing and
+flags nothing, and deleting either moves its simulations to "Requer ação".
 
 ## D9 — Portfolios: management, membership, and derived status
 
@@ -376,7 +417,7 @@ Scope:
   same day changes nothing.
 - The development seed's system CDI and SELIC curves end with an open
   interval, so local data behaves like production.
-- While D4b is paused, a rate change leaves the simulations using an observed
+- Until D4b ships, a rate change leaves the simulations using an observed
   curve "Desatualizado" until saved again; this happens only when the rate
   changes (around the Copom meetings for the CDI).
 

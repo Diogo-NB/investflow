@@ -96,13 +96,16 @@ frontend testing policy.
   they change (decision 2026-10-11). Reproducibility and calculation history
   were dropped. Offers, curves, and simulations are built on this model, and
   a simulation's own calculation runs asynchronously (D4a); offer and curve
-  changes do not recalculate their simulations yet (D4b, paused). See "Mutable
+  changes do not recalculate their simulations yet (D4b, designed). See "Mutable
   Premises And Asynchronous Recalculation" in
   `docs/architecture/project-structure.md` before touching offers, curves,
   simulations, or eventing.
 - Integration events travel over EventBridge and SQS, emulated locally by
   Floci (decision 2026-10-11): one bus, one queue with a dead-letter queue per
-  consumer, and transport knowledge confined to the messaging adapters. See
+  consumer, and transport knowledge confined to the messaging adapters.
+  Queues are SQS FIFO grouped by the event's aggregate (decision 2026-10-26),
+  so one message per aggregate is in flight at a time; correctness relies on
+  that exclusivity, not on delivery order. See
   "Messaging Transport" in `docs/architecture/project-structure.md`; the
   visual walkthrough of the event and recalculation flow is
   `docs/architecture/event-flow.md`.

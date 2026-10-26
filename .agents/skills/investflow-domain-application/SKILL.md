@@ -195,6 +195,13 @@ identity, occurrence time as `UtcInstant`, aggregate identity and type, logical
 context, and scalar payload data. Do not put entities, value objects, or ORM
 objects in event payloads.
 
+Name each event after the business fact, never a generic `<Aggregate>Changed`
+or `<Aggregate>Updated`. Split an aggregate's changes into separate events
+when consumers must react differently to them: an offer's terms change
+recalculates simulations, while a renamed offer does not, so they are
+`OfferTermsChanged` and `OfferDetailsChanged`. Consumers subscribe to the
+facts they care about instead of filtering a generic event.
+
 Use `$investflow-eventing` when a change also affects outbox persistence,
 publication, broker routing, or consumers.
 
