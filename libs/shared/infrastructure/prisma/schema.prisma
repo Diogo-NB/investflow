@@ -41,6 +41,8 @@ model Offer {
   remunerationType InvestmentRemunerationType @map("remuneration_type")
   rateValue        Decimal                    @map("rate_value") @db.Decimal(65, 30)
   revision         Int
+  // Raised only by changes a calculation reads; results record it.
+  termsRevision    Int                        @map("terms_revision")
   deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -51,19 +53,19 @@ model Offer {
 }
 
 model Simulation {
-  id             String            @id @db.Uuid
-  ownerId        String            @map("owner_id")
-  offerId        String            @map("offer_id") @db.Uuid
+  id             String                 @id @db.Uuid
+  ownerId        String                 @map("owner_id")
+  offerId        String                 @map("offer_id") @db.Uuid
   // Null for fixed rates.
-  curveId        String?           @map("curve_id") @db.Uuid
-  principal      Decimal           @db.Decimal(65, 30)
-  investmentDate DateTime          @map("investment_date") @db.Date
+  curveId        String?                @map("curve_id") @db.Uuid
+  principal      Decimal                @db.Decimal(65, 30)
+  investmentDate DateTime               @map("investment_date") @db.Date
   revision       Int
-  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(3)
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
-  offer          Offer             @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  curve          Curve?            @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  deletedAt      DateTime?              @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  offer          Offer                  @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  curve          Curve?                 @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   calculation    SimulationCalculation?
   result         SimulationResult?
 
@@ -99,23 +101,23 @@ enum SimulationCalculationCauseKind {
 
 // The current calculation state of a simulation; no history is kept.
 model SimulationCalculation {
-  simulationId       String                         @id @map("simulation_id") @db.Uuid
-  status             SimulationCalculationStatus
-  changedAt          DateTime                       @map("changed_at") @db.Timestamptz(3)
-  causeKind          SimulationCalculationCauseKind @map("cause_kind")
+  simulationId        String                         @id @map("simulation_id") @db.Uuid
+  status              SimulationCalculationStatus
+  changedAt           DateTime                       @map("changed_at") @db.Timestamptz(3)
+  causeKind           SimulationCalculationCauseKind @map("cause_kind")
   // The offer or curve whose change queued the calculation.
-  causeRefId         String?                        @map("cause_ref_id") @db.Uuid
+  causeRefId          String?                        @map("cause_ref_id") @db.Uuid
   // Null for system processes.
-  causeActorId       String?                        @map("cause_actor_id")
+  causeActorId        String?                        @map("cause_actor_id")
   // The inputs the status applies to; outcomes are written only while the
   // simulation revision still matches.
-  simulationRevision Int                            @map("simulation_revision")
-  offerRevision      Int?                           @map("offer_revision")
-  curveRevision      Int?                           @map("curve_revision")
+  simulationRevision  Int                            @map("simulation_revision")
+  offerTermsRevision  Int?                           @map("offer_terms_revision")
+  curveValuesRevision Int?                           @map("curve_values_revision")
   // Only for INVALID.
-  reasonCode         String?                        @map("reason_code")
-  reasonMetadata     Json?                          @map("reason_metadata")
-  simulation         Simulation                     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  reasonCode          String?                        @map("reason_code")
+  reasonMetadata      Json?                          @map("reason_metadata")
+  simulation          Simulation                     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@map("simulation_calculation")
 }
@@ -123,8 +125,8 @@ model SimulationCalculation {
 model SimulationResult {
   simulationId              String                    @id @map("simulation_id") @db.Uuid
   simulationRevision        Int                       @map("simulation_revision")
-  offerRevision             Int                       @map("offer_revision")
-  curveRevision             Int?                      @map("curve_revision")
+  offerTermsRevision        Int                       @map("offer_terms_revision")
+  curveValuesRevision       Int?                      @map("curve_values_revision")
   methodologyVersion        String                    @map("methodology_version")
   calculatedAt              DateTime                  @map("calculated_at") @db.Timestamptz(3)
   investmentDate            DateTime                  @map("investment_date") @db.Date
@@ -182,17 +184,19 @@ enum EconomicIndex {
 
 // A null owner means system content, visible to every user.
 model Curve {
-  id          String          @id @db.Uuid
-  ownerId     String?         @map("owner_id")
-  index       EconomicIndex
-  name        String
-  description String?
-  revision    Int
-  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(3)
-  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  intervals   CurveInterval[]
-  simulations Simulation[]
+  id             String          @id @db.Uuid
+  ownerId        String?         @map("owner_id")
+  index          EconomicIndex
+  name           String
+  description    String?
+  revision       Int
+  // Raised only by changes to the intervals; results record it.
+  valuesRevision Int             @map("values_revision")
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  intervals      CurveInterval[]
+  simulations    Simulation[]
 
   @@index([ownerId])
   @@map("curve")

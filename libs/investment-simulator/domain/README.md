@@ -23,8 +23,11 @@ the editable name, optional issuer name, maturity, redemption, and
 remuneration, an owner, a revision, and soft deletion. The issuer is a plain
 name, not a separate aggregate. Variants from one issuer are separate offers;
 grouping them is left to screens. Changes raise `OfferCreated`,
-`OfferChanged`, and `OfferDeleted` carrying only the offer's identity, and a
-stale client revision is `OFFER_REVISION_CONFLICT`.
+`OfferTermsChanged` (maturity, remuneration), `OfferDetailsChanged` (name,
+issuer, redemption), and `OfferDeleted` carrying only the offer's identity,
+and a stale client revision is `OFFER_REVISION_CONFLICT`. Besides the
+revision, `termsRevision` rises only with the terms, so results stay current
+when an offer is renamed.
 
 The catalog model is prepared for CDB, LCI, and LCA titles and for prefixed,
 CDI percentage, Selic percentage, and IPCA-plus remuneration. `RemunerationTerms`
@@ -59,9 +62,12 @@ their own, and changes only their own (`isVisibleTo()`, `canBeChangedBy()`).
 `duplicateFor()` creates a private copy with the same content and no link to
 its source.
 
-Every change increments the revision once and raises a past-tense event
-(`CurveCreated`, `CurveChanged`, `CurveDeleted`) carrying only the curve's
-identity. An edit that changes nothing keeps the revision and raises nothing.
+Every change increments the revision once and raises past-tense events
+(`CurveCreated`, `CurveValuesChanged` for the intervals,
+`CurveDetailsChanged` for the name and description, `CurveDeleted`) carrying
+only the curve's identity; an edit of both raises both. `valuesRevision`
+rises only with the intervals, so results stay current when a curve is
+renamed. An edit that changes nothing keeps the revisions and raises nothing.
 `assertRevision()` reports a stale client revision as
 `CURVE_REVISION_CONFLICT`.
 
@@ -173,7 +179,8 @@ curve. Deleted simulations reject both. `recordCalculation()` accepts a
 `CALCULATED` or `INVALID` outcome only for the current revision of a
 simulation that is not deleted, keeps the cause, and keeps the last result when
 the outcome is invalid. `markCalculationFailed()` applies only while the
-calculation is pending.
+calculation is pending. `SimulationCalculation.appliesTo()` tells whether a
+`CALCULATED` or `INVALID` outcome was recorded for given inputs.
 
 `SimulationCalculationService` combines the offer's terms with the investment
 into the calculable `InvestmentScenario`. `validate()` returns the first rule
@@ -183,12 +190,15 @@ deleted, supported remuneration, and business days (`InvestmentCalculator.check(
 `calculate()` also checks curve coverage and returns a `CALCULATED` outcome with
 the result or an `INVALID` one with the broken rule; a numeric failure throws
 so the calculation is retried, and passing a curve other than the referenced
-one is an invariant breach.
+one is an invariant breach. `isCurrent()` tells whether the recorded outcome
+already applies to the current premises (and, for a result, the current
+methodology), so the worker can skip the calculation.
 
 `SimulationResult` is the single current result: the whole
 `InvestmentProjection` (whose term is the period it covered), the
-`calculatedAt` instant, and the inputs it was calculated from (simulation, offer, and curve
-revisions and the methodology version). A new successful calculation replaces
+`calculatedAt` instant, and the inputs it was calculated from (the simulation
+revision, the offer's `termsRevision`, the curve's `valuesRevision`, and the
+methodology version). A new successful calculation replaces
 it. `SimulationResult.targetFor()` and `isCurrent()` take plain values, so read
 models can flag a result whose premises or methodology changed since.
 

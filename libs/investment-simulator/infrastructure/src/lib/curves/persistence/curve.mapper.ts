@@ -33,6 +33,7 @@ export class CurveMapper {
       name: record.name,
       description: record.description,
       revision: record.revision,
+      valuesRevision: record.valuesRevision,
       deletedAt: record.deletedAt
         ? UtcInstant.fromDate(record.deletedAt).value
         : null,
@@ -58,6 +59,7 @@ export class CurveMapper {
       name: curve.name,
       description: curve.description,
       revision: curve.revision,
+      valuesRevision: curve.valuesRevision,
       deletedAt: curve.deletedAt?.date ?? null,
     };
   }

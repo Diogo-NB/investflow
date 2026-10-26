@@ -185,6 +185,18 @@ vocabulary mapping, and what is stored versus derived.
   expected failures with `Result.err()`. Use `map()` and `mapError()` only for
   single, non-failing transformations. Keep throwing operations inside the
   helper callback: `map()` does not catch exceptions thrown by its callback.
+- Let repository and service Results flow unchanged; do not re-wrap them in
+  ad hoc unions (`{ value } | { missing }`) or nested Results. When a caller
+  treats some failures differently (a deleted premise becomes an outcome,
+  a technical failure is retried), branch once where it decides, on the
+  shared error hierarchy (`error instanceof NotFoundError`), not on each
+  concrete subtype. A step that loads several aggregates returns one Result
+  of all of them, short-circuiting on the first error.
+- Shape use cases so each case is decided once. If the same discriminant is
+  checked twice (`'missing' in x` before and after a step), split the flow
+  into early-returning paths and move the shared tail (record, save, map a
+  stale write) into a private method both paths call. Review your own use
+  case for this before presenting it.
 - A missing command-side aggregate is an error. Nullable values remain valid in
   read models when absence is data rather than a failed operation.
 

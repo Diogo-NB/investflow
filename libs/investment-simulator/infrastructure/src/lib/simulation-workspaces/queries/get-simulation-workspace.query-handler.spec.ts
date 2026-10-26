@@ -11,8 +11,8 @@ const date = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 function result(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     simulationRevision: 2,
-    offerRevision: 3,
-    curveRevision: 4,
+    offerTermsRevision: 3,
+    curveValuesRevision: 4,
     methodologyVersion: 'cdb-252-v1',
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
     investmentDate: date('2026-01-02'),
@@ -77,13 +77,14 @@ function workspace(
       rateValue: new Prisma.Decimal('1.10'),
       ownerId: 'owner-id',
       revision: 3,
+      termsRevision: 3,
       deletedAt: null,
       ...overrides.offer,
     },
     curve: {
       id: 'curve-id',
       name: 'CDI base',
-      revision: 4,
+      valuesRevision: 4,
       deletedAt: null,
       ...overrides.curve,
     },
@@ -249,12 +250,12 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
 
   it.each([
     ['the simulation changed', workspace({ revision: 3 })],
-    ['the offer changed', workspace({ offer: { revision: 4 } })],
+    ['the offer terms changed', workspace({ offer: { termsRevision: 4 } })],
     [
       'the offer was deleted',
-      workspace({ offer: { revision: 4, deletedAt: new Date() } }),
+      workspace({ offer: { termsRevision: 4, deletedAt: new Date() } }),
     ],
-    ['the curve changed', workspace({ curve: { revision: 5 } })],
+    ['the curve values changed', workspace({ curve: { valuesRevision: 5 } })],
     [
       'the methodology changed',
       workspace({ result: result({ methodologyVersion: 'cdb-252-v0' }) }),
@@ -263,6 +264,12 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     const output = await setup(record)();
 
     expect(output.value.result?.outdated).toBe(true);
+  });
+
+  it('keeps the result current when only the offer details changed', async () => {
+    const output = await setup(workspace({ offer: { revision: 9 } }))();
+
+    expect(output.value.result?.outdated).toBe(false);
   });
 
   it('reports deleted premises and a missing result', async () => {

@@ -60,6 +60,7 @@ function record(): OfferRecord {
     remunerationType: InvestmentRemunerationType.CDI_PERCENTAGE,
     rateValue: new Prisma.Decimal('0.123456789012345678901234567891'),
     revision: 3,
+    termsRevision: 2,
     deletedAt: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     updatedAt: new Date('2026-10-01T12:00:00Z'),

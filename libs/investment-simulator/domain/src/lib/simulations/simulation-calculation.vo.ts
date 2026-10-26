@@ -36,8 +36,8 @@ export interface SimulationCalculationCause {
 // Revisions are null when the premise could not be read.
 export interface SimulationCalculationInputs {
   readonly simulationRevision: number;
-  readonly offerRevision: number | null;
-  readonly curveRevision: number | null;
+  readonly offerTermsRevision: number | null;
+  readonly curveValuesRevision: number | null;
 }
 
 export interface SimulationCalculationReason {
@@ -78,7 +78,11 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
       status: ESimulationCalculationStatus.PENDING,
       changedAt: at,
       cause,
-      inputs: { simulationRevision, offerRevision: null, curveRevision: null },
+      inputs: {
+        simulationRevision,
+        offerTermsRevision: null,
+        curveValuesRevision: null,
+      },
       reason: null,
     });
   }
@@ -113,18 +117,32 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
     return this.props.status === ESimulationCalculationStatus.PENDING;
   }
 
+  // Whether an outcome was recorded for these inputs; PENDING and FAILED
+  // recorded none.
+  appliesTo(inputs: SimulationCalculationInputs): boolean {
+    const { status } = this.props;
+    const recorded = this.props.inputs;
+    return (
+      (status === ESimulationCalculationStatus.CALCULATED ||
+        status === ESimulationCalculationStatus.INVALID) &&
+      recorded.simulationRevision === inputs.simulationRevision &&
+      recorded.offerTermsRevision === inputs.offerTermsRevision &&
+      recorded.curveValuesRevision === inputs.curveValuesRevision
+    );
+  }
+
   recorded(
     outcome: SimulationCalculationOutcome,
     at: UtcInstant,
   ): SimulationCalculation {
     if (outcome.kind === 'CALCULATED') {
-      const { simulationRevision, offerRevision, curveRevision } =
+      const { simulationRevision, offerTermsRevision, curveValuesRevision } =
         outcome.result.inputs;
       return new SimulationCalculation({
         ...this.props,
         status: ESimulationCalculationStatus.CALCULATED,
         changedAt: at,
-        inputs: { simulationRevision, offerRevision, curveRevision },
+        inputs: { simulationRevision, offerTermsRevision, curveValuesRevision },
         reason: null,
       });
     }

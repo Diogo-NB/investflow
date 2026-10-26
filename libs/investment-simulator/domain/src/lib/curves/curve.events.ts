@@ -10,8 +10,17 @@ export class CurveCreated extends InvestmentSimulatorEvent {
   }
 }
 
-export class CurveChanged extends InvestmentSimulatorEvent {
-  readonly eventType = 'CurveChanged';
+export class CurveValuesChanged extends InvestmentSimulatorEvent {
+  readonly eventType = 'CurveValuesChanged';
+  readonly aggregateType = 'Curve';
+
+  constructor(curveId: string, occurredAt: UtcInstant) {
+    super(curveId, occurredAt);
+  }
+}
+
+export class CurveDetailsChanged extends InvestmentSimulatorEvent {
+  readonly eventType = 'CurveDetailsChanged';
   readonly aggregateType = 'Curve';
 
   constructor(curveId: string, occurredAt: UtcInstant) {

@@ -44,7 +44,11 @@ function calculated(simulation: Simulation, chosen: Offer = offer()) {
 function invalid(simulationRevision: number): SimulationCalculationOutcome {
   return {
     kind: 'INVALID',
-    inputs: { simulationRevision, offerRevision: 1, curveRevision: 1 },
+    inputs: {
+      simulationRevision,
+      offerTermsRevision: 1,
+      curveValuesRevision: 1,
+    },
     reason: new InvestmentCalculationError(
       EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
       'Sem cobertura.',
@@ -150,8 +154,8 @@ describe('Simulation', () => {
     expect(simulation.calculation.changedAt).toBe(LATER);
     expect(simulation.calculation.inputs).toEqual({
       simulationRevision: 1,
-      offerRevision: 1,
-      curveRevision: null,
+      offerTermsRevision: 1,
+      curveValuesRevision: null,
     });
     expect(outcome.kind === 'CALCULATED' && simulation.result).toBe(
       outcome.kind === 'CALCULATED' && outcome.result,

@@ -17,8 +17,8 @@ const calculation: NonNullable<SimulationRecord['calculation']> = {
   causeRefId: 'c51b8f16-2b90-4d24-a2f9-5923eb77c16c',
   causeActorId: 'owner-id',
   simulationRevision: 3,
-  offerRevision: 4,
-  curveRevision: 6,
+  offerTermsRevision: 4,
+  curveValuesRevision: 6,
   reasonCode: 'INVESTMENT_CURVE_COVERAGE_MISSING',
   reasonMetadata: {
     missingRanges: [{ start: '2026-01-05', end: '2026-01-05' }],
@@ -40,8 +40,8 @@ const record: SimulationRecord = {
   result: {
     simulationId: id,
     simulationRevision: 2,
-    offerRevision: 4,
-    curveRevision: 5,
+    offerTermsRevision: 4,
+    curveValuesRevision: 5,
     methodologyVersion: 'cdb-252-v1',
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
     investmentDate: new Date('2026-01-02T00:00:00.000Z'),
@@ -85,8 +85,8 @@ describe('SimulationMapper', () => {
     expect(simulation.revision).toBe(3);
     expect(simulation.result?.inputs).toEqual({
       simulationRevision: 2,
-      offerRevision: 4,
-      curveRevision: 5,
+      offerTermsRevision: 4,
+      curveValuesRevision: 5,
       methodologyVersion: 'cdb-252-v1',
     });
     const data = SimulationMapper.toPersistence(simulation);
@@ -103,7 +103,7 @@ describe('SimulationMapper', () => {
     expect(data.calculation).toEqual(calculation);
     expect(data.result).toMatchObject({
       simulationId: id,
-      offerRevision: 4,
+      offerTermsRevision: 4,
       investmentDate: new Date('2026-01-02T00:00:00.000Z'),
       maturityDate: new Date('2026-01-05T00:00:00.000Z'),
       // Derived from the balances at decimal.js precision, not read back.
@@ -147,8 +147,8 @@ describe('SimulationMapper', () => {
     });
     expect(calculation.inputs).toEqual({
       simulationRevision: 3,
-      offerRevision: 4,
-      curveRevision: 6,
+      offerTermsRevision: 4,
+      curveValuesRevision: 6,
     });
     expect(calculation.reason).toEqual({
       code: EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,

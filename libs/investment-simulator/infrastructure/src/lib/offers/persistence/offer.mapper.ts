@@ -22,6 +22,7 @@ export class OfferMapper {
         Rate.of(record.rateValue.toString()),
       ),
       revision: record.revision,
+      termsRevision: record.termsRevision,
       deletedAt: record.deletedAt
         ? UtcInstant.fromDate(record.deletedAt).value
         : null,
@@ -40,6 +41,7 @@ export class OfferMapper {
       remunerationType: offer.remunerationTerms.kind,
       rateValue: offer.remunerationTerms.contractRate.value.toString(),
       revision: offer.revision,
+      termsRevision: offer.termsRevision,
       deletedAt: offer.deletedAt?.date ?? null,
     };
   }

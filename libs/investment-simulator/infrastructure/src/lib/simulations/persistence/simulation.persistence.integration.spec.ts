@@ -479,6 +479,13 @@ integration('Simulation PostgreSQL persistence', () => {
       result: { outdated: false },
     });
 
+    const renamed = (await offers.findById(offer.id)).value;
+    renamed.edit({ name: 'Integration renomeada' }, at('2026-10-09'));
+    expect((await offers.save(renamed)).isOk()).toBe(true);
+    const afterRename = await read();
+    expect(afterRename.workspace.result?.outdated).toBe(false);
+    expect(afterRename.listed?.result?.outdated).toBe(false);
+
     const edited = (await offers.findById(offer.id)).value;
     edited.edit(
       {
@@ -552,11 +559,9 @@ integration('Simulation PostgreSQL persistence', () => {
       (sum, month) => sum.plus(month.monthGrossEarnings),
       new Prisma.Decimal(0),
     );
-    expect(
-      total.equals(
-        result?.gross.earnings.amount.toFixed() ?? '',
-      ),
-    ).toBe(true);
+    expect(total.equals(result?.gross.earnings.amount.toFixed() ?? '')).toBe(
+      true,
+    );
     expect(
       (await get.execute({ ...query, ownerId: 'someone-else' })).error.code,
     ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);

@@ -50,8 +50,8 @@ export interface TaxOutput {
 export interface SimulationResultOutput {
   readonly calculatedAt: string;
   readonly methodologyVersion: string;
-  // True when the simulation, its offer or curve changed since, or the current
-  // methodology could produce different figures.
+  // True when the simulation, its offer's terms, or its curve's values changed
+  // since, or the current methodology could produce different figures.
   readonly outdated: boolean;
   readonly principal: string;
   // The period calculated, which later edits may have changed. Business days
@@ -128,8 +128,8 @@ export interface SimulationWorkspaceProjection {
 
 const resultSelect = {
   simulationRevision: true,
-  offerRevision: true,
-  curveRevision: true,
+  offerTermsRevision: true,
+  curveValuesRevision: true,
   methodologyVersion: true,
   calculatedAt: true,
   investmentDate: true,
@@ -187,8 +187,12 @@ export const simulationWorkspaceSelect = {
   principal: true,
   investmentDate: true,
   curveId: true,
-  offer: { select: { ...offerSummarySelect, deletedAt: true } },
-  curve: { select: { id: true, name: true, revision: true, deletedAt: true } },
+  offer: {
+    select: { ...offerSummarySelect, termsRevision: true, deletedAt: true },
+  },
+  curve: {
+    select: { id: true, name: true, valuesRevision: true, deletedAt: true },
+  },
   calculation: {
     select: {
       status: true,
@@ -265,8 +269,8 @@ export function toSimulationWorkspace(
           SimulationResult.targetFor(
             record.revision,
             offer.titleType as ETitleType,
-            offer.revision,
-            curve?.revision ?? null,
+            offer.termsRevision,
+            curve?.valuesRevision ?? null,
           ),
         )
       : null,

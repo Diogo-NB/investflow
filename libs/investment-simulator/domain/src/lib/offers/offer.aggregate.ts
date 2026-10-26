@@ -7,7 +7,12 @@ import {
   UtcInstant,
 } from '@investflow/shared-domain';
 import { InvalidOfferError, OfferRevisionConflictError } from './offer.error';
-import { OfferChanged, OfferCreated, OfferDeleted } from './offer.events';
+import {
+  OfferCreated,
+  OfferDeleted,
+  OfferDetailsChanged,
+  OfferTermsChanged,
+} from './offer.events';
 import type { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
 import type { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from './title-type.enum';
@@ -46,6 +51,7 @@ export type CreateOfferProps = Pick<
 export type ReconstituteOfferProps = OfferProps & {
   readonly id: string;
   readonly revision: number;
+  readonly termsRevision: number;
 };
 
 export type OfferEdit = Partial<OfferContent>;
@@ -55,6 +61,9 @@ export class Offer extends AggregateRoot {
     id: string,
     private readonly props: OfferProps,
     revision: Revision,
+    // Raised only by changes to what a calculation reads, so results stay
+    // current across renames.
+    private readonly termsRevisionTracker: Revision,
   ) {
     super(id, revision);
   }
@@ -82,13 +91,23 @@ export class Offer extends AggregateRoot {
         deletedAt: null,
       },
       Revision.initial(),
+      Revision.initial(),
     );
     return Result.ok(offer.apply(new OfferCreated(offer.id, occurredAt)));
   }
 
   static reconstitute(props: ReconstituteOfferProps): Offer {
-    const { id, revision, ...state } = props;
-    return new Offer(id, state, Revision.restore(revision));
+    const { id, revision, termsRevision, ...state } = props;
+    return new Offer(
+      id,
+      state,
+      Revision.restore(revision),
+      Revision.restore(termsRevision),
+    );
+  }
+
+  get termsRevision(): number {
+    return this.termsRevisionTracker.value;
   }
 
   get titleType(): ETitleType {
@@ -171,7 +190,9 @@ export class Offer extends AggregateRoot {
     const invalid = Offer.validate(content);
     if (invalid) return Result.err(invalid);
 
-    if (this.isUnchanged(content)) return Result.ok(this);
+    const termsChanged = !this.hasTerms(content);
+    const detailsChanged = !this.hasDetails(content);
+    if (!termsChanged && !detailsChanged) return Result.ok(this);
 
     this.props.name = content.name;
     this.props.issuerName = content.issuerName;
@@ -179,7 +200,13 @@ export class Offer extends AggregateRoot {
     this.props.redemptionTerms = content.redemptionTerms;
     this.props.remunerationTerms = content.remunerationTerms;
     this.revisionTracker.increment();
-    return Result.ok(this.apply(new OfferChanged(this.id, occurredAt)));
+    if (termsChanged) {
+      this.termsRevisionTracker.increment();
+      this.apply(new OfferTermsChanged(this.id, occurredAt));
+    }
+    if (detailsChanged)
+      this.apply(new OfferDetailsChanged(this.id, occurredAt));
+    return Result.ok(this);
   }
 
   delete(at: UtcInstant): this {
@@ -189,13 +216,24 @@ export class Offer extends AggregateRoot {
     return this.apply(new OfferDeleted(this.id, at));
   }
 
-  private isUnchanged(content: OfferContent): boolean {
+  override markPersisted(): this {
+    this.termsRevisionTracker.markPersisted();
+    return super.markPersisted();
+  }
+
+  // Liquidity is a detail until early redemption is calculated.
+  private hasTerms(content: OfferContent): boolean {
+    return (
+      content.maturityDate.equals(this.props.maturityDate) &&
+      content.remunerationTerms.equals(this.props.remunerationTerms)
+    );
+  }
+
+  private hasDetails(content: OfferContent): boolean {
     return (
       content.name === this.props.name &&
       content.issuerName === this.props.issuerName &&
-      content.maturityDate.equals(this.props.maturityDate) &&
-      content.redemptionTerms.equals(this.props.redemptionTerms) &&
-      content.remunerationTerms.equals(this.props.remunerationTerms)
+      content.redemptionTerms.equals(this.props.redemptionTerms)
     );
   }
 

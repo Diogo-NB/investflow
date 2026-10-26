@@ -112,8 +112,8 @@ export class SimulationMapper {
       },
       inputs: {
         simulationRevision: record.simulationRevision,
-        offerRevision: record.offerRevision,
-        curveRevision: record.curveRevision,
+        offerTermsRevision: record.offerTermsRevision,
+        curveValuesRevision: record.curveValuesRevision,
       },
       reason: record.reasonCode
         ? {
@@ -137,8 +137,8 @@ export class SimulationMapper {
       causeRefId: cause.refId,
       causeActorId: cause.actorId,
       simulationRevision: inputs.simulationRevision,
-      offerRevision: inputs.offerRevision,
-      curveRevision: inputs.curveRevision,
+      offerTermsRevision: inputs.offerTermsRevision,
+      curveValuesRevision: inputs.curveValuesRevision,
       reasonCode: reason?.code ?? null,
       reasonMetadata: reason
         ? (reason.metadata as Prisma.InputJsonObject)
@@ -154,8 +154,8 @@ export class SimulationMapper {
     return SimulationResult.create({
       inputs: {
         simulationRevision: record.simulationRevision,
-        offerRevision: record.offerRevision,
-        curveRevision: record.curveRevision,
+        offerTermsRevision: record.offerTermsRevision,
+        curveValuesRevision: record.curveValuesRevision,
         methodologyVersion: record.methodologyVersion,
       },
       projection: InvestmentProjection.create({
@@ -201,8 +201,8 @@ export class SimulationMapper {
     return {
       simulationId,
       simulationRevision: inputs.simulationRevision,
-      offerRevision: inputs.offerRevision,
-      curveRevision: inputs.curveRevision,
+      offerTermsRevision: inputs.offerTermsRevision,
+      curveValuesRevision: inputs.curveValuesRevision,
       methodologyVersion: inputs.methodologyVersion,
       calculatedAt: result.calculatedAt.date,
       investmentDate: term.investmentDate.toUtcDate(),

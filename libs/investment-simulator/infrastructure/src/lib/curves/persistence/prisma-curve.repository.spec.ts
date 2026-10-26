@@ -53,6 +53,7 @@ function record(value = '0.12'): CurveRecord {
     name: 'SELIC',
     description: null,
     revision: 3,
+    valuesRevision: 2,
     deletedAt: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     updatedAt: new Date('2026-10-01T12:00:00Z'),

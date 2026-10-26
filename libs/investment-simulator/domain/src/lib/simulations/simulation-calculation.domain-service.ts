@@ -10,7 +10,10 @@ import { InvestmentScenario } from '../calculations/investment-scenario.vo';
 import type { Curve } from '../curves/curve.aggregate';
 import type { Offer } from '../offers/offer.aggregate';
 import type { InvestmentInputs } from './investment-inputs.vo';
-import type { SimulationCalculationOutcome } from './simulation-calculation.vo';
+import {
+  ESimulationCalculationStatus,
+  type SimulationCalculationOutcome,
+} from './simulation-calculation.vo';
 import { SimulationResult } from './simulation-result.vo';
 import type { Simulation } from './simulation.aggregate';
 
@@ -38,6 +41,39 @@ export class SimulationCalculationService {
     return scenario;
   }
 
+  // Whether the recorded outcome already applies to the current premises, so
+  // calculating again would change nothing. A result also needs the current
+  // methodology; INVALID records none.
+  isCurrent(
+    simulation: Simulation,
+    offer: Offer,
+    curve: Curve | null,
+  ): boolean {
+    const inputs = SimulationCalculationService.inputsOf(
+      simulation,
+      offer,
+      curve,
+    );
+    if (!simulation.calculation.appliesTo(inputs)) return false;
+    if (
+      simulation.calculation.status !== ESimulationCalculationStatus.CALCULATED
+    ) {
+      return true;
+    }
+    return (
+      simulation.result !== null &&
+      SimulationResult.isCurrent(
+        simulation.result.inputs,
+        SimulationResult.targetFor(
+          inputs.simulationRevision,
+          offer.titleType,
+          inputs.offerTermsRevision,
+          inputs.curveValuesRevision,
+        ),
+      )
+    );
+  }
+
   // A broken business rule is an INVALID outcome; a technical failure throws
   // so the calculation is retried.
   calculate(
@@ -57,11 +93,11 @@ export class SimulationCalculationService {
         },
       });
     }
-    const inputs = {
-      simulationRevision: simulation.revision,
-      offerRevision: offer.revision,
-      curveRevision: curve?.revision ?? null,
-    };
+    const inputs = SimulationCalculationService.inputsOf(
+      simulation,
+      offer,
+      curve,
+    );
 
     const scenario = this.validate(investment, offer, curve);
     if (scenario.isErr()) {
@@ -82,6 +118,18 @@ export class SimulationCalculationService {
         projection: projection.value,
         calculatedAt: at,
       }),
+    };
+  }
+
+  private static inputsOf(
+    simulation: Simulation,
+    offer: Offer,
+    curve: Curve | null,
+  ) {
+    return {
+      simulationRevision: simulation.revision,
+      offerTermsRevision: offer.termsRevision,
+      curveValuesRevision: curve?.valuesRevision ?? null,
     };
   }
 }

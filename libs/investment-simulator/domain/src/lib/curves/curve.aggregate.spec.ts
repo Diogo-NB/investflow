@@ -7,7 +7,12 @@ import {
 import { CurveInterval } from './curve-interval.vo';
 import { CreateCurveProps, Curve } from './curve.aggregate';
 import { InvalidCurveError } from './curve.error';
-import { CurveChanged, CurveCreated, CurveDeleted } from './curve.events';
+import {
+  CurveCreated,
+  CurveDeleted,
+  CurveDetailsChanged,
+  CurveValuesChanged,
+} from './curve.events';
 import { EEconomicIndex } from './economic-index.enum';
 import { EIndexValueConvention } from './index-value-convention.enum';
 import { IndexValue } from './index-value.vo';
@@ -46,6 +51,7 @@ function restore(curve: Curve): Curve {
     description: curve.description,
     intervals: curve.intervals,
     revision: curve.revision,
+    valuesRevision: curve.valuesRevision,
     deletedAt: curve.deletedAt,
   });
 }
@@ -60,6 +66,7 @@ describe('Curve', () => {
     expect(first.description).toBe('Cenário base');
     expect(second.description).toBeNull();
     expect(first.revision).toBe(1);
+    expect(first.valuesRevision).toBe(1);
     expect(first.deletedAt).toBeNull();
     const [event] = first.getDomainEvents();
     expect(event).toBeInstanceOf(CurveCreated);
@@ -130,7 +137,7 @@ describe('Curve', () => {
     expect(conflict.kind).toBe('conflict');
   });
 
-  it('edits supplied fields, increments the revision once and raises a change event', () => {
+  it('edits supplied fields, increments both revisions once and raises both change events', () => {
     const curve = restore(
       create({
         intervals: [
@@ -155,20 +162,34 @@ describe('Curve', () => {
 
     expect(result.isOk()).toBe(true);
     expect(curve.revision).toBe(2);
+    expect(curve.valuesRevision).toBe(2);
     expect(curve.name).toBe('Otimista');
     expect(curve.description).toBeNull();
     expect(curve.intervals).toHaveLength(3);
-    const [event] = curve.getDomainEvents();
-    expect(event).toBeInstanceOf(CurveChanged);
-    expect(event).toMatchObject({
-      aggregateId: curve.id,
-      occurredAt: LATER,
-    });
+    const events = curve.getDomainEvents();
+    expect(events).toEqual([
+      expect.any(CurveValuesChanged),
+      expect.any(CurveDetailsChanged),
+    ]);
+    for (const event of events) {
+      expect(event).toMatchObject({ aggregateId: curve.id, occurredAt: LATER });
+    }
   });
 
+  it.each([{ name: 'Otimista' }, { description: null }])(
+    'keeps the values revision and raises a details event for %o',
+    (edit) => {
+      const curve = restore(create().value);
+      expect(curve.edit(edit, LATER).isOk()).toBe(true);
+      expect(curve.revision).toBe(2);
+      expect(curve.valuesRevision).toBe(1);
+      expect(curve.getDomainEvents()).toEqual([
+        expect.any(CurveDetailsChanged),
+      ]);
+    },
+  );
+
   it.each([
-    { name: 'Otimista' },
-    { description: null },
     { intervals: [interval('2026-10-01', '2026-10-31', '0.11')] },
     {
       intervals: [
@@ -176,12 +197,16 @@ describe('Curve', () => {
         interval('2026-10-16', '2026-10-31'),
       ],
     },
-  ])('raises one change event for a change to a single field %#', (edit) => {
-    const curve = restore(create().value);
-    expect(curve.edit(edit, LATER).isOk()).toBe(true);
-    expect(curve.revision).toBe(2);
-    expect(curve.getDomainEvents()).toEqual([expect.any(CurveChanged)]);
-  });
+  ])(
+    'raises the values revision and a values event for new intervals %#',
+    (edit) => {
+      const curve = restore(create().value);
+      expect(curve.edit(edit, LATER).isOk()).toBe(true);
+      expect(curve.revision).toBe(2);
+      expect(curve.valuesRevision).toBe(2);
+      expect(curve.getDomainEvents()).toEqual([expect.any(CurveValuesChanged)]);
+    },
+  );
 
   it.each([
     {},
@@ -223,12 +248,34 @@ describe('Curve', () => {
     expect(curve.revision).toBe(3);
   });
 
+  it('gives all values changes before a save one values revision, and a new one after it', () => {
+    const curve = restore(create().value);
+    curve.edit(
+      { intervals: [interval('2026-10-01', '2026-10-31', '0.11')] },
+      AT,
+    );
+    curve.edit(
+      { intervals: [interval('2026-10-01', '2026-10-31', '0.10')] },
+      AT,
+    );
+    expect(curve.valuesRevision).toBe(2);
+
+    curve
+      .markPersisted()
+      .edit(
+        { intervals: [interval('2026-10-01', '2026-10-31', '0.09')] },
+        LATER,
+      );
+    expect(curve.valuesRevision).toBe(3);
+  });
+
   it('deletes once, incrementing the revision and preserving its content', () => {
     const curve = restore(create().value);
     expect(curve.delete(AT)).toBe(curve);
     curve.delete(LATER);
     expect(curve.deletedAt).toBe(AT);
     expect(curve.revision).toBe(2);
+    expect(curve.valuesRevision).toBe(1);
     expect(curve.intervals).toHaveLength(1);
     const events = curve.getDomainEvents();
     expect(events).toHaveLength(1);

@@ -15,8 +15,8 @@ describe('SimulationResult', () => {
     expect(SimulationResult.isCurrent(recorded, { ...recorded })).toBe(true);
     for (const changed of [
       { simulationRevision: 3 },
-      { offerRevision: 4 },
-      { curveRevision: null },
+      { offerTermsRevision: 4 },
+      { curveValuesRevision: null },
       { methodologyVersion: 'cdb-252-v0' },
     ]) {
       expect(

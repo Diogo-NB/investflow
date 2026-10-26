@@ -92,8 +92,8 @@ describe('SimulationCalculationService', () => {
       if (outcome.kind !== 'CALCULATED') throw new Error(outcome.kind);
       expect(outcome.result.inputs).toEqual({
         simulationRevision: 1,
-        offerRevision: 1,
-        curveRevision: curve.revision,
+        offerTermsRevision: 1,
+        curveValuesRevision: curve.valuesRevision,
         methodologyVersion: 'cdb-252-v1',
       });
       expect(outcome.result.calculatedAt).toBe(CALCULATED_AT);
@@ -109,8 +109,8 @@ describe('SimulationCalculationService', () => {
         kind: 'INVALID',
         inputs: {
           simulationRevision: 1,
-          offerRevision: 1,
-          curveRevision: null,
+          offerTermsRevision: 1,
+          curveValuesRevision: null,
         },
         reason: { code: EAppErrorCode.INVESTMENT_CURVE_REQUIRED },
       });

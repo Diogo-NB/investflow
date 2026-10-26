@@ -151,6 +151,7 @@ integration('Curve PostgreSQL persistence', () => {
       ).findById(curve.id)
     ).value;
     expect(stored.revision).toBe(2);
+    expect(stored.valuesRevision).toBe(2);
     expect(stored.name).toBe('IPCA');
     expect(stored.intervals).toHaveLength(1);
     expect(stored.intervals[0].range.start.toIsoString()).toBe('2024-04-01');

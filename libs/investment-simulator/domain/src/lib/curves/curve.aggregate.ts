@@ -15,7 +15,12 @@ import {
   CurveValueNotFoundError,
   InvalidCurveError,
 } from './curve.error';
-import { CurveChanged, CurveCreated, CurveDeleted } from './curve.events';
+import {
+  CurveCreated,
+  CurveDeleted,
+  CurveDetailsChanged,
+  CurveValuesChanged,
+} from './curve.events';
 import { EEconomicIndex } from './economic-index.enum';
 import { EIndexValueConvention } from './index-value-convention.enum';
 import { IndexValue } from './index-value.vo';
@@ -45,6 +50,7 @@ export type CreateCurveProps = Pick<
 export type ReconstituteCurveProps = CurveProps & {
   readonly id: string;
   readonly revision: number;
+  readonly valuesRevision: number;
 };
 
 export type CurveEdit = Partial<CurveContent>;
@@ -56,6 +62,9 @@ export class Curve extends AggregateRoot {
     id: string,
     private readonly props: CurveProps,
     revision: Revision,
+    // Raised only by changes to what a calculation reads, so results stay
+    // current across renames.
+    private readonly valuesRevisionTracker: Revision,
   ) {
     super(id, revision);
   }
@@ -81,17 +90,23 @@ export class Curve extends AggregateRoot {
         deletedAt: null,
       },
       Revision.initial(),
+      Revision.initial(),
     );
     return Result.ok(curve.apply(new CurveCreated(curve.id, occurredAt)));
   }
 
   static reconstitute(props: ReconstituteCurveProps): Curve {
-    const { id, revision, ...state } = props;
+    const { id, revision, valuesRevision, ...state } = props;
     return new Curve(
       id,
       { ...state, intervals: sortIntervals(state.intervals) },
       Revision.restore(revision),
+      Revision.restore(valuesRevision),
     );
+  }
+
+  get valuesRevision(): number {
+    return this.valuesRevisionTracker.value;
   }
 
   get index(): EEconomicIndex {
@@ -168,13 +183,23 @@ export class Curve extends AggregateRoot {
     const invalid = Curve.validate(this.props.index, content);
     if (invalid) return Result.err(invalid);
 
-    if (this.isUnchanged(content)) return Result.ok(this);
+    const valuesChanged = !this.hasIntervals(content.intervals);
+    const detailsChanged =
+      content.name !== this.props.name ||
+      content.description !== this.props.description;
+    if (!valuesChanged && !detailsChanged) return Result.ok(this);
 
     this.props.name = content.name;
     this.props.description = content.description;
     this.props.intervals = content.intervals;
     this.revisionTracker.increment();
-    return Result.ok(this.apply(new CurveChanged(this.id, occurredAt)));
+    if (valuesChanged) {
+      this.valuesRevisionTracker.increment();
+      this.apply(new CurveValuesChanged(this.id, occurredAt));
+    }
+    if (detailsChanged)
+      this.apply(new CurveDetailsChanged(this.id, occurredAt));
+    return Result.ok(this);
   }
 
   delete(at: UtcInstant): this {
@@ -219,13 +244,16 @@ export class Curve extends AggregateRoot {
       : Result.ok(values);
   }
 
-  private isUnchanged(content: CurveContent): boolean {
-    const { name, description, intervals } = this.props;
+  override markPersisted(): this {
+    this.valuesRevisionTracker.markPersisted();
+    return super.markPersisted();
+  }
+
+  private hasIntervals(other: readonly CurveInterval[]): boolean {
+    const { intervals } = this.props;
     return (
-      content.name === name &&
-      content.description === description &&
-      content.intervals.length === intervals.length &&
-      content.intervals.every((interval, i) => interval.equals(intervals[i]))
+      other.length === intervals.length &&
+      other.every((interval, i) => interval.equals(intervals[i]))
     );
   }
 

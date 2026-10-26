@@ -7,8 +7,8 @@ import { ETitleType } from '../offers/title-type.enum';
 // read sides can compare them without loading the aggregates.
 export interface SimulationResultInputs {
   readonly simulationRevision: number;
-  readonly offerRevision: number;
-  readonly curveRevision: number | null;
+  readonly offerTermsRevision: number;
+  readonly curveValuesRevision: number | null;
   readonly methodologyVersion: string;
 }
 
@@ -31,13 +31,13 @@ export class SimulationResult extends ValueObject<SimulationResult> {
   static targetFor(
     simulationRevision: number,
     titleType: ETitleType,
-    offerRevision: number,
-    curveRevision: number | null,
+    offerTermsRevision: number,
+    curveValuesRevision: number | null,
   ): SimulationResultInputs {
     return {
       simulationRevision,
-      offerRevision,
-      curveRevision,
+      offerTermsRevision,
+      curveValuesRevision,
       methodologyVersion: TITLE_TYPE_RULES[titleType].methodologyVersion,
     };
   }
@@ -48,8 +48,8 @@ export class SimulationResult extends ValueObject<SimulationResult> {
   ): boolean {
     return (
       recorded.simulationRevision === target.simulationRevision &&
-      recorded.offerRevision === target.offerRevision &&
-      recorded.curveRevision === target.curveRevision &&
+      recorded.offerTermsRevision === target.offerTermsRevision &&
+      recorded.curveValuesRevision === target.curveValuesRevision &&
       recorded.methodologyVersion === target.methodologyVersion
     );
   }

@@ -10,8 +10,17 @@ export class OfferCreated extends InvestmentSimulatorEvent {
   }
 }
 
-export class OfferChanged extends InvestmentSimulatorEvent {
-  readonly eventType = 'OfferChanged';
+export class OfferTermsChanged extends InvestmentSimulatorEvent {
+  readonly eventType = 'OfferTermsChanged';
+  readonly aggregateType = 'Offer';
+
+  constructor(offerId: string, occurredAt: UtcInstant) {
+    super(offerId, occurredAt);
+  }
+}
+
+export class OfferDetailsChanged extends InvestmentSimulatorEvent {
+  readonly eventType = 'OfferDetailsChanged';
   readonly aggregateType = 'Offer';
 
   constructor(offerId: string, occurredAt: UtcInstant) {

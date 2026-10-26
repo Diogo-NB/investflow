@@ -1,4 +1,7 @@
-import { OfferChanged } from '@investflow/investment-simulator-domain';
+import {
+  OfferDetailsChanged,
+  OfferTermsChanged,
+} from '@investflow/investment-simulator-domain';
 import { EAppErrorCode, Result } from '@investflow/shared-domain';
 import { offerFixture, OTHER_USER, USER } from '../shared/offer-fixture';
 import { EditOfferCommand } from './edit-offer.command';
@@ -34,7 +37,7 @@ describe('EditOfferUseCase', () => {
     );
   });
 
-  it('edits an own offer at its current revision and saves its change event', async () => {
+  it('edits an own offer at its current revision and saves its change events', async () => {
     const { useCase, given, offerRepository } = setup();
     const offer = given(USER);
     let events: unknown[] = [];
@@ -60,7 +63,10 @@ describe('EditOfferUseCase', () => {
     expect(offer.name).toBe('CDB 120% do CDI');
     expect(offer.remunerationTerms.contractRate.value.toString()).toBe('1.2');
     expect(offer.issuerName).toBe('Banco Local');
-    expect(events).toEqual([expect.any(OfferChanged)]);
+    expect(events).toEqual([
+      expect.any(OfferTermsChanged),
+      expect.any(OfferDetailsChanged),
+    ]);
   });
 
   it.each([

@@ -6,7 +6,12 @@ import {
 } from '@investflow/shared-domain';
 import { CreateOfferProps, Offer } from './offer.aggregate';
 import { InvalidOfferError } from './offer.error';
-import { OfferChanged, OfferCreated, OfferDeleted } from './offer.events';
+import {
+  OfferCreated,
+  OfferDeleted,
+  OfferDetailsChanged,
+  OfferTermsChanged,
+} from './offer.events';
 import { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
 import { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from './title-type.enum';
@@ -46,6 +51,7 @@ function restore(offer: Offer): Offer {
     redemptionTerms: offer.redemptionTerms,
     remunerationTerms: offer.remunerationTerms,
     revision: offer.revision,
+    termsRevision: offer.termsRevision,
     deletedAt: offer.deletedAt,
   });
 }
@@ -61,6 +67,7 @@ describe('Offer', () => {
     expect(first.issuerName).toBe('Banco Local');
     expect(second.issuerName).toBeNull();
     expect(first.revision).toBe(1);
+    expect(first.termsRevision).toBe(1);
     expect(first.deletedAt).toBeNull();
 
     const [event] = first.getDomainEvents();
@@ -132,7 +139,7 @@ describe('Offer', () => {
     expect(conflict.kind).toBe('conflict');
   });
 
-  it('edits supplied fields, increments the revision once and raises a change event', () => {
+  it('edits supplied fields, increments both revisions once and raises both change events', () => {
     const offer = restore(create().value);
     const remuneration = RemunerationTerms.create('PREFIXED', Rate.of('0.12'));
 
@@ -149,14 +156,52 @@ describe('Offer', () => {
 
     expect(result.isOk()).toBe(true);
     expect(offer.revision).toBe(2);
+    expect(offer.termsRevision).toBe(2);
     expect(offer.name).toBe('Prefixado');
     expect(offer.issuerName).toBeNull();
     expect(offer.maturityDate.toIsoString()).toBe('2031-02-03');
     expect(offer.redemptionTerms.kind).toBe('AT_MATURITY');
     expect(offer.remunerationTerms).toBe(remuneration);
-    const [event] = offer.getDomainEvents();
-    expect(event).toBeInstanceOf(OfferChanged);
-    expect(event).toMatchObject({ aggregateId: offer.id, occurredAt: LATER });
+    const events = offer.getDomainEvents();
+    expect(events).toEqual([
+      expect.any(OfferTermsChanged),
+      expect.any(OfferDetailsChanged),
+    ]);
+    for (const event of events) {
+      expect(event).toMatchObject({ aggregateId: offer.id, occurredAt: LATER });
+    }
+  });
+
+  it.each([
+    { name: 'Renomeada' },
+    { issuerName: 'Outro banco' },
+    { redemptionTerms: RedemptionTerms.create('AT_MATURITY') },
+  ])('keeps the terms revision for a details-only edit of %o', (edit) => {
+    const offer = restore(create().value);
+
+    offer.edit(edit, LATER);
+
+    expect(offer.revision).toBe(2);
+    expect(offer.termsRevision).toBe(1);
+    expect(offer.getDomainEvents()).toEqual([expect.any(OfferDetailsChanged)]);
+  });
+
+  it.each([
+    { maturityDate: CalendarDate.of('2031-02-03') },
+    {
+      remunerationTerms: RemunerationTerms.create(
+        'CDI_PERCENTAGE',
+        Rate.of('1.20'),
+      ),
+    },
+  ])('raises the terms revision for a terms-only edit of %o', (edit) => {
+    const offer = restore(create().value);
+
+    offer.edit(edit, LATER);
+
+    expect(offer.revision).toBe(2);
+    expect(offer.termsRevision).toBe(2);
+    expect(offer.getDomainEvents()).toEqual([expect.any(OfferTermsChanged)]);
   });
 
   it.each([
@@ -207,6 +252,18 @@ describe('Offer', () => {
     expect(offer.revision).toBe(3);
   });
 
+  it('gives all terms changes before a save one terms revision, and a new one after it', () => {
+    const offer = restore(create().value);
+    offer.edit({ maturityDate: CalendarDate.of('2031-01-02') }, AT);
+    offer.edit({ maturityDate: CalendarDate.of('2032-01-02') }, AT);
+    expect(offer.termsRevision).toBe(2);
+
+    offer
+      .markPersisted()
+      .edit({ maturityDate: CalendarDate.of('2033-01-02') }, LATER);
+    expect(offer.termsRevision).toBe(3);
+  });
+
   it('deletes once, incrementing the revision', () => {
     const offer = restore(create().value);
 
@@ -215,6 +272,7 @@ describe('Offer', () => {
 
     expect(offer.deletedAt).toBe(AT);
     expect(offer.revision).toBe(2);
+    expect(offer.termsRevision).toBe(1);
     const events = offer.getDomainEvents();
     expect(events).toHaveLength(1);
     expect(events[0]).toBeInstanceOf(OfferDeleted);

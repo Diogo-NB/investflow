@@ -25,8 +25,9 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-26. D0 to D8 are done; D4b resumed on 2026-10-26 after
-its first step and is designed, ready to build.
+Last updated 2026-10-26. D0 to D8 are done; D4b resumed on 2026-10-26, was
+redesigned, and its first pull request (fact events, terms and values
+revisions, the worker's early return) is done.
 
 Built:
 
@@ -138,9 +139,6 @@ Built:
 
 Differs from the target model:
 
-- Renaming an offer or describing a curve flags its simulations
-  "Desatualizado", because one generic event and one revision cover every
-  edit (D4b separates the calculation's terms).
 - Editing or deleting an offer or curve does not queue the simulations that
   use it; they are flagged "Desatualizado" until saved again (D4b, designed).
   The offer and curve screens say so in their impact notices.
@@ -157,7 +155,7 @@ PRD's "Pendências de Produto").
 
 ## Next Steps
 
-1. Build D4b (designed 2026-10-26) in its three pull requests.
+1. Build D4b's remaining pull requests: FIFO queues, then fan-out.
 2. Settle the portfolio membership decision (see D9) so D9 can start.
 3. Settle the portfolio aggregation decisions (see D10) before D10.
 4. Settle D12's decisions before D12.
@@ -166,7 +164,7 @@ PRD's "Pendências de Produto").
 
 | #   | Deliverable                                                       | Depends on                    | Status      |
 | --- | ----------------------------------------------------------------- | ----------------------------- | ----------- |
-| D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | Designed    |
+| D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | In progress |
 | D7  | Simulation return rates and remaining term                        | —                             | Done        |
 | D8  | Side-by-side simulation comparison                                | D7                            | Done        |
 | D9  | Portfolios: management, membership, and derived status            | membership decision           | Not started |
@@ -198,8 +196,8 @@ on their own.
 ## D4b — Recalculation from premise changes
 
 **Resumed (2026-10-26)** after a pause from 2026-10-13, and redesigned on
-2026-10-26. Step 1 is done; the rest is decided but not built, and the open
-points are listed last. Impact counts moved into D5 as the filtered
+2026-10-26. Step 1 and the first pull request are done; the rest is decided
+but not built, and the open points are listed last. Impact counts moved into D5 as the filtered
 simulation list. Replace the offer and curve screens' interim copy
 ("ficarão desatualizadas até serem salvas novamente") with the recalculation
 notice.
@@ -213,7 +211,7 @@ The flow is in walkthroughs 5 and 6 of
   repository.** The `DomainEventRecorder` port lets services record events
   without aggregates, and `UnitOfWork.run()` writes them to `outbox_events`
   in chunks of 1,000 rows right before commit.
-- **Only calculation-relevant changes recalculate.** Generic `OfferChanged`
+- **Done (PR A): only calculation-relevant changes recalculate.** Generic `OfferChanged`
   and `CurveChanged` split into `OfferTermsChanged` / `OfferDetailsChanged`
   and `CurveValuesChanged` / `CurveDetailsChanged`. Offers and curves keep
   `revision` for the `409` check and add `termsRevision` and
@@ -232,10 +230,10 @@ The flow is in walkthroughs 5 and 6 of
 - **The screen shows "Desatualizado" while a recalculation is on its way**,
   derived as today, not "Calculando"; a derived "Recalculando" status is
   deferred ("Recalculation status on screen" in Deferred Work).
-- **Workers skip current work.** `CalculateSimulationUseCase` returns early
-  when the calculation already applies to the current inputs (simulation
-  revision, offer `termsRevision`, curve `valuesRevision`, methodology
-  version).
+- **Done (PR A): workers skip current work.** `CalculateSimulationUseCase`
+  returns early when the calculation already applies to the current inputs
+  (simulation revision, offer `termsRevision`, curve `valuesRevision`, and for
+  a result the methodology version).
 - **Deletion fans out like a change**; the worker finds the premise missing
   and records `INVALID` ("Sem oferta, escolha outra" / "Sem curva, escolha
   outra"). Fan-out never writes `INVALID` itself.
@@ -264,10 +262,11 @@ The flow is in walkthroughs 5 and 6 of
   prompts a redrive. A fan-out calculation that exhausts its retries is not
   recorded `FAILED` either, since nothing marked it `PENDING` (see
   "Recalculation status on screen" in Deferred Work).
-- **"Current" for the early return:** a `CALCULATED` or `INVALID` outcome
-  for the current simulation revision, offer `termsRevision`, curve
-  `valuesRevision`, and methodology version, or an `INVALID` for a premise
-  that is still missing. `PENDING` and `FAILED` always calculate.
+- **"Current" for the early return:** a `CALCULATED` outcome for the current
+  simulation revision, offer `termsRevision`, curve `valuesRevision`, and
+  methodology version; an `INVALID` one for the same revisions (it records no
+  methodology); or an `INVALID` for a premise that is still missing. `PENDING`
+  and `FAILED` always calculate.
 - **Ids come from `SimulationRepository.idsUsingOffer()` and
   `idsUsingCurve()`**, arrays of live simulations; no new port.
 - **Publishing throughput: deferred** to "Fan-out at scale" (batched

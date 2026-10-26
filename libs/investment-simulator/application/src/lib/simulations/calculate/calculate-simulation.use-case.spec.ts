@@ -73,7 +73,7 @@ describe('CalculateSimulationUseCase', () => {
     );
     expect(simulation.result?.inputs).toMatchObject({
       simulationRevision: 1,
-      offerRevision: offer.revision,
+      offerTermsRevision: offer.termsRevision,
     });
     expect(simulation.result?.calculatedAt).toBe(NOW);
   });
@@ -94,7 +94,9 @@ describe('CalculateSimulationUseCase', () => {
     expect(simulation.calculation.reason?.code).toBe(
       EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
     );
-    expect(simulation.calculation.inputs.curveRevision).toBe(curve.revision);
+    expect(simulation.calculation.inputs.curveValuesRevision).toBe(
+      curve.valuesRevision,
+    );
     expect(simulations.save).toHaveBeenCalledWith(simulation);
   });
 
@@ -127,9 +129,83 @@ describe('CalculateSimulationUseCase', () => {
     expect(deps.simulation.calculation.reason?.code).toBe(code);
     expect(deps.simulation.calculation.inputs).toEqual({
       simulationRevision: 1,
-      offerRevision: null,
-      curveRevision: null,
+      offerTermsRevision: null,
+      curveValuesRevision: null,
     });
+  });
+
+  it.each([
+    ['a replayed message', () => undefined],
+    [
+      'a renamed offer',
+      (deps: ReturnType<typeof setup>) =>
+        deps.offer.markPersisted().edit({ name: 'Renomeada' }, NOW),
+    ],
+  ])(
+    'skips a calculation already recorded for the current inputs after %s',
+    async (_, arrange) => {
+      const deps = setup();
+      expect((await deps.execute()).isOk()).toBe(true);
+      const recorded = deps.simulation.result;
+      arrange(deps);
+
+      expect((await deps.execute()).isOk()).toBe(true);
+
+      expect(deps.simulations.save).toHaveBeenCalledTimes(1);
+      expect(deps.simulation.result).toBe(recorded);
+    },
+  );
+
+  it('recalculates after an offer terms change', async () => {
+    const { offer, simulation, simulations, execute } = setup();
+    await execute();
+    offer
+      .markPersisted()
+      .edit({ maturityDate: offer.maturityDate.addDays(-1) }, NOW);
+
+    expect((await execute()).isOk()).toBe(true);
+
+    expect(simulations.save).toHaveBeenCalledTimes(2);
+    expect(simulation.calculation.inputs.offerTermsRevision).toBe(2);
+  });
+
+  it('skips an invalid outcome recorded for the current inputs', async () => {
+    const curve = cdiCurve();
+    const deps = setup(curve.id);
+    deps.offers.findById.mockResolvedValue(Result.ok(uncoveredCdiOffer()));
+    deps.curves.findById.mockResolvedValue(Result.ok(curve));
+    await deps.execute();
+
+    expect((await deps.execute()).isOk()).toBe(true);
+
+    expect(deps.simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.INVALID,
+    );
+    expect(deps.simulations.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips an invalid outcome whose premise is still missing', async () => {
+    const deps = setup();
+    deps.offers.findById.mockResolvedValue(
+      Result.err(new OfferNotFoundError('offer-id')),
+    );
+    await deps.execute();
+
+    expect((await deps.execute()).isOk()).toBe(true);
+
+    expect(deps.simulations.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('calculates a failed calculation again', async () => {
+    const { simulation, simulations, execute } = setup();
+    simulation.markCalculationFailed(NOW);
+
+    expect((await execute()).isOk()).toBe(true);
+
+    expect(simulations.save).toHaveBeenCalledWith(simulation);
+    expect(simulation.calculation.status).toBe(
+      ESimulationCalculationStatus.CALCULATED,
+    );
   });
 
   it('acknowledges a deleted simulation without effect', async () => {

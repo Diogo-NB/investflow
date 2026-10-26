@@ -117,14 +117,14 @@ describe('ListSimulationsQueryHandler', () => {
         maturityDate: new Date('2027-01-04T00:00:00.000Z'),
         remunerationType: 'PREFIXED',
         rateValue: new Prisma.Decimal('0.12'),
-        revision: 1,
+        termsRevision: 1,
       },
       curve: null,
       calculation: { status: netAnnualReturn ? 'CALCULATED' : 'PENDING' },
       result: netAnnualReturn && {
         simulationRevision: 1,
-        offerRevision: 1,
-        curveRevision: null,
+        offerTermsRevision: 1,
+        curveValuesRevision: null,
         methodologyVersion: 'cdb-252-v1',
         calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
         netBalance: new Prisma.Decimal('1100'),
@@ -147,10 +147,7 @@ describe('ListSimulationsQueryHandler', () => {
       };
     }
 
-    const execute = (
-      handler: ListSimulationsQueryHandler,
-      page: number,
-    ) =>
+    const execute = (handler: ListSimulationsQueryHandler, page: number) =>
       handler.execute({
         ownerId: OWNER,
         page,

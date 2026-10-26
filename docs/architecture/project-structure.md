@@ -452,21 +452,18 @@ Deliverables and their order are in
   `$investflow-eventing`). Events carry identifiers only. Consumers read
   current state, so events never carry revisions or values, and their size
   does not grow with the content.
-- Events name what happened, never a generic "changed" (decided 2026-10-26,
-  not built yet): an offer raises `OfferTermsChanged` (maturity,
+- Events name what happened, never a generic "changed" (decided 2026-10-26):
+  an offer raises `OfferTermsChanged` (maturity,
   remuneration), `OfferDetailsChanged` (name, issuer, liquidity), and
   `OfferDeleted`; a curve raises `CurveValuesChanged` (intervals),
   `CurveDetailsChanged` (name, description), and `CurveDeleted`. Only terms,
   values, and deletion affect a calculation. Liquidity joins the terms when
   early redemption is calculated.
-- Offers and curves keep two counters (decided 2026-10-26, not built yet):
+- Offers and curves keep two counters (decided 2026-10-26):
   `revision`, raised by every change, guards concurrent edits (`409`);
   `termsRevision` on offers and `valuesRevision` on curves, raised only by
   changes that affect a calculation, are what results record. Renaming an
   offer or describing a curve therefore leaves its simulations up to date.
-  Today a single `OfferChanged` or `CurveChanged` covers every edit and
-  results record the full revisions, so a rename flags every simulation
-  using it "Desatualizado".
 
 ### Recalculation
 
@@ -474,9 +471,8 @@ Settled on 2026-10-12. `docs/architecture/event-flow.md` walks through the
 flow with diagrams and every failure case.
 
 A simulation has one current result. It stores what it was computed from: the
-simulation revision, the offer revision, the curve revision, and the
-methodology version (to become the offer's `termsRevision` and the curve's
-`valuesRevision`, see Model). The target is read from the current references, not
+simulation revision, the offer's `termsRevision`, the curve's
+`valuesRevision`, and the methodology version (see Model). The target is read from the current references, not
 copied, so it can never drift from them.
 
 The calculation state is a `SimulationCalculation` value object of the
@@ -568,10 +564,11 @@ state is kept; a transition history is deferred work.
   prompt.
 - **Workers skip current work.** `CalculateSimulationUseCase` returns early,
   acknowledging the message, when the calculation already applies to the
-  current inputs: a `CALCULATED` or `INVALID` outcome recorded for the
-  current simulation revision, offer `termsRevision`, curve
-  `valuesRevision`, and methodology version, or an `INVALID` for a missing
-  offer or curve that is still missing. `PENDING` and `FAILED` always
+  current inputs: a `CALCULATED` outcome recorded for the current simulation
+  revision, offer `termsRevision`, curve `valuesRevision`, and methodology
+  version; an `INVALID` one for the same revisions (it records no
+  methodology); or an `INVALID` for a missing offer or curve that is still
+  missing. `PENDING` and `FAILED` always
   calculate. Replays, duplicates, and overlapping fan-outs therefore cost one
   read.
 - **Deletion requeues like a change.** Deleting an offer or curve fans out

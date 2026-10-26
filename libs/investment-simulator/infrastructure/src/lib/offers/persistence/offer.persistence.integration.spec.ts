@@ -136,6 +136,7 @@ integration('Offer PostgreSQL persistence', () => {
       ).findById(offer.id)
     ).value;
     expect(stored.revision).toBe(2);
+    expect(stored.termsRevision).toBe(2);
     expect(stored.name).toBe('CDB 110% do CDI');
     expect(stored.maturityDate.toIsoString()).toBe('2031-01-02');
   });

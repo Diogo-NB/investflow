@@ -11,8 +11,8 @@ const date = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 function result(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     simulationRevision: 2,
-    offerRevision: 3,
-    curveRevision: null,
+    offerTermsRevision: 3,
+    curveValuesRevision: null,
     methodologyVersion: 'cdb-252-v1',
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
     investmentDate: date('2026-01-02'),
@@ -65,6 +65,7 @@ function simulation(
       rateValue: new Prisma.Decimal('0.12'),
       ownerId: 'owner-id',
       revision: 3,
+      termsRevision: 3,
       deletedAt: null,
     },
     curve: null,

@@ -1,4 +1,4 @@
-import { CurveChanged } from '@investflow/investment-simulator-domain';
+import { CurveDetailsChanged } from '@investflow/investment-simulator-domain';
 import { EAppErrorCode, Result } from '@investflow/shared-domain';
 import { curveFixture, OTHER_USER, USER } from '../shared/curve-fixture';
 import { EditCurveCommand } from './edit-curve.command';
@@ -28,7 +28,7 @@ describe('EditCurveUseCase', () => {
     expect(command.intervals?.[0].value.value.toString()).toBe('0.1');
   });
 
-  it('edits an own curve at its current revision and saves its change event', async () => {
+  it('edits an own curve at its current revision and saves its change events', async () => {
     const { useCase, given, curveRepository } = setup();
     const curve = given(USER);
     let events: unknown[] = [];
@@ -49,7 +49,7 @@ describe('EditCurveUseCase', () => {
     expect(curve.revision).toBe(2);
     expect(curve.name).toBe('CDI otimista');
     expect(curve.intervals).toHaveLength(1);
-    expect(events).toEqual([expect.any(CurveChanged)]);
+    expect(events).toEqual([expect.any(CurveDetailsChanged)]);
   });
 
   it.each([
