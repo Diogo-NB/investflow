@@ -76,6 +76,12 @@ module composition, host responsibilities, or library boundaries.
   query handler for list, count, and presentation-oriented reads.
 - Native `Date` may exist briefly at ORM, driver, framework, or `Intl`
   boundaries. Convert it immediately to or from the shared temporal types.
+- Generate migrations with `pnpm db:migrate` (Prisma `migrate dev`) against a
+  running database; do not assemble them from `migrate diff` output or patch
+  the generated SQL. Write or edit SQL by hand only when Prisma has no clean
+  way to produce the change, and only after the user approves it; mark every
+  manual statement in the migration with a comment saying why Prisma could
+  not generate it.
 
 ### Query output contracts
 

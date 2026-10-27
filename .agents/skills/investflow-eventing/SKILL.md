@@ -117,6 +117,10 @@ with `$investflow-outbox-benchmark` before and after changing publishing.
 - Floci enforces FIFO groups but does not evaluate the dynamic group path,
   so locally every queue is one group and runs serially. Do not work around
   it; behavior that depends on parallel groups is verified on real AWS.
+- Design for real AWS semantics. When Floci does not emulate a feature the
+  design needs, document the gap here and keep the design; do not shape it
+  around the emulator. Ask the user when a behavior must be verified on real
+  AWS.
 - A consumer whose work lost a race (its conditional save finds that the
   state moved on) returns normally, so the message is acknowledged: the
   change that moved it raised its own event. Throw only for failures that a

@@ -49,8 +49,16 @@ it.
   reads clearly, restructure it in the same change: rename, split, or derive
   instead of appending.
 
+- **Carry per-type variation in one place.** When behavior varies by a type
+  such as title type or remuneration kind, do not scatter `switch` or `if`
+  branches across services. Put the variation in data or an existing policy
+  object first; reach for a strategy, rules table, or null object only when
+  the variation justifies it, and do not add a class per type when data is
+  enough.
+
 When planning, state the model before the file list: the types, the
-vocabulary mapping, and what is stored versus derived.
+vocabulary mapping, what is stored versus derived, and which pattern (if any)
+carries per-type variation and why it is the minimum.
 
 ## Layer boundaries
 

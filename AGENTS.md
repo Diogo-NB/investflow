@@ -9,6 +9,12 @@ browser presentation uses an optional `web` project. Cross-context building
 blocks belong in `libs/shared`. Infrastructure and identity setup live under
 `infra/`.
 
+The project demonstrates Event-Driven Architecture and DDD solving real
+production problems at scale. Judge designs as production-grade examples, not
+by today's data volume: do not rely on small volumes (such as one transaction
+proportional to the affected rows), prefer well-known named patterns, and
+state their tradeoffs.
+
 ## Agent Skills
 
 Load the repository skill that matches the work:
@@ -132,6 +138,21 @@ frontend testing policy.
   Redux, Zustand, or another state library without demonstrated coordination
   or workflow complexity.
 
+## Design Work and Plans
+
+- Recorded decisions in the docs are revisable. Re-evaluate their premises
+  (scale, what is stored versus derived, whether the machinery is needed)
+  instead of building on them blindly, and propose better alternatives.
+- On design problems that need real attention (architecture, modeling,
+  cross-cutting mechanisms), restate what the work must achieve and the few
+  questions that decide its shape, then present options against them before
+  refining details. Routine and mechanical tasks skip this.
+- Label each part of a design as built, designed only, or newly proposed.
+- Plans show the implementation: per-file code sketches of the types,
+  signatures, and orchestration, not only a file list. Before presenting,
+  cut dead mechanisms and duplicate entry points, and self-review the sketches
+  against the relevant skill.
+
 ## Build, Test, and Development Commands
 
 Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over invoking underlying tools directly.
@@ -238,6 +259,11 @@ a controller has its own behavior that no other test covers.
 Frontend tests follow the state-first policy in `$investflow-react`: test
 feature hooks (with `renderHook`), API adapters, and pure helpers without
 asserting DOM structure or UI details.
+
+Verify backend work in this order: automated tests first, then the backend
+alone (start the API, get a token from the local Keycloak with the credentials
+in `.env`, call the endpoints, query PostgreSQL). Do not assume a full
+end-to-end run is needed; propose it with its rationale and wait for approval.
 
 ## Commit & Pull Request Guidelines
 
