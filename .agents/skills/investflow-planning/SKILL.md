@@ -7,8 +7,20 @@ description: Plan, discuss, and close out InvestFlow work. Use when asked to pla
 
 A plan is ready when the user can approve it without asking for the
 implementation, the alternatives, a simpler option, or the docs it changes.
-Load the layer skills the work touches alongside this one; this skill decides
-how the work is shaped and presented, they decide what the code looks like.
+This skill decides how the work is shaped and presented; the layer skills
+decide what the code looks like, and their rules limit which designs are
+acceptable.
+
+## Load the layer skills first
+
+As soon as you know which layers the work touches, and before proposing
+anything, load each one's skill with the Skill tool, following the routing
+in "Agent Skills" in `AGENTS.md`: `investflow-domain-application` for
+aggregates, use cases, ports, or repositories' contracts;
+`investflow-nestjs-infrastructure` for persistence, queries, or endpoints;
+`investflow-eventing` for any event; `investflow-react` for screens. The
+edit hook does not cover planning, so nothing else loads them. Reading a
+skill file with `cat` or `grep` does not count.
 
 ## Read first
 
@@ -113,9 +125,16 @@ Order the plan so the most consequential part comes first:
 ## Self-review before presenting
 
 The user should not have to ask "why didn't you catch this when planning?".
-Before presenting, run the review rules of every skill the plan touches
-against the sketches, and check the plan for:
+Before presenting, run the "Before finishing" list of every layer skill the
+plan touches against the sketches, and check the plan for:
 
+- any option, recommended or not, that breaks a skill rule, such as two
+  aggregates changed in one use case or transaction. Existing code that
+  breaks a rule is a finding to report, not a precedent to follow; if every
+  option breaks a rule, say so and ask;
+- an obstacle in existing code that the plan works around instead of
+  analyzing: the obstacle is often the real finding, such as a form whose
+  save state does not match the server's commit;
 - dead mechanisms, duplicate entry points, or two methods doing one job;
 - one operation hidden behind a discriminator, mode flag, or `kind` field;
 - names that do not say what the thing is and where it applies (see the

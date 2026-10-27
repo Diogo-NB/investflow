@@ -20,8 +20,10 @@ state their tradeoffs.
 Skills are chosen by the files a change touches, not by how the request is
 worded. Before creating or editing a file that matches a line below, load that
 line's skill, even in the middle of a task that started elsewhere. A change
-usually matches several lines; load each. In Claude Code a hook blocks edits
-to matching files until their skill is loaded.
+usually matches several lines; load each. Planning or discussing a change
+counts as touching its files: load the skills before proposing a design. In
+Claude Code a hook blocks edits to matching files until their skill is
+loaded; nothing enforces it for planning.
 
 - `investflow-domain-application`: `libs/*/domain/**`, `libs/*/application/**`.
 - `investflow-nestjs-infrastructure`: `libs/*/infrastructure/**`, `apps/api/**`.

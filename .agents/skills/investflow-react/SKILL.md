@@ -94,7 +94,8 @@ Next.js, loader, action, and fetcher guidance.
   showing the previous page is intended. Retry with `refetch`.
 - **Writes:** `useMutation` with `retry: 0`, since a lost response may hide a
   committed write. Disable repeat submission while pending; after success,
-  invalidate keys and navigate.
+  invalidate keys and navigate. Create and edit are separate mutations, not
+  one that branches on `id === undefined`.
 - API adapters are small and typed. Show the API's pt-BR
   `ApiError.userMessage`; keep no copy per error code, and use `code` and
   `details` only for behavior (which field to focus, how to recover).

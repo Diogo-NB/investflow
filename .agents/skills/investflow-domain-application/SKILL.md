@@ -126,7 +126,9 @@ carries per-type variation and why it is the minimum.
 ## Application orchestration
 
 - Use cases expose one `execute(command)` method and modify one aggregate per
-  transaction.
+  transaction. A flow that needs two aggregates changed is either a step the
+  user sees and triggers (create a simulation, then offer "add to plan") or
+  an eventual step driven by an event; look for the user-visible step first.
 - Operations with different triggers or inputs are separate commands and use
   cases, even when their steps look alike. Do not merge them behind a
   discriminated command (`{ kind: 'OFFER' | 'CURVE', id }`), several
@@ -187,10 +189,8 @@ carries per-type variation and why it is the minimum.
 
 ## Domain events
 
-`investflow-eventing` owns event design: which facts become events, their
-names, payloads, and consumers, and the event catalog. Load it whenever a
-change adds, changes, or removes an event, or makes an aggregate or service
-raise or record one.
+`investflow-eventing` owns event design; load it whenever a change adds,
+changes, raises, or records an event.
 
 ## Before finishing
 
@@ -198,6 +198,8 @@ Review your own diff for the mistakes this codebase has had to correct:
 
 - An aggregate method that takes other aggregates or another domain service
   (a domain service in disguise).
+- Two aggregates changed in one use case or transaction.
+- A list, count, or existence helper on a command repository.
 - One operation hidden behind a `kind`, a mode flag, or several factories.
 - A stored field that could be derived, or a new aggregate or table where a
   column works.
