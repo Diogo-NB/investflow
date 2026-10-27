@@ -30,10 +30,11 @@ import { SimulationWorkspaceController } from './simulation-workspaces/http/simu
 import { GetSimulationOptionsQueryHandler } from './simulation-workspaces/queries/get-simulation-options.query-handler';
 import { GetSimulationWorkspaceQueryHandler } from './simulation-workspaces/queries/get-simulation-workspace.query-handler';
 import { CurvesModule } from './curves/curves.module';
+import { InvestmentPlansModule } from './investment-plans/investment-plans.module';
 import { OffersModule } from './offers/offers.module';
 
 @Module({
-  imports: [CurvesModule, OffersModule],
+  imports: [CurvesModule, OffersModule, InvestmentPlansModule],
   controllers: [
     SimulationController,
     SimulationWorkspaceController,

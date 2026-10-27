@@ -19,6 +19,11 @@ const offerEditor = () =>
     Component: module.OfferEditorPage,
   }));
 
+const investmentPlanEditor = () =>
+  import('../investment-plans/feature/investment-plan-editor-page').then(
+    (module) => ({ Component: module.InvestmentPlanEditorPage }),
+  );
+
 const curveEditor = () =>
   import('../curves/feature/curve-editor-page').then((module) => ({
     Component: module.CurveEditorPage,
@@ -57,6 +62,30 @@ export function investmentSimulatorRoutes(
             ),
         },
         { path: ':simulationId', lazy: workspace },
+      ],
+    },
+    {
+      path: 'planos',
+      element: withDeps,
+      children: [
+        {
+          index: true,
+          lazy: () =>
+            import(
+              '../investment-plans/feature/investment-plan-list-page'
+            ).then((module) => ({ Component: module.InvestmentPlanListPage })),
+        },
+        { path: 'novo', lazy: investmentPlanEditor },
+        {
+          path: ':investmentPlanId',
+          lazy: () =>
+            import(
+              '../investment-plans/feature/investment-plan-details-page'
+            ).then((module) => ({
+              Component: module.InvestmentPlanDetailsPage,
+            })),
+        },
+        { path: ':investmentPlanId/editar', lazy: investmentPlanEditor },
       ],
     },
     {

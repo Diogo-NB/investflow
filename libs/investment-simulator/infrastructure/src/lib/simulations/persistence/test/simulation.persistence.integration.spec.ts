@@ -602,8 +602,8 @@ describe('Simulation PostgreSQL persistence', () => {
     ).toBe(true);
     const other = await savedSimulation();
 
-    const byOffer = (await simulations.idsUsingOffer(offer.id)).value;
-    const byCurve = (await simulations.idsUsingCurve(curve.id)).value;
+    const byOffer = (await simulations.findIdsByOffer(offer.id)).value;
+    const byCurve = (await simulations.findIdsByCurve(curve.id)).value;
 
     expect([...byOffer].sort()).toEqual([simulation.id, sibling.id].sort());
     expect([...byCurve].sort()).toEqual([simulation.id, sibling.id].sort());

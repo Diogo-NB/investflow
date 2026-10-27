@@ -25,7 +25,7 @@ export class RecalculateCurveSimulationsUseCase
   async execute(
     command: RecalculateCurveSimulationsCommand,
   ): Promise<Result<void, AppError>> {
-    const ids = await this.simulationRepository.idsUsingCurve(command.curveId);
+    const ids = await this.simulationRepository.findIdsByCurve(command.curveId);
     if (ids.isErr()) return ids;
     const now = this.clock.now();
     this.events.record(

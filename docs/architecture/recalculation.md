@@ -170,8 +170,8 @@ state is kept; a transition history is deferred work.
   simulations. Its use cases (`RecalculateOfferSimulationsUseCase` and
   `RecalculateCurveSimulationsUseCase`, one per premise) read the ids of the
   live simulations that use
-  the premise from the repository (`SimulationRepository.idsUsingOffer()` and
-  `idsUsingCurve()`, which return arrays) and records one
+  the premise from the repository (`SimulationRepository.findIdsByOffer()` and
+  `findIdsByCurve()`, which return arrays) and records one
   `SimulationCalculationRequested` per id through `DomainEventRecorder`, all
   in the consumer's single unit of work: all or nothing, no paging, no
   aggregates loaded, no calculation rows written. The calculation worker
@@ -211,4 +211,13 @@ state is kept; a transition history is deferred work.
   monthly balances refetch only when the result's `calculatedAt` changes. A
   change token with `ETag` and `304` can be added to the same endpoint if
   polling load ever shows up; real-time push is future work.
-- A portfolio's status is derived from its simulations' statuses at read time.
+- An investment plan's status is never stored: `InvestmentPlanStatus`
+  derives it at read time from its members' calculation states, counting
+  those in update (`PENDING`), with a pending issue (`INVALID`, `FAILED`),
+  and with an outdated result (`CALCULATED` but not current). Outdated is
+  kept apart from in update on purpose: a methodology change, a fan-out
+  calculation that exhausted its retries, or a deleted offer leaves a result
+  stale with nothing queued, and counting it as in update would show the
+  plan updating and poll forever. Since fan-out writes no calculation rows,
+  members waiting for a premise recalculation count as outdated too (see
+  Deferred Work).

@@ -96,7 +96,9 @@ instant), for support and for explaining past recalculations.
   value revisions differ from the current ones, so a recalculation is on its
   way), with the cause from the input that differs and the actor from the
   premise's owner, in the workspace, the list (including its
-  `calculationStatus` filter), and the comparison.
+  `calculationStatus` filter), the comparison, and the investment plans'
+  status (which counts those members as outdated today and so does not poll
+  for them).
 - **Done when** the screens say a simulation is being recalculated because
   its offer or curve changed, and say when that recalculation failed.
 
@@ -160,13 +162,63 @@ through its term. It is a required feature, not an optional nicety.
   Produto": the reference date, gross or net (early redemption taxes depend
   on undefined liquidity and redemption rules), prefixed and manual-curve
   simulations and kept rates, simulations not yet invested or matured,
-  whether a simulation can represent a realized investment, and a
-  portfolio's current value.
+  whether a simulation can represent a realized investment, and an
+  investment plan's current value.
 - **Done means:**
   - The PRD records the refined rules as a dated decision, and the domain
     models "saldo hoje" as its own concept instead of a lookup in the
     maturity projection.
   - The screens that need it (the workspace, and whichever the decision
-    names among the list, the comparison, and portfolios) show it, and the
+    names among the list, the comparison, and investment plans) show it, and the
     D13 marker is replaced or reconciled with it.
   - Tests cover the reference date, the edge states, and the gross/net rule.
+
+## Saved comparisons (deferred 2026-10-27)
+
+- **Today:** a comparison exists only in its URL
+  (`/simulacoes/comparar?ids=…`). Investment plans are not saved
+  comparisons: they gather what is invested together, whose totals add up,
+  while a comparison gathers alternatives, which must never be summed.
+- **Why deferred:** no user need for keeping alternatives yet, and the URL
+  can be bookmarked.
+- **Done when** a user can name and keep a comparison as its own concept,
+  apart from plans, and reopen it.
+
+## Creating a private offer and its simulation in one transaction (deferred 2026-10-27)
+
+- **Today:** "Digitar termos" and "Duplicar e ajustar" save the new private
+  offer and the simulation in one use case and one transaction
+  (`create-simulation.use-case.ts:59-61`), two aggregates where the rule is
+  one.
+- **Why deferred:** found while planning investment plans, whose design
+  follows the rule; changing the create flow is outside that work.
+- **Revisit with:** the one-aggregate rule in `investflow-domain-application`:
+  either a user-visible step (create the offer, then the simulation) or an
+  eventual step, and how the screen recovers when the second step fails.
+- **Done when** each use case changes one aggregate, or the exception is
+  justified and recorded.
+
+## Investment plan picker filters and search (deferred 2026-10-27)
+
+- **Today:** the "Adicionar simulações" dialog lists the owner's simulations
+  newest first, 20 per page, without filters or search.
+- **Why deferred:** enough while users have few simulations.
+- **Revisit when** users with many simulations have trouble finding one; the
+  simulation list's filters (`offerId`, `curveId`, `titleType`,
+  `remunerationKind`, `calculationStatus`) and an offer-name search are the
+  candidates.
+- **Done when** the picker narrows the list with the same URL-free filters
+  and keeps the choice across them.
+
+## Separate create and edit mutations in the offer and curve editors (deferred 2026-10-27)
+
+- **Today:** `use-offer-editor.ts:79` and `use-curve-editor.ts:117` run one
+  `save` mutation that branches on whether a baseline exists, against the
+  `investflow-react` rule that create and edit are separate mutations. The
+  simulation and investment plan editors already follow it.
+- **Why deferred:** behavior is correct today; splitting them is a
+  refactor outside the investment plan work.
+- **Done when** each editor has a create and an edit mutation, with the
+  pending-window rule of `use-simulation-creation.ts` (only steps that cannot
+  fail run in `onSuccess` before navigating), and their hook tests cover
+  both.

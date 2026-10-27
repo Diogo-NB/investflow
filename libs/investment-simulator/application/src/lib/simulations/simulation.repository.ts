@@ -1,11 +1,9 @@
 import { Simulation } from '@investflow/investment-simulator-domain';
-import { AppError, Result } from '@investflow/shared-domain';
+import { AppError, Repository, Result } from '@investflow/shared-domain';
 
-// A deleted simulation is reported as missing.
-export abstract class SimulationRepository {
-  // For the calculation worker, which acts for no user.
-  abstract findById(id: string): Promise<Result<Simulation, AppError>>;
-
+// A deleted simulation is reported as missing. findById is for the
+// calculation worker, which acts for no user.
+export abstract class SimulationRepository extends Repository<Simulation> {
   // Another owner's simulation is reported as missing too.
   abstract findOwned(
     id: string,
@@ -13,9 +11,13 @@ export abstract class SimulationRepository {
   ): Promise<Result<Simulation, AppError>>;
 
   // The live simulations whose calculation reads the offer or curve.
-  abstract idsUsingOffer(offerId: string): Promise<Result<string[], AppError>>;
+  abstract findIdsByOffer(offerId: string): Promise<Result<string[], AppError>>;
 
-  abstract idsUsingCurve(curveId: string): Promise<Result<string[], AppError>>;
+  abstract findIdsByCurve(curveId: string): Promise<Result<string[], AppError>>;
 
-  abstract save(simulation: Simulation): Promise<Result<void, AppError>>;
+  // The live simulations among ids that the owner has.
+  abstract findIdsOwnedBy(
+    ownerId: string,
+    ids: readonly string[],
+  ): Promise<Result<string[], AppError>>;
 }

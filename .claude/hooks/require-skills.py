@@ -67,16 +67,23 @@ LOADED = re.compile(
 )
 
 
-def relative(path, root):
-    path = os.path.normpath(os.path.join(root, path))
+def relative(path, root, base=None):
+    path = os.path.normpath(os.path.join(base or root, path))
     return os.path.relpath(path, root) if path.startswith(root + os.sep) else None
+
+
+# A shell resolves relative paths against its working directory, which may be
+# a subfolder or move with a leading `cd dir &&`.
+def shell_directory(command, cwd):
+    match = re.match(rf"\s*cd\s+({PATH})\s*&&", command)
+    return os.path.join(cwd, match.group(1)) if match else cwd
 
 
 def required_for_path(path):
     return {skill for skill, patterns in ROUTES if any(re.search(p, path) for p in patterns)}
 
 
-def edit_targets(tool, tool_input, root):
+def edit_targets(tool, tool_input, root, cwd):
     if tool in ('Edit', 'Write', 'MultiEdit'):
         path = relative(tool_input.get('file_path', ''), root)
         content = tool_input.get('new_string') or tool_input.get('content') or ''
@@ -84,7 +91,8 @@ def edit_targets(tool, tool_input, root):
         return ([path] if path else []), content
     if tool == 'Bash':
         command = tool_input.get('command', '')
-        paths = [relative(p, root) for p in shell_targets(command)]
+        base = shell_directory(command, cwd)
+        paths = [relative(p, root, base) for p in shell_targets(command)]
         return [p for p in paths if p], command
     return [], ''
 
@@ -116,7 +124,8 @@ def loaded_skills(transcripts):
 def main():
     hook = json.load(sys.stdin)
     root = os.path.normpath(os.environ.get('CLAUDE_PROJECT_DIR') or hook.get('cwd', ''))
-    paths, content = edit_targets(hook.get('tool_name'), hook.get('tool_input') or {}, root)
+    cwd = os.path.normpath(hook.get('cwd') or root)
+    paths, content = edit_targets(hook.get('tool_name'), hook.get('tool_input') or {}, root, cwd)
     if not paths:
         return
 

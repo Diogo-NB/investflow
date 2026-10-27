@@ -19,6 +19,8 @@ export const SIMULATION_PAGE_SIZE = 20;
 
 export interface SimulationListRequest extends SimulationListFilters {
   readonly page: number;
+  // Only the plan's members.
+  readonly investmentPlanId?: string;
   readonly pageSize?: number;
   readonly sort?: SimulationListSort;
 }

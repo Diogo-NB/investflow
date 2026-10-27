@@ -15,7 +15,7 @@ const NOW = UtcInstant.ofIso('2026-10-10T12:00:00Z');
 
 function setup(ids: Result<string[], AppError>) {
   const simulations = {
-    idsUsingCurve: jest.fn().mockResolvedValue(ids),
+    findIdsByCurve: jest.fn().mockResolvedValue(ids),
   } as unknown as jest.Mocked<SimulationRepository>;
   const events = { record: jest.fn() } as jest.Mocked<DomainEventRecorder>;
   const useCase = new RecalculateCurveSimulationsUseCase(simulations, events, {
@@ -32,7 +32,7 @@ describe('RecalculateCurveSimulationsUseCase', () => {
 
     expect((await execute()).isOk()).toBe(true);
 
-    expect(simulations.idsUsingCurve).toHaveBeenCalledWith('curve-id');
+    expect(simulations.findIdsByCurve).toHaveBeenCalledWith('curve-id');
     expect(events.record).toHaveBeenCalledTimes(1);
     const requested = events.record.mock.calls[0];
     expect(requested).toEqual([

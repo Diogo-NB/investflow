@@ -45,6 +45,30 @@ const SORT_OPTIONS: readonly SelectOption[] = [
   { value: 'netAnnualReturn', label: 'Maior rentabilidade líquida' },
 ];
 
+export function SimulationSortField({
+  sort,
+  onSortChange,
+}: {
+  readonly sort: SimulationListSort | undefined;
+  readonly onSortChange: (sort: SimulationListSort | null) => void;
+}) {
+  return (
+    <FormField label="Ordenar por">
+      {(control) => (
+        <SelectField
+          {...control}
+          value={sort ?? NEWEST}
+          placeholder="Mais recentes"
+          options={SORT_OPTIONS}
+          onValueChange={(next) =>
+            onSortChange(next === NEWEST ? null : 'netAnnualReturn')
+          }
+        />
+      )}
+    </FormField>
+  );
+}
+
 const TITLE_TYPE_OPTIONS: SelectOption[] = [
   { value: ALL, label: 'Todos' },
   ...(['CDB', 'LCI', 'LCA'] as const).map((type) => ({
@@ -202,19 +226,7 @@ export function SimulationListFilterBar({
           </span>
         </button>
         <div className="min-w-0 flex-1 sm:ml-auto sm:max-w-72">
-          <FormField label="Ordenar por">
-            {(control) => (
-              <SelectField
-                {...control}
-                value={sort ?? NEWEST}
-                placeholder="Mais recentes"
-                options={SORT_OPTIONS}
-                onValueChange={(next) =>
-                  onSortChange(next === NEWEST ? null : 'netAnnualReturn')
-                }
-              />
-            )}
-          </FormField>
+          <SimulationSortField sort={sort} onSortChange={onSortChange} />
         </div>
       </div>
       <div

@@ -1,5 +1,6 @@
 import {
   CurveIcon,
+  InvestmentPlanIcon,
   OfferIcon,
   SimulationIcon,
   type IconComponent,
@@ -23,6 +24,14 @@ export const investmentSimulatorSections: readonly InvestmentSimulatorSection[] 
         'Calcule o resultado líquido no vencimento e compare cenários.',
       action: 'Abrir simulações',
       Icon: SimulationIcon,
+    },
+    {
+      path: '/planos',
+      label: 'Planos',
+      description:
+        'Reúna as simulações em que você investiria junto, acompanhando o estado de cada uma.',
+      action: 'Abrir planos',
+      Icon: InvestmentPlanIcon,
     },
     {
       path: '/ofertas',

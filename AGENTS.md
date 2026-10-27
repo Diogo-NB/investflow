@@ -189,6 +189,13 @@ it matches:
 - **Dependencies:** `pnpm check`; `pnpm nx run api:prune` so browser packages stay out of the API artifact.
 - **Docs or skills only:** Re-read the changed files against each other; the same fact is not stated differently in two places.
 
+When existing code gets in the way (a layout that breaks, state that does
+not match the server, a rule the code already violates), analyze it and fix
+or report it; do not route around it and explain the detour in a comment.
+The obstacle is often the real finding: a remove button stacked under the
+offer name "so the fixed columns keep their width" hid a table that already
+broke at 1024px.
+
 Browser testing on a backend-only change is proposed with its rationale and
 waits for approval. Report what ran, what was skipped, and why; never claim
 a check that did not run.

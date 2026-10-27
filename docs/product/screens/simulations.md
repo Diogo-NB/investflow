@@ -47,7 +47,8 @@ any of them changes.
     successful result, its net annual return ("10,28% a.a.", or "—" without a
     successful result), and a textual status tag unless the result is up to
     date ("Calculando", "Requer ação", "Falha técnica"). Desktop
-    uses a table with fixed column widths; below 1024px, labeled rows. The whole row or card opens the
+    uses a table with fixed column widths, the period on two lines; below
+    1280px, labeled rows. The whole row or card opens the
     simulation: one link per entry, stretched over the table row on desktop.
   - Each row or card has a checkbox, "Comparar {oferta}", in place of the
     offer icon and above the stretched link. The selection is the `comparar`

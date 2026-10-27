@@ -45,6 +45,10 @@ export class ListSimulationsRequest
   curveId?: string;
 
   @IsOptional()
+  @IsUUID()
+  investmentPlanId?: string;
+
+  @IsOptional()
   @IsEnum(ETitleType)
   titleType?: ETitleType;
 

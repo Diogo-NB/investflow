@@ -34,3 +34,6 @@ export * from './lib/simulations/simulation-comparison.vo';
 export * from './lib/simulations/simulation.events';
 export * from './lib/simulations/simulation-calculation.vo';
 export * from './lib/simulations/simulation-calculation.domain-service';
+export * from './lib/investment-plans/investment-plan.error';
+export * from './lib/investment-plans/investment-plan.aggregate';
+export * from './lib/investment-plans/investment-plan-status.vo';

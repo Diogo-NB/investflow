@@ -113,6 +113,16 @@ export function OfferIcon(props: IconProps) {
   );
 }
 
+export function InvestmentPlanIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m10 2.75 7.25 3.75L10 10.25 2.75 6.5 10 2.75Z" />
+      <path d="m2.75 10 7.25 3.75L17.25 10" />
+      <path d="m2.75 13.5 7.25 3.75 7.25-3.75" />
+    </Icon>
+  );
+}
+
 export function CurveIcon(props: IconProps) {
   return (
     <Icon {...props}>

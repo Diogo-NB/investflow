@@ -244,40 +244,40 @@ specs.
 
 Use kebab-case filenames with a role suffix.
 
-| Role                   | Suffix                                                                    |
-| ---------------------- | ------------------------------------------------------------------------- |
-| Controller             | `*.controller.ts`                                                         |
-| Nest module            | `*.module.ts`                                                             |
-| Listener or consumer   | `*.listener.ts`                                                           |
-| DTO                    | `*.dto.ts`                                                                |
-| HTTP request DTO       | `*.request.ts`                                                            |
-| Guard                  | `*.guard.ts`                                                              |
-| Decorator              | `*.decorator.ts`                                                          |
-| Filter                 | `*.filter.ts`                                                             |
-| Interceptor            | `*.interceptor.ts`                                                        |
-| Strategy               | `*.strategy.ts`                                                           |
-| Use case               | `*.use-case.ts`                                                           |
-| Query handler          | `*.query-handler.ts`                                                      |
-| Command                | `*.command.ts`                                                            |
-| Query                  | `*.query.ts`                                                              |
-| Repository             | `*.repository.ts`                                                         |
-| Port                   | `*.port.ts`                                                               |
-| Mapper                 | `*.mapper.ts`                                                             |
-| Presenter              | `*.presenter.ts`                                                          |
-| Aggregate              | `*.aggregate.ts`                                                          |
-| Entity                 | `*.entity.ts`                                                             |
-| Value object           | `*.vo.ts`                                                                 |
-| Event                  | `*.event.ts`                                                              |
-| Domain service         | `*.domain-service.ts`                                                     |
-| Application service    | `*.application-service.ts`                                                |
-| Infrastructure service | `*.service.ts`                                                            |
-| Error                  | `*.error.ts`                                                              |
-| Compile-time contract  | `*.contract.ts`                                                           |
-| Type-only declaration  | `*.type.ts`                                                               |
-| Base class             | `*.base.ts`                                                               |
-| Registry               | `*.registry.ts`                                                           |
-| Context                | `*.context.ts`                                                            |
-| Test                   | mirror the source suffix, for example `create-portfolio.use-case.spec.ts` |
+| Role                   | Suffix                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| Controller             | `*.controller.ts`                                                               |
+| Nest module            | `*.module.ts`                                                                   |
+| Listener or consumer   | `*.listener.ts`                                                                 |
+| DTO                    | `*.dto.ts`                                                                      |
+| HTTP request DTO       | `*.request.ts`                                                                  |
+| Guard                  | `*.guard.ts`                                                                    |
+| Decorator              | `*.decorator.ts`                                                                |
+| Filter                 | `*.filter.ts`                                                                   |
+| Interceptor            | `*.interceptor.ts`                                                              |
+| Strategy               | `*.strategy.ts`                                                                 |
+| Use case               | `*.use-case.ts`                                                                 |
+| Query handler          | `*.query-handler.ts`                                                            |
+| Command                | `*.command.ts`                                                                  |
+| Query                  | `*.query.ts`                                                                    |
+| Repository             | `*.repository.ts`                                                               |
+| Port                   | `*.port.ts`                                                                     |
+| Mapper                 | `*.mapper.ts`                                                                   |
+| Presenter              | `*.presenter.ts`                                                                |
+| Aggregate              | `*.aggregate.ts`                                                                |
+| Entity                 | `*.entity.ts`                                                                   |
+| Value object           | `*.vo.ts`                                                                       |
+| Event                  | `*.event.ts`                                                                    |
+| Domain service         | `*.domain-service.ts`                                                           |
+| Application service    | `*.application-service.ts`                                                      |
+| Infrastructure service | `*.service.ts`                                                                  |
+| Error                  | `*.error.ts`                                                                    |
+| Compile-time contract  | `*.contract.ts`                                                                 |
+| Type-only declaration  | `*.type.ts`                                                                     |
+| Base class             | `*.base.ts`                                                                     |
+| Registry               | `*.registry.ts`                                                                 |
+| Context                | `*.context.ts`                                                                  |
+| Test                   | mirror the source suffix, for example `create-investment-plan.use-case.spec.ts` |
 
 ## Imports
 

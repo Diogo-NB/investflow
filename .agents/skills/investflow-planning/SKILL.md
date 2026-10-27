@@ -132,9 +132,8 @@ plan touches against the sketches, and check the plan for:
   aggregates changed in one use case or transaction. Existing code that
   breaks a rule is a finding to report, not a precedent to follow; if every
   option breaks a rule, say so and ask;
-- an obstacle in existing code that the plan works around instead of
-  analyzing: the obstacle is often the real finding, such as a form whose
-  save state does not match the server's commit;
+- an obstacle in existing code that the plan works around (see "Done
+  means" in `AGENTS.md`);
 - dead mechanisms, duplicate entry points, or two methods doing one job;
 - one operation hidden behind a discriminator, mode flag, or `kind` field;
 - names that do not say what the thing is and where it applies (see the

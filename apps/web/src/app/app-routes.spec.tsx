@@ -13,9 +13,10 @@ describe('createAppRoutes', () => {
     expect(pageRoutes().find((route) => route.index)?.Component).toBe(Welcome);
   });
 
-  it('mounts the investment simulator under /simulacoes, /ofertas, and /curvas', () => {
+  it('mounts the investment simulator under /simulacoes, /planos, /ofertas, and /curvas', () => {
     const paths = pageRoutes().map((route) => route.path);
     expect(paths).toContain('simulacoes');
+    expect(paths).toContain('planos');
     expect(paths).toContain('ofertas');
     expect(paths).toContain('curvas');
   });

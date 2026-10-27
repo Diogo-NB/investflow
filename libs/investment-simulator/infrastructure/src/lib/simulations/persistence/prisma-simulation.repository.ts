@@ -61,16 +61,32 @@ export class PrismaSimulationRepository
     return this.find(id, { ownerId });
   }
 
-  idsUsingOffer(
+  findIdsByOffer(
     offerId: string,
   ): Promise<Result<string[], RepositoryFindError>> {
-    return this.idsWhere({ offerId }, offerId);
+    return this.findIdsWhere({ offerId }, offerId);
   }
 
-  idsUsingCurve(
+  findIdsByCurve(
     curveId: string,
   ): Promise<Result<string[], RepositoryFindError>> {
-    return this.idsWhere({ curveId }, curveId);
+    return this.findIdsWhere({ curveId }, curveId);
+  }
+
+  findIdsOwnedBy(
+    ownerId: string,
+    ids: readonly string[],
+  ): Promise<Result<string[], RepositoryFindError>> {
+    return Result.fromPromise(
+      async () => {
+        const records = await this.prisma.client.simulation.findMany({
+          where: { id: { in: [...ids] }, ownerId, deletedAt: null },
+          select: { id: true },
+        });
+        return records.map((record) => record.id);
+      },
+      (error) => new RepositoryFindError('Simulation', ownerId, error),
+    );
   }
 
   // A request (PENDING) always replaces the calculation row, after the usual
@@ -155,7 +171,7 @@ export class PrismaSimulationRepository
     }
   }
 
-  private idsWhere(
+  private findIdsWhere(
     premise: Prisma.SimulationWhereInput,
     premiseId: string,
   ): Promise<Result<string[], RepositoryFindError>> {

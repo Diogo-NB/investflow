@@ -78,11 +78,13 @@ export function Shell() {
         </div>
       </header>
 
+      {/* Isolated so the pages' z-indexes stay below dialogs and popups,
+          which Base UI portals to the end of the body. */}
       <main
         ref={mainRef}
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-6xl flex-1 p-6 outline-none sm:p-10"
+        className="isolate mx-auto w-full max-w-6xl flex-1 p-6 outline-none sm:p-10"
       >
         {logoutStatus === 'error' && (
           <p

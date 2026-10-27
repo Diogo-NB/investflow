@@ -179,6 +179,10 @@ simulations, offers, and curves, not decoration.
   `Date`.
 - Copy is short and every error says how to fix it.
 - The screen works at 390px.
+- Look at the final screenshots as a user would. Destructive styling (error
+  color, trash or ✕ in red) only for actions that destroy something; row
+  actions in their own column or menu, never stacked inside a data cell; no
+  placement chosen to dodge an existing layout bug, which gets fixed instead.
 
 ## Tests
 

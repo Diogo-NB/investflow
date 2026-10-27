@@ -13,6 +13,7 @@ other files link to it instead of repeating it.
 - [screens/simulations.md](product/screens/simulations.md): simulation list, workspace, and comparison behavior. Read when: changing a `/simulacoes` screen.
 - [screens/offers.md](product/screens/offers.md): offer screens behavior. Read when: changing an `/ofertas` screen.
 - [screens/curves.md](product/screens/curves.md): curve screens behavior. Read when: changing a `/curvas` screen.
+- [screens/investment-plans.md](product/screens/investment-plans.md): investment plan screens behavior. Read when: changing a `/planos` screen.
 
 ## Architecture
 

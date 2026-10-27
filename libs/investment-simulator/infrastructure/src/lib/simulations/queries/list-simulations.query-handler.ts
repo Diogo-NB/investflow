@@ -16,6 +16,8 @@ export interface ListSimulationsQuery {
   readonly pageSize: number;
   readonly offerId?: string;
   readonly curveId?: string;
+  // Only the members of this plan; none when it was deleted.
+  readonly investmentPlanId?: string;
   readonly titleType?: 'CDB' | 'LCI' | 'LCA';
   readonly remunerationKind?:
     | 'PREFIXED'
@@ -115,6 +117,16 @@ export class ListSimulationsQueryHandler
             { ownerId: query.ownerId, deletedAt: null },
             query.offerId ? { offerId: query.offerId } : {},
             query.curveId ? { curveId: query.curveId } : {},
+            query.investmentPlanId
+              ? {
+                  investmentPlans: {
+                    some: {
+                      investmentPlanId: query.investmentPlanId,
+                      investmentPlan: { deletedAt: null },
+                    },
+                  },
+                }
+              : {},
             query.titleType ? { offer: { titleType: query.titleType } } : {},
             query.remunerationKind
               ? { offer: { remunerationType: query.remunerationKind } }

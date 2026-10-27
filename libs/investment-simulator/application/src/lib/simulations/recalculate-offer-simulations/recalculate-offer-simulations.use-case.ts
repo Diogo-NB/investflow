@@ -25,7 +25,7 @@ export class RecalculateOfferSimulationsUseCase
   async execute(
     command: RecalculateOfferSimulationsCommand,
   ): Promise<Result<void, AppError>> {
-    const ids = await this.simulationRepository.idsUsingOffer(command.offerId);
+    const ids = await this.simulationRepository.findIdsByOffer(command.offerId);
     if (ids.isErr()) return ids;
     const now = this.clock.now();
     this.events.record(

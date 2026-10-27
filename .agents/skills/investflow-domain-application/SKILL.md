@@ -141,10 +141,13 @@ carries per-type variation and why it is the minimum.
 - Ports are abstract classes (they are Nest injection tokens) and never
   expose ORM or transport types. A port names a capability, not a
   technology.
-- Command repositories do aggregate lookup and persistence only, no list,
-  count, existence, or read-model helpers. The one exception is a criteria
+- Command repositories extend `Repository<T>` from
+  `@investflow/shared-domain` and declare only what it lacks, such as an
+  owner-scoped `findOwned()` beside `findById()`. They do aggregate lookup
+  and persistence only, no list, count, existence, or read-model helpers.
+  The one exception is a criteria
   lookup returning the ids of the repository's own aggregates for a
-  command-side flow, such as a fan-out (`idsUsingOffer()`). Anything a screen
+  command-side flow, such as a fan-out (`findIdsByOffer()`). Anything a screen
   reads is a query handler in infrastructure; never load aggregates to render
   a response.
 - Prefer database constraints for simple uniqueness rules and map their

@@ -89,7 +89,8 @@ this file in the same change that ships or changes a built behavior.
   newest first); `/simulacoes` shows the column and sorts with "Ordenar por",
   kept in the URL.
 - **Simulation list filters:** `GET simulations` filters the owner's
-  simulations by `offerId`, `curveId`, `titleType`, `remunerationKind`, and
+  simulations by `offerId`, `curveId`, `investmentPlanId` (the live members
+  of a live plan), `titleType`, `remunerationKind`, and
   `calculationStatus`, combined with AND; there is no index filter because
   the remuneration kind fixes the index. `/simulacoes` filters with the same
   URL parameters, carried to a simulation and back, and the offer and curve
@@ -108,8 +109,31 @@ this file in the same change that ships or changes a built behavior.
   workspace adds one with "Comparar com…", and `/simulacoes/comparar?ids=…`
   shows a verdict, a table on desktop and ranked cards below 1024px, removes
   and adds simulations, and polls while any is calculating.
+- **Investment plans:** a revisioned `InvestmentPlan` aggregate with an
+  owner, a name, an optional description, a soft delete, and up to 50
+  simulation ids, stored in `investment_plan` and
+  `investment_plan_simulation`. Every change raises the revision and is
+  saved with a write conditional on it, so concurrent adds conflict (`409`)
+  instead of passing the limit. Members whose simulation was deleted are
+  never loaded: they leave the plan and free their slot without a write. The
+  API under `investment-simulator/investment-plans` lists (by name,
+  paginated, optionally the plans of a `simulationId`), reads, creates,
+  edits the name and description (revision check, `409` on mismatch),
+  deletes, adds simulations (`POST …/simulations`, 1 to 50 of the owner's
+  live simulations, safe to repeat; another owner's or a deleted one is
+  `404`), and removes one (`DELETE …/simulations/:simulationId`, safe to
+  repeat). Only the plan changes; `SimulationRepository.findIdsOwnedBy` checks
+  the simulations. Reads return the member count, the free slots, and the
+  status derived by `InvestmentPlanStatus`. No events. The `/planos` screens
+  list, create, edit, delete, and show plans with their members
+  ([screens/investment-plans.md](./screens/investment-plans.md)).
 
 ## Differs From the Target Model
+
+- The simulation screens do not yet link simulations to plans: no offer to
+  add a newly created simulation to the plan it was started from, no
+  "Planos" line in the workspace, and no plan count in the simulation delete
+  dialog (roadmap D9, third pull request).
 
 - The simulation workspace cannot yet edit its own offer in place, with the
   offer editor's impact notice (see [Simulation Workspace

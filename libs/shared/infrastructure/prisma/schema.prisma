@@ -53,26 +53,52 @@ model Offer {
 }
 
 model Simulation {
-  id             String                 @id @db.Uuid
-  ownerId        String                 @map("owner_id")
-  offerId        String                 @map("offer_id") @db.Uuid
+  id              String                     @id @db.Uuid
+  ownerId         String                     @map("owner_id")
+  offerId         String                     @map("offer_id") @db.Uuid
   // Null for fixed rates.
-  curveId        String?                @map("curve_id") @db.Uuid
-  principal      Decimal                @db.Decimal(65, 30)
-  investmentDate DateTime               @map("investment_date") @db.Date
-  revision       Int
-  deletedAt      DateTime?              @map("deleted_at") @db.Timestamptz(3)
-  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
-  offer          Offer                  @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  curve          Curve?                 @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  calculation    SimulationCalculation?
-  result         SimulationResult?
+  curveId         String?                    @map("curve_id") @db.Uuid
+  principal       Decimal                    @db.Decimal(65, 30)
+  investmentDate  DateTime                   @map("investment_date") @db.Date
+  revision        Int
+  deletedAt       DateTime?                  @map("deleted_at") @db.Timestamptz(3)
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  offer           Offer                      @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  curve           Curve?                     @relation(fields: [curveId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  calculation     SimulationCalculation?
+  result          SimulationResult?
+  investmentPlans InvestmentPlanSimulation[]
 
   @@index([ownerId])
   @@index([offerId])
   @@index([curveId])
   @@map("simulation")
+}
+
+model InvestmentPlan {
+  id          String                     @id @db.Uuid
+  ownerId     String                     @map("owner_id")
+  name        String
+  description String?
+  revision    Int
+  deletedAt   DateTime?                  @map("deleted_at") @db.Timestamptz(3)
+  simulations InvestmentPlanSimulation[]
+
+  @@index([ownerId])
+  @@map("investment_plan")
+}
+
+// Rows of a soft-deleted simulation stay; reads skip them.
+model InvestmentPlanSimulation {
+  investmentPlanId String         @map("investment_plan_id") @db.Uuid
+  simulationId     String         @map("simulation_id") @db.Uuid
+  investmentPlan   InvestmentPlan @relation(fields: [investmentPlanId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  simulation       Simulation     @relation(fields: [simulationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([investmentPlanId, simulationId])
+  @@index([simulationId])
+  @@map("investment_plan_simulation")
 }
 
 // The current result, replaced by each successful calculation, with the

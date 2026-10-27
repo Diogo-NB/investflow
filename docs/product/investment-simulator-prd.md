@@ -14,7 +14,7 @@ O estado atual da implementação e as próximas entregas estão no
 
 Simulador educacional para planejar e comparar investimentos brasileiros de
 renda fixa. O MVP cobre CDB, LCI e LCA e permite manter ofertas, curvas de
-índices, portfólios e simulações. Os resultados acompanham as premissas: quando
+índices, planos de investimento e simulações. Os resultados acompanham as premissas: quando
 uma oferta ou uma curva muda, as simulações que a usam são recalculadas.
 
 O produto não executa transações financeiras reais.
@@ -23,7 +23,7 @@ O produto não executa transações financeiras reais.
 
 Investidores iniciantes precisam estimar rendimento líquido considerando prazo,
 tributos, índices e liquidez. Calculadoras existentes frequentemente não
-permitem manter portfólios, comparar cenários ou ver os resultados se
+permitem reunir investimentos em planos, comparar cenários ou ver os resultados se
 atualizarem quando as premissas mudam.
 
 ## Usuário e Acesso
@@ -31,7 +31,7 @@ atualizarem quando as premissas mudam.
 - Usuário pessoa física autenticado via Keycloak.
 - Contas são provisionadas previamente por administradores.
 - Autocadastro não faz parte do MVP.
-- Cada usuário acessa somente seus próprios portfólios e simulações.
+- Cada usuário acessa somente seus próprios planos e simulações.
 - Ofertas e curvas são privadas ou do sistema:
   - criadas por um usuário são visíveis somente para ele, que pode editá-las e
     excluí-las;
@@ -107,16 +107,36 @@ ofertas que ainda não venceram. A falta de cobertura necessária impede o
 cálculo. As regras dos intervalos, da taxa mantida e da importação estão na
 documentação de curvas.
 
-### Portfólios
+### Planos de Investimento
 
-- Criar, consultar, renomear e excluir múltiplos portfólios.
-- Nome e descrição identificam um portfólio.
-- Um portfólio agrupa múltiplas simulações de títulos bancários.
-- Comparar portfólios por valores agregados e rentabilidade média.
-- O estado de um portfólio deriva do estado de suas simulações: em
-  atualização enquanto alguma está calculando, e com pendência
-  enquanto alguma está impedida ou com falha. Os totais usam o último
-  resultado bem sucedido de cada simulação.
+Decisão de 2026-10-27.
+
+Um plano de investimento reúne as simulações em que o usuário investiria
+junto, como a reserva de emergência ou a aposentadoria. Alternativas entre si
+não formam um plano: comparam-se na
+[Comparação de Simulações](#comparação-de-simulações), já que somá-las
+contaria o mesmo dinheiro duas vezes.
+
+- Criar, consultar, editar (nome e descrição) e excluir múltiplos planos.
+- Nome e descrição identificam um plano; o nome é obrigatório.
+- Um plano reúne até 50 simulações do próprio usuário. Uma simulação pode
+  estar em vários planos. Adicionar uma simulação que já está no plano, ou
+  remover uma que não está, não muda nada.
+- Excluir um plano não exclui suas simulações.
+- Uma simulação excluída sai dos seus planos e libera a vaga.
+- O estado de um plano deriva das suas simulações e não é armazenado. Conta
+  quantas estão:
+  - em atualização: aguardando cálculo;
+  - com pendência: impedidas ou com falha técnica;
+  - com resultado desatualizado: com o último resultado anterior às
+    alterações e nenhum cálculo pendente, como após uma mudança de
+    metodologia, retentativas esgotadas ou uma oferta excluída. Fica
+    separado de "em atualização" porque nenhum recálculo virá sozinho.
+
+  Sem nenhuma delas, os resultados do plano estão atualizados.
+
+- Comparar planos por valores agregados e rentabilidade média. Os totais usam
+  o último resultado bem sucedido de cada simulação.
 
 ### Simulações de Títulos Bancários
 
@@ -228,11 +248,11 @@ Por simulação:
 - data de vencimento;
 - estado do cálculo.
 
-Por portfólio:
+Por plano de investimento:
 
 - soma dos valores aplicáveis;
 - rentabilidade média;
-- comparação agregada entre portfólios;
+- comparação agregada entre planos;
 - estado derivado das simulações.
 
 No MVP, apresentar resultados em tabelas simples; a evolução do saldo de uma
@@ -483,8 +503,9 @@ Decisão de 2026-10-16.
 A comparação responde qual simulação rende mais e por quê:
 
 - reúne de duas a seis simulações do usuário, escolhidas na lista. Não é
-  salva: existe apenas no endereço da tela. Grupos que o usuário quer manter
-  são portfólios;
+  salva: existe apenas no endereço da tela. Reúne alternativas; o que o
+  usuário investiria junto é um
+  [plano de investimento](#planos-de-investimento);
 - ordena pela rentabilidade líquida ao ano do último resultado bem sucedido
   de cada simulação, a única medida justa entre prazos diferentes e entre
   títulos tributados e isentos. Empates dividem a posição, e todas as
@@ -509,17 +530,16 @@ A comparação responde qual simulação rende mais e por quê:
 - Liquidez no vencimento: não permitir resgate antecipado; calcular até o
   vencimento.
 
-### Portfólio com Vencimentos Diferentes
+### Plano com Vencimentos Diferentes
 
-A data final de análise é o vencimento mais distante do portfólio. Nessa data,
-somar somente simulações ainda ativas, sem reinvestir simulações já vencidas.
-
-Esta regra pode excluir do total simulações vencidas anteriormente e deve ser
-validada antes da implementação.
+Pendente, a decidir antes dos totais do plano. A direção considerada: as
+simulações já vencidas entram pelo seu valor líquido no vencimento, sem
+reinvestimento, e a rentabilidade média do plano é ponderada pelo dinheiro
+aplicado e pelo tempo (money-weighted).
 
 ## Requisitos Não Funcionais
 
-- Persistir ofertas, curvas, portfólios, simulações e o resultado atual de
+- Persistir ofertas, curvas, planos de investimento, simulações e o resultado atual de
   cada simulação.
 - Recalcular de forma assíncrona e confiável: toda alteração aceita leva ao
   recálculo das simulações afetadas, mesmo após falhas temporárias.
@@ -571,8 +591,9 @@ validada antes da implementação.
 - Definir o perfil contratual de atualização e a fórmula completa dos títulos
   híbridos por IPCA, conforme a documentação de curvas, incluindo os prazos
   mínimos de LCI e LCA indexadas a índice de preços.
-- Validar regra de agregação para portfólios com vencimentos diferentes.
-- Definir significado e cálculo da rentabilidade média do portfólio.
+- Validar a regra de agregação para planos com vencimentos diferentes (ver
+  [Plano com Vencimentos Diferentes](#plano-com-vencimentos-diferentes)).
+- Definir significado e cálculo da rentabilidade média do plano.
 - Definir comportamento após vencimento e eventual resgate. A exibição do
   prazo restante de uma simulação vencida já está definida em
   [Rentabilidade e Prazo Restante](#rentabilidade-e-prazo-restante).
@@ -588,7 +609,7 @@ validada antes da implementação.
   - simulações ainda não aplicadas e vencidas;
   - se uma simulação passa a representar um investimento realizado, distinto
     de uma hipótese;
-  - o valor atual de um portfólio.
+  - o valor atual de um plano de investimento.
 
   Até lá, o gráfico da evolução do saldo apenas marca o dia de hoje (ver
   [Resultados](#resultados)).
