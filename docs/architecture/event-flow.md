@@ -2,8 +2,8 @@
 
 A visual guide to how events move through InvestFlow, and how a simulation's
 result is recalculated when anything it depends on changes. Read this first;
-the rules behind it are in "Messaging Transport" and "Mutable Premises And
-Asynchronous Recalculation" in [Project Structure](./project-structure.md).
+the rules behind it are in [Messaging Transport](./messaging.md) and
+[Mutable Premises And Asynchronous Recalculation](./recalculation.md).
 
 > **Status.** The event transport (outbox, EventBridge, SQS, consumers) and a
 > simulation's own asynchronous calculation (D4a) are built, on FIFO queues
@@ -166,8 +166,8 @@ flowchart LR
   P --> I["INVALID · COVERAGE_MISSING · cause kept"]
 ```
 
-Only the current state is kept. A status history is listed under "Deferred
-Work" in [Project Structure](./project-structure.md).
+Only the current state is kept. A status history is listed in
+[Deferred Work](./deferred-work.md).
 
 ### Who Does What
 
@@ -303,8 +303,7 @@ consumer and leaves its simulations up to date. Fan-out never loads
 simulations and writes no calculation rows: until each result lands, the
 screen shows "Desatualizado", derived from the term revisions. It records
 all its requests in one transaction, a simplification listed under
-"Fan-out at scale" in the Deferred Work of
-[Project Structure](./project-structure.md).
+"Fan-out at scale" in [Deferred Work](./deferred-work.md).
 
 ### Walkthrough 6: An Offer or Curve Is Deleted (D4b)
 
@@ -444,8 +443,8 @@ it adds.
 
 ## Related Docs
 
-- [Project Structure](./project-structure.md): "Messaging Transport" and
-  "Mutable Premises And Asynchronous Recalculation".
+- [Messaging Transport](./messaging.md) and
+  [Mutable Premises And Asynchronous Recalculation](./recalculation.md).
 - [Implementation Roadmap](../product/implementation-roadmap.md): D4a and
   D4b scope.
 - [PRD](../product/investment-simulator-prd.md): "Modelo de Atualização" and

@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: discusses-d12-without-code
-expected_outcome: |
-  A discussion of D12 that writes no code and no implementation plan, lists what the user must decide as a numbered list with a recommendation each, separates what is built from what is only designed, and waits for the user's answers.

@@ -1,250 +1,181 @@
 ---
 name: investflow-nestjs-infrastructure
-description: Implement, review, or refactor InvestFlow NestJS and Prisma infrastructure. Use for controllers, DTOs, repositories, query handlers, mappers, presenters, Nest modules, dependency injection, shared infrastructure, deployment composition, or backend Nx project placement. Do not use for domain-only modeling, frontend work, or messaging-specific behavior.
+description: Implement, review, or refactor InvestFlow NestJS and Prisma infrastructure. Use for controllers, DTOs, repositories, query handlers, mappers, presenters, Nest modules, dependency injection, Prisma schema and migrations, shared infrastructure, host composition, or backend Nx project placement, and whenever a change edits files under libs/*/infrastructure or apps/api. Load investflow-eventing too when the change touches consumers, the outbox, or the unit of work. Do not use for domain-only modeling or frontend work.
 ---
 
 # InvestFlow NestJS Infrastructure
 
-Keep technical adapters owned by their bounded context and keep deployable apps
-as thin composition roots.
+Keep technical adapters owned by their bounded context and deployable apps as
+thin composition roots.
 
-## Start with the runtime boundary
+## Start
 
-Inspect the affected context infrastructure project, its `project.json` and
-public `src/index.ts`, the corresponding application ports, the consuming app,
-and relevant Prisma schema or shared adapters. Read
-`docs/architecture/project-structure.md` before changing project structure,
-module composition, host responsibilities, or library boundaries.
+Inspect the affected infrastructure project, its `project.json` and
+`src/index.ts`, the application ports it implements, the consuming app, and
+the Prisma schema or shared adapters involved. Read
+`docs/architecture/project-structure.md` before adding a project, folder, or
+file kind (its "Folder Taxonomy" and "File Naming" are the reference for
+role suffixes), and `docs/architecture/queries.md` before designing what a
+screen reads.
 
 ## Ownership and composition
 
-- A top-level `libs/<context>/` grouping is one bounded context. Its domain,
-  application, and infrastructure directories are layers, not independent
-  contexts.
-- Context infrastructure owns controllers, DTOs, repositories, query handlers,
-  mappers, presenters, listeners, provider bindings, and external adapters.
-- The context infrastructure module is its local composition root. It registers
-  context-owned providers and exposes a public module for hosts to import.
-- Projects under `apps/` own bootstrap, global transport configuration, process
-  lifecycle, and the selection of context modules and active adapters. They do
-  not enumerate a context's internal providers.
-- Shared infrastructure supplies genuinely cross-context adapters and cannot
-  depend on feature contexts.
-
-## Feature-first organization
-
-- Use the same plural business-feature root as domain and application, such as
-  `offers` or `simulations`.
-- Group adapters by boundary below that feature:
-  `infrastructure/src/lib/<feature>/http` owns controllers, request DTOs, HTTP
-  validators, and presenters; `<feature>/persistence` owns repositories and
-  mappers. Add focused boundaries such as `messaging` or `queries` when needed.
-- Keep the context composition module and only genuinely cross-feature
-  artifacts at `src/lib`. Do not scatter one feature across top-level
-  `controllers`, `dtos`, `repositories`, `mappers`, or `validators` folders.
-- Organize shared infrastructure capability-first as well. Use cohesive roots
-  such as `authentication`, `clocks`, `dates`, `http`, `messaging`, `money`,
-  and `persistence`;
-  place provider-specific boundaries beneath them when useful, for example
-  `messaging/eventbridge`, `messaging/sqs`, and `persistence/prisma`. Do not recreate
-  global role buckets such as `filters`, `presenters`, `validators`, or
-  `formatters`; place a validator or formatter with the capability it serves.
+- A `libs/<context>/` grouping is one bounded context; its domain,
+  application, and infrastructure directories are layers.
+- Context infrastructure owns controllers, DTOs, repositories, query
+  handlers, mappers, presenters, consumers, provider bindings, and external
+  adapters. Its module is the context's composition root and the public
+  module hosts import.
+- Projects under `apps/` own bootstrap, global transport configuration,
+  process lifecycle, and the selection of context modules and active
+  adapters; they never enumerate a context's internal providers.
+- Shared infrastructure supplies cross-context adapters and never depends on
+  feature contexts.
+- Group adapters by boundary below the feature root:
+  `<feature>/http` (controllers, request DTOs, HTTP validators, presenters),
+  `<feature>/persistence` (repositories, mappers), and `messaging` or
+  `queries` when needed. Shared infrastructure is capability-first
+  (`authentication`, `clocks`, `http`, `messaging/eventbridge`,
+  `persistence/prisma`); never global `controllers`, `dtos`, `filters`, or
+  `validators` folders.
 
 ## Dependency injection and handlers
 
-- Use abstract classes as runtime Nest provider tokens. Do not use Symbol
-  tokens for polymorphic providers.
-- Interfaces remain valid for data shapes and compile-time contracts but cannot
-  serve as Nest injection tokens.
-- Controllers and listeners inject use-case or query-handler classes directly.
-- Handlers are simple classes with one `execute(input)` method. Do not introduce
-  command buses, query buses, or `@nestjs/cqrs` unless the task explicitly
-  requires them.
-- Shared compile-time handler contracts belong in
-  `@investflow/shared-application`.
+- Abstract classes are the Nest provider tokens
+  (`{ provide: OfferRepository, useClass: PrismaOfferRepository }`); never
+  Symbol tokens. Interfaces stay for data shapes, since TypeScript erases
+  them.
+- Controllers and consumers inject use-case and query-handler classes
+  directly. Handlers are plain classes with one `execute(input)` method: no
+  command or query buses and no `@nestjs/cqrs`.
 
-## Persistence and queries
+## Persistence
 
-- Concrete command repositories implement application ports and extend
-  `BaseRepository`; only `BaseRepository` reads and clears aggregate domain
-  events.
-- Keep ORM records inside infrastructure. Mappers convert persistence records
-  to and from domain objects.
-- Query handlers live in infrastructure, query Prisma directly, and return
-  read-oriented shapes without loading aggregates.
-- Keep command repositories limited to aggregate lookup and persistence. Use a
-  query handler for list, count, and presentation-oriented reads.
-- Native `Date` may exist briefly at ORM, driver, framework, or `Intl`
-  boundaries. Convert it immediately to or from the shared temporal types.
-- Generate migrations with `pnpm db:migrate` (Prisma `migrate dev`) against a
-  running database; do not assemble them from `migrate diff` output or patch
-  the generated SQL. Write or edit SQL by hand only when Prisma has no clean
-  way to produce the change, and only after the user approves it; mark every
-  manual statement in the migration with a comment saying why Prisma could
-  not generate it.
+- Command repositories implement application ports and extend
+  `BaseRepository`; only `BaseRepository` reads and clears aggregate events.
+  They do aggregate lookup and persistence only.
+- ORM records stay inside infrastructure. Mappers convert records to and
+  from domain objects; native `Date` lives only at the ORM, driver, or
+  `Intl` boundary and is converted at once.
+- In mappers, unwrap Result-returning value-object conversions inline
+  (`CalendarDate.fromUtcDate(record.startDate).value`), without helpers or
+  repeated `isErr()` checks: persisted values are valid, and a failure throws
+  inside the repository's `Result.fromPromise`.
+- Columns that exist only for querying (sorting, filtering, aggregation) are
+  a read model: the mapper writes them from the domain object, `toDomain()`
+  never reads them back, and query handlers may read them. Document them in
+  the schema; never add a domain field because a query needs a column.
+- Wrap the lookup and its mapping in one `Result.fromPromise`, return the
+  aggregate or `null` from the callback, then turn `null` into the
+  not-found error. Returning `Result.err` inside the callback yields a
+  successful Result holding an error.
 
-### Query output contracts
+  ```ts
+  const offerResult = await Result.fromPromise(
+    async () => {
+      const record = await this.prisma.client.investmentOffer.findUnique({
+        where: { id, deletedAt: null },
+      });
+      return record ? OfferMapper.toDomain(record) : null;
+    },
+    (error) => new RepositoryFindError('Offer', id, error),
+  );
+  if (offerResult.isErr()) return offerResult;
+  return offerResult.value ? Result.ok(offerResult.value) : Result.err(new OfferNotFoundError(id));
+  ```
 
-- Each query handler owns explicit input and output contracts in its
-  `*.query-handler.ts` file. Name outputs by operation, such as
-  `GetOfferOutput` and `ListOffersOutput`, with an `OfferListItem` for list
-  entries. These outputs are the read models; separate `*ReadModel` contracts
-  and files are not the default.
-- Keep Prisma selections and inferred record types local to the handler file.
-  Consumer contracts use plain data and do not expose ORM payload types,
-  generated ORM enums, native `Date`, Decimal objects, or domain value objects.
-  Serialize civil dates through `CalendarDate` to ISO strings and preserve
-  decimal precision with strings.
-- Map records with a private `toOutput()` method when conversion is needed.
-  Keep lookup and mapping inside `Result.fromPromise()` so database and
-  conversion failures share the query error mapping. Return selected records
-  directly when they already match the output contract; do not add an identity
-  mapper.
-- Let list and detail contracts evolve independently. Extract a feature-local
-  projection helper only when multiple queries deliberately share meaningful
-  mapping behavior; do not impose a universal entity read shape.
-- Controllers return query Results directly for the host's HTTP result
-  interceptor. Add a presenter only for a distinct transport representation,
-  such as version-specific fields, links, or localized formatting. Simple
-  date and decimal serialization belongs in query mapping.
-- Persistence mappers remain separate: they convert command-side aggregate
-  state to and from ORM records, not query outputs.
-- Complex screens follow the Backend for Frontend decision in
-  `docs/architecture/project-structure.md`: shape the query output for the
-  screen's usage, compose what it always needs together, and compute business
-  facts (eligibility, status, counts, derived dates) on the server. Never
-  return layout, UI component structures, labels, or formatted values.
+  Declare the concrete error union in the return type
+  (`Result<Offer, OfferNotFoundError | RepositoryFindError>`).
 
-### Mapper conversions
+- Generate migrations with `pnpm db:migrate` against a running database;
+  never assemble them from `migrate diff` or patch the generated SQL. Write
+  SQL by hand only when Prisma cannot produce the change, only after the user
+  approves, with a comment on each manual statement saying why.
 
-In persistence mappers, unwrap Result-returning value-object conversions with
-inline `.value` access, such as
-`CalendarDate.fromUtcDate(record.startDate).value`. Do not introduce helper
-functions or repeat `isErr()` / `throw result.error` checks solely to unwrap
-these conversions. Persisted values are expected to be valid; failed
-conversions throw and are captured by the repository's `Result.fromPromise`
-around lookup and mapping.
+## Query handlers
 
-Some columns exist only for querying, such as a value stored for sorting,
-filtering, or aggregation that the domain can derive. Treat them as a read
-model:
+- Query handlers live in infrastructure, query Prisma directly, and never
+  load aggregates. Each owns its input and output contracts in its
+  `*.query-handler.ts` file, named by operation (`GetOfferQuery`,
+  `GetOfferOutput`, `ListOffersOutput`, `OfferListItem`). The output is the
+  read model: no separate `*ReadModel` files.
+- Keep the Prisma selection and its inferred record type in the handler.
+  Outputs are plain data: civil dates as ISO strings through `CalendarDate`,
+  decimals as strings, no ORM types or enums, native `Date`, Decimal objects,
+  or value objects.
+- Map with a private `toOutput()` only when conversion is needed, inside
+  `Result.fromPromise()` with the lookup; return selected records directly
+  when they already match.
+- List and detail contracts evolve independently; extract a feature-local
+  projection only when several queries deliberately share meaningful
+  mapping.
+- Screen-oriented queries shape the output for the screen's usage and
+  compute business facts (eligibility, status, counts, derived dates) on the
+  server; never layout, UI structures, labels, or formatted values.
 
-- the mapper writes them from the domain object;
-- `toDomain()` never reads them back, and the domain derives them again;
-- query handlers may read them directly.
+## HTTP boundary
 
-Document such columns in the schema. Do not add fields to a domain type only
-because a query needs a column.
-
-### Repository lookup Results
-
-Prefer one `Result.fromPromise` around both the asynchronous lookup and its
-synchronous domain mapping. Return the mapped aggregate or `null` from that
-callback, then guard on the error and convert `null` into the application
-not-found error. This catches database and mapper exceptions with the same
-repository error mapping while keeping expected absence separate.
-
-For optional repository records and mapped aggregates, prefer truthy
-conditionals with the present-value branch first, such as
-`record ? OfferMapper.toDomain(record) : null`, instead of explicit
-`=== null` checks.
-
-```ts
-const offerResult = await Result.fromPromise(
-  async () => {
-    const record = await this.prisma.client.investmentOffer.findUnique({
-      where: { id, deletedAt: null },
-    });
-    return record ? OfferMapper.toDomain(record) : null;
-  },
-  (error) => new RepositoryFindError('Offer', id, error),
-);
-
-if (offerResult.isErr()) return offerResult;
-return offerResult.value ? Result.ok(offerResult.value) : Result.err(new OfferNotFoundError(id));
-```
-
-The `fromPromise` callback returns a plain value; returning `Result.err` inside
-it produces a successful outer Result containing an error Result.
-Keep throwing mappers inside `fromPromise`: `map` does not catch callback
-exceptions, and `Result` has no `andThen`. Prefer the concrete error union in
-the method's return type, such as `Result<Offer, OfferNotFoundError | RepositoryFindError>`.
-
-## Transport boundaries
-
-- Parse and validate transport input before invoking application behavior.
-- Define decorated HTTP request DTOs in `infrastructure/src/lib/<feature>/http`
-  with `*.request.ts` filenames. Never declare request classes or request-to-
-  command mapping helpers in controller files.
-- Follow `Request DTO -> Command -> Use case`: request DTOs implement the
-  structural input contract owned by application, and controllers invoke the
-  command's `fromRequest()` factory. Application commands must not import
-  infrastructure request classes.
-- Command factories immediately convert validated transport strings into
-  domain value objects. Command instances expose domain types, not raw dates or
-  decimal strings.
-- Validate civil-date strings with the shared `@IsCalendarDate()` decorator;
-  do not duplicate `YYYY-MM-DD` regular expressions or use `@IsDate()` for
-  timezone-free calendar dates.
-- Controllers return `Result` for the host's HTTP result interceptor to unwrap
-  at the transport boundary; raw Results are never serialized as responses.
-- Presenters are optional adapters for meaningful transport-specific output
-  transformations, not a required step after a query handler.
-- Map `AppError.kind` centrally to HTTP status codes. Error responses contain
-  `statusCode`, stable `code`, the user-facing pt-BR `message`, and `details`;
-  successful responses do not use a generic envelope. `AppExceptionFilter`
-  replaces the message of 5xx kinds with a generic one and logs the original.
-  Request validation (`createRequestValidationPipe`) answers 400
-  `REQUEST_INVALID` in the same envelope, listing `details.fields`.
-- Keep Keycloak roles as generic strings. Introduce domain-specific roles only
-  when a domain requirement needs them.
+- Request DTOs live in `<feature>/http` as `*.request.ts`, implement the
+  application's structural input contract, and are validated before any use
+  case runs. Never declare request classes or mapping helpers in controller
+  files. The flow is request DTO, then `Command.fromRequest()`, then the use
+  case.
+- Validate civil dates with `@IsCalendarDate()`; never `@IsDate()` or a
+  `YYYY-MM-DD` regular expression.
+- Controllers return Results. The API host registers `TransactionInterceptor`
+  then `HttpResultInterceptor` globally, so a failed Result rolls the
+  transaction back before the exception filter; `@SkipTransaction()` skips
+  the transaction but still unwraps. Raw Results are never serialized, and
+  successes have no envelope.
+- Presenters are optional, only for a distinct transport representation
+  (versioned fields, links, localized formatting).
+- `AppError.kind` maps centrally to HTTP status. Errors answer
+  `{ statusCode, code, message, details }`; `AppExceptionFilter` replaces
+  5xx messages with a generic one and logs the original. Request validation
+  answers 400 `REQUEST_INVALID` listing `details.fields`.
+- Keep Keycloak roles as generic strings until a domain rule needs specific
+  ones.
 
 ## Ports and ownership
 
-Before adding a parameter, check, or constant that crosses a port, ask which
-side owns the knowledge, and state the answer in the plan:
+Before adding a parameter, check, or constant that crosses a port, decide
+which side owns the knowledge, and say so in the plan:
 
 - Provider facts (service names, quotas, SDK options) stay in the adapter.
-  When the core needs a limit, it defines the limit as its own contract that
-  every adapter must accept, as the outbox does with its payload and batch
-  limits (`message-broker.port.ts`); it never checks a provider's limit.
-- The side that owns a policy passes it in. The outbox owns retries and
-  shutdown, so it hands the broker an `AbortSignal`, and the adapter only
-  honors it.
-- A port names a capability, not a technology; it may persist, read, or
-  publish.
-- Writes to a table belong to the component that owns the table (for
-  example `outbox_events` to `messaging/outbox`), not to a shared base class
-  that happens to run nearby.
+  When the core needs a limit, it defines its own contract every adapter must
+  accept, as the outbox does with its payload and batch limits
+  (`message-broker.port.ts`); it never checks a provider's limit.
+- The side that owns a policy passes it in: the outbox owns retries and
+  shutdown, so it hands the broker an `AbortSignal` that the adapter honors.
+- A port names a capability, not a technology.
+- Writes to a table belong to the component that owns it (`outbox_events` to
+  `messaging/outbox`), not to a base class that runs nearby.
 
 ## Runtime portability
 
-- Infrastructure must not assume whether it runs in a long-lived server,
-  Lambda, queue worker, or another host.
-- Keep EC2, Lambda, API Gateway, and worker entrypoints under `apps/`.
+- Infrastructure never assumes whether it runs in a long-lived server,
+  Lambda, or worker. Entrypoints live under `apps/`.
 - When hosts need different adapters, expose focused HTTP, messaging,
-  persistence, or background-work modules instead of activating them as import
-  side effects.
+  persistence, or background-work modules; importing a module never starts
+  work as a side effect.
 - Preserve extraction boundaries: no cross-context internal imports, table
   access, or database transactions.
 
-Load `investflow-eventing` when infrastructure work raises, records, or
-consumes an event, or touches unit-of-work commit hooks, the outbox, broker
-publication, or consumers.
+## Before finishing
 
-## Naming and validation
+- Every port parameter or limit sits on the side that owns it.
+- No ORM type, native `Date`, or Decimal leaks out of a handler or
+  repository.
+- No repository grew a list, count, or existence helper.
+- A boolean that reports success or failure is a `Result` instead.
+- A new or changed query handler that serves a screen computes its business
+  facts, not its formatting.
 
-Follow the role suffixes and folder taxonomy documented in
-`docs/architecture/project-structure.md`. Use public workspace aliases between
-projects and relative imports within one project.
+## Tests
 
-Do not create unit tests that enumerate request DTOs only to re-test built-in
-`class-validator` decorators such as `@IsUUID()`, `@IsEnum()`, or
-`@IsOptional()`. The library already covers those behaviors. Extract custom
-validators and decorators into focused validator files and test those rules
-directly. Test commands for request mapping, not for the internals of framework
-validation. Do not write controller specs: controllers only delegate to use
-cases and query handlers. Add one only when a controller has its own behavior
-that no other test covers.
-
-Finish with the checks for infrastructure in "Done means" in `AGENTS.md`.
+Test custom validators and decorators directly and request mapping in
+command tests; do not write suites that re-test built-in `class-validator`
+decorators, and do not write controller specs unless a controller has
+behavior no other test covers. Persistence round trips (precision, dates,
+conditional updates) belong in `*.integration.spec.ts`. Finish with the
+checks for infrastructure or persistence in "Done means" in `AGENTS.md`.

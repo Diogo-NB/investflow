@@ -12,11 +12,17 @@ how the work is shaped and presented, they decide what the code looks like.
 
 ## Read first
 
-- `docs/product/implementation-roadmap.md` for the D-numbered step, its
-  settled and open points, and what is paused.
-- `docs/product/investment-simulator-prd.md` for the business rules.
-- `docs/architecture/project-structure.md` (decisions and "Deferred Work"),
-  plus `event-flow.md` or `frontend-patterns.md` when the work touches them.
+Find what the work touches before reading, then read only that
+(`docs/README.md` says what each file owns):
+
+- The step's section and "Next Steps" in
+  `docs/product/implementation-roadmap.md`, and the areas it touches in
+  `docs/product/current-state.md`.
+- The PRD or curve-specification sections for the business rules involved,
+  and the screen file in `docs/product/screens/` for screen work.
+- The architecture file of each area touched (`recalculation.md`,
+  `messaging.md`, `queries.md`, `frontend-patterns.md`) and every
+  `docs/architecture/deferred-work.md` item that names it.
 
 Recorded decisions are revisable. Check whether their premises still hold
 instead of building on them blindly, and say which parts of the area are
@@ -128,20 +134,38 @@ After a decision is agreed or an implementation lands, update the docs in
 the same change. The user should never have to ask whether the docs are up
 to date:
 
-- **Roadmap**: "Current State", "Next Steps", and the step's section. Mark
-  settled points, paused steps (with the date), and what remains.
+- **Roadmap**: "Next Steps" and the step's section. Mark settled points,
+  paused steps (with the date), and what remains; remove a step's section
+  once it ships.
+- **Current State**: what the change built or changed, in
+  `docs/product/current-state.md`.
+- **Screens**: user-visible behavior of a screen, in its
+  `docs/product/screens/` file.
 - **PRD**: whenever a business rule, requirement, or user-visible behavior
   changed, even if the change came from a technical discussion.
-- **Architecture docs**: record decisions with their date in
-  `project-structure.md`, `event-flow.md`, or `frontend-patterns.md`, and
-  update the matching invariant in `AGENTS.md` when one exists.
+- **Architecture docs**: record decisions with their date in the file that
+  owns the area (`docs/README.md`), the Event Catalog for any event change,
+  and the matching one-line invariant in `AGENTS.md` when one exists.
 - **Deferred Work**: add each consciously postponed item to
-  `project-structure.md` with its date, the reason, and when to revisit it.
-  Remove an item when it ships.
-- **Skills**: when a convention changed, update the skill that teaches it.
+  `docs/architecture/deferred-work.md` with its date, the reason, and when to
+  revisit it. Remove an item when it ships.
+- **Skills**: when a coding convention changed, update the skill that owns
+  it (coding rules live in skills, not docs). When files move to another
+  skill, update the "Agent Skills" routing in `AGENTS.md` and the hook's
+  `ROUTES` together.
 
 Then re-read the changed docs once against each other: the same fact must
 not be stated differently in two places.
 
-When the user corrects the plan or the code in a way a rule would have
-prevented, propose the rule for the matching skill or `AGENTS.md`.
+## Turning corrections into rules
+
+When the user corrects a plan or code in a way a rule would have prevented,
+propose the rule, then write it so the skill does not just grow:
+
+1. Find the rule it generalizes in the owning skill (or `AGENTS.md` for a
+   rule every task needs) and edit that one instead of appending a new one.
+2. State the principle with the user's case as the example.
+3. When the same mistake has happened before, add it to the skill's "Before
+   finishing" list.
+4. When a skill passes about 12 KB, condense it: merge rules that say the
+   same thing and move material only some tasks need into `references/`.

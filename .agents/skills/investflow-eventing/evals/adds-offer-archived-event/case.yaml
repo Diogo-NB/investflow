@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: adds-offer-archived-event
-expected_outcome: |
-  Implements offer archiving and, because the change raises new domain events, loads investflow-eventing before editing event code, names the events after business facts, keeps their payload to identifiers, adds them to the Event Catalog in docs/architecture/event-flow.md, and reports the checks from "Done means" that ran.

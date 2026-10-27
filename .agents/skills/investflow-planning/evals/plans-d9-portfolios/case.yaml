@@ -1,4 +1,0 @@
-schema_version: "1.1"
-name: plans-d9-portfolios
-expected_outcome: |
-  A D9 plan that states the model first, compares options for the open membership decision with one recommended, asks open decisions as a numbered prose list, shows per-file code sketches, bounds scope, and lists the docs to update, without editing the repository.

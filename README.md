@@ -142,7 +142,7 @@ Domain events reach consumers through EventBridge and SQS, emulated locally by
 Floci on port 4566. Events are published to the `investflow` bus with their
 `context` as the source; each consumer has its own queue and dead-letter queue,
 provisioned by `infra/floci/init/provision.sh` when the container starts. See
-"Messaging Transport" in `docs/architecture/project-structure.md`.
+[`docs/architecture/messaging.md`](docs/architecture/messaging.md).
 
 ## Architecture Conventions
 
@@ -157,9 +157,10 @@ Only domain projects must remain framework-free. Application and
 infrastructure projects may use NestJS, but process bootstrap, lifecycle, and
 EC2/Lambda-specific setup belong to the app that hosts them.
 
-Project structure, runtime composition, file suffixes, dependency injection,
-Result/error handling, and class design conventions are documented in
-[`docs/architecture/project-structure.md`](docs/architecture/project-structure.md).
+Project structure, runtime composition, and file suffixes are documented in
+[`docs/architecture/project-structure.md`](docs/architecture/project-structure.md);
+[`docs/README.md`](docs/README.md) lists every doc, and the coding rules per
+layer are the skills in `.agents/skills/`.
 
 ## Frontend
 
@@ -198,6 +199,6 @@ The investment simulator's screens live in
   delete private offers and curves. System content is read-only.
 
 Their behavior is recorded in
-[Frontend Patterns](docs/architecture/frontend-patterns.md#simulation-workspace-behavior),
+[`docs/product/screens/`](docs/product/screens/),
 and the API they call in the
 [infrastructure README](libs/investment-simulator/infrastructure/README.md#http-api).

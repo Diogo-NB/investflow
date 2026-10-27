@@ -38,7 +38,7 @@ ss -ltnp | grep -E ':(3000|4200|5432|8080|4566)\b'
 
 - Docker unavailable: stop and tell the user; do not work around it.
 - Containers down: `pnpm db:up`. An empty or broken database: `pnpm
-  db:setup` resets it (only when the user allows resetting local data), then
+db:setup` resets it (only when the user allows resetting local data), then
   `pnpm db:seed` loads the system curves and offers.
 - API: `pnpm start:api` in the background; ready when
   `curl -s -o /dev/null -w '%{http_code}' localhost:3000/api` answers. Web:
