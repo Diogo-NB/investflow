@@ -41,9 +41,12 @@ import { PrismaSimulationRepository } from '../prisma-simulation.repository';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
-// Run against a database with the migrations already applied.
-const connectionString = process.env['INVESTMENT_SIMULATOR_TEST_DATABASE_URL'];
-const integration = connectionString ? describe : describe.skip;
+const connectionString = process.env['INTEGRATION_TEST_DATABASE_URL'];
+if (!connectionString) {
+  throw new Error(
+    'INTEGRATION_TEST_DATABASE_URL is not set; run pnpm check:integration',
+  );
+}
 
 const calculation = new SimulationCalculationService(
   new InvestmentCalculator(),
@@ -60,10 +63,14 @@ function inUnitOfWork<R extends { save(aggregate: never): Promise<unknown> }>(
   });
 }
 
-integration('Simulation PostgreSQL persistence', () => {
+describe('Simulation PostgreSQL persistence', () => {
   let prisma: PrismaService;
   let unitOfWork: UnitOfWork;
-  const events = new TransactionalDomainEventRecorder();
+  const clock: Clock = {
+    now: () => UtcInstant.ofIso('2026-10-11T12:00:00Z'),
+    today: () => CalendarDate.of('2026-10-11'),
+  };
+  const events = new TransactionalDomainEventRecorder(clock);
   let offers: PrismaOfferRepository;
   let curves: PrismaCurveRepository;
   let simulations: PrismaSimulationRepository;
@@ -129,7 +136,7 @@ integration('Simulation PostgreSQL persistence', () => {
         },
       });
     } finally {
-      await prisma.onModuleDestroy();
+      await prisma.onApplicationShutdown();
     }
   });
 

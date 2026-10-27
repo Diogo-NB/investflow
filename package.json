@@ -24,7 +24,8 @@
     "lint": "nx run-many -t lint",
     "build": "nx run-many -t build",
     "test": "nx run-many -t test --passWithNoTests",
-    "check": "nx run-many -t lint,test,typecheck,build --outputStyle=static"
+    "check": "nx run-many -t lint,test,typecheck,build --outputStyle=static",
+    "check:integration": "pnpm check && nx run-many -t integration --parallel=1 --outputStyle=static"
   },
   "private": true,
   "dependencies": {

@@ -79,13 +79,10 @@ separate and must configure its own users plus the SPA URLs. `WEB_APP_ORIGIN`
 parameterizes the redirect, web-origin, and post-logout URLs in the local realm
 import.
 
-Persistence integration specs run against a real PostgreSQL database only when
-`INVESTMENT_SIMULATOR_TEST_DATABASE_URL` points at one with the migrations
-applied (the local `DATABASE_URL` works); otherwise they are skipped:
-
-```sh
-INVESTMENT_SIMULATOR_TEST_DATABASE_URL="$DATABASE_URL" pnpm nx run investment-simulator-infrastructure:test
-```
+Integration specs (`*.integration.spec.ts`) run against PostgreSQL and Floci,
+so `pnpm check` leaves them out. With the local stack up (`pnpm db:up`),
+`pnpm check:integration` runs `pnpm check`, migrates the test database in
+`INTEGRATION_TEST_DATABASE_URL`, and runs them; it fails when they cannot run.
 
 The API exposes a public database health check at
 `http://localhost:3000/api/health-check`. All other routes are authenticated by

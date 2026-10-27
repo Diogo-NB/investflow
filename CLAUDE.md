@@ -149,3 +149,7 @@ rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
 
 Overall average: **60-90% token reduction** on common development operations.
 <!-- /rtk-instructions -->
+`.claude/hooks/require-skills.py` (a `PreToolUse` hook in
+`.claude/settings.json`) blocks edits to files that the "Agent Skills" table in
+`AGENTS.md` routes to a skill until that skill is loaded. Change the table and
+the hook's `ROUTES` together.

@@ -184,7 +184,7 @@ carries per-type variation and why it is the minimum.
 - Presentation queries live in infrastructure and own operation-specific plain
   output contracts and record mapping in their handler files. Do not introduce
   application read-model ports or load aggregates solely to render responses.
-  Use `$investflow-nestjs-infrastructure` for query outputs and optional
+  Use `investflow-nestjs-infrastructure` for query outputs and optional
   transport presenters; domain and application temporal APIs still use the
   shared temporal value objects.
 
@@ -231,24 +231,14 @@ carries per-type variation and why it is the minimum.
 
 ## Domain events
 
-Domain events are immutable, versioned, past-tense classes. They include event
-identity, occurrence time as `UtcInstant`, aggregate identity and type, logical
-context, and scalar payload data. Do not put entities, value objects, or ORM
-objects in event payloads.
-
-Name each event after the business fact, never a generic `<Aggregate>Changed`
-or `<Aggregate>Updated`. Split an aggregate's changes into separate events
-when consumers must react differently to them: an offer's terms change
-recalculates simulations, while a renamed offer does not, so they are
-`OfferTermsChanged` and `OfferDetailsChanged`. Consumers subscribe to the
-facts they care about instead of filtering a generic event.
-
-Use `$investflow-eventing` when a change also affects outbox persistence,
-publication, broker routing, or consumers.
+`investflow-eventing` owns event design: which facts become events, their
+names, payloads, and consumers, and the event catalog. Load it whenever a
+change adds, changes, or removes an event, or makes an aggregate or service
+raise or record one.
 
 ## Tests
 
 Place focused `*.spec.ts` files in a `test/` folder beside the source, or beside the source itself when the folder would hold a single file. Cover factories, invariants,
 state transitions, event emission, error paths, and deterministic temporal
-behavior. Run the affected domain and application Nx test and lint targets;
-broaden validation when public contracts or dependency boundaries change.
+behavior. Finish with the checks for domain and application in "Done means"
+in `AGENTS.md`.

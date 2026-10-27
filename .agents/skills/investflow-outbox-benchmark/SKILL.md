@@ -11,7 +11,7 @@ replaces only the `MessageBroker` with a timing wrapper around Floci or a
 simulated broker. Its events use the context `benchmark`, which no
 EventBridge rule matches, so nothing reaches a queue. It deletes its rows
 before and after a run. How publishing works is in "Messaging Transport" in
-`docs/architecture/project-structure.md`; use `$investflow-eventing` to change
+`docs/architecture/project-structure.md`; use `investflow-eventing` to change
 it.
 
 ## Before running

@@ -32,6 +32,31 @@
     },
     "prisma-studio": {
       "command": "pnpm prisma studio --config=libs/shared/infrastructure/prisma/prisma.config.ts"
+    },
+    "prisma-migrate-test-database": {
+      "cache": false,
+      "command": "test -n \"$INTEGRATION_TEST_DATABASE_URL\" || { echo 'INTEGRATION_TEST_DATABASE_URL is not set (see .env.example)' >&2; exit 1; } && DATABASE_URL=\"$INTEGRATION_TEST_DATABASE_URL\" pnpm prisma migrate deploy --config=libs/shared/infrastructure/prisma/prisma.config.ts"
+    },
+    "integration": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        {
+          "projects": ["shared-infrastructure"],
+          "target": "prisma-migrate-test-database"
+        }
+      ],
+      "options": {
+        "command": "env -u AWS_PROFILE NODE_OPTIONS=--experimental-vm-modules pnpm exec jest --config libs/shared/infrastructure/jest.config.cts --testPathIgnorePatterns=/node_modules/ --testMatch='**/*.integration.spec.ts'"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "tsc -p libs/shared/infrastructure/tsconfig.spec.json --noEmit"
+      }
     }
   }
 }

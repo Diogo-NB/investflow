@@ -345,10 +345,9 @@ Use Vitest through Nx with jsdom. Testing is state-first:
 - Don't query DOM nodes or assert markup, CSS classes, snapshots, or static
   copy in unit tests. Component tests are limited to hook orchestration.
 
-Typecheck, lint, builds, and browser checks validate presentation. Before
-merging a frontend change, run frontend lint, tests, development and production builds,
-`pnpm check`, and `pnpm nx run api:prune` so browser packages stay out of the
-API artifact. Manually check local Keycloak login, reload, logout,
+Typecheck, lint, builds, and browser checks validate presentation. The
+commands a frontend change runs before it is done are in "Done means" in
+`AGENTS.md`. In the browser, check local Keycloak login, reload, logout,
 failure/retry, keyboard focus, responsive reflow (320–1440px, 200% zoom),
 reduced motion, and axe A/AA. Add an E2E project only for a demonstrated
 critical product journey. The workspace includes none.

@@ -66,15 +66,11 @@ export default [
             },
             {
               sourceTag: 'layer:domain',
-              onlyDependOnLibsWithTags: ['layer:domain', 'scope:shared'],
+              onlyDependOnLibsWithTags: ['layer:domain'],
             },
             {
               sourceTag: 'layer:application',
-              onlyDependOnLibsWithTags: [
-                'layer:domain',
-                'layer:application',
-                'scope:shared',
-              ],
+              onlyDependOnLibsWithTags: ['layer:domain', 'layer:application'],
             },
             {
               sourceTag: 'layer:infrastructure',
@@ -82,7 +78,7 @@ export default [
                 'layer:application',
                 'layer:domain',
                 'layer:infrastructure',
-                'scope:shared',
+                'layer:types',
               ],
             },
             {

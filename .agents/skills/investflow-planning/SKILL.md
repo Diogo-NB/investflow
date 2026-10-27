@@ -90,7 +90,7 @@ Order the plan so the most consequential part comes first:
 1. **Goal and scope**: what ships, what is out of scope, what is deferred.
 2. **Model**: for domain work, the types, the PRD vocabulary they encode,
    what is stored versus derived, and how per-type variation is carried (see
-   "Model review" in `$investflow-domain-application`). For eventing, the
+   "Model review" in `investflow-domain-application`). For eventing, the
    events (named after business facts), their producers, consumers, and
    queues. For screens, the user's task and the query each screen reads.
 3. **Implementation**: per-file code sketches of the types, signatures, and
@@ -101,7 +101,7 @@ Order the plan so the most consequential part comes first:
 4. **Delivery**: when the work is large, split it into PRs that each build
    and pass tests on their own (PR A, B, C), in dependency order.
 5. **Verification**: the tests to add and how the change will be tested on
-   the local stack (see `$investflow-local-testing`).
+   the local stack (see `investflow-local-testing`).
 6. **Docs**: the docs and skills the change updates (see "Close out").
 
 ## Self-review before presenting

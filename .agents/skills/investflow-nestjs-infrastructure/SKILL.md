@@ -228,9 +228,9 @@ side owns the knowledge, and state the answer in the plan:
 - Preserve extraction boundaries: no cross-context internal imports, table
   access, or database transactions.
 
-Use `$investflow-eventing` when infrastructure work affects domain-event
-persistence, unit-of-work commit hooks, outbox publishing, broker
-publication, or message consumers.
+Load `investflow-eventing` when infrastructure work raises, records, or
+consumes an event, or touches unit-of-work commit hooks, the outbox, broker
+publication, or consumers.
 
 ## Naming and validation
 
@@ -247,6 +247,4 @@ validation. Do not write controller specs: controllers only delegate to use
 cases and query handlers. Add one only when a controller has its own behavior
 that no other test covers.
 
-Run the affected infrastructure lint and test targets plus the consuming app's
-build. Run `pnpm check` when project boundaries, shared configuration, or public
-composition contracts change.
+Finish with the checks for infrastructure in "Done means" in `AGENTS.md`.

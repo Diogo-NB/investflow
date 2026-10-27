@@ -17,38 +17,35 @@ state their tradeoffs.
 
 ## Agent Skills
 
-Load the repository skill that matches the work:
+Skills are chosen by the files a change touches, not by how the request is
+worded. Before creating or editing a file that matches a row, load that
+row's skill, even in the middle of a task that started elsewhere. A change
+usually matches several rows; load each. In Claude Code a hook blocks edits
+to matching files until their skill is loaded.
 
-- `$investflow-domain-application` for aggregates, value objects, domain
-  services, use cases, ports, application errors, and temporal behavior.
-- `$investflow-nestjs-infrastructure` for controllers, DTOs, Prisma adapters,
-  query handlers, Nest modules, dependency injection, and host composition.
-- `$investflow-eventing` for domain events, the transactional outbox,
-  EventBridge/SQS, consumers, retries, and idempotency.
-- `$investflow-react` for routes, components, hooks, forms, browser API
-  clients, state, styling, accessibility, and frontend tests.
-- `$investflow-outbox-benchmark` to run, interpret, and report the outbox
-  publishing benchmark (`pnpm bench:outbox`), or to extend it.
-- `$investflow-planning` to plan or discuss features, refactors, roadmap
+| Files or content                                                                                                                                                                                                             | Skill                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `libs/*/domain/**`, `libs/*/application/**`                                                                                                                                                                                  | `investflow-domain-application`    |
+| `libs/*/infrastructure/**`, `apps/api/**`                                                                                                                                                                                    | `investflow-nestjs-infrastructure` |
+| `*.events.ts`, `*.event.ts`, `*.consumer.ts`, `libs/shared/infrastructure/src/lib/messaging/**`, `unit-of-work*`, `infra/floci/**`, or code that raises, records, or consumes an event (`apply(new`, `.record(`, `@OnEvent`) | `investflow-eventing`              |
+| `apps/web/**`, `libs/*/web/**`                                                                                                                                                                                               | `investflow-react`                 |
+| `tools/benchmarks/**`                                                                                                                                                                                                        | `investflow-outbox-benchmark`      |
+
+Skills for kinds of work rather than files:
+
+- `investflow-planning` to plan or discuss features, refactors, roadmap
   steps, and design questions, present options, and update the docs once
   decisions are made.
-- `$investflow-local-testing` to test changes on the local development
+- `investflow-local-testing` to test changes on the local development
   stack: starting it, API calls with a local Keycloak token, database rows,
   and browser testing.
+- `investflow-outbox-benchmark` to run, interpret, and report the outbox
+  publishing benchmark (`pnpm bench:outbox`).
 
 Vendored frontend skills (tracked in `skills-lock.json`) supplement
-`$investflow-react`:
-
-- `$react-router` for routing (this app uses Data mode).
-- `$vercel-composition-patterns` for component API design.
-- `$vercel-react-best-practices` for performance work and reviews.
-
-Cross-layer changes can require more than one skill. Repository conventions in
-`$investflow-react` and `docs/architecture/frontend-patterns.md` take precedence
-over vendored skills: this is a client-only SPA (ignore server, RSC, and
-Next.js rules), use Nx generators, retain installed package and toolchain
-versions unless an upgrade is explicitly requested, and follow the state-first
-frontend testing policy.
+`investflow-react`, which takes precedence over them: `react-router` for
+routing (this app uses Data mode) and `vercel-composition-patterns` for
+component API design.
 
 ## Architecture Invariants
 
@@ -146,7 +143,7 @@ frontend testing policy.
 
 ## Design Work and Plans
 
-Use `$investflow-planning` for any plan, design discussion, or decision. In
+Use `investflow-planning` for any plan, design discussion, or decision. In
 short: recorded decisions are revisable; present alternatives with a
 recommendation and the simplest option that works; plans show per-file code
 sketches and are self-reviewed against the layer skills; and every agreed
@@ -172,7 +169,12 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 - `pnpm start:api`: serve the API in development mode.
 - `pnpm build:api`: build the API into `dist/`.
 - `pnpm test`: run all project tests (Jest for backend, Vitest for frontend).
-- `pnpm check`: lint, test, typecheck, and build all Nx projects.
+- `pnpm check`: lint, unit test, typecheck, and build all Nx projects. It
+  needs nothing but the repository, so it runs anywhere, including CI.
+- `pnpm check:integration`: `pnpm check`, then the integration tests
+  (`*.integration.spec.ts`) against a migrated test database
+  (`INTEGRATION_TEST_DATABASE_URL`) and Floci. Needs `pnpm db:up`; it fails
+  rather than skips when they are missing.
 - `pnpm db:generate`: regenerate the Prisma client.
 - `pnpm bench:outbox`: measure how long committed outbox events wait to be
   published (run with the API stopped; `--broker floci|simulated`).
@@ -219,7 +221,7 @@ it twice. When extending an existing type would leave it unclear, remodel it
 in the same change rather than appending fields. Plans that touch the domain
 state the model first: the types, the vocabulary they encode, and what is
 stored versus derived. See "Model review" in
-`$investflow-domain-application`.
+`investflow-domain-application`.
 
 `AppError` messages are user-facing, concise pt-BR that clients show as is.
 The stable `code` is the contract for behavior and tests. Every code is a member
@@ -269,14 +271,30 @@ and command request-mapping in command tests. Do not write controller specs:
 controllers only delegate to use cases and query handlers, so add one only when
 a controller has its own behavior that no other test covers.
 
-Frontend tests follow the state-first policy in `$investflow-react`: test
+Frontend tests follow the state-first policy in `investflow-react`: test
 feature hooks (with `renderHook`), API adapters, and pure helpers without
 asserting DOM structure or UI details.
 
-Verify backend work in this order: automated tests first, then the backend
-alone on a running API (calls with a Keycloak token, then PostgreSQL rows).
-Do not assume a full end-to-end run is needed; propose it with its rationale
-and wait for approval. `$investflow-local-testing` has the commands.
+### Done means
+
+Iterate with the affected projects' targets (`pnpm nx run <project>:test`,
+`:lint`, `:typecheck`). Before reporting a change as done, run every row
+it matches:
+
+| Change                                                                          | Before finishing                                                                                                |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Domain or application only                                                      | `pnpm check`                                                                                                    |
+| HTTP, DTOs, modules, host composition                                           | `pnpm check`; the changed endpoints on the local API (`investflow-local-testing`)                               |
+| Persistence: repositories, mappers, query handlers, Prisma schema, migrations   | `pnpm check:integration`; the endpoints and the rows they wrote on the local stack                              |
+| Events, consumers, outbox, unit of work, messaging                              | `pnpm check:integration`; the asynchronous flow on the local stack (outbox rows, `processed_events`, end state) |
+| Outbox publishing path (relay, poller, publisher, broker adapter, unit of work) | Also `pnpm bench:outbox` before and after (`investflow-outbox-benchmark`)                                       |
+| Frontend                                                                        | `pnpm check`; the browser checks in "Testing and verification" in `docs/architecture/frontend-patterns.md`      |
+| Dependencies                                                                    | `pnpm check`; `pnpm nx run api:prune` so browser packages stay out of the API artifact                          |
+| Docs or skills only                                                             | Re-read the changed files against each other; the same fact is not stated differently in two places             |
+
+Browser testing on a backend-only change is proposed with its rationale and
+waits for approval. Report what ran, what was skipped, and why; never claim
+a check that did not run.
 
 ## Commit & Pull Request Guidelines
 

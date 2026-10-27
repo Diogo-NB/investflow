@@ -1,13 +1,41 @@
 ---
 name: investflow-eventing
-description: Implement, review, or refactor InvestFlow transactional messaging. Use for domain events, outbox persistence, relay, or polling, unit-of-work commit hooks, EventBridge routing, SQS consumers, processed-event tracking, retries, dead-letter behavior, idempotency, or host activation of messaging workers. Do not use for backend changes without event publication or consumption.
+description: Own InvestFlow domain events end to end, from deciding which business facts become events to delivering them. Use whenever a change adds, renames, removes, or changes a domain event or its payload; makes an aggregate, use case, or service raise or record an event; adds or changes a consumer, queue, or routing rule; or touches the outbox, relay, poller, publisher, unit-of-work commit hooks, EventBridge, SQS, retries, dead-letter queues, or idempotency. Load it alongside the domain or infrastructure skill when their work raises or consumes events. Do not use for changes that neither raise nor consume events.
 ---
 
 # InvestFlow Eventing
 
-Preserve atomic event persistence and at-least-once delivery across bounded
-contexts. `docs/architecture/event-flow.md` walks through the whole flow,
-including simulation recalculation, with diagrams.
+This skill is the single owner of domain events: which facts become events,
+what they carry, who consumes them, and how they are delivered. It preserves
+atomic event persistence and at-least-once delivery across bounded contexts.
+`docs/architecture/event-flow.md` walks through the whole flow with diagrams;
+its "Event Catalog" lists every event, its producer, and its consumers.
+
+## Event design
+
+Read the "Event Catalog" and "Adding or Changing an Event" sections of
+`docs/architecture/event-flow.md` before adding or changing an event, and
+update the catalog in the same change.
+
+- Name each event after the business fact, in the past tense, never a
+  generic `<Aggregate>Changed` or `<Aggregate>Updated`. Split an aggregate's
+  changes into separate events when consumers must react differently to
+  them: an offer's terms change recalculates simulations while a renamed
+  offer does not, so they are `OfferTermsChanged` and `OfferDetailsChanged`.
+  Consumers subscribe to the facts they care about instead of filtering a
+  generic event.
+- Do not encode an operation's mode in one event when the facts differ:
+  creating, editing, and asking for a calculation are `SimulationCreated`,
+  `SimulationEdited`, and `SimulationCalculationRequested`, and one consumer
+  subscribes to all three.
+- Keep payloads minimal. Consumers read current state, so an event carries
+  identifiers and only the fields a consumer needs and cannot read. Do not
+  copy aggregate state (owner, name, revision, values) into it "in case".
+- Events are immutable, versioned classes with event identity, `occurredAt`
+  as `UtcInstant`, aggregate identity and type, the logical context, and
+  scalar payload data. No entities, value objects, or ORM objects.
+- Aggregates raise events through `apply()` from their behavior; services
+  record bulk events through `DomainEventRecorder` (see "Publishing flow").
 
 ## Publishing flow
 
@@ -72,7 +100,7 @@ Routing lives in the broker adapter and the EventBridge rules; the outbox and
 the port know no topics, buses, or queues. The deployable host decides whether
 it publishes (relay and poller) by importing `OutboxModule`; a host without it
 leaves its events to a publishing host's poller. Measure publishing latency
-with `$investflow-outbox-benchmark` before and after changing publishing.
+with `investflow-outbox-benchmark` before and after changing publishing.
 
 ## Event contract
 
@@ -154,9 +182,22 @@ with `$investflow-outbox-benchmark` before and after changing publishing.
   (`EventDispatcher` and `@OnEvent`), and `sqs` (listener and host module).
   Transport-specific code stays in `eventbridge` and `sqs`.
 
-Use `$investflow-domain-application` for aggregate emission and listener use
-cases. Use `$investflow-nestjs-infrastructure` for provider registration,
-persistence adapters, and host composition.
+Use `investflow-domain-application` for the aggregate behavior and use cases
+around an event, and `investflow-nestjs-infrastructure` for provider
+registration, persistence adapters, and host composition.
+
+## Before finishing
+
+- Every new or changed event is in the "Event Catalog", with its producer,
+  payload, and consumers.
+- Each event names one business fact; no generic `Changed` event and no mode
+  field.
+- Each payload field is read by a consumer and cannot be read from current
+  state.
+- Each consumed event is in its queue's pattern in
+  `infra/floci/init/provision.sh` and has an `@OnEvent` method.
+- Consumers are idempotent, read current state, and throw only for failures
+  a retry can fix.
 
 ## Tests
 
@@ -167,7 +208,6 @@ the relay's hand-off, cap, staleness, and shutdown, the poller's claim and
 grace period, publication marking and per-event failure isolation, pausing, processed-event
 deduplication per consumer, consumer rollback, message deletion rules, and host
 activation boundaries. `messaging.integration.spec.ts` covers the whole path
-against Floci, including concurrent pollers, when `MESSAGING_TEST_DATABASE_URL` is set; run it with
-`NODE_OPTIONS=--experimental-vm-modules` and without `AWS_PROFILE`. Run the affected project
-tests and builds; broaden to `pnpm check` when shared messaging infrastructure
-or Nx boundaries change.
+against Floci, including concurrent pollers; it runs in
+`pnpm check:integration`. Finish with the checks for eventing in "Done means" in
+`AGENTS.md`.

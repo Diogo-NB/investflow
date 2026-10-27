@@ -15,6 +15,14 @@
         "main": "libs/shared/domain/src/index.ts",
         "assets": ["libs/shared/domain/*.md"]
       }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "tsc -p libs/shared/domain/tsconfig.spec.json --noEmit"
+      }
     }
   }
 }

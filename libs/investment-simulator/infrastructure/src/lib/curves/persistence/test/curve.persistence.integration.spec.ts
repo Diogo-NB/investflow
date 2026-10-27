@@ -11,6 +11,7 @@ import {
   EAppErrorCode,
   UtcInstant,
 } from '@investflow/shared-domain';
+import { Clock } from '@investflow/shared-application';
 import {
   PrismaService,
   TransactionalDomainEventRecorder,
@@ -20,9 +21,12 @@ import { PrismaCurveRepository } from '../prisma-curve.repository';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
-// Run against a database with the migrations already applied.
-const connectionString = process.env['INVESTMENT_SIMULATOR_TEST_DATABASE_URL'];
-const integration = connectionString ? describe : describe.skip;
+const connectionString = process.env['INTEGRATION_TEST_DATABASE_URL'];
+if (!connectionString) {
+  throw new Error(
+    'INTEGRATION_TEST_DATABASE_URL is not set; run pnpm check:integration',
+  );
+}
 
 const AT = UtcInstant.ofIso('2026-10-11T12:00:00Z');
 
@@ -44,10 +48,14 @@ function inUnitOfWork<R extends { save(aggregate: never): Promise<unknown> }>(
   });
 }
 
-integration('Curve PostgreSQL persistence', () => {
+describe('Curve PostgreSQL persistence', () => {
   let prisma: PrismaService;
   let unitOfWork: UnitOfWork;
-  const events = new TransactionalDomainEventRecorder();
+  const clock: Clock = {
+    now: () => AT,
+    today: () => CalendarDate.of('2026-10-11'),
+  };
+  const events = new TransactionalDomainEventRecorder(clock);
   const curveIds: string[] = [];
 
   beforeAll(async () => {
@@ -68,7 +76,7 @@ integration('Curve PostgreSQL persistence', () => {
         where: { aggregateId: { in: curveIds } },
       });
     } finally {
-      await prisma.onModuleDestroy();
+      await prisma.onApplicationShutdown();
     }
   });
 

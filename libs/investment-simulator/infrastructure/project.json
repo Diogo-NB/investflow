@@ -18,6 +18,27 @@
         "tsConfig": "libs/investment-simulator/infrastructure/tsconfig.lib.json",
         "assets": ["libs/investment-simulator/infrastructure/*.md"]
       }
+    },
+    "integration": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        {
+          "projects": ["shared-infrastructure"],
+          "target": "prisma-migrate-test-database"
+        }
+      ],
+      "options": {
+        "command": "env -u AWS_PROFILE NODE_OPTIONS=--experimental-vm-modules pnpm exec jest --config libs/investment-simulator/infrastructure/jest.config.cts --testPathIgnorePatterns=/node_modules/ --testMatch='**/*.integration.spec.ts'"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "tsc -p libs/investment-simulator/infrastructure/tsconfig.spec.json --noEmit"
+      }
     }
   }
 }

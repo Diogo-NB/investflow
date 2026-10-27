@@ -17,7 +17,7 @@ set up a homolog environment.
 
 ## Order
 
-1. Run the affected Nx test targets (see the layer skill).
+1. Run the automated checks in "Done means" in `AGENTS.md`.
 2. Verify the backend alone: start the API, call the endpoints, query the
    database. This is the default for backend work.
 3. Browser testing with Playwright is expensive. On backend tasks, propose it

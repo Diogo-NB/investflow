@@ -36,25 +36,22 @@ integration is stable.
 
 Load these vendored skills alongside this one when the task matches:
 
-- `$react-router` for routing work. This app uses **Data mode**, so read only
+- `react-router` for routing work. This app uses **Data mode**, so read only
   `references/data-mode.md` and the installed `node_modules/react-router/docs`.
-- `$vercel-composition-patterns` for component API design: compound
+- `vercel-composition-patterns` for component API design: compound
   components, explicit variants, no boolean-prop sprawl.
-- `$vercel-react-best-practices` for performance work and reviews.
 
 This skill and the frontend guide take precedence over them:
 
-- This is a client-only SPA. Ignore `server-*`, RSC, hydration, Next.js
-  (`next/dynamic`, `after()`), and SWR rules. Use route `lazy` or
-  `React.lazy` for code splitting and TanStack Query for client data.
+- This is a client-only SPA. Ignore server, RSC, hydration, and Next.js
+  guidance. Use route `lazy` or `React.lazy` for code splitting and TanStack
+  Query for client data.
 - React Router's loaders, actions, `<Form method="post">`, and fetchers aren't
   used for data. TanStack Query owns reads and writes, React Hook Form owns
   forms, and routes use `lazy`, `ErrorBoundary`, `useSearchParams`, and
   `useBlocker`.
-- Don't add libraries a rule suggests (for example `better-all` or SWR) without
-  a decision in the frontend guide.
-- The barrel-import rule applies inside projects. Each project's `src/index.ts`
-  is its only, intentional public API.
+- Don't add libraries a vendored skill suggests without a decision in the
+  frontend guide.
 
 ## Default architecture
 
@@ -181,10 +178,7 @@ simulations, offers, and curves, not decoration.
 - Don't query DOM nodes or assert markup, CSS classes, snapshots, or static
   copy in unit tests.
 
-Run the affected frontend lint, test, and production build targets. Run
-`pnpm check` when a change can affect workspace boundaries or shared
-configuration, and `pnpm nx run api:prune` when dependency changes could leak
-browser packages into the server artifact.
+Finish with the checks for frontend in "Done means" in `AGENTS.md`.
 
 ## Guardrails
 

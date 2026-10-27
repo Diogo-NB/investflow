@@ -37,12 +37,15 @@ import { SqsConsumersModule } from './sqs/sqs-consumers.module';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
-// Run against an isolated database with the migrations already applied and
-// the local Floci container running (`pnpm db:up`). Jest needs
-// NODE_OPTIONS=--experimental-vm-modules because the AWS SDK HTTP handler
-// imports `node:http` dynamically.
-const connectionString = process.env['MESSAGING_TEST_DATABASE_URL'];
-const integration = connectionString ? describe : describe.skip;
+// Also needs the local Floci container (`pnpm db:up`). The `integration`
+// target sets NODE_OPTIONS=--experimental-vm-modules because the AWS SDK HTTP
+// handler imports `node:http` dynamically.
+const connectionString = process.env['INTEGRATION_TEST_DATABASE_URL'];
+if (!connectionString) {
+  throw new Error(
+    'INTEGRATION_TEST_DATABASE_URL is not set; run pnpm check:integration',
+  );
+}
 
 const region = process.env['AWS_REGION'] ?? 'us-east-1';
 const eventBusName = process.env['EVENT_BUS_NAME'] ?? 'investflow';
@@ -97,7 +100,7 @@ async function eventually(assertion: () => Promise<void> | void) {
   }
 }
 
-integration('Messaging through EventBridge and SQS', () => {
+describe('Messaging through EventBridge and SQS', () => {
   const sqs = new SQSClient({ region });
   const eventBridge = new EventBridgeClient({ region });
   let queueUrl: string;

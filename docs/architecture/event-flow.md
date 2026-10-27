@@ -372,6 +372,44 @@ sequenceDiagram
 - If polling load ever shows up, an `ETag` with `304` can be added to the same
   endpoint without client changes. Real-time push is future work.
 
+## Event Catalog
+
+Every domain event the system raises. A change that adds, renames, removes,
+or re-routes an event updates this table in the same change. Every event
+carries the shared envelope (`eventId`, `eventType`, `version`, `context`,
+`aggregateType`, `aggregateId`, `occurredAt`); "Payload" lists only what
+it adds.
+
+| Event                            | Raised by                                                             | Business fact                                               | Payload | Consumers (queue)                                                                                             |
+| -------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `OfferCreated`                   | `Offer`                                                               | An offer was created                                        | none    | none                                                                                                          |
+| `OfferTermsChanged`              | `Offer`                                                               | Its maturity, redemption, or remuneration terms changed     | none    | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
+| `OfferDetailsChanged`            | `Offer`                                                               | Its name or issuer changed                                  | none    | none                                                                                                          |
+| `OfferDeleted`                   | `Offer`                                                               | An offer was deleted                                        | none    | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
+| `CurveCreated`                   | `Curve`                                                               | A curve was created                                         | none    | none                                                                                                          |
+| `CurveValuesChanged`             | `Curve`                                                               | Its intervals or values changed                             | none    | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
+| `CurveDetailsChanged`            | `Curve`                                                               | Its name or description changed                             | none    | none                                                                                                          |
+| `CurveDeleted`                   | `Curve`                                                               | A curve was deleted                                         | none    | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
+| `SimulationCreated`              | `Simulation`                                                          | A simulation was created and waits for its calculation      | none    | `SimulationCalculationConsumer` (`simulation-calculations`), `SimulationCalculationFailureConsumer` (its DLQ) |
+| `SimulationEdited`               | `Simulation`                                                          | A simulation was saved and waits for its calculation        | none    | `SimulationCalculationConsumer` (`simulation-calculations`), `SimulationCalculationFailureConsumer` (its DLQ) |
+| `SimulationCalculationRequested` | `Simulation`; the offer and curve fan-out use cases record it in bulk | A calculation was asked for without changing the simulation | none    | `SimulationCalculationConsumer` (`simulation-calculations`), `SimulationCalculationFailureConsumer` (its DLQ) |
+
+## Adding or Changing an Event
+
+1. Name it after the business fact, in the past tense. Never
+   `<Aggregate>Changed` or `<Aggregate>Updated`; split an aggregate's changes
+   into separate events when consumers react to them differently, as
+   `OfferTermsChanged` and `OfferDetailsChanged` are.
+2. Add only payload fields a consumer needs and cannot read from current
+   state. Consumers read current state, so most events carry identifiers
+   only.
+3. Raise it from aggregate behavior with `apply()`, or record it with
+   `DomainEventRecorder` for bulk work that loads no aggregates.
+4. Route it: add its type to the event pattern of each consuming queue in
+   `infra/floci/init/provision.sh`, and an `@OnEvent` method to each consumer.
+5. Update the catalog above. Changing an existing payload is a new
+   `version`.
+
 ## Where the Code Lives
 
 | Piece                                                          | Path                                                                     |
