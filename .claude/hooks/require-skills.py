@@ -89,6 +89,17 @@ def edit_targets(tool, tool_input, root):
     return [], ''
 
 
+# A subagent's hook input carries the parent session's transcript_path plus
+# its agent_id; its own transcript sits beside the parent's. Only its own
+# counts: a subagent starts without the skills its parent loaded.
+def transcript_of(hook):
+    transcript = hook.get('transcript_path') or ''
+    agent_id = hook.get('agent_id')
+    if agent_id and transcript.endswith('.jsonl'):
+        return [os.path.join(transcript[: -len('.jsonl')], 'subagents', f'agent-{agent_id}.jsonl')]
+    return [transcript] if transcript else []
+
+
 def loaded_skills(transcripts):
     loaded = set()
     for transcript in transcripts:
@@ -115,10 +126,7 @@ def main():
     if not required:
         return
 
-    # A subagent reports its own transcript; skills loaded by the session
-    # that spawned it count too.
-    transcripts = [hook.get('transcript_path'), hook.get('agent_transcript_path')]
-    missing = sorted(required - loaded_skills([t for t in transcripts if t]))
+    missing = sorted(required - loaded_skills(transcript_of(hook)))
     if not missing:
         return
 
