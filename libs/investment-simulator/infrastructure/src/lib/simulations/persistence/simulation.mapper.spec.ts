@@ -13,8 +13,7 @@ const calculation: NonNullable<SimulationRecord['calculation']> = {
   simulationId: id,
   status: 'INVALID',
   changedAt: new Date('2026-10-11T12:00:00.000Z'),
-  causeKind: 'CURVE_CHANGED',
-  causeRefId: 'c51b8f16-2b90-4d24-a2f9-5923eb77c16c',
+  causeKind: 'RETRY_REQUESTED',
   causeActorId: 'owner-id',
   simulationRevision: 3,
   offerTermsRevision: 4,
@@ -141,8 +140,7 @@ describe('SimulationMapper', () => {
       '2026-10-11T12:00:00.000Z',
     );
     expect(calculation.cause).toEqual({
-      kind: ESimulationCalculationCauseKind.CURVE_CHANGED,
-      refId: record.curveId,
+      kind: ESimulationCalculationCauseKind.RETRY_REQUESTED,
       actorId: 'owner-id',
     });
     expect(calculation.inputs).toEqual({

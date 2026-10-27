@@ -1,6 +1,11 @@
 import type { OfferSummary } from '../models/offer.types';
 import { todayInSaoPaulo } from '../../dates/calendar-date';
-import { offerEdit, offerFormSchema, offerValues } from './offer-form';
+import {
+  changesOfferTerms,
+  offerEdit,
+  offerFormSchema,
+  offerValues,
+} from './offer-form';
 
 const offer: OfferSummary = {
   id: 'offer',
@@ -66,5 +71,33 @@ describe('offerFormSchema', () => {
         message: `Use datas entre 01/01/${year - 100} e 31/12/${year + 100}.`,
       }),
     ]);
+  });
+});
+
+describe('changesOfferTerms', () => {
+  it('is false for details only, however typed', () => {
+    expect(
+      changesOfferTerms(offer, {
+        ...offerValues(offer),
+        name: 'Outro nome',
+        issuerName: '',
+        redemptionKind: 'AT_MATURITY',
+        rate: '110,00',
+      }),
+    ).toBe(false);
+  });
+
+  it('is true when the maturity or the remuneration changes', () => {
+    const values = offerValues(offer);
+    expect(
+      changesOfferTerms(offer, { ...values, maturityDate: '2029-01-02' }),
+    ).toBe(true);
+    expect(changesOfferTerms(offer, { ...values, rate: '112' })).toBe(true);
+  });
+
+  it('is true while the rate is not a valid number yet', () => {
+    expect(
+      changesOfferTerms(offer, { ...offerValues(offer), rate: '1,' }),
+    ).toBe(true);
   });
 });

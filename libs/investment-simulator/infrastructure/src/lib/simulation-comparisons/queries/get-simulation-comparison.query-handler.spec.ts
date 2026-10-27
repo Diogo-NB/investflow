@@ -73,7 +73,6 @@ function simulation(
       status: overrides.status ?? 'CALCULATED',
       changedAt: new Date('2026-10-10T12:00:00.000Z'),
       causeKind: 'CREATED',
-      causeRefId: null,
       reasonCode: null,
       reasonMetadata: null,
     },

@@ -61,6 +61,18 @@ export class PrismaSimulationRepository
     return this.find(id, { ownerId });
   }
 
+  idsUsingOffer(
+    offerId: string,
+  ): Promise<Result<string[], RepositoryFindError>> {
+    return this.idsWhere({ offerId }, offerId);
+  }
+
+  idsUsingCurve(
+    curveId: string,
+  ): Promise<Result<string[], RepositoryFindError>> {
+    return this.idsWhere({ curveId }, curveId);
+  }
+
   // A request (PENDING) always replaces the calculation row, after the usual
   // revision check on the simulation. An outcome is written only while the
   // row still applies to the simulation revision it was calculated for, and
@@ -141,6 +153,22 @@ export class PrismaSimulationRepository
         simulationRevision,
       );
     }
+  }
+
+  private idsWhere(
+    premise: Prisma.SimulationWhereInput,
+    premiseId: string,
+  ): Promise<Result<string[], RepositoryFindError>> {
+    return Result.fromPromise(
+      async () => {
+        const records = await this.prisma.client.simulation.findMany({
+          where: { ...premise, deletedAt: null },
+          select: { id: true },
+        });
+        return records.map((record) => record.id);
+      },
+      (error) => new RepositoryFindError('Simulation', premiseId, error),
+    );
   }
 
   private async find(

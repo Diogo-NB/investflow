@@ -54,6 +54,7 @@ import type { CurveDetail, CurveSummary } from '../models/curve.types';
 import {
   blankRow,
   boundaryLimits,
+  changesCurveValues,
   curveResolver,
   followEnd,
   followStart,
@@ -106,14 +107,12 @@ function baseGroups(
   return [...groups].map(([label, options]) => ({ label, options }));
 }
 
-// Recalculation after a curve change is not built yet, so its simulations
-// keep their result, marked outdated, until each one is saved again.
 function ImpactNotice({ state }: { readonly state: CurveSimulationsState }) {
   if (state.status !== 'ready' || state.total === 0) return null;
   const count =
     state.total === 1
-      ? '1 simulação usa esta curva e ficará desatualizada até ser salva novamente.'
-      : `${state.total} simulações usam esta curva e ficarão desatualizadas até serem salvas novamente.`;
+      ? 'A simulação que usa esta curva será recalculada.'
+      : `As ${state.total} simulações que usam esta curva serão recalculadas.`;
   return (
     <p className="m-0 flex items-start gap-2 rounded-control border border-warning/40 bg-warning-soft p-3 text-sm text-warning motion-safe:animate-fade-in">
       <AlertTriangleIcon className="size-5 shrink-0" />
@@ -627,6 +626,12 @@ function CurveEditorForm({
     mode: 'onTouched',
   });
   const index = useWatch({ control: form.control, name: 'index' });
+  // Only changes a calculation reads recalculate the simulations.
+  const recalculates = useWatch({
+    control: form.control,
+    compute: (values) =>
+      baseline !== null && changesCurveValues(baseline, values),
+  });
   const [baseId, setBaseId] = useState('');
   // The last row removal or replacement, until another edit.
   const [undo, setUndo] = useState<
@@ -817,7 +822,7 @@ function CurveEditorForm({
           )}
         </fieldset>
 
-        {baseline && <ImpactNotice state={editor.simulations} />}
+        {recalculates && <ImpactNotice state={editor.simulations} />}
 
         <div aria-live="polite">
           {problem && (

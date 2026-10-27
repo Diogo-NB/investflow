@@ -12,5 +12,10 @@ export abstract class SimulationRepository {
     ownerId: string,
   ): Promise<Result<Simulation, AppError>>;
 
+  // The live simulations whose calculation reads the offer or curve.
+  abstract idsUsingOffer(offerId: string): Promise<Result<string[], AppError>>;
+
+  abstract idsUsingCurve(curveId: string): Promise<Result<string[], AppError>>;
+
   abstract save(simulation: Simulation): Promise<Result<void, AppError>>;
 }

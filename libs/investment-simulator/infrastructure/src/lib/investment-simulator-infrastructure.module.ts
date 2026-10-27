@@ -5,6 +5,8 @@ import {
   EditSimulationUseCase,
   CalculateSimulationUseCase,
   FailSimulationCalculationUseCase,
+  RecalculateCurveSimulationsUseCase,
+  RecalculateOfferSimulationsUseCase,
   RecalculateSimulationUseCase,
   SimulationPremisesService,
   SimulationRepository,
@@ -17,6 +19,7 @@ import { BusinessCalendarController } from './business-calendar/http/business-ca
 import { GetBusinessCalendarQueryHandler } from './business-calendar/queries/get-business-calendar.query-handler';
 import { SimulationController } from './simulations/http/simulation.controller';
 import { SimulationCalculationFailureConsumer } from './simulations/messaging/simulation-calculation-failure.consumer';
+import { SimulationRecalculationConsumer } from './simulations/messaging/simulation-recalculation.consumer';
 import { SimulationCalculationConsumer } from './simulations/messaging/simulation-calculation.consumer';
 import { PrismaSimulationRepository } from './simulations/persistence/prisma-simulation.repository';
 import { ListSimulationMonthlyBalancesQueryHandler } from './simulations/queries/list-simulation-monthly-balances.query-handler';
@@ -58,6 +61,9 @@ import { OffersModule } from './offers/offers.module';
     FailSimulationCalculationUseCase,
     SimulationCalculationConsumer,
     SimulationCalculationFailureConsumer,
+    RecalculateOfferSimulationsUseCase,
+    RecalculateCurveSimulationsUseCase,
+    SimulationRecalculationConsumer,
     ListSimulationsQueryHandler,
     ListSimulationMonthlyBalancesQueryHandler,
     GetSimulationOptionsQueryHandler,

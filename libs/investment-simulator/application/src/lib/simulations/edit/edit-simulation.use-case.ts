@@ -54,7 +54,6 @@ export class EditSimulationUseCase
       { offerId: premises.value.offer.id, investment: command.investment },
       {
         kind: ESimulationCalculationCauseKind.SIMULATION_EDITED,
-        refId: null,
         actorId: command.ownerId,
       },
       this.clock.now(),

@@ -391,11 +391,9 @@ simulation, offer, and curve revisions and the methodology version it used;
 "Digitar termos" and "Duplicar e ajustar" create a private offer in the same
 request. A simulation's own calculation is asynchronous (D4a): saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
-calculates; a dead-letter consumer records `FAILED`. Still pending (D4b,
-paused on 2026-10-13 after D5 took its place and resumed on 2026-10-26):
-offer and curve changes do not queue the simulations that use them, and events
-do not carry the actor. The design below was settled on 2026-10-12 and revised
-on 2026-10-26.
+calculates; a dead-letter consumer records `FAILED`. Offer and curve changes
+recalculate the simulations that use them (D4b, built 2026-10-26). The design
+below was settled on 2026-10-12 and revised on 2026-10-26.
 Deliverables and their order are in
 `docs/product/implementation-roadmap.md`.
 
@@ -486,14 +484,13 @@ to `simulation_result`; nothing about it is stored on `simulation`.
 
 Every status also records `changedAt`, the simulation, offer, and curve
 revisions it applies to, and the cause of the last queuing: its kind
-(`CREATED`, `SIMULATION_EDITED`, `OFFER_CHANGED`, `OFFER_DELETED`,
-`CURVE_CHANGED`, `CURVE_DELETED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`),
-the offer or curve id, and the actor (`null` for system processes). D4b
-removes the four offer and curve kinds and the offer or curve id: fan-out
-writes no calculation rows, so nothing would set them, and premise events
-therefore carry no actor either. The cause
-is set when the simulation is queued and kept by the outcome, so "Requer
-ação" shows both the reason and the change that led to it. Only the current
+(`CREATED`, `SIMULATION_EDITED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`)
+and the actor (`null` for system processes). There are no offer or curve
+causes: fan-out writes no calculation rows, so nothing would set them, and
+premise events carry no actor either. The cause is set when the simulation
+is queued and kept by the outcome, so after a premise change "Requer ação"
+shows the reason with the simulation's own last cause (see "Recalculation
+status on screen" in Deferred Work). Only the current
 state is kept; a transition history is deferred work.
 
 - **Requests validate synchronously, then calculate asynchronously.** Creating
@@ -540,12 +537,14 @@ state is kept; a transition history is deferred work.
   can therefore land, shown "Desatualizado", but it is never the last write.
   Late, duplicate, or concurrent deliveries therefore cannot leave a stale
   state behind.
-- **Fan-out** (decided 2026-10-26, not built yet). A splitter in the
+- **Fan-out** (decided and built 2026-10-26). A splitter in the
   simulations feature: `SimulationRecalculationConsumer` handles the facts
   that affect a calculation (`OfferTermsChanged`, `OfferDeleted`,
   `CurveValuesChanged`, `CurveDeleted`) directly, with no intermediate
   "recalculation requested" event, so offers and curves know nothing about
-  simulations. Its use case reads the ids of the live simulations that use
+  simulations. Its use cases (`RecalculateOfferSimulationsUseCase` and
+  `RecalculateCurveSimulationsUseCase`, one per premise) read the ids of the
+  live simulations that use
   the premise from the repository (`SimulationRepository.idsUsingOffer()` and
   `idsUsingCurve()`, which return arrays) and records one
   `SimulationCalculationRequested` per id through `DomainEventRecorder`, all
@@ -861,7 +860,7 @@ instant), for support and for explaining past recalculations.
 
 ### Fan-out at scale (deferred 2026-10-26)
 
-- **Today (once D4b ships):** fan-out records every
+- **Today:** fan-out records every
   `SimulationCalculationRequested` for a premise in one unit of work, and the
   outbox poller publishes about 100 events per second. A system curve used
   by hundreds of thousands of simulations would need one very large
@@ -878,7 +877,7 @@ instant), for support and for explaining past recalculations.
 
 ### Recalculation status on screen (deferred 2026-10-26)
 
-- **Today (once D4b ships):** fan-out writes no calculation rows, so a
+- **Today:** fan-out writes no calculation rows, so a
   simulation waiting for the recalculation of a premise change shows the
   derived "Desatualizado" until its new result lands, never "Calculando".
   For the same reason a fan-out calculation that exhausts its retries is

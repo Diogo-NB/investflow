@@ -33,7 +33,11 @@ import {
   type TitleType,
 } from '../models/offer-terms';
 import type { OfferSummary } from '../models/offer.types';
-import { offerFormSchema, type OfferFormValues } from '../utils/offer-form';
+import {
+  changesOfferTerms,
+  offerFormSchema,
+  type OfferFormValues,
+} from '../utils/offer-form';
 import type { OfferSimulationsState } from './use-offer-details';
 import { useOfferEditor } from './use-offer-editor';
 
@@ -57,14 +61,12 @@ const REDEMPTION_OPTIONS: SelectOption[] = (
   ['AT_MATURITY', 'DAILY'] as const
 ).map((kind) => ({ value: kind, label: REDEMPTION_LABELS[kind] }));
 
-// Recalculation after an offer change is not built yet, so its simulations
-// keep their result, marked outdated, until each one is saved again.
 function ImpactNotice({ state }: { readonly state: OfferSimulationsState }) {
   if (state.status !== 'ready' || state.total === 0) return null;
   const count =
     state.total === 1
-      ? '1 simulação usa esta oferta e ficará desatualizada até ser salva novamente.'
-      : `${state.total} simulações usam esta oferta e ficarão desatualizadas até serem salvas novamente.`;
+      ? 'A simulação que usa esta oferta será recalculada.'
+      : `As ${state.total} simulações que usam esta oferta serão recalculadas.`;
   return (
     <p className="m-0 flex items-start gap-2 rounded-control border border-warning/40 bg-warning-soft p-3 text-sm text-warning motion-safe:animate-fade-in">
       <AlertTriangleIcon className="size-5 shrink-0" />
@@ -92,6 +94,12 @@ function OfferEditorForm({
     mode: 'onTouched',
   });
   const kind = useWatch({ control: form.control, name: 'remunerationKind' });
+  // Only changes a calculation reads recalculate the simulations.
+  const recalculates = useWatch({
+    control: form.control,
+    compute: (values) =>
+      baseline !== null && changesOfferTerms(baseline, values),
+  });
   const { errors, isDirty } = form.formState;
   const blocker = useUnsavedChangesGuard(isDirty && !save.pending);
   const pending = save.pending;
@@ -274,7 +282,7 @@ function OfferEditorForm({
           </div>
         </fieldset>
 
-        {baseline && <ImpactNotice state={editor.simulations} />}
+        {recalculates && <ImpactNotice state={editor.simulations} />}
 
         <div aria-live="polite">
           {problem && !problem.field && (

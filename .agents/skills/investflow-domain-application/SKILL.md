@@ -126,6 +126,12 @@ vocabulary mapping, and what is stored versus derived.
 
 - Use cases expose one `execute(command)` method and modify one aggregate per
   transaction.
+- Operations with different triggers or inputs are separate commands and use
+  cases, even when their steps look alike. Do not merge them behind a
+  discriminated command (`{ kind: 'OFFER' | 'CURVE', id }`), several factories
+  on one command, or a mode flag to avoid a few duplicated lines: the caller
+  already knows which operation it wants, and the merge makes the use case
+  decide it again.
 - Organize application behavior as feature-first vertical slices. Co-locate an
   operation's command, use case, and focused tests under
   `<feature>/<operation>`. Keep only genuinely cross-operation contracts and
@@ -140,7 +146,12 @@ vocabulary mapping, and what is stored versus derived.
 - Application ports are abstract classes when they are Nest injection tokens.
   They may extend shared contracts but cannot expose ORM or transport types.
 - Keep command repositories narrow: aggregate lookup and persistence only. Do
-  not add list, count, existence, or read-model helpers.
+  not add list, count, existence, or read-model helpers. One exception: a
+  criteria lookup that returns the ids of the repository's own aggregates for
+  a command-side flow, such as a fan-out acting on every simulation that uses
+  an offer (`idsUsingOffer()`). It is the collection answering which members
+  match, by reference so the flow loads no aggregates. Anything a screen
+  reads stays in a query handler.
 - Prefer database constraints for simple uniqueness rules and map persistence
   failures to stable application errors.
 - Application services orchestrate application concerns and depend on ports,

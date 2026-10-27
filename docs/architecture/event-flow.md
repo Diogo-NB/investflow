@@ -7,8 +7,8 @@ Asynchronous Recalculation" in [Project Structure](./project-structure.md).
 
 > **Status.** The event transport (outbox, EventBridge, SQS, consumers) and a
 > simulation's own asynchronous calculation (D4a) are built, on FIFO queues
-> grouped per aggregate. Recalculation after offer and curve changes (D4b,
-> walkthroughs 5 and 6) is designed but not built; see the
+> grouped per aggregate, and so is recalculation after offer and curve
+> changes (D4b, walkthroughs 5 and 6); see the
 > [roadmap](../product/implementation-roadmap.md).
 
 ## In One Picture
@@ -145,8 +145,7 @@ Each simulation has one row in `simulation_calculation`, next to its
 | `reason_code`, `reason_metadata`                                       | Only for `INVALID`: the stable error code and details, such as uncovered periods                                          |
 
 Causes: `CREATED`, `SIMULATION_EDITED`, `METHODOLOGY_CHANGED`,
-`RETRY_REQUESTED`. D4b removes `OFFER_CHANGED`, `OFFER_DELETED`,
-`CURVE_CHANGED`, `CURVE_DELETED`, and `cause_ref_id`: fan-out writes no
+`RETRY_REQUESTED`. There are no offer or curve causes: fan-out writes no
 calculation rows, so nothing would set them.
 
 The cause is set when the simulation is queued, and the worker keeps it when
@@ -377,8 +376,8 @@ sequenceDiagram
 | Queues, rules, dead-letter queues               | `infra/floci/init/provision.sh`                                          |
 | Offer and curve events                          | `libs/investment-simulator/domain/src/lib/offers`, `.../curves`          |
 | Simulation, calculation service                 | `libs/investment-simulator/domain/src/lib/simulations`                   |
-| Calculation, failure, and retry use cases       | `libs/investment-simulator/application/src/lib/simulations`              |
-| Calculation and dead-letter consumers           | `libs/investment-simulator/infrastructure/src/lib/simulations/messaging` |
+| Calculation, failure, retry, fan-out use cases  | `libs/investment-simulator/application/src/lib/simulations`              |
+| Calculation, dead-letter, fan-out consumers     | `libs/investment-simulator/infrastructure/src/lib/simulations/messaging` |
 
 ## Adding a New Consumer
 

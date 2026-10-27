@@ -164,3 +164,20 @@ export function offerEdit(
       : {}),
   };
 }
+
+/**
+ * Whether saving would change what a calculation reads (maturity,
+ * remuneration). Values not yet valid count as a change: only the rate and
+ * dates fail to convert, and both are terms.
+ */
+export function changesOfferTerms(
+  baseline: OfferSummary,
+  values: OfferFormValues,
+): boolean {
+  try {
+    const edit = offerEdit(baseline, values);
+    return 'maturityDate' in edit || 'remunerationTerms' in edit;
+  } catch {
+    return true;
+  }
+}

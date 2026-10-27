@@ -26,7 +26,6 @@ export class RecalculateSimulationUseCase
     const requested = found.value.requestCalculation(
       {
         kind: ESimulationCalculationCauseKind.RETRY_REQUESTED,
-        refId: null,
         actorId: command.ownerId,
       },
       this.clock.now(),

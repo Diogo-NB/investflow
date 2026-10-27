@@ -162,8 +162,8 @@ function CalculationStatusNotice({
           title={`${label}…`}
         >
           <p className="m-0 text-sm text-fg">
-            {capitalize(describeCause(calculation, saved))}. O resultado aparece
-            aqui assim que o cálculo terminar.
+            {capitalize(describeCause(calculation))}. O resultado aparece aqui
+            assim que o cálculo terminar.
           </p>
         </StatusCard>
       );
@@ -173,7 +173,7 @@ function CalculationStatusNotice({
           key="INVALID"
           tone="warning"
           icon={<AlertTriangleIcon />}
-          title={`${label} · ${describeCause(calculation, saved)}`}
+          title={`${label} · ${describeCause(calculation)}`}
         >
           {calculation.reason && (
             <p className="m-0 text-fg">{describeReason(calculation.reason)}</p>
@@ -319,10 +319,9 @@ function CalculationResult({
         <p className="m-0 text-sm text-muted">
           Aplicação em {formatIsoDate(result.term.investmentDate)}, vencimento
           em {formatIsoDate(result.term.maturityDate)} ·{' '}
-          {result.term.businessDays} dias
-          úteis. IOF e imposto de renda incidem no vencimento. Calculado em{' '}
-          {formatInstant(result.calculatedAt)} · metodologia{' '}
-          {result.methodologyVersion}.
+          {result.term.businessDays} dias úteis. IOF e imposto de renda incidem
+          no vencimento. Calculado em {formatInstant(result.calculatedAt)} ·
+          metodologia {result.methodologyVersion}.
         </p>
       </div>
       {balances.data ? (

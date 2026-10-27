@@ -107,7 +107,6 @@ export class SimulationMapper {
       changedAt: UtcInstant.fromDate(record.changedAt).value,
       cause: {
         kind: record.causeKind as ESimulationCalculationCauseKind,
-        refId: record.causeRefId,
         actorId: record.causeActorId,
       },
       inputs: {
@@ -134,7 +133,6 @@ export class SimulationMapper {
       status: calculation.status,
       changedAt: calculation.changedAt.date,
       causeKind: cause.kind,
-      causeRefId: cause.refId,
       causeActorId: cause.actorId,
       simulationRevision: inputs.simulationRevision,
       offerTermsRevision: inputs.offerTermsRevision,

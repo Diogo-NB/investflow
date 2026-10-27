@@ -16,21 +16,15 @@ export type CalculationStatus = 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
 export type CalculationCauseKind =
   | 'CREATED'
   | 'SIMULATION_EDITED'
-  | 'OFFER_CHANGED'
-  | 'OFFER_DELETED'
-  | 'CURVE_CHANGED'
-  | 'CURVE_DELETED'
   | 'METHODOLOGY_CHANGED'
   | 'RETRY_REQUESTED';
 
 export interface SimulationCalculation {
   readonly status: CalculationStatus;
   readonly changedAt: string;
-  // Why the calculation was last queued; refId is the offer or curve that
-  // changed.
+  // Why the calculation was last queued.
   readonly cause: {
     readonly kind: CalculationCauseKind;
-    readonly refId: string | null;
   };
   // Only for INVALID: the stable error code and its details.
   readonly reason: {

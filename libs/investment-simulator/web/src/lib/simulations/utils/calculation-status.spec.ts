@@ -20,25 +20,16 @@ describe('calculation status', () => {
     expect(calculationStatusLabel('CALCULATED')).toBeNull();
   });
 
-  it('names the changed curve or offer when the simulation uses it', () => {
-    expect(
-      describeCause(
-        calculation({ kind: 'CURVE_CHANGED', refId: 'cdi' }),
-        workspace,
-      ),
-    ).toBe('a curva CDI Local foi alterada');
-    expect(
-      describeCause(
-        calculation({ kind: 'OFFER_DELETED', refId: 'other' }),
-        workspace,
-      ),
-    ).toBe('a oferta foi excluída');
-    expect(
-      describeCause(
-        calculation({ kind: 'SIMULATION_EDITED', refId: null }),
-        workspace,
-      ),
-    ).toBe('simulação alterada');
+  it('says why the calculation was last queued', () => {
+    expect(describeCause(calculation({ kind: 'CREATED' }))).toBe(
+      'simulação criada',
+    );
+    expect(describeCause(calculation({ kind: 'SIMULATION_EDITED' }))).toBe(
+      'simulação alterada',
+    );
+    expect(describeCause(calculation({ kind: 'RETRY_REQUESTED' }))).toBe(
+      'nova tentativa solicitada',
+    );
   });
 
   it('phrases the first coverage gap and counts the others', () => {

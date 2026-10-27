@@ -181,7 +181,7 @@ export const workspace: SimulationWorkspace = {
   calculation: {
     status: 'CALCULATED',
     changedAt: '2026-10-10T12:00:00.000Z',
-    cause: { kind: 'SIMULATION_EDITED', refId: null },
+    cause: { kind: 'SIMULATION_EDITED' },
     reason: null,
   },
   remainingTerm: null,

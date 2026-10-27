@@ -31,13 +31,13 @@ export class SimulationCalculationConsumer {
 
   private async calculate(payload: Record<string, unknown>): Promise<void> {
     const result = await this.calculateSimulation.execute(
-      CalculateSimulationCommand.of(simulationIdOf(payload)),
+      CalculateSimulationCommand.of(aggregateIdOf(payload)),
     );
     if (result.isErr()) throw result.error;
   }
 }
 
-export function simulationIdOf(payload: Record<string, unknown>): string {
+export function aggregateIdOf(payload: Record<string, unknown>): string {
   const { aggregateId, eventType } = payload;
   if (typeof aggregateId !== 'string') {
     throw new Error(`${String(eventType)} without aggregateId`);

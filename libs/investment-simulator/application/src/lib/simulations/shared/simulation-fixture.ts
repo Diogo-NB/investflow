@@ -98,7 +98,6 @@ export function ownedSimulation(
     calculation: SimulationCalculation.pending(
       {
         kind: ESimulationCalculationCauseKind.CREATED,
-        refId: null,
         actorId: OWNER_ID,
       },
       1,

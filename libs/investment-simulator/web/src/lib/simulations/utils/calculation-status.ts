@@ -2,7 +2,6 @@ import { formatIsoDate } from '../../dates/calendar-date';
 import type {
   CalculationStatus,
   SimulationCalculation,
-  SimulationWorkspace,
 } from '../models/simulation.types';
 
 // Null when the result is current and needs no tag.
@@ -21,19 +20,7 @@ export function calculationStatusLabel(
   }
 }
 
-// Names the changed offer or curve when it is the one the simulation uses.
-export function describeCause(
-  { cause }: SimulationCalculation,
-  premises: Pick<SimulationWorkspace, 'offer' | 'curve'>,
-): string {
-  const offer =
-    cause.refId === premises.offer.id
-      ? `a oferta ${premises.offer.name}`
-      : 'a oferta';
-  const curve =
-    premises.curve && cause.refId === premises.curve.id
-      ? `a curva ${premises.curve.name}`
-      : 'a curva';
+export function describeCause({ cause }: SimulationCalculation): string {
   switch (cause.kind) {
     case 'CREATED':
       return 'simulação criada';
@@ -41,14 +28,6 @@ export function describeCause(
       return 'simulação alterada';
     case 'RETRY_REQUESTED':
       return 'nova tentativa solicitada';
-    case 'OFFER_CHANGED':
-      return `${offer} foi alterada`;
-    case 'OFFER_DELETED':
-      return `${offer} foi excluída`;
-    case 'CURVE_CHANGED':
-      return `${curve} foi alterada`;
-    case 'CURVE_DELETED':
-      return `${curve} foi excluída`;
     case 'METHODOLOGY_CHANGED':
       return 'a metodologia de cálculo mudou';
   }

@@ -17,18 +17,12 @@ export enum ESimulationCalculationStatus {
 export enum ESimulationCalculationCauseKind {
   CREATED = 'CREATED',
   SIMULATION_EDITED = 'SIMULATION_EDITED',
-  OFFER_CHANGED = 'OFFER_CHANGED',
-  OFFER_DELETED = 'OFFER_DELETED',
-  CURVE_CHANGED = 'CURVE_CHANGED',
-  CURVE_DELETED = 'CURVE_DELETED',
   METHODOLOGY_CHANGED = 'METHODOLOGY_CHANGED',
   RETRY_REQUESTED = 'RETRY_REQUESTED',
 }
 
 export interface SimulationCalculationCause {
   readonly kind: ESimulationCalculationCauseKind;
-  // The offer or curve whose change queued the calculation.
-  readonly refId: string | null;
   // Null for system processes.
   readonly actorId: string | null;
 }

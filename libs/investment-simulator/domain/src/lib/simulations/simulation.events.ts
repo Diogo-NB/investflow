@@ -21,8 +21,8 @@ export class SimulationEdited extends InvestmentSimulatorEvent {
   }
 }
 
-// A calculation asked for without changing the simulation ("Tentar
-// novamente").
+// A calculation asked for without changing the simulation: "Tentar novamente",
+// or a change to the terms of its offer or the values of its curve.
 export class SimulationCalculationRequested extends InvestmentSimulatorEvent {
   readonly eventType = 'SimulationCalculationRequested';
   readonly aggregateType = 'Simulation';

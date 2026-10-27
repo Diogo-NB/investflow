@@ -12,6 +12,7 @@ import {
   InvestmentSimulatorInfrastructureModule,
   SimulationCalculationConsumer,
   SimulationCalculationFailureConsumer,
+  SimulationRecalculationConsumer,
 } from '@investflow/investment-simulator-infrastructure';
 import { AppController } from './app.controller';
 import { AppHealth } from './app.health';
@@ -30,6 +31,10 @@ import { HTTP_INTERCEPTOR_PROVIDERS } from './http-interceptors.providers';
       {
         consumer: SimulationCalculationFailureConsumer,
         queueUrlConfigKey: 'SIMULATION_CALCULATIONS_DLQ_URL',
+      },
+      {
+        consumer: SimulationRecalculationConsumer,
+        queueUrlConfigKey: 'SIMULATION_RECALCULATIONS_QUEUE_URL',
       },
     ]),
     TerminusModule,

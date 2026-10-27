@@ -4,7 +4,7 @@ import {
   FailSimulationCalculationUseCase,
 } from '@investflow/investment-simulator-application';
 import { OnEvent } from '@investflow/shared-infrastructure';
-import { simulationIdOf } from './simulation-calculation.consumer';
+import { aggregateIdOf } from './simulation-calculation.consumer';
 
 // Bound to the calculation queue's dead-letter queue: receives the events
 // whose calculation exhausted its retries.
@@ -31,7 +31,7 @@ export class SimulationCalculationFailureConsumer {
 
   private async fail(payload: Record<string, unknown>): Promise<void> {
     const result = await this.failSimulationCalculation.execute(
-      FailSimulationCalculationCommand.of(simulationIdOf(payload)),
+      FailSimulationCalculationCommand.of(aggregateIdOf(payload)),
     );
     if (result.isErr()) throw result.error;
   }

@@ -554,6 +554,22 @@ export function curveEdit(
   };
 }
 
+/**
+ * Whether saving would change the intervals, the only content a calculation
+ * reads. Rows not yet valid count as a change: only intervals fail to
+ * convert.
+ */
+export function changesCurveValues(
+  baseline: CurveDetail,
+  values: CurveFormValues,
+): boolean {
+  try {
+    return 'intervals' in curveEdit(baseline, values);
+  } catch {
+    return true;
+  }
+}
+
 /** The span the rows with valid dates cover, or null while none has them. */
 export function rowsCoverage(
   index: EconomicIndex,

@@ -77,19 +77,13 @@ export interface SimulationResultOutput {
 export interface SimulationCalculationOutput {
   readonly status: 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
   readonly changedAt: string;
-  // Why the calculation was last queued; refId is the offer or curve that
-  // changed.
+  // Why the calculation was last queued.
   readonly cause: {
     readonly kind:
       | 'CREATED'
       | 'SIMULATION_EDITED'
-      | 'OFFER_CHANGED'
-      | 'OFFER_DELETED'
-      | 'CURVE_CHANGED'
-      | 'CURVE_DELETED'
       | 'METHODOLOGY_CHANGED'
       | 'RETRY_REQUESTED';
-    readonly refId: string | null;
   };
   // Only for INVALID: the stable error code and its details, such as the
   // uncovered curve ranges.
@@ -198,7 +192,6 @@ export const simulationWorkspaceSelect = {
       status: true,
       changedAt: true,
       causeKind: true,
-      causeRefId: true,
       reasonCode: true,
       reasonMetadata: true,
     },
@@ -245,7 +238,7 @@ export function toSimulationWorkspace(
     calculation: {
       status: calculation.status,
       changedAt: calculation.changedAt.toISOString(),
-      cause: { kind: calculation.causeKind, refId: calculation.causeRefId },
+      cause: { kind: calculation.causeKind },
       reason: calculation.reasonCode
         ? {
             code: calculation.reasonCode,

@@ -99,7 +99,6 @@ describe('CreateSimulationUseCase', () => {
     );
     expect(simulation.calculation.cause).toEqual({
       kind: ESimulationCalculationCauseKind.CREATED,
-      refId: null,
       actorId: OWNER_ID,
     });
     expect(simulation.calculation.changedAt).toBe(NOW);

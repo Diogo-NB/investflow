@@ -56,3 +56,6 @@ JSON
 
 consumer_queue simulation-calculations \
   '{"source":["investflow.investment-simulator"],"detail-type":["SimulationCreated","SimulationEdited","SimulationCalculationRequested"]}'
+
+consumer_queue simulation-recalculations \
+  '{"source":["investflow.investment-simulator"],"detail-type":["OfferTermsChanged","OfferDeleted","CurveValuesChanged","CurveDeleted"]}'

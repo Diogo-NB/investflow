@@ -171,8 +171,7 @@ too. `assertRevision()` reports a stale client revision as
 `SIMULATION_REVISION_CONFLICT`.
 
 Calculation is asynchronous. `Simulation.create()`, `edit()`, and
-`requestCalculation()` set the calculation `PENDING` with its cause (kind,
-offer or curve id, actor) and raise `SimulationCreated`, `SimulationEdited`,
+`requestCalculation()` set the calculation `PENDING` with its cause (kind, actor) and raise `SimulationCreated`, `SimulationEdited`,
 and `SimulationCalculationRequested` respectively, all handled by the
 calculation consumer; `edit()` does so even when nothing changed, so saving picks up changes to the offer and
 curve. Deleted simulations reject both. `recordCalculation()` accepts a

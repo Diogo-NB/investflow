@@ -92,7 +92,6 @@ function workspace(
       status: 'CALCULATED',
       changedAt: new Date('2026-10-10T12:00:00.000Z'),
       causeKind: 'SIMULATION_EDITED',
-      causeRefId: null,
       reasonCode: null,
       reasonMetadata: null,
       ...overrides.calculation,
@@ -119,7 +118,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     expect(output.value.calculation).toEqual({
       status: 'INVALID',
       changedAt: '2026-10-10T12:00:00.000Z',
-      cause: { kind: 'CREATED', refId: null },
+      cause: { kind: 'CREATED' },
       reason: {
         code: 'INVESTMENT_CURVE_COVERAGE_MISSING',
         metadata: {
@@ -161,7 +160,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     expect(output.value.calculation).toEqual({
       status: 'CALCULATED',
       changedAt: '2026-10-10T12:00:00.000Z',
-      cause: { kind: 'SIMULATION_EDITED', refId: null },
+      cause: { kind: 'SIMULATION_EDITED' },
       reason: null,
     });
     expect(output.value.result).toEqual({

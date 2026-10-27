@@ -33,7 +33,7 @@ export const calculationService = new SimulationCalculationService(calculator);
 export function cause(
   kind: ESimulationCalculationCauseKind = ESimulationCalculationCauseKind.CREATED,
 ): SimulationCalculationCause {
-  return { kind, refId: null, actorId: 'owner-id' };
+  return { kind, actorId: 'owner-id' };
 }
 
 export function cdiCurve(): Curve {

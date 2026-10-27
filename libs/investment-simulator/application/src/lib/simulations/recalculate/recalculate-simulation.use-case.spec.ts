@@ -41,7 +41,6 @@ describe('RecalculateSimulationUseCase', () => {
     );
     expect(simulation.calculation.cause).toEqual({
       kind: ESimulationCalculationCauseKind.RETRY_REQUESTED,
-      refId: null,
       actorId: OWNER_ID,
     });
     expect(

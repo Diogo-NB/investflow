@@ -136,7 +136,7 @@ integration('Simulation PostgreSQL persistence', () => {
   const at = (iso: string) => UtcInstant.ofIso(`${iso}T12:00:00.000Z`);
   const cause = (
     kind = ESimulationCalculationCauseKind.CREATED,
-  ): SimulationCalculationCause => ({ kind, refId: null, actorId: ownerId });
+  ): SimulationCalculationCause => ({ kind, actorId: ownerId });
   const EDITED = cause(ESimulationCalculationCauseKind.SIMULATION_EDITED);
 
   // A saved simulation of a CDI title over about one year of business days.
@@ -512,7 +512,7 @@ integration('Simulation PostgreSQL persistence', () => {
     expect(queued.workspace.calculation).toEqual({
       status: 'PENDING',
       changedAt: '2026-10-11T12:00:00.000Z',
-      cause: { kind: 'SIMULATION_EDITED', refId: null },
+      cause: { kind: 'SIMULATION_EDITED' },
       reason: null,
     });
     expect(queued.listed?.calculationStatus).toBe('PENDING');
@@ -573,6 +573,34 @@ integration('Simulation PostgreSQL persistence', () => {
     expect((await get.execute(query)).error.code).toBe(
       EAppErrorCode.SIMULATION_NOT_FOUND,
     );
+  });
+
+  it('finds the live simulations using an offer or a curve', async () => {
+    const { simulation, offer, curve } = await savedSimulation();
+    const sibling = Simulation.create(
+      { ownerId, offerId: offer.id, investment: investmentOf(curve) },
+      cause(),
+      at('2026-10-09'),
+    );
+    const deleted = Simulation.create(
+      { ownerId, offerId: offer.id, investment: investmentOf(curve) },
+      cause(),
+      at('2026-10-09'),
+    );
+    expect((await simulations.save(sibling)).isOk()).toBe(true);
+    expect((await simulations.save(deleted)).isOk()).toBe(true);
+    const loaded = await load(deleted.id);
+    expect(
+      (await simulations.save(loaded.delete(at('2026-10-10')))).isOk(),
+    ).toBe(true);
+    const other = await savedSimulation();
+
+    const byOffer = (await simulations.idsUsingOffer(offer.id)).value;
+    const byCurve = (await simulations.idsUsingCurve(curve.id)).value;
+
+    expect([...byOffer].sort()).toEqual([simulation.id, sibling.id].sort());
+    expect([...byCurve].sort()).toEqual([simulation.id, sibling.id].sort());
+    expect(byOffer).not.toContain(other.simulation.id);
   });
 
   it('prevents removing an offer or curve that a simulation references', async () => {

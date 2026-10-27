@@ -51,7 +51,6 @@ export class CreateSimulationUseCase
       },
       {
         kind: ESimulationCalculationCauseKind.CREATED,
-        refId: null,
         actorId: command.ownerId,
       },
       this.clock.now(),

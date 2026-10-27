@@ -6,8 +6,8 @@ Delivery plan for the investment simulator. Product rules are in the
 [Project Structure](../architecture/project-structure.md); screen behavior is
 in [Frontend Patterns](../architecture/frontend-patterns.md).
 
-The mutable-premises redesign (decided 2026-10-11, D0 to D6) has shipped
-except D4b, resumed on 2026-10-26. This plan adds the next features: side-by-side
+The mutable-premises redesign (decided 2026-10-11, D0 to D6) has shipped,
+D4b last (2026-10-26). This plan adds the next features: side-by-side
 simulation comparison, portfolios, and the index curves observed from the
 Banco Central with their kept rate.
 
@@ -25,10 +25,9 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-26. D0 to D8 are done; D4b resumed on 2026-10-26, was
-redesigned, and its first two pull requests (fact events, terms and values
-revisions, the worker's early return; FIFO queues grouped per aggregate) are
-done.
+Last updated 2026-10-26. D0 to D8 and D4b are done: offer and curve changes
+recalculate the simulations that use them, over FIFO queues grouped per
+aggregate.
 
 Built:
 
@@ -140,9 +139,9 @@ Built:
 
 Differs from the target model:
 
-- Editing or deleting an offer or curve does not queue the simulations that
-  use it; they are flagged "Desatualizado" until saved again (D4b, designed).
-  The offer and curve screens say so in their impact notices.
+- While a premise change is being recalculated, its simulations show the
+  derived "Desatualizado", not "Calculando", and keep their own last cause
+  ("Recalculation status on screen" in Deferred Work).
 
 Not started and outside this roadmap: IPCA calculation, early redemption, the
 requeue after a methodology version change, and the "saldo hoje" balance,
@@ -152,16 +151,15 @@ PRD's "Pendências de Produto").
 
 ## Next Steps
 
-1. Build D4b's last pull request: fan-out.
-2. Settle the portfolio membership decision (see D9) so D9 can start.
-3. Settle the portfolio aggregation decisions (see D10) before D10.
-4. Settle D12's decisions before D12.
+1. Settle the portfolio membership decision (see D9) so D9 can start.
+2. Settle the portfolio aggregation decisions (see D10) before D10.
+3. Settle D12's decisions before D12.
 
 ## Overview
 
 | #   | Deliverable                                                       | Depends on                    | Status      |
 | --- | ----------------------------------------------------------------- | ----------------------------- | ----------- |
-| D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | In progress |
+| D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | Done        |
 | D7  | Simulation return rates and remaining term                        | —                             | Done        |
 | D8  | Side-by-side simulation comparison                                | D7                            | Done        |
 | D9  | Portfolios: management, membership, and derived status            | membership decision           | Not started |
@@ -186,18 +184,14 @@ portfolio's average return builds on the simulations' rates. D11 comes last beca
 and the portfolio totals.
 
 None of the new deliverables depends on D4b: comparison and portfolios read
-each simulation's status and last successful result, and those already show
-"Desatualizado" until D4b ships. Once D4b ships, their statuses converge
-on their own.
+each simulation's status and last successful result, and their statuses
+converge on their own as recalculations land.
 
 ## D4b — Recalculation from premise changes
 
-**Resumed (2026-10-26)** after a pause from 2026-10-13, and redesigned on
-2026-10-26. Step 1 and the first pull request are done; the rest is decided
-but not built, and the open points are listed last. Impact counts moved into D5 as the filtered
-simulation list. Replace the offer and curve screens' interim copy
-("ficarão desatualizadas até serem salvas novamente") with the recalculation
-notice.
+**Done (2026-10-26)** after a pause from 2026-10-13, redesigned and built on
+2026-10-26 in three pull requests. Impact counts moved into D5 as the
+filtered simulation list.
 
 The flow is in walkthroughs 5 and 6 of
 [Event Flow](../architecture/event-flow.md); the rules are under
@@ -214,11 +208,11 @@ The flow is in walkthroughs 5 and 6 of
   `revision` for the `409` check and add `termsRevision` and
   `valuesRevision`, which results record instead of the full revisions, so
   renaming no longer flags simulations "Desatualizado".
-- **Fan-out is a splitter in the simulations feature.**
+- **Done (PR C): fan-out is a splitter in the simulations feature.**
   `SimulationRecalculationConsumer` handles `OfferTermsChanged`,
   `OfferDeleted`, `CurveValuesChanged`, and `CurveDeleted` directly, with no
-  intermediate event. Its use case reads the ids of the live simulations
-  that use the premise from the repository and records one
+  intermediate event. Its two use cases, one per premise, read the ids of the live simulations
+  that use it from the repository and record one
   `SimulationCalculationRequested` per id, all in the consumer's single unit
   of work: all or nothing, no paging, no aggregates loaded, and no
   calculation rows written. It scales with one transaction per premise
@@ -412,9 +406,9 @@ Scope:
   same day changes nothing.
 - The development seed's system CDI and SELIC curves end with an open
   interval, so local data behaves like production.
-- Until D4b ships, a rate change leaves the simulations using an observed
-  curve "Desatualizado" until saved again; this happens only when the rate
-  changes (around the Copom meetings for the CDI).
+- A rate change recalculates the simulations using an observed curve
+  through the D4b fan-out; this happens only when the rate changes (around
+  the Copom meetings for the CDI).
 
 **Done when** a user can simulate an unmatured CDI or SELIC offer on an
 observed system curve, every screen identifies the kept rate and the last

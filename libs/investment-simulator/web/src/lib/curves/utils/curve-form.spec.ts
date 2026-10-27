@@ -3,6 +3,7 @@ import type { CurveDetail } from '../models/curve.types';
 import {
   blankRow,
   boundaryLimits,
+  changesCurveValues,
   curveEdit,
   curveFormSchema,
   curveValues,
@@ -116,6 +117,42 @@ describe('curveEdit', () => {
         ],
       }),
     ).toEqual({ revision: 3 });
+  });
+});
+
+describe('changesCurveValues', () => {
+  it('is false for the name and description, or intervals retyped equally', () => {
+    const values = curveValues(cdi);
+    expect(
+      changesCurveValues(cdi, {
+        ...values,
+        name: 'Outro nome',
+        description: 'Outra descrição',
+        intervals: [
+          { ...values.intervals[1], value: '11,50' },
+          values.intervals[0],
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('is true when an interval changes or is not valid yet', () => {
+    const values = curveValues(cdi);
+    expect(
+      changesCurveValues(cdi, {
+        ...values,
+        intervals: [
+          values.intervals[0],
+          { ...values.intervals[1], value: '11' },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      changesCurveValues(cdi, {
+        ...values,
+        intervals: [values.intervals[0], { ...values.intervals[1], value: '' }],
+      }),
+    ).toBe(true);
   });
 });
 
