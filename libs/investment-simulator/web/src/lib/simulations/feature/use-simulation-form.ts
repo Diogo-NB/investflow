@@ -5,7 +5,7 @@ import type {
   OfferOption,
   RemunerationOption,
 } from '../models/simulation.types';
-import type { SaveProblem } from './use-simulation-workspace';
+import type { SaveProblem } from '../utils/simulation-save-problem';
 import {
   coverageGap,
   defaultCurveId,

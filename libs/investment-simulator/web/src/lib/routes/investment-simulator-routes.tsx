@@ -4,6 +4,11 @@ import {
   type InvestmentSimulatorDeps,
 } from './investment-simulator-deps';
 
+const newSimulation = () =>
+  import('../simulations/feature/new-simulation-page').then((module) => ({
+    Component: module.NewSimulationPage,
+  }));
+
 const workspace = () =>
   import('../simulations/feature/simulation-workspace-page').then((module) => ({
     Component: module.SimulationWorkspacePage,
@@ -41,7 +46,7 @@ export function investmentSimulatorRoutes(
               }),
             ),
         },
-        { path: 'nova', lazy: workspace },
+        { path: 'nova', lazy: newSimulation },
         {
           path: 'comparar',
           lazy: () =>

@@ -33,16 +33,14 @@ const typed: SimulationFormValues = {
   titleType: 'LCI',
 };
 
+const callbacks = () => ({ onSaved: vi.fn(), onProblem: vi.fn() });
+
 const savedRoutes = {
   ...optionsRoute,
   [`GET ${API}/simulation-workspaces/sim`]: workspace,
 };
 
-function render(
-  api: ReturnType<typeof fakeApi>,
-  id: string | undefined,
-  entry: string,
-) {
+function render(api: ReturnType<typeof fakeApi>, id: string, entry: string) {
   return renderHook(
     withLocation(() => useSimulationWorkspace(id)),
     harness(api, entry),
@@ -70,109 +68,6 @@ describe('useSimulationWorkspace', () => {
     ]);
   });
 
-  it('starts a new simulation from blank values once the catalogs load', async () => {
-    const { result } = render(
-      fakeApi(optionsRoute),
-      undefined,
-      '/simulacoes/nova',
-    );
-
-    expect(result.current.hook.setup.status).toBe('loading');
-    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-    const setup = result.current.hook.setup;
-    expect(setup.status === 'ready' && setup.workspace).toBeNull();
-    expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
-      offerMode: 'existing',
-      offerId: '',
-      curveId: 'cdi',
-      investmentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-    });
-  });
-
-  it('duplicates a saved simulation with the same offer, curve and investment', async () => {
-    const { result } = render(
-      fakeApi(savedRoutes),
-      undefined,
-      '/simulacoes/nova?a-partir-de=sim',
-    );
-
-    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-    const setup = result.current.hook.setup;
-    expect(setup.status === 'ready' && setup.workspace).toBeNull();
-    expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
-      offerMode: 'existing',
-      offerId: 'cdi-offer',
-      principal: '10000',
-      curveId: 'cdi',
-    });
-  });
-
-  it('creates a simulation with typed terms and opens it with its data loaded', async () => {
-    const api = fakeApi({
-      ...savedRoutes,
-      [`POST ${API}/simulations`]: { simulationId: 'sim' },
-      [`GET ${API}/simulations?page=1&pageSize=20`]: {
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 20,
-      },
-    });
-    const { result } = render(api, undefined, '/simulacoes/nova');
-    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-
-    act(() => result.current.hook.save.run(typed, 0));
-
-    await waitFor(() =>
-      expect(result.current.location.pathname).toBe('/simulacoes/sim'),
-    );
-    expect(api.bodies(`POST ${API}/simulations`)).toEqual([
-      {
-        offer: {
-          new: {
-            titleType: 'LCI',
-            name: 'LCI digitada',
-            issuerName: 'Banco Local',
-            maturityDate: '2026-03-02',
-            redemptionTerms: { kind: 'DAILY' },
-            remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
-          },
-        },
-        investment: {
-          principal: '10000',
-          investmentDate: '2026-01-02',
-          curveId: 'cdi',
-        },
-      },
-    ]);
-    expect(api.calls()).toContain(`GET ${API}/simulation-workspaces/sim`);
-  });
-
-  it('stays on the new simulation with the rejection when saving fails', async () => {
-    const api = fakeApi({
-      ...savedRoutes,
-      [`POST ${API}/simulations`]: apiFailure(
-        422,
-        'INVESTMENT_DATE_NOT_BUSINESS_DAY',
-        { field: 'investmentDate', date: '2026-01-03' },
-      ),
-    });
-    const onProblem = vi.fn();
-    const { result } = render(api, undefined, '/simulacoes/nova');
-    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-
-    act(() => result.current.hook.save.run(values, 3, { onProblem }));
-
-    await waitFor(() => expect(onProblem).toHaveBeenCalled());
-    expect(onProblem.mock.calls[0][0]).toEqual({
-      message: 'Mensagem de INVESTMENT_DATE_NOT_BUSINESS_DAY.',
-      field: 'investmentDate',
-      conflict: false,
-    });
-    expect(result.current.hook.save.problem?.field).toBe('investmentDate');
-    expect(result.current.location.pathname).toBe('/simulacoes/nova');
-  });
-
   it("saves an edit with its form's revision and reports the next one", async () => {
     const api = fakeApi({
       ...savedRoutes,
@@ -182,7 +77,9 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values, 2, { onSaved }));
+    act(() =>
+      result.current.hook.edit.run(values, 2, { onSaved, onProblem: vi.fn() }),
+    );
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(values, 3));
     expect(api.bodies(`PATCH ${API}/simulations/sim`)).toEqual([
@@ -199,7 +96,7 @@ describe('useSimulationWorkspace', () => {
     expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
       `PATCH ${API}/simulations/sim`,
     ]);
-    expect(result.current.hook.save.problem).toBeNull();
+    expect(result.current.hook.edit.problem).toBeNull();
   });
 
   it.each([
@@ -222,7 +119,7 @@ describe('useSimulationWorkspace', () => {
         expect(result.current.hook.setup.status).toBe('ready'),
       );
 
-      act(() => result.current.hook.save.run(input, 3, { onProblem, onSaved }));
+      act(() => result.current.hook.edit.run(input, 3, { onProblem, onSaved }));
 
       await waitFor(() => expect(onProblem).toHaveBeenCalled());
       expect(onProblem.mock.calls[0][0]).toMatchObject({ field });
@@ -241,9 +138,9 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values, 3));
+    act(() => result.current.hook.edit.run(values, 3, callbacks()));
     await waitFor(() =>
-      expect(result.current.hook.save.problem).toMatchObject({
+      expect(result.current.hook.edit.problem).toMatchObject({
         conflict: true,
         field: null,
       }),
@@ -254,9 +151,9 @@ describe('useSimulationWorkspace', () => {
         .filter((call) => call === `GET ${API}/simulation-workspaces/sim`)
         .length;
     const before = reads();
-    await act(() => result.current.hook.save.reload());
+    await act(() => result.current.hook.edit.reload());
 
-    expect(result.current.hook.save.problem).toBeNull();
+    expect(result.current.hook.edit.problem).toBeNull();
     expect(reads()).toBe(before + 1);
     const setup = result.current.hook.setup;
     expect(setup.status === 'ready' && setup.loadGeneration).toBe(1);
@@ -319,7 +216,9 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values, 3, { onProblem }));
+    act(() =>
+      result.current.hook.edit.run(values, 3, { onSaved: vi.fn(), onProblem }),
+    );
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toEqual({
@@ -342,13 +241,13 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.save.run(values, 3));
-    act(() => result.current.hook.save.run(values, 3));
+    act(() => result.current.hook.edit.run(values, 3, callbacks()));
+    act(() => result.current.hook.edit.run(values, 3, callbacks()));
     await waitFor(() =>
       expect(api.calls()).toContain(`PATCH ${API}/simulations/sim`),
     );
     release();
-    await waitFor(() => expect(result.current.hook.save.pending).toBe(false));
+    await waitFor(() => expect(result.current.hook.edit.pending).toBe(false));
 
     expect(api.calls().filter((call) => call.startsWith('PATCH'))).toHaveLength(
       1,

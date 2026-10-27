@@ -32,27 +32,31 @@ import {
   describeReason,
 } from '../utils/calculation-status';
 import { describeRemainingTerm } from '../utils/remaining-term';
-import type { SaveProblem } from './use-simulation-workspace';
+import type { SaveProblem } from '../utils/simulation-save-problem';
 import { MonthlyBalanceTable } from './monthly-balance-table';
 import { RateOfReturnTable } from './rate-of-return-table';
 import { TaxExplanationDialog } from './tax-explanation-dialog';
 
-interface CalculationPanelProps {
-  // Null while the simulation is not saved yet.
-  readonly saved: SimulationWorkspace | null;
-  readonly pending: boolean;
-  readonly problem: SaveProblem | null;
+export interface SavedCalculation {
+  readonly workspace: SimulationWorkspace;
   // The simulation was saved elsewhere after the form was loaded.
   readonly changedElsewhere: boolean;
-  // The form holds edits that the shown result does not include.
-  readonly unsavedEdits: boolean;
-  readonly taxRules: TaxRules;
   readonly retry: {
     readonly run: () => void;
     readonly pending: boolean;
     readonly failed: boolean;
   };
   readonly onReload: () => void;
+}
+
+interface CalculationPanelProps {
+  // Null while the simulation is not saved yet.
+  readonly saved: SavedCalculation | null;
+  readonly pending: boolean;
+  readonly problem: SaveProblem | null;
+  // The form holds edits that the shown result does not include.
+  readonly unsavedEdits: boolean;
+  readonly taxRules: TaxRules;
 }
 
 // Principal to net value: the gross outcome, then the taxes between them.
@@ -147,7 +151,7 @@ function CalculationStatusNotice({
   retry,
 }: {
   readonly saved: SimulationWorkspace;
-  readonly retry: CalculationPanelProps['retry'];
+  readonly retry: SavedCalculation['retry'];
 }) {
   const { calculation, result } = saved;
   const label = calculationStatusLabel(calculation.status);
@@ -344,21 +348,20 @@ export function CalculationPanel({
   saved,
   pending,
   problem,
-  changedElsewhere,
   unsavedEdits,
   taxRules,
-  retry,
-  onReload,
 }: CalculationPanelProps) {
-  const result = saved?.result ?? null;
+  const workspace = saved?.workspace ?? null;
+  const result = workspace?.result ?? null;
+  const changedElsewhere = saved?.changedElsewhere ?? false;
   return (
     <div className="grid content-start gap-6">
-      {saved?.remainingTerm && (
+      {workspace?.remainingTerm && (
         <p className="m-0 flex items-center gap-2 font-medium">
           <CalendarIcon className="size-5 shrink-0 text-muted" />
-          {describeRemainingTerm(saved.remainingTerm, {
-            investmentDate: saved.simulation.investment.investmentDate,
-            maturityDate: saved.offer.maturityDate,
+          {describeRemainingTerm(workspace.remainingTerm, {
+            investmentDate: workspace.simulation.investment.investmentDate,
+            maturityDate: workspace.offer.maturityDate,
           })}
         </p>
       )}
@@ -371,7 +374,12 @@ export function CalculationPanel({
             Salvando…
           </p>
         ) : (
-          saved && <CalculationStatusNotice saved={saved} retry={retry} />
+          saved && (
+            <CalculationStatusNotice
+              saved={saved.workspace}
+              retry={saved.retry}
+            />
+          )
         )}
       </div>
       {!pending && (problem || changedElsewhere) && (
@@ -393,11 +401,11 @@ export function CalculationPanel({
               versão salva.
             </p>
           )}
-          {(changedElsewhere || problem?.conflict) && (
+          {saved && (changedElsewhere || problem?.conflict) && (
             <button
               type="button"
               className={`${secondaryButton} col-start-2 justify-self-start`}
-              onClick={onReload}
+              onClick={saved.onReload}
             >
               <RefreshIcon className="size-5" />
               Recarregar
@@ -405,12 +413,12 @@ export function CalculationPanel({
           )}
         </div>
       )}
-      {saved && result ? (
+      {workspace && result ? (
         <CalculationResult
-          simulationId={saved.simulation.id}
+          simulationId={workspace.simulation.id}
           result={result}
-          remunerationKind={saved.offer.remunerationTerms.kind}
-          calculation={saved.calculation}
+          remunerationKind={workspace.offer.remunerationTerms.kind}
+          calculation={workspace.calculation}
           unsavedEdits={unsavedEdits}
           taxRules={taxRules}
         />

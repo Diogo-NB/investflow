@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
@@ -23,43 +23,29 @@ import {
   listSearch,
   listSearchSelecting,
 } from '../utils/simulation-list-search';
-import { CalculationPanel } from './calculation-panel';
+import type { SaveProblem } from '../utils/simulation-save-problem';
+import { CalculationPanel, type SavedCalculation } from './calculation-panel';
 import { SimulationFormPanel } from './simulation-form-panel';
-import { useSimulationForm } from './use-simulation-form';
 import {
   TEMPLATE_PARAM,
-  type useSimulationWorkspace,
-} from './use-simulation-workspace';
+  type useSimulationCreation,
+} from './use-simulation-creation';
+import { useSimulationForm } from './use-simulation-form';
+import type { useSimulationWorkspace } from './use-simulation-workspace';
 import { useUnsavedChangesGuard } from '../../ui/use-unsaved-changes-guard';
 
+type SimulationForm = ReturnType<typeof useSimulationForm>;
+type Creation = ReturnType<typeof useSimulationCreation>['create'];
 type Workspace = ReturnType<typeof useSimulationWorkspace>;
 
 const ORIGIN_LABELS = { SYSTEM: 'Oferta do sistema', OWN: 'Minha oferta' };
 
-interface SimulationEditorProps {
-  readonly saved: SimulationWorkspace | null;
-  readonly initialValues: SimulationFormValues;
-  readonly options: SimulationOptions;
-  readonly workspace: Workspace;
-}
-
-function SimulationHeading({
-  saved,
+function SavedSimulationHeading({
+  workspace,
 }: {
-  readonly saved: SimulationWorkspace | null;
+  readonly workspace: SimulationWorkspace;
 }) {
-  if (!saved) {
-    return (
-      <PageTitle
-        id="simulation-title"
-        icon={SimulationIcon}
-        subtitle="Escolha uma oferta e informe quanto e quando investir."
-      >
-        Nova simulação
-      </PageTitle>
-    );
-  }
-  const { offer, simulation } = saved;
+  const { offer, simulation } = workspace;
   return (
     <PageTitle
       id="simulation-title"
@@ -81,55 +67,45 @@ function SimulationHeading({
   );
 }
 
-export function SimulationEditor({
-  saved,
-  initialValues,
+interface SimulationEditorLayoutProps {
+  readonly documentTitle: string;
+  readonly header: ReactNode;
+  readonly form: SimulationForm;
+  readonly options: SimulationOptions;
+  readonly saved: SavedCalculation | null;
+  readonly pending: boolean;
+  readonly problem: SaveProblem | null;
+  // Leaving is confirmed only while this holds.
+  readonly guarding: boolean;
+  readonly onSave: () => void;
+  readonly children?: ReactNode;
+}
+
+function SimulationEditorLayout({
+  documentTitle,
+  header,
+  form,
   options,
-  workspace,
-}: SimulationEditorProps) {
-  const simulation = saved?.simulation ?? null;
-  const result = saved?.result ?? null;
-  const form = useSimulationForm({
-    initialValues,
-    offers: options.offers,
-    remunerations: options.remunerations,
-  });
-  const { save, remove } = workspace;
+  saved,
+  pending,
+  problem,
+  guarding,
+  onSave,
+  children,
+}: SimulationEditorLayoutProps) {
   const [searchParams] = useSearchParams();
+  const blocker = useUnsavedChangesGuard(guarding);
+  const workspace = saved?.workspace ?? null;
   const { isDirty } = form.form.formState;
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // The revision the form's values were saved at; the next edit sends it.
-  const [baseRevision, setBaseRevision] = useState(simulation?.revision ?? 0);
-  const changedElsewhere =
-    simulation !== null &&
-    !save.pending &&
-    simulation.revision !== baseRevision;
-
-  const blocker = useUnsavedChangesGuard(
-    isDirty && !save.pending && !remove.pending,
-  );
-
   const upToDate =
     !isDirty &&
-    saved?.calculation.status === 'CALCULATED' &&
-    result !== null &&
-    !result.outdated;
-
-  const submit = form.form.handleSubmit((values) =>
-    save.run(values, baseRevision, {
-      onSaved: (savedValues, revision) => {
-        form.form.reset(savedValues);
-        setBaseRevision(revision);
-      },
-      onProblem: form.showProblem,
-    }),
-  );
+    workspace?.calculation.status === 'CALCULATED' &&
+    workspace.result !== null &&
+    !workspace.result.outdated;
 
   return (
     <section aria-labelledby="simulation-title" className="grid gap-6">
-      <title>
-        {simulation ? 'Simulação | InvestFlow' : 'Nova simulação | InvestFlow'}
-      </title>
+      <title>{documentTitle}</title>
       <PageLabel icon={SimulationIcon}>
         <Link
           to={`/simulacoes${listSearch(searchParams)}`}
@@ -139,8 +115,130 @@ export function SimulationEditor({
         </Link>
       </PageLabel>
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <SimulationHeading saved={saved} />
-        {simulation && (
+        {header}
+      </header>
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+        <SimulationFormPanel
+          simulation={form}
+          options={options}
+          saved={workspace}
+          pending={pending}
+          upToDate={upToDate}
+          onSave={onSave}
+        />
+        <CalculationPanel
+          saved={saved}
+          pending={pending}
+          problem={problem}
+          unsavedEdits={isDirty}
+          taxRules={options.taxRules}
+        />
+      </div>
+
+      {children}
+      <ConfirmDialog
+        open={blocker.state === 'blocked'}
+        onOpenChange={(open) => {
+          if (!open && blocker.state === 'blocked') blocker.reset();
+        }}
+        title="Descartar alterações?"
+        description="As alterações desta simulação ainda não foram salvas."
+        cancelLabel="Continuar editando"
+        confirmLabel="Descartar alterações"
+        destructive
+        onConfirm={() => blocker.proceed?.()}
+      />
+    </section>
+  );
+}
+
+interface NewSimulationEditorProps {
+  readonly initialValues: SimulationFormValues;
+  readonly options: SimulationOptions;
+  readonly create: Creation;
+}
+
+export function NewSimulationEditor({
+  initialValues,
+  options,
+  create,
+}: NewSimulationEditorProps) {
+  const form = useSimulationForm({
+    initialValues,
+    offers: options.offers,
+    remunerations: options.remunerations,
+  });
+  const submit = form.form.handleSubmit((values) =>
+    create.run(values, form.showProblem),
+  );
+
+  return (
+    <SimulationEditorLayout
+      documentTitle="Nova simulação | InvestFlow"
+      header={
+        <PageTitle
+          id="simulation-title"
+          icon={SimulationIcon}
+          subtitle="Escolha uma oferta e informe quanto e quando investir."
+        >
+          Nova simulação
+        </PageTitle>
+      }
+      form={form}
+      options={options}
+      saved={null}
+      pending={create.pending}
+      problem={create.problem}
+      guarding={form.form.formState.isDirty && !create.pending}
+      onSave={() => void submit()}
+    />
+  );
+}
+
+interface SavedSimulationEditorProps {
+  readonly workspace: SimulationWorkspace;
+  readonly initialValues: SimulationFormValues;
+  readonly options: SimulationOptions;
+  readonly controls: Pick<Workspace, 'edit' | 'recalculate' | 'remove'>;
+}
+
+export function SavedSimulationEditor({
+  workspace,
+  initialValues,
+  options,
+  controls,
+}: SavedSimulationEditorProps) {
+  const { simulation } = workspace;
+  const { edit, recalculate, remove } = controls;
+  const form = useSimulationForm({
+    initialValues,
+    offers: options.offers,
+    remunerations: options.remunerations,
+  });
+  const [searchParams] = useSearchParams();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // The revision the form's values were saved at; the next edit sends it.
+  const [baseRevision, setBaseRevision] = useState(simulation.revision);
+  const changedElsewhere =
+    !edit.pending && simulation.revision !== baseRevision;
+
+  const submit = form.form.handleSubmit((values) =>
+    edit.run(values, baseRevision, {
+      onSaved: (savedValues, revision) => {
+        form.form.reset(savedValues);
+        setBaseRevision(revision);
+      },
+      onProblem: form.showProblem,
+    }),
+  );
+
+  return (
+    <SimulationEditorLayout
+      documentTitle="Simulação | InvestFlow"
+      header={
+        <>
+          <SavedSimulationHeading workspace={workspace} />
           <div className="flex flex-wrap gap-2">
             <Link to="/simulacoes/nova" className={secondaryButton}>
               <PlusIcon className="size-4 shrink-0" />
@@ -169,30 +267,21 @@ export function SimulationEditor({
               Excluir
             </button>
           </div>
-        )}
-      </header>
-
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <SimulationFormPanel
-          simulation={form}
-          options={options}
-          saved={saved}
-          pending={save.pending}
-          upToDate={upToDate}
-          onSave={() => void submit()}
-        />
-        <CalculationPanel
-          saved={saved}
-          pending={save.pending}
-          problem={save.problem}
-          changedElsewhere={changedElsewhere}
-          unsavedEdits={isDirty}
-          taxRules={options.taxRules}
-          retry={workspace.recalculate}
-          onReload={() => void save.reload()}
-        />
-      </div>
-
+        </>
+      }
+      form={form}
+      options={options}
+      saved={{
+        workspace,
+        changedElsewhere,
+        retry: recalculate,
+        onReload: () => void edit.reload(),
+      }}
+      pending={edit.pending}
+      problem={edit.problem}
+      guarding={form.form.formState.isDirty && !edit.pending && !remove.pending}
+      onSave={() => void submit()}
+    >
       <ConfirmDialog
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
@@ -209,18 +298,6 @@ export function SimulationEditor({
         }
         onConfirm={remove.run}
       />
-      <ConfirmDialog
-        open={blocker.state === 'blocked'}
-        onOpenChange={(open) => {
-          if (!open && blocker.state === 'blocked') blocker.reset();
-        }}
-        title="Descartar alterações?"
-        description="As alterações desta simulação ainda não foram salvas."
-        cancelLabel="Continuar editando"
-        confirmLabel="Descartar alterações"
-        destructive
-        onConfirm={() => blocker.proceed?.()}
-      />
-    </section>
+    </SimulationEditorLayout>
   );
 }
