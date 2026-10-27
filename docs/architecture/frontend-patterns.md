@@ -9,34 +9,11 @@ state, data, routing, forms, styling, accessibility, tests) are owned by
 ## Decision and status
 
 Decision dated 2026-10-10: the frontend is a React 19 + Vite 8 SPA built with
-Nx. Status:
-
-1. Done: toolchain, `apps/web` as an `@nx/react` Vite app with Keycloak
-   startup, the shell, the welcome page, and top-level routes. Earlier
-   frontend code and its dependencies were removed, and the browser offer CRUD
-   with them.
-2. Done (reordered 2026-10-10, because running simulations is what users need
-   most): `investment-simulator-web` as an `@nx/react` library with the
-   simulation workspace under `/simulacoes`. It brought TanStack Query,
-   React Hook Form, Zod, Base UI, the date field, and confirmation dialogs.
-   Reworked with D3 (see `docs/product/implementation-roadmap.md`): a
-   simulation references an offer, chosen or created with "Duplicar e
-   ajustar" or "Digitar termos", keeps one result, and "Salvar e calcular"
-   sends its revision. With D4a the workspace shows the calculation status and
-   polls it.
-3. In progress, after the backend redesign of 2026-10-11 (mutable premises
-   and asynchronous recalculation, see `recalculation.md`): done are the
-   offer screens under `/ofertas` (D5) and the curve screens under `/curvas`
-   (D6), mounted by the same route factory. Next is the rest of the
-   simulation workspace's recorded behavior (impact notices, editing an own
-   offer in place).
-4. Finally: full verification (see Testing and verification).
-
-Each step keeps `pnpm check` green. The Keycloak realm doesn't change; API
-additions are recorded with the feature that needs them. Build features from
-the recorded behavior in `docs/product/screens/` (`app-shell.md`,
-`simulations.md`, `offers.md`, `curves.md`) and design them as
-idiomatic React. Don't transliterate earlier implementations or their
+Nx. What is built, and the screen work still open, is in
+`docs/product/current-state.md`. Each change keeps `pnpm check` green, and
+API additions are recorded with the feature that needs them. Build features
+from the recorded behavior in `docs/product/screens/` and design them as
+idiomatic React; don't transliterate earlier implementations or their
 structure.
 
 ## Stability policy

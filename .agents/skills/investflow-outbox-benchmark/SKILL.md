@@ -31,19 +31,17 @@ before and after a run. How publishing works, and why its numbers are what they 
 
 All flags are optional; defaults are in parentheses. `--help` prints the same list.
 
-| Flag                            | Meaning                                                                                                                                                                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--broker floci\|simulated`     | `floci`: real `EventBridgeMessageBroker` against Floci (~1 ms per call), so it isolates the outbox's own pickup delay. `simulated`: sleeps `--rtt-ms` ±30% per call, closer to AWS, so it also shows throughput limits (`simulated`) |
-| `--rtt-ms <n>`                  | Simulated round trip per call, in ms (30)                                                                                                                                                                                            |
-| `--loads <list>`                | Any of `steady,concurrent,fanout`, run in that order (all)                                                                                                                                                                           |
-| `--rate <n>`                    | steady: transactions per second, with exponential gaps like independent users (20)                                                                                                                                                   |
-| `--events-min/--events-max <n>` | steady: events per transaction, uniform (1/3)                                                                                                                                                                                        |
-| `--duration-s <n>`              | steady: seconds of traffic (15)                                                                                                                                                                                                      |
-| `--transactions <n>`            | concurrent: single-event transactions (500)                                                                                                                                                                                          |
-| `--parallel <n>`                | concurrent: transactions in flight, at most the pool size of 10 (10)                                                                                                                                                                 |
-| `--events <n>`                  | fanout: events recorded in one transaction, like a premise fan-out (3000)                                                                                                                                                            |
-| `--idle-s <n>`                  | Whole seconds to measure idle database use before the loads (3)                                                                                                                                                                      |
-| `--timeout-s <n>`               | Seconds to wait for a load to be published before reporting `TIMED OUT` (300)                                                                                                                                                        |
+- `--broker floci|simulated`: `floci`: real `EventBridgeMessageBroker` against Floci (~1 ms per call), so it isolates the outbox's own pickup delay. `simulated`: sleeps `--rtt-ms` ±30% per call, closer to AWS, so it also shows throughput limits (`simulated`)
+- `--rtt-ms <n>`: Simulated round trip per call, in ms (30)
+- `--loads <list>`: Any of `steady,concurrent,fanout`, run in that order (all)
+- `--rate <n>`: steady: transactions per second, with exponential gaps like independent users (20)
+- `--events-min/--events-max <n>`: steady: events per transaction, uniform (1/3)
+- `--duration-s <n>`: steady: seconds of traffic (15)
+- `--transactions <n>`: concurrent: single-event transactions (500)
+- `--parallel <n>`: concurrent: transactions in flight, at most the pool size of 10 (10)
+- `--events <n>`: fanout: events recorded in one transaction, like a premise fan-out (3000)
+- `--idle-s <n>`: Whole seconds to measure idle database use before the loads (3)
+- `--timeout-s <n>`: Seconds to wait for a load to be published before reporting `TIMED OUT` (300)
 
 A full default run takes about 1 minute per broker. Code that publishes
 slowly takes longer: the old 1-second poller needed about 2.5 minutes for the
@@ -71,16 +69,15 @@ and save each output: `pnpm -s bench:outbox ... 2>&1 | grep -v dotenv | tee <scr
 ## Reading the output
 
 The header names the broker, idle database calls per second, and the
-definitions. One row per load:
+definitions. One row per load, with the healthy ranges measured locally on
+2026-10-27:
 
-| Column                          | Meaning                                                                         | Healthy today (2026-10-27, local)                                                                                                                                                          |
-| ------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pickup avg/p50/p95/p99/max (ms) | COMMIT acknowledged → first publish call, per event. The headline metric        | steady under 1 ms on both brokers; concurrent max ~5 ms (Floci) / ~12 ms (simulated); fan-out max ~185 ms / ~1.1 s                                                                         |
-| Drain (s)                       | Load start → last event accepted                                                | steady ≈ `--duration-s`; concurrent ~0.4 s; fan-out ~0.5 s / ~1.4 s                                                                                                                        |
-| Publish calls                   | `PutEvents` calls for the load                                                  | well below the event count (up to 10 events per call)                                                                                                                                      |
-| run() p50/p99 (ms)              | `UnitOfWork.run()` per transaction, which is what a request pays                | about 2–3 ms steady; concurrent p50 ~6–9 ms and p99 ~20–30 ms, because 10 writers in flight hold all 10 pool connections and the rest wait for one; fan-out ~300 ms (inserting 3,000 rows) |
-| After commit p99 (µs)           | COMMIT acknowledged → `run()` resolved: work on the request's path after commit | tens to low hundreds of µs                                                                                                                                                                 |
-| Published                       | `all`, or `TIMED OUT` (exit code 1)                                             | `all`                                                                                                                                                                                      |
+- **Pickup avg/p50/p95/p99/max (ms):** COMMIT acknowledged → first publish call, per event. The headline metric. Healthy: steady under 1 ms on both brokers; concurrent max ~5 ms (Floci) / ~12 ms (simulated); fan-out max ~185 ms / ~1.1 s
+- **Drain (s):** Load start → last event accepted. Healthy: steady ≈ `--duration-s`; concurrent ~0.4 s; fan-out ~0.5 s / ~1.4 s
+- **Publish calls:** `PutEvents` calls for the load. Healthy: well below the event count (up to 10 events per call)
+- **run() p50/p99 (ms):** `UnitOfWork.run()` per transaction, which is what a request pays. Healthy: about 2–3 ms steady; concurrent p50 ~6–9 ms and p99 ~20–30 ms, because 10 writers in flight hold all 10 pool connections and the rest wait for one; fan-out ~300 ms (inserting 3,000 rows)
+- **After commit p99 (µs):** COMMIT acknowledged → `run()` resolved: work on the request's path after commit. Healthy: tens to low hundreds of µs
+- **Published:** `all`, or `TIMED OUT` (exit code 1). Healthy: `all`
 
 Idle should be about 1.0 database calls/s: one poll per second.
 

@@ -2,7 +2,8 @@
 
 A visual guide to how events move through InvestFlow, and how a simulation's
 result is recalculated when anything it depends on changes. Read this first;
-the rules behind it are in [Messaging Transport](./messaging.md) and
+the rules behind it, and the outbox's limits and timings, are in
+[Messaging Transport](./messaging.md) and
 [Mutable Premises And Asynchronous Recalculation](./recalculation.md).
 
 > **Status.** The event transport (outbox, EventBridge, SQS, consumers) and a
@@ -55,8 +56,8 @@ Three ideas carry the whole design:
 | Outbox             | The `outbox_events` table. Events wait here until published.                                                 |
 | After-commit hook  | A callback a unit of work runs once its transaction commits. Best effort: never run on rollback.             |
 | Outbox relay       | `OutboxRelay`. Publishes a committed unit of work's rows from memory, right after commit.                    |
-| Outbox publisher   | `OutboxPublisher`. Sends batches of 10, at most 8 calls at once, marks rows, backs off failures, pauses.     |
-| Outbox poller      | `OutboxPollerService`. Fallback: claims failed rows when due and rows older than 5 s, every second.          |
+| Outbox publisher   | `OutboxPublisher`. Sends batches with a cap on calls in flight, marks rows, backs off failures, pauses.      |
+| Outbox poller      | `OutboxPollerService`. Fallback: claims failed rows when due and rows older than a grace period.             |
 | Bus                | The EventBridge bus `investflow`. Publishers send every event here and know nothing about consumers.         |
 | Rule               | An EventBridge rule that copies matching events (by `source` and `detail-type`) into one consumer's queue.   |
 | Queue              | One SQS FIFO queue per consumer, created by `consumer_queue` in `infra/floci/init/provision.sh`.             |
@@ -99,7 +100,7 @@ sequenceDiagram
 | ------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------ |
 | The request's transaction rolls back | Neither the change nor the event exists.                                                   | Outbox             |
 | EventBridge rejects or is down       | The row stays unpublished and is retried with backoff; publishing pauses during an outage. | Outbox poller      |
-| The process stops before publishing  | The row stays unpublished; another poller claims it once it is 5 seconds old.              | Outbox poller      |
+| The process stops before publishing  | The row stays unpublished; another poller claims it once its grace period passes.          | Outbox poller      |
 | The process stops after publishing   | The row is published again; the consumer skips the duplicate.                              | `EventDispatcher`  |
 | SQS delivers a message twice         | The second `processed_events` insert finds the first one and the handler is skipped.       | `EventDispatcher`  |
 | The handler throws                   | The transaction rolls back, the message is not deleted, and it reappears after 30 seconds. | SQS                |

@@ -62,13 +62,9 @@ carries per-type variation and why it is the minimum.
 
 ## Layers and organization
 
-- Domain code depends only on domain projects. It must not import NestJS,
-  Prisma, AWS SDKs, transport types, configuration, or process APIs.
-- Application code defines ports and orchestrates domain behavior. It may use
-  NestJS decorators but never a deployment host or infrastructure
-  implementation.
-- Contexts communicate through integration events or explicit versioned
-  contracts, never another context's internals or aggregates.
+- Domain code never imports NestJS, Prisma, AWS SDKs, transport types,
+  configuration, or process APIs. Application code may use NestJS decorators
+  but never a host or an infrastructure implementation.
 - Use the same plural feature root in every layer (`offers`, `simulations`).
   Keep a domain feature shallow under `domain/src/lib/<feature>`: aggregate,
   entities, value objects, domain errors, and tests together; add role
@@ -77,9 +73,6 @@ carries per-type variation and why it is the minimum.
   (`<feature>/<operation>`: command, use case, tests). Feature-wide ports and
   stable errors sit at the feature root; `<feature>/shared` holds only
   contracts used by several operations.
-- Shared domain and application projects are capability-first: temporal
-  values under `dates`, rates under `rates`, application contracts under
-  `clocks` and `handlers`, DDD base abstractions under `foundations`.
 
 ## Domain objects
 
@@ -94,9 +87,8 @@ carries per-type variation and why it is the minimum.
   accepts an ID: the domain generates it with `generateUuid()`. Only
   `reconstitute()` takes an existing ID, and tests that need a known identity
   use it.
-- Include temporal state only when a business invariant, transition,
-  calculation, or event uses it. A behavior method receives the current
-  instant only when it affects state or an event.
+- A behavior method receives the current instant only when it affects state
+  or an event.
 - Value objects extend `ValueObject<T>`, use private constructors and static
   factories, validate on creation, and compare by value. Immutability relies
   on readonly state: no `Object.freeze` and no tests that bypass TypeScript to
@@ -124,15 +116,12 @@ carries per-type variation and why it is the minimum.
 
 ## Time
 
-- Civil dates are `CalendarDate`, civil intervals `CalendarDateRange`, exact
-  moments `UtcInstant`. No native `Date`, timestamps, or ad hoc date strings
-  in domain or application APIs, commands, ports, services, or events.
-- Parse transport values once at the entry boundary and serialize them only
-  at output boundaries. Extend a shared temporal value object when reusable
-  behavior is missing.
-- Use `Clock.now()` for the current instant and `Clock.today()` for the
-  current UTC date, and pass time into domain behavior explicitly; domain
-  code never reads the system clock.
+- No native `Date`, timestamps, or ad hoc date strings in commands, ports,
+  services, or events. Parse transport values once at the entry boundary,
+  serialize them only at output, and extend a shared temporal value object
+  when reusable behavior is missing.
+- `Clock.now()` gives the current instant and `Clock.today()` the current UTC
+  date; pass time into domain behavior explicitly.
 
 ## Application orchestration
 

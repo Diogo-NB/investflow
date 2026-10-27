@@ -111,6 +111,13 @@ this file in the same change that ships or changes a built behavior.
 
 ## Differs From the Target Model
 
+- The simulation workspace cannot yet edit its own offer in place, with the
+  offer editor's impact notice (see [Simulation Workspace
+  Behavior](./screens/simulations.md)).
+- The full browser verification in "Testing and verification" in
+  [Frontend Patterns](../architecture/frontend-patterns.md) (axe A/AA,
+  320–1440px reflow, 200% zoom, reduced motion) has not been run across
+  every screen.
 - While a premise change is being recalculated, its simulations show the
   derived "Desatualizado", not "Calculando", and keep their own last cause
   ("Recalculation status on screen" in
