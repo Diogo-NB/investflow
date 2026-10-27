@@ -29,6 +29,12 @@ Load the repository skill that matches the work:
   clients, state, styling, accessibility, and frontend tests.
 - `$investflow-outbox-benchmark` to run, interpret, and report the outbox
   publishing benchmark (`pnpm bench:outbox`), or to extend it.
+- `$investflow-planning` to plan or discuss features, refactors, roadmap
+  steps, and design questions, present options, and update the docs once
+  decisions are made.
+- `$investflow-local-testing` to test changes on the local development
+  stack: starting it, API calls with a local Keycloak token, database rows,
+  and browser testing.
 
 Vendored frontend skills (tracked in `skills-lock.json`) supplement
 `$investflow-react`:
@@ -140,18 +146,12 @@ frontend testing policy.
 
 ## Design Work and Plans
 
-- Recorded decisions in the docs are revisable. Re-evaluate their premises
-  (scale, what is stored versus derived, whether the machinery is needed)
-  instead of building on them blindly, and propose better alternatives.
-- On design problems that need real attention (architecture, modeling,
-  cross-cutting mechanisms), restate what the work must achieve and the few
-  questions that decide its shape, then present options against them before
-  refining details. Routine and mechanical tasks skip this.
-- Label each part of a design as built, designed only, or newly proposed.
-- Plans show the implementation: per-file code sketches of the types,
-  signatures, and orchestration, not only a file list. Before presenting,
-  cut dead mechanisms and duplicate entry points, and self-review the sketches
-  against the relevant skill.
+Use `$investflow-planning` for any plan, design discussion, or decision. In
+short: recorded decisions are revisable; present alternatives with a
+recommendation and the simplest option that works; plans show per-file code
+sketches and are self-reviewed against the layer skills; and every agreed
+decision updates the roadmap, PRD, architecture docs, and Deferred Work in
+the same change.
 
 ## Build, Test, and Development Commands
 
@@ -184,7 +184,20 @@ Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding,
 TypeScript uses Prettier with single quotes and the Nx flat ESLint configuration.
 Use kebab-case filenames, PascalCase classes, and camelCase methods and
 variables. Prefix every enum name with `E` (`ETitleType`, `EAppErrorCode`).
-Prefer guard clauses. Use `unknown` for untrusted input and narrow it
+Prefer guard clauses.
+
+Name things for what they are and where they apply, so a reader does not
+need the body or the docs to know: this goes for types, methods, events,
+endpoints, routes, files, and skills. Avoid generic words (`verify`,
+`handle`, `process`, `impact`, `data`, `Changed`) unless qualified by their
+scope (`investflow-local-testing`, not `investflow-verify`). Name booleans
+as a positive state the caller checks (`isUnchanged`, `isFixed`), not as an
+implementation detail or a negation. Endpoint paths name the resource they
+return, not why the caller wants it (an offer's simulations are
+`/simulations?offerId=`, not `/offers/:id/impact`). When a name
+stops fitting after a change, rename it in the same change.
+
+Use `unknown` for untrusted input and narrow it
 explicitly; use precise types for internal domain inputs. Do not use `any`
 unless unavoidable framework typing requires it.
 
@@ -261,9 +274,9 @@ feature hooks (with `renderHook`), API adapters, and pure helpers without
 asserting DOM structure or UI details.
 
 Verify backend work in this order: automated tests first, then the backend
-alone (start the API, get a token from the local Keycloak with the credentials
-in `.env`, call the endpoints, query PostgreSQL). Do not assume a full
-end-to-end run is needed; propose it with its rationale and wait for approval.
+alone on a running API (calls with a Keycloak token, then PostgreSQL rows).
+Do not assume a full end-to-end run is needed; propose it with its rationale
+and wait for approval. `$investflow-local-testing` has the commands.
 
 ## Commit & Pull Request Guidelines
 

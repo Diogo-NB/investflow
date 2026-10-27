@@ -377,7 +377,7 @@ export function CalculationPanel({
       {!pending && (problem || changedElsewhere) && (
         <div
           role="alert"
-          className="grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-3 rounded-surface border border-error/40 bg-error-soft px-5 py-4"
+          className="grid grid-cols-[auto_1fr] items-start gap-3 rounded-surface border border-error/40 bg-error-soft px-5 py-4"
         >
           <XCircleIcon className="mt-0.5 size-5 shrink-0 text-error" />
           {problem ? (

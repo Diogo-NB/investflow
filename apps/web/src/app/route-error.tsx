@@ -9,7 +9,7 @@ export function RouteError() {
       <title>Erro | InvestFlow</title>
       <h1
         id="route-error-title"
-        className="m-0 text-2xl leading-tight font-semibold text-fg"
+        className="m-0 text-2xl/tight font-semibold text-fg"
       >
         Algo deu errado.
       </h1>

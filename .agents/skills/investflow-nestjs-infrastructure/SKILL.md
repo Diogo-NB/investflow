@@ -199,6 +199,24 @@ the method's return type, such as `Result<Offer, OfferNotFoundError | Repository
 - Keep Keycloak roles as generic strings. Introduce domain-specific roles only
   when a domain requirement needs them.
 
+## Ports and ownership
+
+Before adding a parameter, check, or constant that crosses a port, ask which
+side owns the knowledge, and state the answer in the plan:
+
+- Provider facts (service names, quotas, SDK options) stay in the adapter.
+  When the core needs a limit, it defines the limit as its own contract that
+  every adapter must accept, as the outbox does with its payload and batch
+  limits (`message-broker.port.ts`); it never checks a provider's limit.
+- The side that owns a policy passes it in. The outbox owns retries and
+  shutdown, so it hands the broker an `AbortSignal`, and the adapter only
+  honors it.
+- A port names a capability, not a technology; it may persist, read, or
+  publish.
+- Writes to a table belong to the component that owns the table (for
+  example `outbox_events` to `messaging/outbox`), not to a shared base class
+  that happens to run nearby.
+
 ## Runtime portability
 
 - Infrastructure must not assume whether it runs in a long-lived server,

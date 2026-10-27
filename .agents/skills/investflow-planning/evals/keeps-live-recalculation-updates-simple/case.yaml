@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: keeps-live-recalculation-updates-simple
+expected_outcome: |
+  Checks the code first and notices that the simulation details page already polls its query about every 3 seconds, compares polling against push (SSE or WebSockets) on the same criteria, recommends the simplest option that meets the goal, records the heavier option as deferred, and sketches the recommended change without editing the repository.

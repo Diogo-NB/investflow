@@ -50,7 +50,7 @@ export function RateOfReturnExplanationDialog({
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 bg-fg opacity-30 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 grid max-h-[calc(100dvh-2rem)] w-xl max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 content-start gap-4 overflow-y-auto rounded-surface border border-border bg-surface p-6 text-fg outline-none transition-[opacity,scale] duration-150 ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+        <Dialog.Popup className="fixed top-1/2 left-1/2 grid max-h-[calc(100dvh-2rem)] w-xl max-w-[calc(100vw-2rem)] -translate-1/2 content-start gap-4 overflow-y-auto rounded-surface border border-border bg-surface p-6 text-fg outline-none transition-[opacity,scale] duration-150 ease-out data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
           <div className="flex items-start justify-between gap-4">
             <Dialog.Title className="m-0 text-lg font-semibold">
               Rentabilidade

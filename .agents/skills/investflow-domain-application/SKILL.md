@@ -109,13 +109,23 @@ carries per-type variation and why it is the minimum.
   instant only when the behavior needs it.
 - Value objects extend `ValueObject<T>`, use private constructors and static
   factories, validate on creation, and compare by value.
+- Give value objects the behavior their callers need instead of computing
+  on their raw parts at each call site: `instant.addMs(delay)` rather than
+  arithmetic on `epochMilliseconds`, `range.datesBetween` rather than a date
+  loop in a service. Expose argument-free facts as getters (`isWeekend`,
+  `isLastDayOfMonth`), and cache a computed getter on an immutable object
+  when it is expensive.
 - Use `create()` returning `Result` when validation failure is expected from
   external input. Keep throwing `of()` helpers internal and throw a typed
   `DomainError` only for an invariant breach.
 - Put a concrete value object in shared domain only when its semantics are
   genuinely reusable across contexts.
 - Domain services contain domain calculations that do not naturally belong to
-  one aggregate or value object.
+  one aggregate or value object. An aggregate method that receives other
+  aggregates, carries heavy logic, or needs another domain service is a
+  domain service in disguise; extract it. A stateless domain service with no
+  injected dependencies (such as `BusinessDayCalendar`) may be static.
+- Delete behavior that nothing uses rather than keeping it for later.
 
 ## Time
 

@@ -82,7 +82,7 @@ export function Shell() {
         ref={mainRef}
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-6xl flex-1 px-6 py-6 outline-none sm:px-10 sm:py-10"
+        className="mx-auto w-full max-w-6xl flex-1 p-6 outline-none sm:p-10"
       >
         {logoutStatus === 'error' && (
           <p

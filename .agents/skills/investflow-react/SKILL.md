@@ -133,6 +133,25 @@ Keep `PaginatedResult<Item>` internal to
   `useSyncExternalStore` over Keycloak events. Keep logout retry and the
   duplicate-intent guard.
 
+## Designing screens
+
+Good UX here means easy, fast, reliable, and clear for someone managing many
+simulations, offers, and curves, not decoration.
+
+- Design from the user's position: start with the task the screen serves and
+  what the user needs to decide. For a new screen or a major redesign,
+  present at least two layouts with a recommendation before building.
+- Keep copy short and direct. Explain business rules (taxes, missing curve
+  values) with the fact and the reason, not legal references or long text,
+  and show detail on demand (dialog, expandable row) instead of always.
+- Make errors actionable: say what is missing and link to where it is fixed.
+- Use the canonical icon of each aggregate (see the frontend guide)
+  everywhere that aggregate appears, and subtle motion for state changes
+  such as recalculating, respecting reduced motion.
+- Look for edge cases yourself before presenting: empty and long lists,
+  invalid and boundary dates, removing an item in the middle, undo, and
+  narrow viewports. Propose the improvements you find.
+
 ## UI and accessibility
 
 - Base UI supplies interaction primitives (Dialog, AlertDialog, Select, Field,
@@ -141,6 +160,12 @@ Keep `PaginatedResult<Item>` internal to
   default palette, arbitrary colors or radii, CSS-in-JS, CSS modules, or
   component stylesheets without a documented exception.
 - Don't create wrappers that only rename a primitive.
+- Write canonical Tailwind classes (`aria-current:`, `max-h-128`,
+  `-translate-1/2`, `text-xl/tight`); lint enforces this with
+  `better-tailwindcss/enforce-canonical-classes`. When combining a font size
+  with a line height, repeat the line height on responsive sizes
+  (`text-xl/tight sm:text-2xl/tight`): a bare `sm:text-2xl` falls back to
+  its default line height.
 - Preserve semantic HTML, visible keyboard focus, accessible names, 44px
   targets, live regions for async updates, route focus on the main landmark,
   and reduced motion. Keep Portuguese product copy.

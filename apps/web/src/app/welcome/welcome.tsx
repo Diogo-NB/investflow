@@ -34,11 +34,11 @@ export function Welcome() {
       <div className="mt-10 max-w-2xl sm:mt-14">
         <h1
           id="welcome-title"
-          className="m-0 text-2xl leading-tight font-semibold tracking-tight text-fg sm:text-3xl"
+          className="m-0 text-2xl/tight font-semibold tracking-tight text-fg sm:text-3xl/tight"
         >
           Bem-vindo ao InvestFlow.
         </h1>
-        <p className="mt-4 mb-0 max-w-prose text-lg leading-relaxed text-muted">
+        <p className="mt-4 mb-0 max-w-prose text-lg/relaxed text-muted">
           Um espaço para suas próximas decisões de investimento.
         </p>
       </div>

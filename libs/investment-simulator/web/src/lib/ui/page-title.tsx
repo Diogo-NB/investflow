@@ -19,7 +19,7 @@ export function PageTitle({
       <div className="min-w-0">
         <h1
           id={id}
-          className="m-0 text-xl leading-tight font-semibold sm:text-2xl"
+          className="m-0 text-xl/tight font-semibold sm:text-2xl/tight"
         >
           {children}
         </h1>
