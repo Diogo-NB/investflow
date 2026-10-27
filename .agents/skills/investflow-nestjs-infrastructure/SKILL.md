@@ -217,8 +217,10 @@ Do not create unit tests that enumerate request DTOs only to re-test built-in
 `class-validator` decorators such as `@IsUUID()`, `@IsEnum()`, or
 `@IsOptional()`. The library already covers those behaviors. Extract custom
 validators and decorators into focused validator files and test those rules
-directly. Test controllers for orchestration and commands for request mapping,
-not for the internals of framework validation.
+directly. Test commands for request mapping, not for the internals of framework
+validation. Do not write controller specs: controllers only delegate to use
+cases and query handlers. Add one only when a controller has its own behavior
+that no other test covers.
 
 Run the affected infrastructure lint and test targets plus the consuming app's
 build. Run `pnpm check` when project boundaries, shared configuration, or public

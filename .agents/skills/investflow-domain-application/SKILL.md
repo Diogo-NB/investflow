@@ -230,7 +230,7 @@ publication, broker routing, or consumers.
 
 ## Tests
 
-Place focused `*.spec.ts` files beside the source. Cover factories, invariants,
+Place focused `*.spec.ts` files in a `test/` folder beside the source, or beside the source itself when the folder would hold a single file. Cover factories, invariants,
 state transitions, event emission, error paths, and deterministic temporal
 behavior. Run the affected domain and application Nx test and lint targets;
 broaden validation when public contracts or dependency boundaries change.

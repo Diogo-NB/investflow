@@ -29,14 +29,12 @@ import { GetSimulationComparisonQueryHandler } from './simulation-comparisons/qu
 import { SimulationWorkspaceController } from './simulation-workspaces/http/simulation-workspace.controller';
 import { GetSimulationOptionsQueryHandler } from './simulation-workspaces/queries/get-simulation-options.query-handler';
 import { GetSimulationWorkspaceQueryHandler } from './simulation-workspaces/queries/get-simulation-workspace.query-handler';
-import { InvestmentSimulatorController } from './investment-simulator.controller';
 import { CurvesModule } from './curves/curves.module';
 import { OffersModule } from './offers/offers.module';
 
 @Module({
   imports: [CurvesModule, OffersModule],
   controllers: [
-    InvestmentSimulatorController,
     SimulationController,
     SimulationWorkspaceController,
     SimulationComparisonController,

@@ -209,12 +209,13 @@ The workspace intentionally retains `baseUrl` because the Nx TypeScript executor
 ## Testing Guidelines
 
 Backend projects use Jest; frontend projects use Vitest through Nx.
-Place focused unit tests beside source files using `*.spec.ts` (`*.spec.tsx` when a test needs JSX). Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
+Place focused unit tests in a `test/` folder beside the source files they cover, using `*.spec.ts` (`*.spec.tsx` when a test needs JSX); fixtures used only by those tests live there too. When a folder would hold a single file, keep that file beside the source instead. Cover domain invariants, state transitions, error paths, and event emission. Run one project with `pnpm nx run <project>:test`; run the full suite with `pnpm test`.
 
 Do not add request-DTO unit suites that merely repeat built-in
-`class-validator` behavior. Test custom validators and decorators directly,
-controller orchestration separately, and command request-mapping in command
-tests.
+`class-validator` behavior. Test custom validators and decorators directly
+and command request-mapping in command tests. Do not write controller specs:
+controllers only delegate to use cases and query handlers, so add one only when
+a controller has its own behavior that no other test covers.
 
 Frontend tests follow the state-first policy in `$investflow-react`: test
 feature hooks (with `renderHook`), API adapters, and pure helpers without

@@ -1,0 +1,122 @@
+import { EAppErrorCode } from '../app-error-code.enum';
+import { AppError } from '../app.error';
+import { Result } from '../result';
+
+class TestError extends AppError {
+  constructor(message = 'Test failure') {
+    super(message, {
+      code: EAppErrorCode.INVESTMENT_CALCULATION_FAILED,
+      kind: 'unexpected',
+    });
+  }
+}
+
+describe('Result', () => {
+  it('wraps a successful value', () => {
+    const result = Result.ok<number, TestError>(42);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.isErr()).toBe(false);
+    expect(result.value).toBe(42);
+  });
+
+  it('wraps an error value', () => {
+    const error = new TestError();
+    const result = Result.err<number, TestError>(error);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.isOk()).toBe(false);
+    expect(result.error).toBe(error);
+  });
+
+  it('maps successful values', () => {
+    const result = Result.ok<number, TestError>(2).map((value) => value * 3);
+
+    expect(result.value).toBe(6);
+  });
+
+  it('maps errors without changing successful values', () => {
+    const result = Result.err<number, TestError>(new TestError()).mapError(
+      () => new TestError('Mapped failure'),
+    );
+
+    expect(result.error.message).toBe('Mapped failure');
+  });
+
+  it('matches both states', () => {
+    const result = Result.ok<number, TestError>(2).match({
+      ok: (value) => value * 2,
+      err: () => 0,
+    });
+
+    expect(result).toBe(4);
+  });
+
+  it('returns fallback values for errors', () => {
+    const result = Result.err<number, TestError>(new TestError()).unwrapOr(7);
+
+    expect(result).toBe(7);
+  });
+
+  it('reads the value or null', () => {
+    expect(Result.ok<number, TestError>(42).valueOrNull).toBe(42);
+    expect(Result.err<number, TestError>(new TestError()).valueOrNull).toBe(
+      null,
+    );
+  });
+
+  it('converts thrown errors', () => {
+    const result = Result.fromThrowable(
+      () => {
+        throw new Error('Unexpected');
+      },
+      () => new TestError('Converted'),
+    );
+
+    expect(result.error.message).toBe('Converted');
+  });
+
+  it('converts rejected promises', async () => {
+    const result = await Result.fromPromise(
+      () => Promise.reject(new Error('Unexpected')),
+      () => new TestError('Converted'),
+    );
+
+    expect(result.error.message).toBe('Converted');
+  });
+
+  it('combines successful results', () => {
+    const result = Result.combine<number, TestError>([
+      Result.ok<number, TestError>(1),
+      Result.ok<number, TestError>(2),
+    ]);
+
+    expect(result.value).toEqual([1, 2]);
+  });
+
+  it('returns the first error when combining results', () => {
+    const error = new TestError('First failure');
+    const result = Result.combine<number, TestError>([
+      Result.ok<number, TestError>(1),
+      Result.err<number, TestError>(error),
+      Result.err<number, TestError>(new TestError('Second failure')),
+    ]);
+
+    expect(result.error).toBe(error);
+  });
+
+  it('narrows an error result so it can be propagated for another value type', () => {
+    const error = new TestError();
+
+    function propagate(
+      result: Result<number, TestError>,
+    ): Result<string, TestError> {
+      if (result.isErr()) return result;
+      return Result.ok(result.value.toString());
+    }
+
+    const result = propagate(Result.err<number, TestError>(error));
+
+    expect(result.error).toBe(error);
+  });
+});
