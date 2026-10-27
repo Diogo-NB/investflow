@@ -1,6 +1,6 @@
 ---
 name: investflow-eventing
-description: Implement, review, or refactor InvestFlow transactional messaging. Use for domain events, outbox persistence or polling, EventBridge routing, SQS consumers, processed-event tracking, retries, dead-letter behavior, idempotency, or host activation of messaging workers. Do not use for backend changes without event publication or consumption.
+description: Implement, review, or refactor InvestFlow transactional messaging. Use for domain events, outbox persistence, relay, or polling, unit-of-work commit hooks, EventBridge routing, SQS consumers, processed-event tracking, retries, dead-letter behavior, idempotency, or host activation of messaging workers. Do not use for backend changes without event publication or consumption.
 ---
 
 # InvestFlow Eventing
@@ -23,26 +23,44 @@ including simulation recalculation, with diagrams.
      (`@investflow/shared-domain`) and call `record(...events)` directly. Use it
      for bulk work that does not load aggregates, such as fan-out pages.
 3. `TransactionalDomainEventRecorder` validates each event with `OutboxWriter`
-   when it is recorded and buffers the rows. Recording outside a unit of work
-   throws, because the event would be lost. Just before commit, `UnitOfWork`
-   appends the buffer to `outbox_events` in chunks of 1,000 rows, so changes
-   and their events commit together or not at all. Rows of one transaction
-   share `created_at` and publish in no particular order. The writer owns the
-   row format, serialization, and payload limit, so the outbox table is
-   touched only in `messaging/outbox` and by `UnitOfWork`.
-4. `OutboxPollerService` hands each unpublished row to the `MessageBroker`
-   port. `EventBridgeMessageBroker` puts it on the `investflow` bus with
-   `source` `investflow.<context>` and `detail-type` set to the event type,
-   and fails when EventBridge rejects the entry.
-5. The poller publishes outside any transaction and marks the row published
-   afterwards, so a crash in between republishes it; consumers deduplicate.
-   A poll runs every second and is skipped while the previous one runs.
-6. A failed event records `attempts`, `lastError`, and a `nextAttemptAt`
-   backed off exponentially up to 5 minutes; only due rows are fetched, so a
-   failing event never blocks newer ones and is retried indefinitely. Three
-   consecutive failures of different events pause the whole poller (1 second,
-   doubling up to 60) until a publication succeeds; each pause costs 3 calls
-   and 3 warnings, and the pause and resume are logged once.
+   when it is recorded and buffers the rows per unit of work. Recording
+   outside a unit of work throws, because the event would be lost. On the
+   first event of a unit of work it registers two hooks on its scope:
+   - a **before-commit** hook that stamps `created_at` and appends the rows
+     to `outbox_events` in chunks of 1,000, so changes and their events
+     commit together or not at all;
+   - an **after-commit** hook that hands the rows to `OutboxRelay`, when the
+     host imports `OutboxModule` (the recorder injects it optionally).
+     Rows of one transaction share `created_at` and publish in no particular
+     order. The writer owns the row format, serialization, and payload limit,
+     so the outbox table is touched only in `messaging/outbox`.
+4. `UnitOfWork.run()` runs the before-commit hooks inside the transaction (a
+   failure rolls it back) and the after-commit hooks once committed, outside
+   any unit of work, logging their failures. Register one from
+   infrastructure code with `UnitOfWork.afterCommit(hook)`. After-commit hooks
+   are best effort and infrastructure only; anything that must happen after a
+   change is a domain event, never a hook.
+5. `OutboxRelay` publishes the rows on the next turn of the event loop, so the
+   response never waits for the broker. It holds at most 5,000 rows, drops
+   rows that waited 2.5 s, skips everything while publishing is paused, and
+   coalesces marks into one `UPDATE` at a time. Anything it does not mark
+   published is left to the poller. On shutdown it waits up to 5 s for its
+   calls in flight.
+6. `OutboxPublisher` is the only code that calls the `MessageBroker` port:
+   batches of at most `MAX_BATCH_MESSAGES` (10) and `MAX_BATCH_BYTES`, at most
+   8 calls in flight across the relay and the poller, a 2 s timeout per call
+   through an `AbortSignal`, bulk marks, and per-event exponential backoff
+   (`attempts`, `nextAttemptAt` up to 5 minutes, `lastError`) for rejected
+   messages and failed calls. Three consecutive failed calls pause
+   publishing (1 s, doubling to 60 s while the broker stays down); a success
+   resumes it. Adapters must not retry: the outbox owns retries.
+   `OutboxPollerService` is the fallback: every second, and again at once
+   while batches come back full, it claims up to 100 rows that are due or
+   older than the grace period (the relay's 2.5 s plus the call timeout plus
+   a margin, 5 s) with `FOR UPDATE SKIP LOCKED`, publishes them, and marks
+   them through the claiming transaction. Any number of processes can poll
+   one outbox. A process that stops between publishing and marking causes a
+   republish; consumers deduplicate.
 7. `OutboxWriter` rejects an event whose payload exceeds the outbox limit
    (200 KB) at `record()`. `BaseRepository.save()` lets that failure throw
    rather than return an error, so the whole unit of work rolls back with
@@ -50,9 +68,11 @@ including simulation recalculation, with diagrams.
    identifiers and changed fields, not documents, and every broker adapter
    must accept payloads of that size.
 
-Routing lives in the broker adapter and the EventBridge rules; the poller and
+Routing lives in the broker adapter and the EventBridge rules; the outbox and
 the port know no topics, buses, or queues. The deployable host decides whether
-an outbox poller is active by importing `OutboxModule`.
+it publishes (relay and poller) by importing `OutboxModule`; a host without it
+leaves its events to a publishing host's poller. Measure publishing latency
+with `$investflow-outbox-benchmark` before and after changing publishing.
 
 ## Event contract
 
@@ -112,19 +132,21 @@ an outbox poller is active by importing `OutboxModule`.
 
 - Never publish directly from a use case.
 - Never write `outbox_events` directly; record through `DomainEventRecorder`
-  and let `UnitOfWork` flush. Only `BaseRepository` hands aggregate events to
+  and let its before-commit hook write the rows. Only `BaseRepository` hands aggregate events to
   the recorder and calls `markPersisted()`.
 - Run every writing entry point (requests, consumers, jobs, scripts) inside
   `UnitOfWork.run()`; reads may skip it.
 - Do not share internal domain-event classes as public wire contracts between
   contexts; translate to explicit versioned integration contracts when needed.
-- The deployable app selects active pollers and consumers. Importing unrelated
+- The deployable app selects active publishing (`OutboxModule`) and consumers. Importing unrelated
   persistence or authentication modules must not start background work.
-- Long-running servers may schedule polling. Lambda and worker hosts use an
-  invocation model appropriate to their trigger.
+- Long-running servers run the relay and the polling loop. Lambda and worker
+  hosts use an invocation model appropriate to their trigger; a Lambda that
+  records events must await the relay before returning or rely on another
+  host's poller.
 - Keep reusable messaging infrastructure under capability-first paths in
-  `shared/infrastructure/src/lib/messaging`: `outbox` (poller and
-  `MessageBroker` port), `eventbridge` (publishing adapter), `consumers`
+  `shared/infrastructure/src/lib/messaging`: `outbox` (writer, recorder,
+  relay, publisher, poller, and `MessageBroker` port), `eventbridge` (publishing adapter), `consumers`
   (`EventDispatcher` and `@OnEvent`), and `sqs` (listener and host module).
   Transport-specific code stays in `eventbridge` and `sqs`.
 
@@ -134,11 +156,14 @@ persistence adapters, and host composition.
 
 ## Tests
 
-Cover atomic aggregate/outbox persistence, serialization, EventBridge routing,
-publication marking and per-event failure isolation, processed-event
+Cover atomic aggregate/outbox persistence, commit hooks (order, rollback,
+after-commit only on success and outside the scope), serialization,
+EventBridge routing and rejected entries, batching and the in-flight limit,
+the relay's hand-off, cap, staleness, and shutdown, the poller's claim and
+grace period, publication marking and per-event failure isolation, pausing, processed-event
 deduplication per consumer, consumer rollback, message deletion rules, and host
 activation boundaries. `messaging.integration.spec.ts` covers the whole path
-against Floci when `MESSAGING_TEST_DATABASE_URL` is set; run it with
+against Floci, including concurrent pollers, when `MESSAGING_TEST_DATABASE_URL` is set; run it with
 `NODE_OPTIONS=--experimental-vm-modules` and without `AWS_PROFILE`. Run the affected project
 tests and builds; broaden to `pnpm check` when shared messaging infrastructure
 or Nx boundaries change.

@@ -1,7 +1,7 @@
 import {
   Injectable,
   OnModuleInit,
-  OnModuleDestroy,
+  OnApplicationShutdown,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -14,7 +14,7 @@ import { UnitOfWorkContext } from '../unit-of-work.context';
 const TRANSACTION_TIMEOUT = 10_000;
 
 @Injectable()
-export class PrismaService implements OnModuleInit, OnModuleDestroy {
+export class PrismaService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(PrismaService.name);
   private readonly pool: Pool;
   private readonly _client: PrismaClient;
@@ -37,7 +37,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('Connected to database');
   }
 
-  async onModuleDestroy(): Promise<void> {
+  // After every module's destroy hook, so consumers, the outbox relay, and
+  // the poller can finish their database work first.
+  async onApplicationShutdown(): Promise<void> {
     await this._client.$disconnect();
     await this.pool.end();
     this.logger.log('Disconnected from database');

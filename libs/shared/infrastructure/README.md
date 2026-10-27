@@ -14,8 +14,9 @@ under `src/lib/messaging`. Provider-specific boundaries remain nested, such as
 
 `SharedInfrastructureModule` is the current convenience composition module for
 the modular-monolith API. It activates configuration, Prisma, and
-authentication; it starts no background work. A host activates scheduled
-outbox publishing by importing `OutboxModule` and message consumers through
+authentication; it starts no background work. A host activates outbox
+publishing (the relay after commit and its polling fallback) by importing
+`OutboxModule`, and message consumers through
 `SqsConsumersModule.register()`, so a future Lambda, queue worker, or
 independent service imports only what its lifecycle supports.
 

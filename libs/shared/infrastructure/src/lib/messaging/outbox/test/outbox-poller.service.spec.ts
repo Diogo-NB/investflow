@@ -1,179 +1,126 @@
+import { Logger } from '@nestjs/common';
 import { Clock } from '@investflow/shared-application';
 import { CalendarDate, UtcInstant } from '@investflow/shared-domain';
-import { MessageBroker } from '../message-broker.port';
-import { OutboxPollerService } from '../outbox-poller.service';
 import { PrismaService } from '../../../persistence/prisma/prisma.service';
+import { OutboxPollerService } from '../outbox-poller.service';
+import { OutboxPublisher } from '../outbox-publisher';
+
+jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
 const startedAt = UtcInstant.ofIso('2026-01-02T03:04:05Z');
 
-function outboxRow(id: string, attempts = 0) {
+function claimedRow(id: string, attempts = 0) {
   return {
     id,
     eventType: 'TestHappened',
     context: 'test-context',
-    payload: { eventId: id, eventType: 'TestHappened' },
+    payload: { eventId: id },
     attempts,
   };
 }
 
-function createFixture(rows: ReturnType<typeof outboxRow>[]) {
-  let now = startedAt;
-  const update = jest.fn().mockResolvedValue(undefined);
-  const findMany = jest.fn().mockResolvedValue(rows);
+function createFixture(rows: ReturnType<typeof claimedRow>[]) {
+  const queryRaw = jest.fn().mockResolvedValue(rows);
+  const client = { $queryRaw: queryRaw };
   const prisma = {
-    client: { outboxEvent: { findMany, update } },
+    $transaction: jest.fn((work: (tx: unknown) => Promise<unknown>) =>
+      work(client),
+    ),
   } as unknown as PrismaService;
-  const publish = jest.fn().mockResolvedValue(undefined);
-  const messageBroker = { publish } as unknown as MessageBroker;
+  const publisher = {
+    isPaused: jest.fn().mockReturnValue(false),
+    publish: jest.fn().mockResolvedValue({ published: [], failed: [] }),
+    markPublished: jest.fn().mockResolvedValue(undefined),
+    recordFailures: jest.fn().mockResolvedValue(undefined),
+  };
   const clock: Clock = {
-    now: () => now,
+    now: () => startedAt,
     today: () => CalendarDate.of('2026-01-02'),
   };
-
   return {
-    poller: new OutboxPollerService(prisma, messageBroker, clock),
-    findMany,
-    update,
-    publish,
-    advance: (milliseconds: number) => {
-      now = now.addMs(milliseconds);
-    },
+    poller: new OutboxPollerService(
+      prisma,
+      publisher as unknown as OutboxPublisher,
+      clock,
+    ),
+    client,
+    queryRaw,
+    publisher,
   };
-}
-
-function failuresRecorded(update: jest.Mock) {
-  return update.mock.calls.filter(([args]) => 'attempts' in args.data);
 }
 
 describe('OutboxPollerService', () => {
-  it('fetches only unpublished events that are due', async () => {
-    const { poller, findMany } = createFixture([]);
+  afterEach(() => jest.restoreAllMocks());
 
-    await poller.poll();
+  it('claims due rows and rows past the grace period without waiting for locked ones', async () => {
+    const { poller, queryRaw } = createFixture([]);
 
-    expect(findMany).toHaveBeenCalledWith({
-      where: {
-        publishedAt: null,
-        OR: [
-          { nextAttemptAt: null },
-          { nextAttemptAt: { lte: startedAt.date } },
-        ],
-      },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
-    });
-  });
+    await poller.drainOnce();
 
-  it('publishes an event and then marks it published with the clock time', async () => {
-    const row = outboxRow('event-1');
-    const { poller, publish, update } = createFixture([row]);
-
-    await poller.poll();
-
-    expect(publish).toHaveBeenCalledWith({
-      eventId: 'event-1',
-      eventType: 'TestHappened',
-      context: 'test-context',
-      payload: JSON.stringify(row.payload),
-    });
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'event-1' },
-      data: { publishedAt: startedAt.date },
-    });
-    expect(publish.mock.invocationCallOrder[0]).toBeLessThan(
-      update.mock.invocationCallOrder[0],
-    );
-  });
-
-  it('backs a failed event off without stopping the rest', async () => {
-    const { poller, publish, update } = createFixture([
-      outboxRow('event-1', 2),
-      outboxRow('event-2'),
+    const [strings, ...values] = queryRaw.mock.calls[0];
+    const sql = strings.join('?').replace(/\s+/g, ' ');
+    expect(sql).toContain('WHERE published_at IS NULL');
+    expect(sql).toContain('next_attempt_at <= ?');
+    expect(sql).toContain('next_attempt_at IS NULL AND created_at < ?');
+    expect(sql).toContain('FOR UPDATE SKIP LOCKED');
+    expect(values).toEqual([
+      startedAt.date,
+      new Date(startedAt.epochMilliseconds - 5_000),
+      100,
     ]);
-    publish.mockRejectedValueOnce(new Error('payload rejected'));
-
-    await poller.poll();
-
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'event-1' },
-      data: {
-        attempts: 3,
-        nextAttemptAt: new Date(startedAt.epochMilliseconds + 4_000),
-        lastError: 'payload rejected',
-      },
-    });
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'event-2' },
-      data: { publishedAt: startedAt.date },
-    });
   });
 
-  it('caps the retry delay at five minutes', async () => {
-    const { poller, publish, update } = createFixture([
-      outboxRow('event-1', 20),
+  it('publishes the claimed rows and records the outcome through the claiming transaction', async () => {
+    const { poller, client, publisher } = createFixture([
+      claimedRow('event-1'),
+      claimedRow('event-2', 3),
     ]);
-    publish.mockRejectedValueOnce(new Error('payload rejected'));
+    const failed = [{ entry: {}, reason: 'too large' }];
+    publisher.publish.mockResolvedValue({ published: ['event-1'], failed });
 
-    await poller.poll();
+    const claimed = await poller.drainOnce();
 
-    expect(failuresRecorded(update)[0][0].data.nextAttemptAt).toEqual(
-      new Date(startedAt.epochMilliseconds + 5 * 60_000),
-    );
+    expect(claimed).toBe(2);
+    expect(publisher.publish).toHaveBeenCalledWith([
+      {
+        message: {
+          eventId: 'event-1',
+          eventType: 'TestHappened',
+          context: 'test-context',
+          payload: '{"eventId":"event-1"}',
+        },
+        attempts: 0,
+      },
+      expect.objectContaining({ attempts: 3 }),
+    ]);
+    expect(publisher.markPublished).toHaveBeenCalledWith(client, ['event-1']);
+    expect(publisher.recordFailures).toHaveBeenCalledWith(client, failed);
   });
 
-  it('pauses after consecutive failures of different events', async () => {
-    const rows = ['event-1', 'event-2', 'event-3', 'event-4'].map((id) =>
-      outboxRow(id),
-    );
-    const { poller, publish, update, findMany, advance } = createFixture(rows);
-    publish.mockRejectedValue(new Error('broker down'));
+  it('claims nothing while publishing is paused', async () => {
+    const { poller, queryRaw, publisher } = createFixture([
+      claimedRow('event-1'),
+    ]);
+    publisher.isPaused.mockReturnValue(true);
 
-    await poller.poll();
-
-    expect(publish).toHaveBeenCalledTimes(3);
-    expect(failuresRecorded(update)).toHaveLength(3);
-
-    advance(999);
-    await poller.poll();
-    expect(findMany).toHaveBeenCalledTimes(1);
-
-    advance(1);
-    await poller.poll();
-    expect(findMany).toHaveBeenCalledTimes(2);
+    expect(await poller.drainOnce()).toBe(0);
+    expect(queryRaw).not.toHaveBeenCalled();
   });
 
-  it('doubles the pause while the broker keeps failing and resets it after a success', async () => {
-    const rows = ['event-1', 'event-2', 'event-3'].map((id) => outboxRow(id));
-    const { poller, publish, findMany, advance } = createFixture(rows);
-    publish.mockRejectedValue(new Error('broker down'));
+  it('drains again at once while batches come back full, and stops on shutdown', async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { poller } = createFixture([]);
+    const drainOnce = jest
+      .spyOn(poller, 'drainOnce')
+      .mockResolvedValueOnce(100)
+      .mockRejectedValueOnce(new Error('database down'))
+      .mockResolvedValue(0);
 
-    await poller.poll();
-    advance(1_000);
-    await poller.poll();
-    advance(1_999);
-    await poller.poll();
-    expect(findMany).toHaveBeenCalledTimes(2);
+    poller.onApplicationBootstrap();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(drainOnce).toHaveBeenCalledTimes(2);
 
-    advance(1);
-    publish.mockResolvedValue(undefined);
-    await poller.poll();
-    publish.mockRejectedValue(new Error('broker down'));
-    await poller.poll();
-    advance(1_000);
-    await poller.poll();
-    expect(findMany).toHaveBeenCalledTimes(5);
-  });
-
-  it('skips a poll while the previous one is still running', async () => {
-    const { poller, findMany } = createFixture([]);
-    let release!: (rows: unknown[]) => void;
-    findMany.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
-
-    const first = poller.poll();
-    await poller.poll();
-    release([]);
-    await first;
-
-    expect(findMany).toHaveBeenCalledTimes(1);
+    await poller.onModuleDestroy();
+    expect(drainOnce).toHaveBeenCalledTimes(2);
   });
 });

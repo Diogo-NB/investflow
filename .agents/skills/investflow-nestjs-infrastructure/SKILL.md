@@ -205,7 +205,8 @@ the method's return type, such as `Result<Offer, OfferNotFoundError | Repository
   access, or database transactions.
 
 Use `$investflow-eventing` when infrastructure work affects domain-event
-persistence, outbox polling, broker publication, or message consumers.
+persistence, unit-of-work commit hooks, outbox publishing, broker
+publication, or message consumers.
 
 ## Naming and validation
 

@@ -1,0 +1,7 @@
+interface:
+  display_name: 'InvestFlow Outbox Benchmark'
+  short_description: 'Measure and report event publishing latency'
+  default_prompt: 'Use $investflow-outbox-benchmark to run the outbox benchmark, compare it with the previous results, and report them in readable tables.'
+
+policy:
+  allow_implicit_invocation: true

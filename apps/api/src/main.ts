@@ -10,6 +10,7 @@ import { AppModule } from './app/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   app.useGlobalPipes(createRequestValidationPipe());
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);

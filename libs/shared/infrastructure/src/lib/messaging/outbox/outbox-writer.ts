@@ -7,7 +7,7 @@ import type { TransactionalPrismaClient } from '../../persistence/prisma/prisma-
 // oversized event fails its use case instead of committing and never publishing.
 const MAX_OUTBOX_PAYLOAD_BYTES = 200 * 1024;
 
-export type OutboxRow = Prisma.OutboxEventCreateManyInput;
+export type OutboxRow = Prisma.OutboxEventCreateManyInput & { id: string };
 
 // An outbox row binds 7 parameters and PostgreSQL allows 65,535 per
 // statement, so one insert holds at most about 9,300 rows.

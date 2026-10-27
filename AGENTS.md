@@ -21,6 +21,8 @@ Load the repository skill that matches the work:
   EventBridge/SQS, consumers, retries, and idempotency.
 - `$investflow-react` for routes, components, hooks, forms, browser API
   clients, state, styling, accessibility, and frontend tests.
+- `$investflow-outbox-benchmark` to run, interpret, and report the outbox
+  publishing benchmark (`pnpm bench:outbox`), or to extend it.
 
 Vendored frontend skills (tracked in `skills-lock.json`) supplement
 `$investflow-react`:
@@ -105,7 +107,10 @@ frontend testing policy.
   consumer, and transport knowledge confined to the messaging adapters.
   Queues are SQS FIFO grouped by the event's aggregate (decision 2026-10-26),
   so one message per aggregate is in flight at a time; correctness relies on
-  that exclusivity, not on delivery order. See
+  that exclusivity, not on delivery order. Events are published right after
+  their transaction commits by the outbox relay, with a polling fallback for
+  failures and stragglers (decision 2026-10-27); after-commit hooks are best
+  effort and never replace an event. See
   "Messaging Transport" in `docs/architecture/project-structure.md`; the
   visual walkthrough of the event and recalculation flow is
   `docs/architecture/event-flow.md`.
@@ -148,6 +153,8 @@ Use Node.js 22.x LTS, pnpm 10, and Docker. Prefer pnpm-prefixed Nx commands over
 - `pnpm test`: run all project tests (Jest for backend, Vitest for frontend).
 - `pnpm check`: lint, test, typecheck, and build all Nx projects.
 - `pnpm db:generate`: regenerate the Prisma client.
+- `pnpm bench:outbox`: measure how long committed outbox events wait to be
+  published (run with the API stopped; `--broker floci|simulated`).
 
 Check `pnpm nx <command> --help` before using unfamiliar flags. For scaffolding, use Nx generators and preserve existing project tags.
 
@@ -196,6 +203,17 @@ object directly when no additional business invariant can fail. Use `Result` onl
 for meaningful validation or business failures, and keep raw-input validation at
 the boundary or in the value object that owns that validation. Keep changes
 scoped.
+
+Code under `tools/` (the seed, benchmarks) meets the same bar as library
+code; `tools/database/seed.ts` is the reference. Keep the entry file to
+composition and `main()`, with cohesive modules in a folder beside it (as in
+`tools/database/investment-simulator/`). Parse and validate command-line
+input once into typed options, with a usage text. Return named result types
+rather than positional arrays, and define a report's columns once. Avoid
+import-time side effects, and reach the system through its public APIs:
+patch a dependency only where no API exists, scoped to the measurement and
+explained. `tools/` is the `tools` Nx project, so `pnpm check` lints and
+typechecks it; add a new tool's `tsconfig.json` to its `typecheck` target.
 
 Comment only what the code cannot say: a non-obvious constraint, side effect,
 workaround, ordering or format guarantee, or why an apparently simpler option

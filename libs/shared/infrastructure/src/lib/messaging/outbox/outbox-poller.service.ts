@@ -1,155 +1,116 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import type { OutboxEvent } from '@prisma/client';
-import { Clock } from '@investflow/shared-application';
 import {
-  AppError,
-  EAppErrorCode,
-  Result,
-  UtcInstant,
-} from '@investflow/shared-domain';
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
+import { Clock } from '@investflow/shared-application';
 import { PrismaService } from '../../persistence/prisma/prisma.service';
-import { MessageBroker } from './message-broker.port';
+import { OutboxPublisher } from './outbox-publisher';
+import { RELAY_HANDOVER_MS } from './outbox-relay';
 
-const BATCH_SIZE = 100;
-const MAX_RETRY_DELAY_MS = 5 * 60_000;
-const MAX_LAST_ERROR_LENGTH = 1_000;
-// Consecutive failures of different events point at the broker rather than
-// at one event, so the poller pauses instead of failing every pending event.
-const FAILURES_BEFORE_PAUSE = 3;
-const MAX_PAUSE_MS = 60_000;
+// The claim holds its rows' locks while publishing, so a batch must publish
+// well within the transaction timeout: 100 rows are 10 requests.
+const CLAIM_BATCH_SIZE = 100;
+// Retries back off at least a second and stranded rows are already past the
+// grace period, so a faster loop would gain nothing.
+const POLL_INTERVAL_MS = 1_000;
+// A fresh row belongs to the relay of the process that committed it until
+// the relay has sent or dropped it, plus a margin for marking it published.
+const GRACE_PERIOD_MS = RELAY_HANDOVER_MS + 500;
 
-class OutboxPublishError extends AppError {
-  constructor(eventId: string, cause: unknown) {
-    super('Não foi possível publicar o evento.', {
-      code: EAppErrorCode.OUTBOX_PUBLISH_FAILED,
-      kind: 'external',
-      metadata: { eventId },
-      cause,
-    });
-  }
+interface ClaimedRow {
+  readonly id: string;
+  readonly eventType: string;
+  readonly context: string;
+  readonly payload: unknown;
+  readonly attempts: number;
 }
 
+// Publishes what the relay did not: failed rows once due, and rows the relay
+// dropped or lost to a crash. Claims rows with SKIP LOCKED, so any number of
+// processes can poll the same outbox and each row is published by one.
 @Injectable()
-export class OutboxPollerService {
+export class OutboxPollerService
+  implements OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(OutboxPollerService.name);
-  private polling = false;
-  private pausedUntil: UtcInstant | undefined;
-  private pauseMs = 0;
+  private loop: Promise<void> | undefined;
+  private stopped = false;
+  private wake: (() => void) | undefined;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly messageBroker: MessageBroker,
+    private readonly publisher: OutboxPublisher,
     private readonly clock: Clock,
   ) {}
 
-  @Cron(CronExpression.EVERY_SECOND)
-  async poll(): Promise<void> {
-    if (this.polling) return;
-    if (this.pausedUntil && this.clock.now().isBefore(this.pausedUntil)) {
-      return;
-    }
-
-    this.polling = true;
-    try {
-      await this.publishDue();
-    } finally {
-      this.polling = false;
-    }
+  onApplicationBootstrap(): void {
+    this.loop = this.run();
   }
 
-  private async publishDue(): Promise<void> {
-    const now = this.clock.now().date;
-    const events = await this.prisma.client.outboxEvent.findMany({
-      where: {
-        publishedAt: null,
-        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-      },
-      orderBy: { createdAt: 'asc' },
-      take: BATCH_SIZE,
-    });
-
-    let consecutiveFailures = 0;
-    for (const event of events) {
-      const published = await this.publish(event);
-      if (published.isOk()) {
-        consecutiveFailures = 0;
-        this.resume();
-        continue;
-      }
-
-      consecutiveFailures += 1;
-      if (consecutiveFailures >= FAILURES_BEFORE_PAUSE) {
-        this.pause();
-        return;
-      }
-    }
+  async onModuleDestroy(): Promise<void> {
+    this.stopped = true;
+    this.wake?.();
+    await this.loop;
   }
 
-  // Marking happens after publishing, so a crash in between publishes the
-  // event again; consumers deduplicate by event ID.
-  private async publish(
-    event: OutboxEvent,
-  ): Promise<Result<void, OutboxPublishError>> {
-    const published = await Result.fromPromise(
-      () =>
-        this.messageBroker.publish({
-          eventId: event.id,
-          eventType: event.eventType,
-          context: event.context,
-          payload: JSON.stringify(event.payload),
-        }),
-      (error) => new OutboxPublishError(event.id, error),
-    );
-    if (published.isErr()) {
-      await this.recordFailure(event, published.error);
-      return published;
-    }
+  // Returns how many rows it claimed.
+  async drainOnce(): Promise<number> {
+    if (this.publisher.isPaused()) return 0;
 
-    await this.prisma.client.outboxEvent.update({
-      where: { id: event.id },
-      data: { publishedAt: this.clock.now().date },
-    });
-    return published;
-  }
+    return this.prisma.$transaction(async (client) => {
+      const now = this.clock.now();
+      const rows = await client.$queryRaw<ClaimedRow[]>`
+        SELECT id, event_type AS "eventType", context, payload, attempts
+        FROM outbox_events
+        WHERE published_at IS NULL
+          AND (next_attempt_at <= ${now.date}
+            OR (next_attempt_at IS NULL
+              AND created_at < ${now.addMs(-GRACE_PERIOD_MS).date}))
+        ORDER BY created_at
+        LIMIT ${CLAIM_BATCH_SIZE}
+        FOR UPDATE SKIP LOCKED`;
+      if (rows.length === 0) return 0;
 
-  private async recordFailure(
-    event: OutboxEvent,
-    error: OutboxPublishError,
-  ): Promise<void> {
-    const attempts = event.attempts + 1;
-    const delayMs = Math.min(1_000 * 2 ** (attempts - 1), MAX_RETRY_DELAY_MS);
-    const { cause } = error;
-    const message = cause instanceof Error ? cause.message : String(cause);
-    this.logger.warn(
-      `Failed to publish outbox event ${event.id} (attempt ${attempts}), retrying in ${delayMs / 1_000}s: ${message}`,
-    );
-
-    await this.prisma.client.outboxEvent.update({
-      where: { id: event.id },
-      data: {
-        attempts,
-        nextAttemptAt: this.clock.now().addMs(delayMs).date,
-        lastError: message.slice(0, MAX_LAST_ERROR_LENGTH),
-      },
-    });
-  }
-
-  private pause(): void {
-    if (this.pauseMs === 0) {
-      this.logger.error(
-        `Outbox publishing paused after ${FAILURES_BEFORE_PAUSE} consecutive failures`,
+      const { published, failed } = await this.publisher.publish(
+        rows.map((row) => ({
+          message: {
+            eventId: row.id,
+            eventType: row.eventType,
+            context: row.context,
+            payload: JSON.stringify(row.payload),
+          },
+          attempts: row.attempts,
+        })),
       );
-    }
-    this.pauseMs = Math.min(Math.max(this.pauseMs * 2, 1_000), MAX_PAUSE_MS);
-    this.pausedUntil = this.clock.now().addMs(this.pauseMs);
+      // Through the claiming transaction: another connection would wait on
+      // the locks it holds.
+      await this.publisher.markPublished(client, published);
+      await this.publisher.recordFailures(client, failed);
+      return rows.length;
+    });
   }
 
-  private resume(): void {
-    if (this.pauseMs === 0) return;
+  private async run(): Promise<void> {
+    while (!this.stopped) {
+      const claimed = await this.drainOnce().catch((error: unknown) => {
+        this.logger.error('Outbox poll failed', error);
+        return 0;
+      });
+      if (claimed < CLAIM_BATCH_SIZE) await this.sleep(POLL_INTERVAL_MS);
+    }
+  }
 
-    this.logger.log('Outbox publishing resumed');
-    this.pauseMs = 0;
-    this.pausedUntil = undefined;
+  private sleep(ms: number): Promise<void> {
+    if (this.stopped) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      this.wake = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
   }
 }

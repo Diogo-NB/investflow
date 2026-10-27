@@ -18,8 +18,10 @@ flowchart LR
   subgraph request["API request (one transaction)"]
     UC["Use case"] --> SAVE[("Postgres: aggregate + outbox row")]
   end
-  SAVE --> POLL["Outbox poller (every second)"]
-  POLL --> BUS{{"EventBridge bus 'investflow'"}}
+  SAVE -- "after commit" --> RELAY["Outbox relay"]
+  SAVE -. "failed or missed rows" .-> POLL["Outbox poller (fallback)"]
+  RELAY --> BUS{{"EventBridge bus 'investflow'"}}
+  POLL --> BUS
   BUS -- "rule per consumer" --> Q[["SQS queue"]]
   Q --> C["Consumer → use case"]
   C --> DB[("Postgres")]
@@ -30,7 +32,9 @@ Three ideas carry the whole design:
 
 1. **A change and its event are saved together.** The event goes into an
    `outbox_events` row in the same transaction as the change, so there is
-   never a change without its event, or an event without its change.
+   never a change without its event, or an event without its change. Right
+   after commit the relay publishes it from memory; the poller publishes
+   whatever the relay could not.
 2. **The queue does the delivery work.** SQS hands a message to one worker at
    a time, gives it to another if that worker dies, retries failures, and
    gives up into a dead-letter queue. Queues are FIFO and grouped by the
@@ -49,7 +53,10 @@ Three ideas carry the whole design:
 | Unit of work       | `UnitOfWork.run()`: the transaction of a request or consumer. Its recorded events are written with it.       |
 | Recorder           | `DomainEventRecorder`: records events in the unit of work. Repositories use it on save; services directly.   |
 | Outbox             | The `outbox_events` table. Events wait here until published.                                                 |
-| Outbox poller      | `OutboxPollerService`. Publishes unpublished rows every second and backs off per event on failure.           |
+| After-commit hook  | A callback a unit of work runs once its transaction commits. Best effort: never run on rollback.             |
+| Outbox relay       | `OutboxRelay`. Publishes a committed unit of work's rows from memory, right after commit.                    |
+| Outbox publisher   | `OutboxPublisher`. Sends batches of 10, at most 8 calls at once, marks rows, backs off failures, pauses.     |
+| Outbox poller      | `OutboxPollerService`. Fallback: claims failed rows when due and rows older than 5 s, every second.          |
 | Bus                | The EventBridge bus `investflow`. Publishers send every event here and know nothing about consumers.         |
 | Rule               | An EventBridge rule that copies matching events (by `source` and `detail-type`) into one consumer's queue.   |
 | Queue              | One SQS FIFO queue per consumer, created by `consumer_queue` in `infra/floci/init/provision.sh`.             |
@@ -67,7 +74,7 @@ sequenceDiagram
   autonumber
   participant UC as Use case
   participant DB as Postgres
-  participant P as Outbox poller
+  participant R as Outbox relay
   participant EB as EventBridge
   participant Q as SQS queue
   participant L as SqsEventListener
@@ -75,9 +82,9 @@ sequenceDiagram
 
   UC->>DB: save aggregate, record its event (one unit of work)
   Note over UC,DB: before commit, the unit of work writes the outbox rows
-  P->>DB: fetch unpublished rows
-  P->>EB: PutEvents (source, detail-type, detail)
-  P->>DB: mark row published
+  UC->>R: after commit: hand over the rows (the response does not wait)
+  R->>EB: PutEvents, up to 10 entries (source, detail-type, detail)
+  R->>DB: mark rows published
   EB-->>Q: rule matches, message enqueued
   L->>Q: long-poll receive (message hidden 30 s)
   L->>C: EventDispatcher.dispatch
@@ -91,8 +98,9 @@ sequenceDiagram
 | What fails                           | What happens                                                                               | Who handles it     |
 | ------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------ |
 | The request's transaction rolls back | Neither the change nor the event exists.                                                   | Outbox             |
-| EventBridge rejects or is down       | The row stays unpublished and is retried with backoff; the poller pauses during an outage. | Outbox poller      |
-| The poller crashes after publishing  | The row is published again; the consumer skips the duplicate.                              | `EventDispatcher`  |
+| EventBridge rejects or is down       | The row stays unpublished and is retried with backoff; publishing pauses during an outage. | Outbox poller      |
+| The process stops before publishing  | The row stays unpublished; another poller claims it once it is 5 seconds old.              | Outbox poller      |
+| The process stops after publishing   | The row is published again; the consumer skips the duplicate.                              | `EventDispatcher`  |
 | SQS delivers a message twice         | The second `processed_events` insert finds the first one and the handler is skipped.       | `EventDispatcher`  |
 | The handler throws                   | The transaction rolls back, the message is not deleted, and it reappears after 30 seconds. | SQS                |
 | The worker process dies mid-handler  | Same as a throw: the open transaction rolls back and the message reappears.                | SQS and Postgres   |
@@ -191,7 +199,7 @@ sequenceDiagram
   Note over A: a broken rule returns 4xx on its field and saves nothing
   A->>DB: revision 3, PENDING (SIMULATION_EDITED, this user), SimulationEdited in the outbox
   A-->>B: 200 with the new revision (calculation PENDING)
-  DB-->>Q: outbox poller and EventBridge deliver the event
+  DB-->>Q: outbox relay and EventBridge deliver the event
   Q-->>W: receive (hidden from other workers for 30 s)
   W->>DB: processed_events row, load simulation, offer, curve
   W->>W: calculate in memory
@@ -366,18 +374,19 @@ sequenceDiagram
 
 ## Where the Code Lives
 
-| Piece                                           | Path                                                                     |
-| ----------------------------------------------- | ------------------------------------------------------------------------ |
-| Outbox writer and poller, broker port, recorder | `libs/shared/infrastructure/src/lib/messaging/outbox`                    |
-| `UnitOfWork`                                    | `libs/shared/infrastructure/src/lib/persistence`                         |
-| EventBridge adapter                             | `libs/shared/infrastructure/src/lib/messaging/eventbridge`               |
-| `EventDispatcher`, `@OnEvent`                   | `libs/shared/infrastructure/src/lib/messaging/consumers`                 |
-| `SqsEventListener`, `SqsConsumersModule`        | `libs/shared/infrastructure/src/lib/messaging/sqs`                       |
-| Queues, rules, dead-letter queues               | `infra/floci/init/provision.sh`                                          |
-| Offer and curve events                          | `libs/investment-simulator/domain/src/lib/offers`, `.../curves`          |
-| Simulation, calculation service                 | `libs/investment-simulator/domain/src/lib/simulations`                   |
-| Calculation, failure, retry, fan-out use cases  | `libs/investment-simulator/application/src/lib/simulations`              |
-| Calculation, dead-letter, fan-out consumers     | `libs/investment-simulator/infrastructure/src/lib/simulations/messaging` |
+| Piece                                                          | Path                                                                     |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Outbox writer, relay, publisher, poller, broker port, recorder | `libs/shared/infrastructure/src/lib/messaging/outbox`                    |
+| Publishing latency benchmark (`pnpm bench:outbox`)             | `tools/benchmarks/outbox-latency.ts`                                     |
+| `UnitOfWork` and its commit hooks                              | `libs/shared/infrastructure/src/lib/persistence`                         |
+| EventBridge adapter                                            | `libs/shared/infrastructure/src/lib/messaging/eventbridge`               |
+| `EventDispatcher`, `@OnEvent`                                  | `libs/shared/infrastructure/src/lib/messaging/consumers`                 |
+| `SqsEventListener`, `SqsConsumersModule`                       | `libs/shared/infrastructure/src/lib/messaging/sqs`                       |
+| Queues, rules, dead-letter queues                              | `infra/floci/init/provision.sh`                                          |
+| Offer and curve events                                         | `libs/investment-simulator/domain/src/lib/offers`, `.../curves`          |
+| Simulation, calculation service                                | `libs/investment-simulator/domain/src/lib/simulations`                   |
+| Calculation, failure, retry, fan-out use cases                 | `libs/investment-simulator/application/src/lib/simulations`              |
+| Calculation, dead-letter, fan-out consumers                    | `libs/investment-simulator/infrastructure/src/lib/simulations/messaging` |
 
 ## Adding a New Consumer
 

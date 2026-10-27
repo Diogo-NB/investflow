@@ -5,12 +5,12 @@ import {
 } from '@aws-sdk/client-eventbridge';
 import { EventBridgeMessageBroker } from './eventbridge-message-broker';
 
-const message = {
-  eventId: 'event-1',
+const messages = ['event-1', 'event-2', 'event-3'].map((eventId) => ({
+  eventId,
   eventType: 'TestHappened',
   context: 'test-context',
-  payload: '{"eventId":"event-1"}',
-};
+  payload: `{"eventId":"${eventId}"}`,
+}));
 
 function createBroker() {
   const config = {
@@ -23,32 +23,63 @@ function createBroker() {
 describe('EventBridgeMessageBroker', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('routes the event by context and event type on the configured bus', async () => {
+  it('puts the batch in one call, routed by context and event type', async () => {
     const send = jest
       .spyOn(EventBridgeClient.prototype, 'send')
-      .mockResolvedValue({ FailedEntryCount: 0, Entries: [{}] } as never);
+      .mockResolvedValue({
+        FailedEntryCount: 0,
+        Entries: messages.map((_, index) => ({ EventId: `eb-${index}` })),
+      } as never);
+    const signal = new AbortController().signal;
 
-    await createBroker().publish(message);
+    const rejected = await createBroker().publish(messages, signal);
 
-    const command = send.mock.calls[0][0] as PutEventsCommand;
-    expect(command.input.Entries).toEqual([
+    expect(rejected).toEqual([]);
+    expect(send).toHaveBeenCalledTimes(1);
+    const [command, options] = send.mock.calls[0] as unknown as [
+      PutEventsCommand,
+      { abortSignal: AbortSignal },
+    ];
+    expect(command.input.Entries?.[0]).toEqual({
+      EventBusName: 'investflow',
+      Source: 'investflow.test-context',
+      DetailType: 'TestHappened',
+      Detail: messages[0].payload,
+    });
+    expect(command.input.Entries).toHaveLength(3);
+    expect(options.abortSignal).toBe(signal);
+  });
+
+  it('reports the entries EventBridge rejected', async () => {
+    jest.spyOn(EventBridgeClient.prototype, 'send').mockResolvedValue({
+      FailedEntryCount: 1,
+      Entries: [
+        { EventId: 'eb-0' },
+        { ErrorCode: 'InternalFailure', ErrorMessage: 'boom' },
+        { EventId: 'eb-2' },
+      ],
+    } as never);
+
+    const rejected = await createBroker().publish(
+      messages,
+      new AbortController().signal,
+    );
+
+    expect(rejected).toEqual([
       {
-        EventBusName: 'investflow',
-        Source: 'investflow.test-context',
-        DetailType: 'TestHappened',
-        Detail: message.payload,
+        eventId: 'event-2',
+        reason: 'EventBridge rejected the event: InternalFailure boom',
       },
     ]);
   });
 
-  it('fails when EventBridge rejects the entry', async () => {
-    jest.spyOn(EventBridgeClient.prototype, 'send').mockResolvedValue({
-      FailedEntryCount: 1,
-      Entries: [{ ErrorCode: 'InternalFailure', ErrorMessage: 'boom' }],
-    } as never);
+  it('fails when the call fails', async () => {
+    jest
+      .spyOn(EventBridgeClient.prototype, 'send')
+      .mockRejectedValue(new Error('network down') as never);
 
-    await expect(createBroker().publish(message)).rejects.toThrow(
-      'EventBridge rejected event event-1: InternalFailure boom',
-    );
+    await expect(
+      createBroker().publish(messages, new AbortController().signal),
+    ).rejects.toThrow('network down');
   });
 });

@@ -25,6 +25,12 @@ export {
   type MoneyFormatOptions,
 } from './lib/money/money.formatter';
 export { OutboxModule } from './lib/messaging/outbox/outbox.module';
+export {
+  MessageBroker,
+  type OutboxMessage,
+  type RejectedMessage,
+} from './lib/messaging/outbox/message-broker.port';
+export { EventBridgeMessageBroker } from './lib/messaging/eventbridge/eventbridge-message-broker';
 export { OnEvent } from './lib/messaging/consumers/on-event.decorator';
 export {
   SqsConsumersModule,

@@ -25,24 +25,29 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-26. D0 to D8 and D4b are done: offer and curve changes
+Last updated 2026-10-27. D0 to D8 and D4b are done: offer and curve changes
 recalculate the simulations that use them, over FIFO queues grouped per
-aggregate.
+aggregate. Events are now published right after their transaction commits.
 
 Built:
 
 - **Messaging:** runs locally end to end on EventBridge and SQS emulated by
   Floci (see "Messaging Transport" in
   [Project Structure](../architecture/project-structure.md)). The outbox
-  poller publishes to the `investflow` bus every second, backs a failed event
-  off on its own (up to 5 minutes) and pauses during broker outages; events
-  above the 200 KB outbox payload limit fail at save time. Consumers are plain
+  relay publishes a transaction's events to the `investflow` bus right after
+  it commits, in batches of 10 with at most 8 calls in flight; a poller,
+  which claims rows with `SKIP LOCKED` so several instances can run, retries
+  failed events with their own backoff (up to 5 minutes) and publishes what
+  the relay missed. Publishing pauses during broker outages. Events above the
+  200 KB outbox payload limit fail at save time. `pnpm bench:outbox` measures
+  how long committed events wait to be published. Consumers are plain
   classes that the host binds to their queues; the API binds the simulation
   calculation consumer and its dead-letter consumer. Events are recorded in
   the unit of work (`UnitOfWork.run()`) that every request, consumer, and the
   seed runs in: aggregates through their repository's `save()`, services
   through the `DomainEventRecorder` port. The unit of work writes them to the
-  outbox before commit, in chunks of 1,000 rows.
+  outbox before commit, in chunks of 1,000 rows, through a before-commit hook,
+  and hands them to the relay through an after-commit hook.
 - **Curves:** independent, revisioned `Curve` aggregates with owners; `null`
   is the system. Alternatives of an index ("CDI base", "CDI otimista") are
   separate curves, and screens group them by index and origin; no grouping
@@ -259,8 +264,9 @@ The flow is in walkthroughs 5 and 6 of
   and `FAILED` always calculate.
 - **Ids come from `SimulationRepository.idsUsingOffer()` and
   `idsUsingCurve()`**, arrays of live simulations; no new port.
-- **Publishing throughput: deferred** to "Fan-out at scale" (batched
-  `PutEvents`, polling until empty, concurrent listeners).
+- **Publishing throughput: done 2026-10-27** with the outbox relay (batched
+  `PutEvents`, polling until empty); bounded fan-out transactions and
+  concurrent listeners remain in "Fan-out at scale".
 - **Editor notices:** the offer and curve editors promise "As N simulações
   que usam esta oferta (curva) serão recalculadas." only while the edit
   changes terms or intervals, and show nothing for name, issuer, liquidity,

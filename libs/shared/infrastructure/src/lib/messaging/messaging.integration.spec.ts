@@ -14,6 +14,7 @@ import {
   PutTargetsCommand,
   RemoveTargetsCommand,
 } from '@aws-sdk/client-eventbridge';
+import { Clock } from '@investflow/shared-application';
 import {
   AggregateRoot,
   DomainEvent,
@@ -28,9 +29,10 @@ import { PrismaService } from '../persistence/prisma/prisma.service';
 import { UnitOfWork } from '../persistence/unit-of-work';
 import { EventDispatcher } from './consumers/event-dispatcher.service';
 import { OnEvent } from './consumers/on-event.decorator';
-import { MessageBroker } from './outbox/message-broker.port';
+import { MessageBroker, OutboxMessage } from './outbox/message-broker.port';
 import { OutboxModule } from './outbox/outbox.module';
 import { OutboxPollerService } from './outbox/outbox-poller.service';
+import { OutboxPublisher } from './outbox/outbox-publisher';
 import { SqsConsumersModule } from './sqs/sqs-consumers.module';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -187,7 +189,7 @@ integration('Messaging through EventBridge and SQS', () => {
     }
   });
 
-  it('delivers a domain event once and ignores its redelivery', async () => {
+  it('publishes a domain event right after commit, delivers it once, and ignores its redelivery', async () => {
     const aggregate = TestAggregate.happen();
     const [event] = aggregate.getDomainEvents();
     const consumer = app.get(TestConsumer);
@@ -204,7 +206,6 @@ integration('Messaging through EventBridge and SQS', () => {
         ),
       );
     expect(saved.isOk()).toBe(true);
-    await app.get(OutboxPollerService).poll();
 
     await eventually(async () => {
       expect(consumer.handledEventIds).toEqual([event.eventId]);
@@ -221,17 +222,84 @@ integration('Messaging through EventBridge and SQS', () => {
     const outboxRow = await prisma.client.outboxEvent.findUniqueOrThrow({
       where: { id: event.eventId },
     });
-    expect(outboxRow.publishedAt).not.toBeNull();
+    // The relay published it: the poller leaves rows this fresh alone.
+    expect(
+      (outboxRow.publishedAt?.getTime() ?? Infinity) -
+        outboxRow.createdAt.getTime(),
+    ).toBeLessThan(1_000);
 
-    await app.get(MessageBroker).publish({
-      eventId: event.eventId,
-      eventType: event.eventType,
-      context,
-      payload: JSON.stringify(outboxRow.payload),
-    });
+    await app.get(MessageBroker).publish(
+      [
+        {
+          eventId: event.eventId,
+          eventType: event.eventType,
+          context,
+          payload: JSON.stringify(outboxRow.payload),
+        },
+      ],
+      new AbortController().signal,
+    );
 
     await eventually(() => expect(dispatch).toHaveBeenCalledTimes(2));
     await dispatch.mock.results[1].value;
     expect(consumer.handledEventIds).toEqual([event.eventId]);
+  }, 30_000);
+
+  it('publishes each stranded row once across concurrent pollers and leaves fresh rows to the relay', async () => {
+    await app.get(OutboxPollerService).onModuleDestroy();
+    const clock = app.get(Clock, { strict: false });
+    const publishedIds: string[] = [];
+    const broker = {
+      publish: async (messages: readonly OutboxMessage[]) => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        publishedIds.push(...messages.map((message) => message.eventId));
+        return [];
+      },
+    } as unknown as MessageBroker;
+    const pollers = [1, 2].map(
+      () =>
+        new OutboxPollerService(
+          prisma,
+          new OutboxPublisher(broker, clock),
+          clock,
+        ),
+    );
+    const row = (id: string, createdAt: Date) => ({
+      id,
+      aggregateType: 'TestAggregate',
+      aggregateId: generateUuid(),
+      eventType: 'TestHappened',
+      context,
+      payload: { eventId: id },
+      occurredAt: createdAt,
+      createdAt,
+    });
+    const ids = Array.from({ length: 150 }, () => generateUuid());
+    const freshIds = Array.from({ length: 5 }, () => generateUuid());
+    await prisma.client.outboxEvent.createMany({
+      data: [
+        ...ids.map((id) => row(id, new Date(Date.now() - 60_000))),
+        ...freshIds.map((id) => row(id, new Date())),
+      ],
+    });
+
+    for (;;) {
+      const claimed = await Promise.all(
+        pollers.map((poller) => poller.drainOnce()),
+      );
+      if (claimed.every((count) => count === 0)) break;
+    }
+
+    expect(publishedIds.filter((id) => ids.includes(id)).sort()).toEqual(
+      [...ids].sort(),
+    );
+    expect(publishedIds.filter((id) => freshIds.includes(id))).toEqual([]);
+    const unpublished = await prisma.client.outboxEvent.findMany({
+      where: { id: { in: [...ids, ...freshIds] }, publishedAt: null },
+      select: { id: true },
+    });
+    expect(unpublished.map(({ id }) => id).sort()).toEqual(
+      [...freshIds].sort(),
+    );
   }, 30_000);
 });
