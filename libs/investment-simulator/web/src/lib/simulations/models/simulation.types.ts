@@ -194,7 +194,7 @@ export interface SimulationWorkspace {
 export interface ComparisonStanding {
   // Ties share a position, and the next one skips: 1, 1, 3.
   readonly position: number;
-  readonly leader: boolean;
+  readonly isLeader: boolean;
   // Decimal fractions: the leader's net annual return minus this one's.
   readonly netAnnualReturnGap: string;
   // The leader's net final balance minus this one's; null unless the amounts
@@ -203,15 +203,18 @@ export interface ComparisonStanding {
 }
 
 export interface ComparedSimulation extends SimulationWorkspace {
+  // Calculated from the current premises with nothing queued, so the result
+  // shown is final.
+  readonly isSettled: boolean;
   // Ranked from the last successful result, current or not; null without one.
   readonly standing: ComparisonStanding | null;
 }
 
 export interface SimulationComparison {
-  // Every simulation is calculated and current, so the ranking is final.
-  readonly settled: boolean;
+  // Every simulation is settled, so the ranking is final.
+  readonly isSettled: boolean;
   // Same principal, investment date, and maturity across ranked results.
-  readonly amountsComparable: boolean;
+  readonly areAmountsComparable: boolean;
   // In the requested order.
   readonly simulations: readonly ComparedSimulation[];
 }

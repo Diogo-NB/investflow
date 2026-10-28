@@ -1,32 +1,19 @@
 import { CalendarDate, EAppErrorCode, Money } from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
+import { ESimulationCalculationStatus } from '../../simulations/simulation-calculation.vo';
+import { SimulationComparison } from '../simulation-comparison.vo';
 import {
-  ComparedResult,
-  ComparedSimulation,
-  SimulationComparison,
-} from '../simulation-comparison.vo';
-
-const result = (overrides: Partial<ComparedResult> = {}): ComparedResult => ({
-  principal: Money.of('10000'),
-  investmentDate: CalendarDate.of('2026-01-02'),
-  maturityDate: CalendarDate.of('2028-01-03'),
-  netFinalBalance: Money.of('12000'),
-  netAnnualReturn: new Decimal('0.1'),
-  current: true,
-  ...overrides,
-});
-
-const simulation = (
-  id: string,
-  value: ComparedResult | null = result(),
-): ComparedSimulation => ({ id, result: value });
+  comparedResult as result,
+  comparedSimulation as simulation,
+  REVISION,
+} from './compared-simulation-fixture';
 
 const standing = (comparison: SimulationComparison, id: string) => {
   const value = comparison.standingOf(id);
   return (
     value && {
       position: value.position,
-      leader: value.leader,
+      isLeader: value.isLeader,
       netAnnualReturnGap: value.netAnnualReturnGap.toString(),
       netBalanceGap: value.netBalanceGap?.amount.toString() ?? null,
     }
@@ -43,12 +30,12 @@ describe('SimulationComparison value object', () => {
 
     expect(standing(comparison, 'b')).toMatchObject({
       position: 1,
-      leader: true,
+      isLeader: true,
       netAnnualReturnGap: '0',
     });
     expect(standing(comparison, 'a')).toMatchObject({
       position: 2,
-      leader: false,
+      isLeader: false,
       netAnnualReturnGap: '0.0033',
     });
     expect(standing(comparison, 'c')).toMatchObject({
@@ -75,15 +62,15 @@ describe('SimulationComparison value object', () => {
 
     expect(standing(comparison, 'a')).toMatchObject({
       position: 1,
-      leader: true,
+      isLeader: true,
     });
     expect(standing(comparison, 'b')).toMatchObject({
       position: 1,
-      leader: true,
+      isLeader: true,
     });
     expect(standing(comparison, 'c')).toMatchObject({
       position: 3,
-      leader: false,
+      isLeader: false,
     });
   });
 
@@ -96,10 +83,10 @@ describe('SimulationComparison value object', () => {
     expect(comparison.standingOf('a')).toBeNull();
     expect(standing(comparison, 'b')).toMatchObject({
       position: 1,
-      leader: true,
+      isLeader: true,
     });
-    expect(comparison.settled).toBe(false);
-    expect(comparison.amountsComparable).toBe(false);
+    expect(comparison.isSettled).toBe(false);
+    expect(comparison.areAmountsComparable).toBe(false);
   });
 
   it('ranks nothing when no simulation has a result', () => {
@@ -109,7 +96,7 @@ describe('SimulationComparison value object', () => {
     ]);
 
     expect(comparison.standingOf('a')).toBeNull();
-    expect(comparison.amountsComparable).toBe(false);
+    expect(comparison.areAmountsComparable).toBe(false);
   });
 
   it('gives the gap in money when principal and term are the same', () => {
@@ -125,7 +112,7 @@ describe('SimulationComparison value object', () => {
       simulation('c', null),
     ]);
 
-    expect(comparison.amountsComparable).toBe(true);
+    expect(comparison.areAmountsComparable).toBe(true);
     expect(standing(comparison, 'a')?.netBalanceGap).toBe('0');
     expect(standing(comparison, 'b')?.netBalanceGap).toBe('345.67');
   });
@@ -140,23 +127,29 @@ describe('SimulationComparison value object', () => {
       simulation('b', result(overrides)),
     ]);
 
-    expect(comparison.amountsComparable).toBe(false);
+    expect(comparison.areAmountsComparable).toBe(false);
     expect(standing(comparison, 'a')?.netBalanceGap).toBeNull();
   });
 
-  it('ranks stale results and is settled only when every result is current', () => {
+  it('ranks stale results and is settled only when every simulation is', () => {
     const stale = SimulationComparison.of([
-      simulation(
-        'a',
-        result({ current: false, netAnnualReturn: new Decimal('0.2') }),
-      ),
+      simulation('a', result({ netAnnualReturn: new Decimal('0.2') }), {
+        simulationRevision: REVISION + 1,
+      }),
+      simulation('b'),
+    ]);
+    const queued = SimulationComparison.of([
+      simulation('a', result(), {
+        calculationStatus: ESimulationCalculationStatus.PENDING,
+      }),
       simulation('b'),
     ]);
 
-    expect(standing(stale, 'a')).toMatchObject({ position: 1, leader: true });
-    expect(stale.settled).toBe(false);
+    expect(standing(stale, 'a')).toMatchObject({ position: 1, isLeader: true });
+    expect(stale.isSettled).toBe(false);
+    expect(queued.isSettled).toBe(false);
     expect(
-      SimulationComparison.of([simulation('a'), simulation('b')]).settled,
+      SimulationComparison.of([simulation('a'), simulation('b')]).isSettled,
     ).toBe(true);
   });
 

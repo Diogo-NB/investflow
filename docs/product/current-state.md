@@ -99,12 +99,16 @@ this file in the same change that ships or changes a built behavior.
 
 - **Simulation comparison:** `GET simulation-comparisons?ids=a,b` reads 2 to 6
   of the owner's simulations in the requested order, each in the workspace's
-  shape, and answers `404` when any is missing. The `SimulationComparison`
-  value object ranks them by the net annual return of their last successful
-  result, current or not: position, leader, and the gap to the leader in rate
-  and, when every ranked result has the same principal and dates
-  (`amountsComparable`), in money; `settled` says whether every result is
-  current. Nothing is stored. `/simulacoes` selects simulations with
+  shape, and answers `404` when any is missing. `BuildSimulationComparisonUseCase`
+  reads them through `ComparedSimulationReader` as `ComparedSimulation`s,
+  which say whether their result is current and settled (calculated from the
+  current premises with nothing queued), and builds the
+  `SimulationComparison` value object, which ranks them by the net annual
+  return of their last successful result, current or not: position, leader,
+  and the gap to the leader in rate and, when every ranked result has the
+  same principal and dates (`areAmountsComparable`), in money; `isSettled`
+  says whether every simulation is settled, and each simulation carries its
+  own `isSettled`. Nothing is stored. `/simulacoes` selects simulations with
   checkboxes kept in the `comparar` URL parameter and a sticky bar, the
   workspace adds one with "Comparar com…", and `/simulacoes/comparar?ids=…`
   shows a verdict, a table on desktop and ranked cards below 1024px, removes

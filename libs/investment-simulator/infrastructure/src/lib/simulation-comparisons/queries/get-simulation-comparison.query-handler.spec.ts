@@ -1,7 +1,9 @@
+import { BuildSimulationComparisonUseCase } from '@investflow/investment-simulator-application';
 import { Clock } from '@investflow/shared-application';
 import { CalendarDate, EAppErrorCode } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
+import { PrismaComparedSimulationReader } from '../persistence/prisma-compared-simulation-reader';
 import { GetSimulationComparisonQueryHandler } from './get-simulation-comparison.query-handler';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -86,9 +88,15 @@ function setup(records: unknown[]) {
   const prisma = {
     client: { simulation: { findMany } },
   } as unknown as PrismaService;
-  const handler = new GetSimulationComparisonQueryHandler(prisma, {
-    today,
-  } as unknown as Clock);
+  // The records hold every field both the comparison's reader and the
+  // screen read select.
+  const handler = new GetSimulationComparisonQueryHandler(
+    prisma,
+    { today } as unknown as Clock,
+    new BuildSimulationComparisonUseCase(
+      new PrismaComparedSimulationReader(prisma),
+    ),
+  );
   return {
     findMany,
     today,
@@ -105,11 +113,12 @@ describe('GetSimulationComparisonQueryHandler', () => {
 
     const output = await execute(['b', 'a']);
 
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(findMany).toHaveBeenCalledTimes(2);
+    for (const [args] of findMany.mock.calls) {
+      expect(args).toMatchObject({
         where: { id: { in: ['b', 'a'] }, ownerId: 'owner-id', deletedAt: null },
-      }),
-    );
+      });
+    }
     expect(today).toHaveBeenCalledTimes(1);
     expect(
       output.value.simulations.map(({ simulation }) => simulation.id),
@@ -121,6 +130,19 @@ describe('GetSimulationComparisonQueryHandler', () => {
 
     expect(output.error).toMatchObject({
       code: EAppErrorCode.SIMULATION_NOT_FOUND,
+      metadata: { simulationId: 'b' },
+    });
+  });
+
+  it('answers not found when a simulation is deleted after the comparison was built', async () => {
+    const { execute, findMany } = setup([simulation('a'), simulation('b')]);
+    findMany
+      .mockResolvedValueOnce([simulation('a'), simulation('b')])
+      .mockResolvedValueOnce([simulation('a')]);
+
+    expect((await execute(['a', 'b'])).error).toMatchObject({
+      code: EAppErrorCode.SIMULATION_NOT_FOUND,
+      metadata: { simulationId: 'b' },
     });
   });
 
@@ -138,19 +160,19 @@ describe('GetSimulationComparisonQueryHandler', () => {
 
     const comparison = output.value;
     expect(comparison).toMatchObject({
-      settled: false,
-      amountsComparable: true,
+      isSettled: false,
+      areAmountsComparable: true,
     });
     expect(comparison.simulations.map(({ standing }) => standing)).toEqual([
       {
         position: 2,
-        leader: false,
+        isLeader: false,
         netAnnualReturnGap: '0.0033',
         netBalanceGap: '67.6',
       },
       {
         position: 1,
-        leader: true,
+        isLeader: true,
         netAnnualReturnGap: '0',
         netBalanceGap: '0',
       },
@@ -168,11 +190,15 @@ describe('GetSimulationComparisonQueryHandler', () => {
     ]).execute(['a', 'b']);
 
     const comparison = output.value;
-    expect(comparison.settled).toBe(false);
+    expect(comparison.isSettled).toBe(false);
+    expect(comparison.simulations.map(({ isSettled }) => isSettled)).toEqual([
+      false,
+      true,
+    ]);
     expect(comparison.simulations[0].result?.outdated).toBe(true);
     expect(comparison.simulations[0].standing).toMatchObject({
       position: 1,
-      leader: true,
+      isLeader: true,
     });
   });
 
@@ -182,7 +208,21 @@ describe('GetSimulationComparisonQueryHandler', () => {
       'b',
     ]);
 
-    expect(output.value.settled).toBe(true);
+    expect(output.value.isSettled).toBe(true);
+  });
+
+  it('does not settle a current result while a calculation is queued', async () => {
+    const output = await setup([
+      simulation('a', { status: 'PENDING' }),
+      simulation('b'),
+    ]).execute(['a', 'b']);
+
+    expect(output.value.isSettled).toBe(false);
+    expect(output.value.simulations[0]).toMatchObject({
+      isSettled: false,
+      result: { outdated: false },
+      standing: { position: 1 },
+    });
   });
 
   it('wraps persistence failures', async () => {

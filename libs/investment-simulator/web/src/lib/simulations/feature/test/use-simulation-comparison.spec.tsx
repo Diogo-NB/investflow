@@ -28,9 +28,10 @@ function compared(id: string, status: CalculationStatus = 'CALCULATED') {
     simulation: { ...workspace.simulation, id },
     calculation: { ...workspace.calculation, status },
     result: simulationResult(),
+    isSettled: status === 'CALCULATED',
     standing: {
       position: 1,
-      leader: true,
+      isLeader: true,
       netAnnualReturnGap: '0',
       netBalanceGap: null,
     },
@@ -40,7 +41,7 @@ function compared(id: string, status: CalculationStatus = 'CALCULATED') {
 function comparison(
   ...simulations: ReturnType<typeof compared>[]
 ): SimulationComparison {
-  return { settled: true, amountsComparable: false, simulations };
+  return { isSettled: true, areAmountsComparable: false, simulations };
 }
 
 function render(api: ReturnType<typeof fakeApi>, search: string) {

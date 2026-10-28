@@ -27,9 +27,10 @@ function compared(
       investment: { ...workspace.simulation.investment, principal },
     },
     result: simulationResult(),
+    isSettled: true,
     standing: standing && {
       position: 1,
-      leader: true,
+      isLeader: true,
       netAnnualReturnGap: '0',
       netBalanceGap: null,
       ...standing,
@@ -38,9 +39,13 @@ function compared(
 }
 
 const comparison = (
-  amountsComparable: boolean,
+  areAmountsComparable: boolean,
   simulations: ComparedSimulation[] = [],
-): SimulationComparison => ({ settled: true, amountsComparable, simulations });
+): SimulationComparison => ({
+  isSettled: true,
+  areAmountsComparable,
+  simulations,
+});
 
 const row = (label: string) => {
   const found = COMPARISON_ROW_GROUPS.flatMap(({ rows }) => rows).find(
@@ -77,7 +82,7 @@ describe('rankingMark', () => {
   const leader = compared('a');
   const second = compared('b', {
     position: 2,
-    leader: false,
+    isLeader: false,
     netAnnualReturnGap: '0.0033',
     netBalanceGap: '67.6',
   });
@@ -120,7 +125,7 @@ describe('rankedOrder', () => {
   it('orders by position and leaves unranked last', () => {
     const order = rankedOrder([
       compared('unranked', null),
-      compared('third', { position: 3, leader: false }),
+      compared('third', { position: 3, isLeader: false }),
       compared('first'),
     ]);
 

@@ -1,33 +1,16 @@
 import {
-  CalendarDate,
   DomainError,
   EAppErrorCode,
   Money,
   ValueObject,
 } from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
-
-// A simulation's last successful result, as far as comparing it goes.
-export interface ComparedResult {
-  readonly principal: Money;
-  readonly investmentDate: CalendarDate;
-  readonly maturityDate: CalendarDate;
-  readonly netFinalBalance: Money;
-  readonly netAnnualReturn: Decimal;
-  // Calculated and matching the simulation's current inputs, revisions, and
-  // methodology.
-  readonly current: boolean;
-}
-
-export interface ComparedSimulation {
-  readonly id: string;
-  readonly result: ComparedResult | null;
-}
+import { ComparedResult, ComparedSimulation } from './compared-simulation.vo';
 
 export interface ComparisonStanding {
   // Ties share a position, and the next one skips: 1, 1, 3.
   readonly position: number;
-  readonly leader: boolean;
+  readonly isLeader: boolean;
   // The leader's net annual return minus this one's.
   readonly netAnnualReturnGap: Decimal;
   // The leader's net final balance minus this one's, only when the amounts
@@ -35,28 +18,29 @@ export interface ComparisonStanding {
   readonly netBalanceGap: Money | null;
 }
 
-// Simulations compared side by side, ranked by net annual return: the only
-// measure fair across different terms and across taxed and exempt titles.
-// Stale results rank like current ones; `settled` says whether any did.
+// Simulations compared side by side, ranked by the net annual return of their
+// last successful result: the only measure fair across different terms and
+// across taxed and exempt titles. Stale results rank like current ones;
+// `isSettled` says whether any did.
 export class SimulationComparison extends ValueObject<SimulationComparison> {
   static readonly MIN_SIMULATIONS = 2;
   static readonly MAX_SIMULATIONS = 6;
 
   // At least two results with the same principal and term: the amounts then
   // rank like the annual returns, so the leader also ends with the most money.
-  readonly amountsComparable: boolean;
-  readonly settled: boolean;
+  readonly areAmountsComparable: boolean;
+  readonly isSettled: boolean;
   private readonly standings: ReadonlyMap<string, ComparisonStanding>;
 
   private constructor(readonly simulations: readonly ComparedSimulation[]) {
     super();
-    const ranked = simulations.flatMap(({ id, result }) =>
-      result ? [{ id, result }] : [],
+    const ranked = simulations.flatMap(({ id, lastResult }) =>
+      lastResult ? [{ id, result: lastResult }] : [],
     );
-    this.amountsComparable =
+    this.areAmountsComparable =
       ranked.length > 1 &&
       ranked.every(({ result }) => sameInvestment(result, ranked[0].result));
-    this.settled = simulations.every(({ result }) => result?.current === true);
+    this.isSettled = simulations.every(({ isSettled }) => isSettled);
     this.standings = this.rank(ranked);
   }
 
@@ -98,11 +82,11 @@ export class SimulationComparison extends ValueObject<SimulationComparison> {
       }
       standings.set(id, {
         position,
-        leader: position === 1,
+        isLeader: position === 1,
         netAnnualReturnGap: leader.netAnnualReturn.minus(
           result.netAnnualReturn,
         ),
-        netBalanceGap: this.amountsComparable
+        netBalanceGap: this.areAmountsComparable
           ? leader.netFinalBalance.subtract(result.netFinalBalance)
           : null,
       });
@@ -113,10 +97,8 @@ export class SimulationComparison extends ValueObject<SimulationComparison> {
   equals(other: SimulationComparison): boolean {
     return (
       this.simulations.length === other.simulations.length &&
-      this.simulations.every(
-        ({ id, result }, index) =>
-          other.simulations[index].id === id &&
-          sameResult(result, other.simulations[index].result),
+      this.simulations.every((simulation, index) =>
+        simulation.equals(other.simulations[index]),
       )
     );
   }
@@ -127,18 +109,5 @@ function sameInvestment(a: ComparedResult, b: ComparedResult): boolean {
     a.principal.equals(b.principal) &&
     a.investmentDate.equals(b.investmentDate) &&
     a.maturityDate.equals(b.maturityDate)
-  );
-}
-
-function sameResult(
-  a: ComparedResult | null,
-  b: ComparedResult | null,
-): boolean {
-  if (a === null || b === null) return a === b;
-  return (
-    sameInvestment(a, b) &&
-    a.netFinalBalance.equals(b.netFinalBalance) &&
-    a.netAnnualReturn.equals(b.netAnnualReturn) &&
-    a.current === b.current
   );
 }

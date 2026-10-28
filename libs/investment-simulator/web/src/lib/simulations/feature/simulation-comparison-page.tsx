@@ -36,10 +36,6 @@ import { useSimulationComparison } from './use-simulation-comparison';
 
 const LIST = '/simulacoes';
 
-// The result shown predates the simulation's current inputs.
-const isPrevious = ({ calculation, result }: ComparedSimulation) =>
-  result !== null && (calculation.status !== 'CALCULATED' || result.outdated);
-
 const names = (simulations: readonly ComparedSimulation[]) => {
   const all = simulations.map(({ offer }) => offer.name);
   const last = all.pop();
@@ -54,8 +50,8 @@ function Verdict({
   const ranked = rankedOrder(comparison.simulations).filter(
     ({ standing }) => standing,
   );
-  const leaders = ranked.filter(({ standing }) => standing?.leader);
-  const others = ranked.filter(({ standing }) => !standing?.leader);
+  const leaders = ranked.filter(({ standing }) => standing?.isLeader);
+  const others = ranked.filter(({ standing }) => !standing?.isLeader);
   const unranked = comparison.simulations.filter(({ standing }) => !standing);
   const leader = leaders[0];
 
@@ -100,7 +96,7 @@ function Verdict({
           {ranked.length > 1 && (
             <p className="m-0 flex items-start gap-2 text-sm text-muted">
               <InfoIcon className="mt-px size-4 shrink-0" />
-              {comparison.amountsComparable
+              {comparison.areAmountsComparable
                 ? 'Mesmo valor aplicado e mesmo prazo: os montantes líquidos também se comparam diretamente.'
                 : 'Valores ou prazos diferentes: compare pela rentabilidade líquida ao ano, não pelo montante.'}
             </p>
@@ -116,7 +112,7 @@ function Verdict({
           Sem resultado para comparar: {names(unranked)}.
         </p>
       )}
-      {!comparison.settled && leader && (
+      {!comparison.isSettled && leader && (
         <p className="m-0 flex items-start gap-2 text-sm text-warning">
           <AlertTriangleIcon className="mt-px size-4 shrink-0" />
           Comparação provisória: há simulações calculando, que requerem ação ou
@@ -189,17 +185,14 @@ function SimulationStatus({
 }: {
   readonly simulation: ComparedSimulation;
 }) {
-  const current =
-    simulation.calculation.status === 'CALCULATED' &&
-    !simulation.result?.outdated;
-  if (current) return null;
+  if (simulation.isSettled) return null;
   return (
     <span className="flex flex-wrap items-center gap-2">
       <CalculationStatusTag
         status={simulation.calculation.status}
         outdated={simulation.result?.outdated ?? false}
       />
-      {isPrevious(simulation) && (
+      {simulation.result && (
         <span className="text-sm text-muted">Resultado anterior</span>
       )}
     </span>

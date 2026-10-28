@@ -62,4 +62,10 @@ to the screen itself and serializes the result.
   or another context consuming it.
 - Each read is bounded by a domain invariant, not by today's volume: a plan
   reads at most `InvestmentPlan.SIMULATION_LIMIT` members, a page of plans
-  at most the page size times that limit.
+  at most the page size times that limit, and a simulation comparison at
+  most `SimulationComparison.MAX_SIMULATIONS` simulations.
+- The simulation comparison follows the same shape:
+  `ComparedSimulationReader` returns `ComparedSimulation`s, which say whether
+  their result is current and settled, and `BuildSimulationComparisonUseCase`
+  builds `SimulationComparison`; each compared simulation's `isSettled` goes
+  to the screen, which never derives it from the status and `outdated`.

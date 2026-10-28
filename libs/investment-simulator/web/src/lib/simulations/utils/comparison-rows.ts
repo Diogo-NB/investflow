@@ -182,21 +182,21 @@ export function onlyDifferences(
 export function rankingMark(
   row: ComparisonRow,
   { standing }: ComparedSimulation,
-  { amountsComparable }: SimulationComparison,
+  { areAmountsComparable }: SimulationComparison,
 ): { readonly best: boolean; readonly gap: string | null } | null {
   if (!row.ranking || !standing) return null;
   if (row.ranking === 'netAnnualReturn') {
     return {
-      best: standing.leader,
-      gap: standing.leader
+      best: standing.isLeader,
+      gap: standing.isLeader
         ? null
         : `${formatPercentagePoints(standing.netAnnualReturnGap)} abaixo`,
     };
   }
-  if (!amountsComparable || standing.netBalanceGap === null) return null;
+  if (!areAmountsComparable || standing.netBalanceGap === null) return null;
   return {
-    best: standing.leader,
-    gap: standing.leader
+    best: standing.isLeader,
+    gap: standing.isLeader
       ? null
       : `${formatMoney(standing.netBalanceGap)} a menos`,
   };

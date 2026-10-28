@@ -184,18 +184,38 @@ through its term. It is a required feature, not an optional nicety.
 - **Done when** a user can name and keep a comparison as its own concept,
   apart from plans, and reopen it.
 
-## Simulation comparison built in its query handler (deferred 2026-10-28)
+## Result currency decided in query projections (deferred 2026-10-28)
 
-- **Today:** `GetSimulationComparisonQueryHandler` builds each
-  `ComparedResult` from rows and decides which results count as current, so
-  the comparison's inputs are assembled outside the domain and application.
-- **Why deferred:** found while moving investment plan status and totals
-  behind a read port (D10); changing the comparison is outside that work.
+- **Today:** the workspace projection
+  (`simulation-workspace-projection.ts`, also used by the comparison for what
+  it shows) and `ListSimulationsQueryHandler` compute `result.outdated` from
+  rows with `SimulationResult.isCurrent`, and the workspace editor derives
+  "up to date" from the status and `outdated` (`simulation-editor.tsx`). The
+  comparison and investment plans get the same facts from `ComparedSimulation`
+  and `InvestmentPlanMember`, each repeating the currency check.
+- **Why deferred:** found while moving the simulation comparison behind a
+  read port; the workspace and the list are other screens.
 - **Revisit with:** "Domain Concepts on a Screen Read" in
-  [queries.md](./queries.md): a read port returning the compared simulations
-  in domain terms and a read use case that builds `SimulationComparison`.
-- **Done when** the handler only reads what belongs to the screen and
-  serializes the comparison the application built.
+  [queries.md](./queries.md): one domain concept for a simulation's last
+  result against its current premises (whether it is current and settled),
+  shared by the plan member, the compared simulation, the workspace, and the
+  list.
+- **Done when** no query projection or screen decides whether a result is
+  current or settled.
+
+## Composed screen reads without one snapshot (deferred 2026-10-28)
+
+- **Today:** the investment plan details and the simulation comparison run
+  their read use cases and their own screen read as separate statements
+  outside a transaction (`@SkipTransaction()`), so a calculation committed
+  between them can rank or total a result other than the one shown. The
+  comparison polls only while a shown status is `PENDING`, so it can stay
+  inconsistent until the next load.
+- **Why deferred:** the window is one round trip, and closing it needs a
+  read-only `REPEATABLE READ` mode for the unit of work, a change of its own.
+- **Revisit when** users report a verdict or total that disagrees with the
+  figures shown, or another screen composes reads this way.
+- **Done when** a composed screen read sees one snapshot.
 
 ## Creating a private offer and its simulation in one transaction (deferred 2026-10-27)
 
