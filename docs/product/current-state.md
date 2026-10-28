@@ -1,7 +1,7 @@
 # Current State
 
 What is built today, per area, and where it still differs from the target
-model. The [roadmap](./implementation-roadmap.md) says what comes next; update
+model. Pending features are in [planned/](./planned/); update
 this file in the same change that ships or changes a built behavior.
 
 ## Built
@@ -156,6 +156,9 @@ this file in the same change that ships or changes a built behavior.
 
 ## Differs From the Target Model
 
+- The CDI and SELIC curves imported from the Banco Central are not built
+  ([BCB Rate Import](./planned/bcb-rate-import.md)), nor are the IPCA
+  calculation and early redemption.
 - The simulation workspace cannot yet edit its own offer in place, with the
   offer editor's impact notice (see [Simulation Workspace
   Behavior](./screens/simulations.md)).

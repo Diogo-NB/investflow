@@ -1,6 +1,6 @@
 # Offer Behavior
 
-Recorded 2026-10-11 and implemented under `/ofertas` (D5). An offer has a title type
+Recorded 2026-10-11 and implemented under `/ofertas`. An offer has a title type
 (fixed after creation), a name, an optional issuer, remuneration and rate,
 maturity, liquidity, an owner, and a revision. User content is private and
 editable; system content is visible to everyone and read only. Offers are

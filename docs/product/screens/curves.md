@@ -1,6 +1,6 @@
 # Curve Behavior
 
-Recorded 2026-10-11 and implemented under `/curvas` (D6). A curve has an
+Recorded 2026-10-11 and implemented under `/curvas`. A curve has an
 index (which fixes the value convention), a name, an optional description,
 intervals with values, an owner, and a revision. Alternatives of one index are
 separate curves; screens group them by index and origin, and nothing about the

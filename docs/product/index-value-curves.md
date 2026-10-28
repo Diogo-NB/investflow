@@ -98,7 +98,7 @@ seja uma curva de juros a termo extraída de preços de mercado.
 | Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                |
 | Cadastro de intervalos       | Tabela editável com uma linha por intervalo (início, fim e valor), mantida contígua; no IPCA, meses.    |
 | Último valor mantido         | Depois do fim do último intervalo, seu valor vale em diante, sempre identificado (decisão 2026-10-28).  |
-| Curvas observadas            | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante. |
+| Curvas do BCB                | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante. |
 
 As regras exatas do CDI e do híbrido foram objeto de pesquisa de mercado
 solicitada durante a definição do produto. O CDI e as pendências do IPCA estão
@@ -227,11 +227,12 @@ cobertura de todo o intervalo entre eles.
 Uma lacuna não deve ser preenchida automaticamente com zero, com o último
 valor conhecido ou com uma interpolação. Manter o último valor depois do fim
 da curva não é preenchimento de lacuna: é regra da curva, sempre identificada
-(ver [Taxa Mantida e Curvas Observadas](#taxa-mantida-e-curvas-observadas)). O período descoberto deve ser
-identificado para que o usuário possa corrigir a curva ou escolher outra. O
-cálculo deverá determinar as referências necessárias; a curva
-não escolhe dias úteis nem competências defasadas por conta própria. A forma
-de verificar o conjunto de referências será refinada em uma etapa posterior.
+(ver [Taxa Mantida e Curvas do BCB](#taxa-mantida-e-curvas-do-bcb)). O
+período descoberto deve ser identificado para que o usuário possa corrigir a
+curva ou escolher outra. O cálculo deverá determinar as referências
+necessárias; a curva não escolhe dias úteis nem competências defasadas por
+conta própria. A forma de verificar o conjunto de referências será refinada
+em uma etapa posterior.
 
 ### Exemplo de Lacuna Recusada
 
@@ -321,9 +322,9 @@ quando uma trajetória combina histórico com expectativas futuras.
 
 Uma previsão informada explicitamente é um dado da curva escolhida. Ela
 não autoriza preencher lacunas; depois do último trecho vale o último valor,
-sempre identificado. Nas curvas observadas do sistema, a data do último valor
+sempre identificado. Nas curvas do BCB, a data do último valor
 publicado separa o histórico da taxa mantida (ver
-[Taxa Mantida e Curvas Observadas](#taxa-mantida-e-curvas-observadas)). O
+[Taxa Mantida e Curvas do BCB](#taxa-mantida-e-curvas-do-bcb)). O
 detalhamento de origem e de classificação por trecho permanece pendente.
 
 Uma simulação retrospectiva com dados hoje conhecidos não equivale a
@@ -331,7 +332,7 @@ reproduzir somente as informações disponíveis ao investidor na época. Esse
 segundo comportamento exigiria conhecer quando cada dado foi publicado ou
 estava disponível; não está definido no escopo atual.
 
-## Taxa Mantida e Curvas Observadas
+## Taxa Mantida e Curvas do BCB
 
 Decisão de 2026-10-17. Uma curva com somente valores já publicados termina
 no dia anterior ao atual, pois o CDI de um dia é publicado no dia seguinte.
@@ -356,10 +357,10 @@ Decisão de 2026-10-28, que substitui o intervalo sem fim de 2026-10-17.
   O resultado de uma simulação informa até quando a curva tem valores e que,
   depois, a taxa é mantida.
 
-### Curvas Observadas do Sistema
+### Curvas do BCB
 
 - O sistema mantém uma curva de CDI e uma de SELIC efetiva com os valores
-  publicados pelo Banco Central, na convenção desses índices (taxa anual
+  publicados pelo Banco Central do Brasil (BCB), na convenção desses índices (taxa anual
   efetiva, base 252).
 - Como em toda curva, a última taxa publicada é mantida depois do fim do
   último intervalo.
@@ -371,7 +372,7 @@ Decisão de 2026-10-28, que substitui o intervalo sem fim de 2026-10-17.
   Dias consecutivos com o mesmo valor formam um único intervalo.
 - As simulações só devem ser recalculadas quando a taxa muda; no CDI, isso
   acontece em torno das reuniões do Copom. Como estender o fim sem recalcular
-  é uma decisão pendente do roteiro (D12b).
+  é uma decisão pendente (ver [BCB Rate Import](./planned/bcb-rate-import.md)).
 - As telas da curva informam a origem dos valores, a data do último valor
   publicado e que a última taxa é mantida em diante.
 - Quem quiser outra premissa para o futuro duplica a curva e edita os

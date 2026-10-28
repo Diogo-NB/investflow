@@ -140,7 +140,7 @@ modules, and they use relative `/api` URLs.
 
 ## Toasts
 
-Decided 2026-10-27 with D9: a toast reports the outcome of something that
+Decided 2026-10-27 with investment plans: a toast reports the outcome of something that
 already happened and may offer one follow-up action, without blocking the
 page (a new simulation offered to the plan it was started from).
 

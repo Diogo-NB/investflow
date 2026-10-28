@@ -7,8 +7,8 @@ O contexto de negócio e as regras das curvas estão detalhados em
 [Curvas de Valores dos Índices](./index-value-curves.md).
 
 Este documento descreve o produto pretendido, não o que já está implementado.
-O estado atual da implementação e as próximas entregas estão no
-[roteiro de implementação](./implementation-roadmap.md).
+O estado atual da implementação está em [Current State](./current-state.md),
+e as próximas entregas, em [planned/](./planned/).
 
 ## Visão
 

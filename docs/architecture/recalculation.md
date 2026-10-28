@@ -14,13 +14,11 @@ in the outbox. `Simulation` references an offer and an optional curve, has its
 own revision, and keeps one current `SimulationResult` recording the
 simulation, offer, and curve revisions and the methodology version it used;
 "Digitar termos" and "Duplicar e ajustar" create a private offer in the same
-request. A simulation's own calculation is asynchronous (D4a): saving
+request. A simulation's own calculation is asynchronous: saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
 calculates; a dead-letter consumer records `FAILED`. Offer and curve changes
-recalculate the simulations that use them (D4b, built 2026-10-26). The design
+recalculate the simulations that use them (built 2026-10-26). The design
 below was settled on 2026-10-12 and revised on 2026-10-26.
-Deliverables and their order are in
-`docs/product/implementation-roadmap.md`.
 
 ## Model
 

@@ -5,10 +5,10 @@ other files link to it instead of repeating it.
 
 ## Product
 
-- [implementation-roadmap.md](product/implementation-roadmap.md): next steps, open deliverables (D-numbered), their decisions and status. Read when: planning or starting a deliverable.
+- [planned/](product/planned/): one file per pending feature, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](product/planned/bcb-rate-import.md). Read when: planning or starting that feature.
 - [current-state.md](product/current-state.md): what is built, per area, and where it differs from the target model. Read when: checking whether something exists before planning or building on it.
 - [investment-simulator-prd.md](product/investment-simulator-prd.md): business rules, calculations, taxes, access (pt-BR). Read when: a change touches a business rule or calculation.
-- [index-value-curves.md](product/index-value-curves.md): curve rules: intervals, conventions, coverage, observed curves (pt-BR). Read when: a change touches curves or index values.
+- [index-value-curves.md](product/index-value-curves.md): curve rules: intervals, conventions, coverage, BCB curves (pt-BR). Read when: a change touches curves or index values.
 - [screens/app-shell.md](product/screens/app-shell.md): login, session, logout, shell behavior. Read when: changing the shell or authentication in the browser.
 - [screens/simulations.md](product/screens/simulations.md): simulation list, workspace, and comparison behavior. Read when: changing a `/simulacoes` screen.
 - [screens/offers.md](product/screens/offers.md): offer screens behavior. Read when: changing an `/ofertas` screen.

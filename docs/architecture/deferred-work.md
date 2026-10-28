@@ -154,7 +154,7 @@ How much a simulation is worth today, so a user can follow an investment
 through its term. It is a required feature, not an optional nicety.
 
 - **Today:** nothing shows a simulation's value before maturity. An interim
-  "Hoje" marker on the balance chart (roadmap D13) was dropped on 2026-10-28.
+  "Hoje" marker on the balance chart was dropped on 2026-10-28.
 - **Why deferred:** it needs product refinement and a domain concept and
   space of its own. The open questions are in the PRD's "Pendências de
   Produto": the reference date, gross or net (early redemption taxes depend

@@ -7,10 +7,10 @@ the rules behind it, and the outbox's limits and timings, are in
 [Mutable Premises And Asynchronous Recalculation](./recalculation.md).
 
 > **Status.** The event transport (outbox, EventBridge, SQS, consumers) and a
-> simulation's own asynchronous calculation (D4a) are built, on FIFO queues
+> simulation's own asynchronous calculation are built, on FIFO queues
 > grouped per aggregate, and so is recalculation after offer and curve
-> changes (D4b, walkthroughs 5 and 6); see the
-> [roadmap](../product/implementation-roadmap.md).
+> changes (walkthroughs 5 and 6); see
+> [Current State](../product/current-state.md).
 
 ## In One Picture
 
@@ -275,7 +275,7 @@ meanwhile. If a newer message for the same revision is already in flight (a
 retry, or saving without changes), the screen may show "Falha técnica" briefly
 before that calculation replaces it.
 
-### Walkthrough 5: An Offer's Terms or a Curve's Values Change (D4b)
+### Walkthrough 5: An Offer's Terms or a Curve's Values Change
 
 ```mermaid
 sequenceDiagram
@@ -306,7 +306,7 @@ screen shows "Desatualizado", derived from the term revisions. It records
 all its requests in one transaction, a simplification listed under
 "Fan-out at scale" in [Deferred Work](./deferred-work.md).
 
-### Walkthrough 6: An Offer or Curve Is Deleted (D4b)
+### Walkthrough 6: An Offer or Curve Is Deleted
 
 Deletion goes through the same path as walkthrough 5. The worker finds the
 premise missing and records `INVALID` with the reason ("Sem oferta, escolha
@@ -338,7 +338,7 @@ moment, but it is never the last write.
 | The same message arrives twice           | `processed_events` runs it once.                                               |
 | Two messages for one simulation          | Their group delivers them one after the other; the second reads current state. |
 | The user edits during a calculation      | The old outcome is discarded; the new message calculates.                      |
-| The premise changes during a calculation | The old outcome may land; fan-out's message (D4b) runs next and replaces it.   |
+| The premise changes during a calculation | The old outcome may land; fan-out's message runs next and replaces it.         |
 | A worker dies mid-calculation            | The message reappears after 30 seconds and another worker takes it.            |
 | A technical error keeps happening        | After 5 receives the message is dead-lettered and the status is `FAILED`.      |
 | A business rule fails                    | `INVALID` with the reason, recorded once and never retried.                    |
@@ -446,8 +446,6 @@ it adds.
 
 - [Messaging Transport](./messaging.md) and
   [Mutable Premises And Asynchronous Recalculation](./recalculation.md).
-- [Implementation Roadmap](../product/implementation-roadmap.md): D4a and
-  D4b scope.
 - [PRD](../product/investment-simulator-prd.md): "Modelo de Atualização" and
   "Cálculos de Simulação".
 - `$investflow-eventing`: rules for publishing and consuming.

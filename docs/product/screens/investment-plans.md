@@ -1,7 +1,7 @@
 # Investment Plan Behavior
 
-Recorded 2026-10-27 and implemented under `/planos` (D9); the "Resumo"
-block was added 2026-10-28 (D10). A plan has a name,
+Recorded 2026-10-27 and implemented under `/planos`; the "Resumo"
+block was added 2026-10-28. A plan has a name,
 an optional description, an owner, a revision, and up to 50 of the owner's
 simulations: the ones they would invest in together. Business rules are in
 "Planos de Investimento" in the [PRD](../investment-simulator-prd.md).

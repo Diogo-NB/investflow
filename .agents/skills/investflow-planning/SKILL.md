@@ -1,6 +1,6 @@
 ---
 name: investflow-planning
-description: Plan, discuss, and close out InvestFlow work. Use when asked to plan or design a feature, refactor, or roadmap step (D-numbered items), to discuss or decide an architecture, modeling, or UX question, to present options, or to record decisions and update the roadmap, PRD, and architecture docs afterwards. Do not use for small mechanical edits, single bug fixes, or answering a factual question about the code.
+description: Plan, discuss, and close out InvestFlow work. Use when asked to plan or design a feature or refactor, including a pending feature in docs/product/planned/, to discuss or decide an architecture, modeling, or UX question, to present options, or to record decisions and update the planned-feature, PRD, and architecture docs afterwards. Do not use for small mechanical edits, single bug fixes, or answering a factual question about the code.
 ---
 
 # InvestFlow Planning
@@ -27,9 +27,8 @@ skill file with `cat` or `grep` does not count.
 Find what the work touches before reading, then read only that
 (`docs/README.md` says what each file owns):
 
-- The step's section and "Next Steps" in
-  `docs/product/implementation-roadmap.md`, and the areas it touches in
-  `docs/product/current-state.md`.
+- The feature's file in `docs/product/planned/`, if it has one, and the
+  areas it touches in `docs/product/current-state.md`.
 - The PRD or curve-specification sections for the business rules involved,
   and the screen file in `docs/product/screens/` for screen work.
 - The architecture file of each area touched (`recalculation.md`,
@@ -50,13 +49,13 @@ The request sets how far to go. Respect it, and ask when it is unclear:
 - **Discuss**: "lets discuss", "what is the problem", "analyze", "NO CODE
   YET", "dont edit, just report". Answer, propose, and stop. Do not write
   code or a plan file.
-- **Plan**: "plan D7", "lets plan". Produce the plan below and wait for
-  approval.
+- **Plan**: "plan the BCB rate import", "lets plan". Produce the plan below
+  and wait for approval.
 - **Implement**: "implement", "go ahead". Plan briefly when the design is
   settled; return to planning when a real design question appears.
 
-When the user narrows the scope ("only step 1 + docs", "pin D4b"), plan only
-that and record the remainder as deferred or as the next step.
+When the user narrows the scope ("only step 1 + docs", "pin the fan-out"), plan only
+that and record the remainder as deferred or as a planned feature.
 
 ## Shape the problem before the solution
 
@@ -122,7 +121,11 @@ Order the plan so the most consequential part comes first:
    and anything with numbers (limits, timeouts, batch sizes) with the
    reasoning behind each number.
 4. **Delivery**: when the work is large, split it into PRs that each build
-   and pass tests on their own (PR A, B, C), in dependency order.
+   and pass tests on their own (PR A, B, C), in dependency order. Each PR
+   keeps `pnpm check` green and the app working end to end: a backend change
+   also adapts the screens that consume it. The local database is
+   disposable, so a schema change resets it with `pnpm db:setup` instead of
+   migrating existing rows.
 5. **Verification**: the tests to add and how the change will be tested on
    the local stack (see `investflow-local-testing`).
 6. **Docs**: the docs and skills the change updates (see "Close out").
@@ -160,9 +163,11 @@ After a decision is agreed or an implementation lands, update the docs in
 the same change. The user should never have to ask whether the docs are up
 to date:
 
-- **Roadmap**: "Next Steps" and the step's section. Mark settled points,
-  paused steps (with the date), and what remains; remove a step's section
-  once it ships.
+- **Planned features**: a feature agreed but not built gets its own file in
+  `docs/product/planned/` with a pending status line, its open decisions,
+  scope, and done criteria. Mark settled points, pauses (with the date), and
+  what remains; delete the file once the feature ships. Name features for
+  what they are, not with sequence numbers.
 - **Current State**: what the change built or changed, in
   `docs/product/current-state.md`.
 - **Screens**: user-visible behavior of a screen, in its
