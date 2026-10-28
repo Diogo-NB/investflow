@@ -101,7 +101,7 @@ seja uma curva de juros a termo extraída de preços de mercado.
 | Curvas do BCB                | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante. |
 
 As regras exatas do CDI e do híbrido foram objeto de pesquisa de mercado
-solicitada durante a definição do produto. O CDI e as pendências do IPCA estão
+solicitada durante a definição do produto. O CDI e a pesquisa sobre o IPCA estão
 detalhados adiante.
 
 ## Curva e Responsabilidades
@@ -449,8 +449,9 @@ projeções. Essa referência não define uma regra universal para CDBs.
 [Guia de metodologias ANBIMA, páginas 45–46](https://www.anbima.com.br/data/files/41/33/64/17/5EAB77103EDB69776B2BA2A8/Guia%20de%20metodologias%20ANBIMA%20de%20Precificacao_161120.pdf).
 
 Distribuir automaticamente uma variação pelos dias úteis do mês civil é uma
-simplificação insuficiente para afirmar reprodução de um contrato real.
-Precisamos escolher o perfil de atualização por IPCA suportado pelo produto.
+simplificação insuficiente para afirmar reprodução de um contrato real. A
+escolha do perfil de atualização por IPCA fica para depois da primeira versão
+(ver a Evolução Futura no [PRD](./investment-simulator-prd.md#evolução-futura)).
 
 | Responsabilidade da curva                    | Responsabilidade da oferta                   |
 | -------------------------------------------- | -------------------------------------------- |
@@ -531,11 +532,10 @@ escolhida por outra.
 
 ## Pendências de Produto
 
-| Pendência                 | O que precisa ser decidido                                                                                     |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Perfil contratual do IPCA | Definir atualização, aniversário, defasagem, proporcionalização e tratamento das extremidades do investimento. |
-| Histórico e projeções     | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários.      |
-| Dias sem valor publicado  | Rever a repetição provisória do valor anterior nos dias úteis do produto sem valor do Banco Central.           |
+| Pendência                | O que precisa ser decidido                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Histórico e projeções    | Definir se a origem observada/projetada é informada por trecho e quais dados de origem serão necessários. |
+| Dias sem valor publicado | Rever a repetição provisória do valor anterior nos dias úteis do produto sem valor do Banco Central.      |
 
 A decisão de impedir cálculo sem cobertura não é reaberta por essas
 pendências. Interpolação, prolongamento e substituição automática de curvas
@@ -550,6 +550,7 @@ depois do fim é regra da curva, sempre identificada.
 - Construção automática de previsões ou curvas a termo.
 - Preenchimento automático de dados ausentes.
 - Substituição automática de um índice por outro.
+- Cálculo de títulos híbridos por IPCA.
 - Resgate, recebimento antecipado e reinvestimento.
 - Reprodução de resultados calculados com trajetórias anteriores.
 - Reprodução do conjunto de informações disponíveis em cada data histórica.

@@ -114,7 +114,7 @@ premise events carry no actor either. The cause is set when the simulation
 is queued and kept by the outcome, so after a premise change "Requer ação"
 shows the reason with the simulation's own last cause (see "Recalculation
 status on screen" in Deferred Work). Only the current
-state is kept; a transition history is deferred work.
+state is kept; there is no transition history.
 
 - **Requests validate synchronously, then calculate asynchronously.** Creating
   or editing a simulation checks visibility in the application and calls

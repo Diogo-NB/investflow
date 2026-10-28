@@ -162,15 +162,13 @@ digitados. A nova oferta é criada junto com a simulação: se a solicitação f
 rejeitada, nada é criado. Ofertas do sistema não podem ser editadas, somente
 duplicadas.
 
-Tipos de remuneração: prefixado, pós-fixado por CDI ou SELIC efetiva, ou
-híbrido por IPCA. A data de resgate antecipado, quando permitida pela liquidez,
-segue fora do recorte atual dos cálculos.
+Tipos de remuneração: prefixado ou pós-fixado por CDI ou SELIC efetiva. O
+híbrido por IPCA e o resgate antecipado ficam fora da primeira versão (ver
+[Evolução Futura](#evolução-futura)).
 
-O calculador inicial suporta CDB, LCI e LCA prefixados, por percentual do CDI
-ou por percentual da SELIC efetiva. IPCA permanece previsto no produto, mas seu
-cálculo fica adiado até a definição do perfil contratual. No recorte atual, o
-cálculo produz a trajetória bruta de todos os dias úteis até o vencimento, sem
-recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
+O calculador suporta CDB, LCI e LCA prefixados, por percentual do CDI ou por
+percentual da SELIC efetiva. O cálculo produz a trajetória bruta de todos os
+dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem somente no resumo do vencimento.
 
 ### Cálculos de Simulação
 
@@ -373,13 +371,6 @@ saldo_bruto = saldo_bruto_anterior * fator_diario_aplicacao
 Usar a mesma convenção de datas do CDI. A remuneração exige uma curva de SELIC;
 uma curva de CDI não pode substituí-la. Não há conversão implícita da meta SELIC.
 
-### Híbrido por IPCA
-
-Compor multiplicativamente o fator de atualização pelo IPCA e o fator da
-parcela fixa. O perfil contratual de atualização, incluindo aniversário,
-defasagem e proporcionalização, ainda precisa ser definido. O contexto de
-mercado e suas implicações estão na documentação de curvas.
-
 ### Imposto de Renda
 
 Para CDB, aplicar automaticamente a alíquota regressiva conforme o prazo
@@ -483,7 +474,7 @@ data em UTC:
   supera o prazo total;
 - no dia do vencimento é zero, e depois dele a simulação aparece como vencida,
   sem prazo restante. O que acontece com o investimento após o vencimento
-  continua pendente;
+  fica fora da primeira versão;
 - depende somente das datas da simulação atual (aplicação e vencimento da
   oferta), não do resultado, e por isso aparece em qualquer estado do
   cálculo. Sem oferta, não há prazo restante;
@@ -522,10 +513,10 @@ A comparação responde qual simulação rende mais e por quê:
 
 ### Liquidez e Resgate
 
-- Liquidez diária: permitir resgate antes do vencimento e calcular rendimento,
-  IR e IOF usando a data efetiva de resgate.
-- Liquidez no vencimento: não permitir resgate antecipado; calcular até o
-  vencimento.
+A liquidez (diária ou no vencimento) é um termo da oferta, exibido nas telas e
+usado nos totais dos planos. O cálculo vai sempre até o vencimento, mesmo com
+liquidez diária; o resgate antecipado fica fora da primeira versão (ver
+[Evolução Futura](#evolução-futura)).
 
 ### Totais do Plano
 
@@ -562,8 +553,7 @@ quando:
   cada simulação.
 - Recalcular de forma assíncrona e confiável: toda alteração aceita leva ao
   recálculo das simulações afetadas, mesmo após falhas temporárias.
-- Gerar um evento a cada criação, edição ou exclusão de ofertas e curvas. O registro e a consulta da auditoria dessas alterações
-  (revisão e o que mudou) ficam adiados.
+- Gerar um evento a cada criação, edição ou exclusão de ofertas e curvas.
 - Autenticar por token.
 - Interface em português, responsiva e acessível.
 - Permitir futura internacionalização.
@@ -573,7 +563,11 @@ quando:
 - transações financeiras reais;
 - autocadastro;
 - reprodução de resultados passados e histórico de cálculos;
-- consulta de auditoria das alterações;
+- registro e consulta de auditoria das alterações;
+- saldo hoje: o valor de uma simulação antes do vencimento;
+- comparações salvas;
+- títulos híbridos por IPCA;
+- resgate antecipado e o que acontece com o investimento após o vencimento;
 - edição de ofertas e curvas do sistema por usuários;
 - indicar qual plano de investimento é melhor ou comparar planos entre si;
 - gráficos além da evolução do saldo;
@@ -591,7 +585,14 @@ quando:
   por exemplo quando novos valores chegam a uma curva do sistema.
 - Importar outros índices e fontes, como ANBIMA ou BrasilAPI, para manter as
   curvas do sistema.
-- Consultar a auditoria das alterações de ofertas e curvas.
+- Calcular títulos híbridos por IPCA, definindo antes o perfil contratual de
+  atualização (aniversário, defasagem, proporcionalização e extremidades), a
+  fórmula completa e os prazos mínimos de LCI e LCA indexadas a índice de
+  preços. A pesquisa de mercado está em
+  [IPCA: Atualização e Parcela Fixa](./index-value-curves.md#ipca-atualização-e-parcela-fixa).
+- Calcular o resgate antecipado das ofertas com liquidez diária, com
+  rendimento, IR e IOF na data efetiva do resgate, e definir o que acontece
+  com o investimento após o vencimento.
 - Suportar Tesouro Direto, debêntures, CRI e CRA.
 - Comparar rendimento líquido entre diferentes tipos de título.
 - Exibir rentabilidade real descontada pelo IPCA.
@@ -605,28 +606,3 @@ quando:
 - LCI/LCA são cobertas pelo FGC.
 - Tesouro Direto não é coberto pelo FGC.
 - Debêntures e CRI/CRA não são cobertos pelo FGC.
-
-## Pendências de Produto
-
-- Definir o perfil contratual de atualização e a fórmula completa dos títulos
-  híbridos por IPCA, conforme a documentação de curvas, incluindo os prazos
-  mínimos de LCI e LCA indexadas a índice de preços.
-- Definir comportamento após vencimento e eventual resgate. A exibição do
-  prazo restante de uma simulação vencida já está definida em
-  [Rentabilidade e Prazo Restante](#rentabilidade-e-prazo-restante).
-- Definir o saldo hoje: quanto uma simulação vale na data de hoje, para
-  acompanhar um investimento ao longo do prazo. É uma funcionalidade
-  necessária, com conceito de domínio próprio, e não uma leitura do resultado
-  calculado até o vencimento. Precisa de refinamento:
-  - a data de referência: hoje ou a data do último valor publicado da curva;
-  - bruto ou líquido, já que os tributos de um resgate hoje dependem das
-    regras de liquidez e resgate, ainda pendentes;
-  - prefixados, curvas manuais e trechos com taxa mantida, em que o saldo é
-    uma estimativa;
-  - simulações ainda não aplicadas e vencidas;
-  - se uma simulação passa a representar um investimento realizado, distinto
-    de uma hipótese;
-  - o valor atual de um plano de investimento.
-
-  Até lá, o gráfico da evolução do saldo apenas marca o dia de hoje (ver
-  [Resultados](#resultados)).
