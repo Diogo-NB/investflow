@@ -105,6 +105,8 @@ export interface SimulationWorkspaceProjection {
     readonly id: string;
     readonly name: string;
     readonly deleted: boolean;
+    // The curve's last declared date; its last value holds after it.
+    readonly lastIntervalEnd: string;
   } | null;
   readonly calculation: SimulationCalculationOutput;
   // From today's UTC date and the current investment and maturity dates, in
@@ -185,7 +187,17 @@ export const simulationWorkspaceSelect = {
     select: { ...offerSummarySelect, termsRevision: true, deletedAt: true },
   },
   curve: {
-    select: { id: true, name: true, valuesRevision: true, deletedAt: true },
+    select: {
+      id: true,
+      name: true,
+      valuesRevision: true,
+      deletedAt: true,
+      intervals: {
+        select: { endDate: true },
+        orderBy: { startDate: 'desc' },
+        take: 1,
+      },
+    },
   },
   calculation: {
     select: {
@@ -233,7 +245,14 @@ export function toSimulationWorkspace(
     },
     offer: { ...toOfferSummary(offer), deleted: offer.deletedAt !== null },
     curve: curve
-      ? { id: curve.id, name: curve.name, deleted: curve.deletedAt !== null }
+      ? {
+          id: curve.id,
+          name: curve.name,
+          deleted: curve.deletedAt !== null,
+          lastIntervalEnd: CalendarDate.fromUtcDate(
+            curve.intervals[0].endDate,
+          ).value.toIsoString(),
+        }
       : null,
     calculation: {
       status: calculation.status,

@@ -309,18 +309,43 @@ describe('Curve', () => {
     },
   );
 
-  it.each(['2026-09-30', '2026-11-01'])(
-    'reports absence at %s outside the covered span',
+  it('reports absence before the first start', () => {
+    const curve = create().value;
+    const result = curve.valueAt(CalendarDate.of('2026-09-30'));
+    expect(result.error.code).toBe(EAppErrorCode.CURVE_VALUE_NOT_FOUND);
+    expect(result.error.metadata).toEqual({
+      curveId: curve.id,
+      reference: '2026-09-30',
+    });
+  });
+
+  it.each(['2026-11-01', '2126-12-31'])(
+    "holds the last interval's value after its end, at %s",
     (reference) => {
-      const curve = create().value;
-      const result = curve.valueAt(CalendarDate.of(reference));
-      expect(result.error.code).toBe(EAppErrorCode.CURVE_VALUE_NOT_FOUND);
-      expect(result.error.metadata).toEqual({
-        curveId: curve.id,
-        reference,
-      });
+      const curve = create({
+        intervals: [
+          interval('2026-10-01', '2026-10-15'),
+          interval('2026-10-16', '2026-10-31', '0.11'),
+        ],
+      }).value;
+      expect(
+        curve.valueAt(CalendarDate.of(reference)).value.value.toString(),
+      ).toBe('0.11');
     },
   );
+
+  it('exposes its first and last intervals', () => {
+    const curve = create({
+      intervals: [
+        interval('2026-10-16', '2026-10-31', '0.11'),
+        interval('2026-10-01', '2026-10-15'),
+      ],
+    }).value;
+    expect(curve.firstInterval).toEqual(interval('2026-10-01', '2026-10-15'));
+    expect(curve.lastInterval).toEqual(
+      interval('2026-10-16', '2026-10-31', '0.11'),
+    );
+  });
 
   it('accepts a point interval with explicit zero for CDI and SELIC', () => {
     for (const index of [EEconomicIndex.CDI, EEconomicIndex.SELIC]) {
@@ -479,12 +504,12 @@ describe('Curve', () => {
         .value.map((value: IndexValue) => value.value.toString()),
     ).toEqual(['0.1', '0.11', '0.1']);
     const missing = curve.valuesAt(
-      dates('2026-10-02', '2026-10-03', '2026-10-06'),
+      dates('2026-10-02', '2026-10-03', '2026-10-04', '2026-10-06'),
     );
     expect(missing.error.code).toBe(EAppErrorCode.CURVE_COVERAGE_MISSING);
-    // Adjacent in the request, so one gap from the first to the last.
+    // Adjacent in the request, so one gap; 10-06 holds the last value.
     expect(missing.error.metadata?.['missingRanges']).toEqual([
-      { start: '2026-10-03', end: '2026-10-06' },
+      { start: '2026-10-03', end: '2026-10-04' },
     ]);
   });
 
@@ -507,9 +532,9 @@ describe('Curve', () => {
     ].map((iso) => CalendarDate.of(iso));
 
     const error = curve.valuesAt(references).error;
+    // 10-13 is after the last end, so it holds the last value.
     expect(error.metadata?.['missingRanges']).toEqual([
       { start: '2026-10-01', end: '2026-10-02' },
-      { start: '2026-10-13', end: '2026-10-13' },
     ]);
     expect(error.metadata?.['curveId']).toBe(curve.id);
   });

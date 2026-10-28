@@ -8,7 +8,7 @@ import {
 import type { RemunerationOption } from '../../models/simulation.types';
 import {
   blankSimulationValues,
-  coverageGap,
+  startsBeforeCurve,
   defaultCurveId,
   offerTermValues,
   simulationFormSchema,
@@ -175,27 +175,12 @@ describe('simulation form', () => {
     ).toBe('cdi');
   });
 
-  it('warns when the curve does not span the rate references', () => {
-    expect(
-      coverageGap(
-        { investmentDate: '2026-01-02', maturityDate: '2029-01-01' },
-        cdi,
-      ),
-    ).toBeNull();
-    expect(
-      coverageGap(
-        { investmentDate: '2026-01-02', maturityDate: '2029-01-03' },
-        cdi,
-      ),
-    ).toEqual(cdi.coverage);
-    expect(
-      coverageGap(
-        { investmentDate: '2025-12-31', maturityDate: '2026-06-01' },
-        cdi,
-      ),
-    ).toEqual(cdi.coverage);
-    expect(
-      coverageGap({ investmentDate: '', maturityDate: '' }, cdi),
-    ).toBeNull();
+  it('warns only when the investment date precedes the curve', () => {
+    expect(startsBeforeCurve('2026-01-02', cdi)).toBe(false);
+    // After the curve's end its last value holds.
+    expect(startsBeforeCurve('2029-01-03', cdi)).toBe(false);
+    expect(startsBeforeCurve('2025-12-31', cdi)).toBe(true);
+    expect(startsBeforeCurve('', cdi)).toBe(false);
+    expect(startsBeforeCurve('2025-12-31', undefined)).toBe(false);
   });
 });

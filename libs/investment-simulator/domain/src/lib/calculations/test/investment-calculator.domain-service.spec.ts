@@ -266,17 +266,20 @@ describe('InvestmentCalculator domain service', () => {
       ]);
     });
 
-    it('requires the last interval start even when the investment date is covered', () => {
-      const result = calculator.calculate(
+    it("uses the last interval's value after its end", () => {
+      const held = calculator.calculate(
         scenario({
           kind,
           rate: '1',
           curve: curve(index, [['2026-01-02', '2026-01-02', '0.12']]),
         }),
+      ).value;
+      const covered = calculator.calculate(
+        scenario({ kind, rate: '1', curve: curve(index) }),
+      ).value;
+      expect(held.gross.finalBalance.equals(covered.gross.finalBalance)).toBe(
+        true,
       );
-      expect(result.error.metadata?.['missingRanges']).toEqual([
-        { start: '2026-01-05', end: '2026-01-05' },
-      ]);
     });
   });
 

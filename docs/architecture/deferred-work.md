@@ -153,10 +153,8 @@ compute)` function in a capability folder (such as `collections/`),
 How much a simulation is worth today, so a user can follow an investment
 through its term. It is a required feature, not an optional nicety.
 
-- **Today:** the balance chart only marks today with the gross balance of
-  the result's last daily balance on or before it, labelled as an estimate
-  (roadmap D13). That marker is a read of the result calculated to maturity;
-  it is not this feature.
+- **Today:** nothing shows a simulation's value before maturity. An interim
+  "Hoje" marker on the balance chart (roadmap D13) was dropped on 2026-10-28.
 - **Why deferred:** it needs product refinement and a domain concept and
   space of its own. The open questions are in the PRD's "Pendências de
   Produto": the reference date, gross or net (early redemption taxes depend
@@ -169,8 +167,7 @@ through its term. It is a required feature, not an optional nicety.
     models "saldo hoje" as its own concept instead of a lookup in the
     maturity projection.
   - The screens that need it (the workspace, and whichever the decision
-    names among the list, the comparison, and investment plans) show it, and the
-    D13 marker is replaced or reconciled with it.
+    names among the list, the comparison, and investment plans) show it.
   - Tests cover the reference date, the edge states, and the gross/net rule.
 
 ## Saved comparisons (deferred 2026-10-27)

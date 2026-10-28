@@ -10,13 +10,16 @@ grouping is stored. Visibility and ownership follow [Offer Behavior](./offers.md
   lazily. Confirmation dialogs load on demand.
 - The list shows the curves visible to the user grouped by index, then by
   origin ("Do sistema", "Minhas"), sorted by name, with each curve's coverage
-  (first and last dates; a curve has no gaps). The `index` URL parameter
+  (first and last dates; a curve has no gaps) and that its last value holds
+  onwards ("01/01/2024 a 31/12/2028, mantida em diante"). The `index` URL parameter
   filters it and carries through to detail and editor links and back; an
   unknown value is dropped through navigation. The list is not paginated.
   "Nova curva" from a filtered list starts with that index.
 - Details show the index, convention, coverage, origin, and description, a
   step line chart of the values over time above the intervals table (each step
-  runs until the next interval starts, a zero
+  runs until the next interval starts; after the last end the last value is
+  dashed for a sixth of the span before it, at least 31 days, and its
+  readout reads "após dd/mm/aaaa (taxa mantida)"; a zero
   line appears when a value is negative, and the hovered interval's exact value
   and dates show in a strip above the plot, never over the axis, for mouse and
   keyboard alike), and "Simulações com esta curva" with the same reads,
@@ -67,7 +70,8 @@ grouping is stored. Visibility and ownership follow [Offer Behavior](./offers.md
     alone cannot open a gap, since rows follow each other; the message and fix
     are for rows loaded with one, or a gap the API reports. A
     typed weekend or holiday shows "Não é dia útil." without blocking. At
-    least one row is required. A live summary states the coverage (months for IPCA). On phones each row has
+    least one row is required. A live summary states the coverage (months for IPCA) and that the
+    last value holds onwards. On phones each row has
     a visible "Intervalo N" heading and its actions show their names. Observed
     and projected values are not distinguished yet (open question in the
     curve specification).

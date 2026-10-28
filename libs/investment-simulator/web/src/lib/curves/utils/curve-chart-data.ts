@@ -2,15 +2,22 @@ import {
   dayNumber,
   formatIsoDate,
   formatShortMonth,
+  lastDayOfMonth,
+  nextDay,
 } from '../../dates/calendar-date';
 import type { CurveInterval } from '../models/curve.types';
 
 export interface CurveChartPoint {
   readonly day: number;
-  // Percent, for plotting only.
-  readonly value: number;
-  // The interval the point belongs to; the tooltip shows its exact value.
+  // Percent, for plotting only. After the last end, the last value is drawn
+  // apart (heldValue) since it holds onwards; the end carries both so the
+  // two lines meet.
+  readonly value: number | null;
+  readonly heldValue: number | null;
+  // The interval the point belongs to; the readout shows its exact value.
   readonly interval: CurveInterval;
+  // Past the last end, where the last value holds.
+  readonly isHeld: boolean;
 }
 
 export interface CurveChartTick {
@@ -61,11 +68,21 @@ function monthTicks(
     .filter((tick) => tick.day >= from && tick.day <= to);
 }
 
+// The first day of the month a number of months after an ISO date's month.
+function monthStartAfter(iso: string, months: number): string {
+  let month = iso.slice(0, 7);
+  for (let i = 0; i < months; i++) {
+    month = nextDay(lastDayOfMonth(month)).slice(0, 7);
+  }
+  return `${month}-01`;
+}
+
 /**
  * Steps of the curve's values over time. Each interval's step runs until the
  * next one starts: days between them can only be weekends and holidays,
  * which have no value of their own. The last runs to the day after its end,
- * so a single-day interval still has width.
+ * so a single-day interval still has width, and then on, held, by a sixth
+ * of the span before it, at least 31 days.
  */
 export function curveChartData(
   intervals: readonly CurveInterval[],
@@ -77,6 +94,11 @@ export function curveChartData(
   const last = sorted.at(-1);
   if (!first || !last) return null;
 
+  const from = dayNumber(first.startDate);
+  const afterEnd = dayNumber(last.endDate) + 1;
+  const heldDays = Math.max(31, Math.round((afterEnd - from) / 6));
+  const to = afterEnd + heldDays;
+
   const points: CurveChartPoint[] = [];
   sorted.forEach((interval, i) => {
     const value = Number(interval.value) * 100;
@@ -84,15 +106,23 @@ export function curveChartData(
     const until = next
       ? dayNumber(next.startDate)
       : dayNumber(interval.endDate) + 1;
-    points.push({ day: dayNumber(interval.startDate), value, interval });
-    points.push({ day: until, value, interval });
+    const point = { value, heldValue: null, interval, isHeld: false };
+    points.push({ ...point, day: dayNumber(interval.startDate) });
+    points.push({ ...point, day: until, heldValue: next ? null : value });
+    if (next) return;
+    points.push({
+      day: to,
+      value: null,
+      heldValue: value,
+      interval,
+      isHeld: true,
+    });
   });
 
-  const from = dayNumber(first.startDate);
-  const to = dayNumber(last.endDate) + 1;
   let ticks = monthTicks(
     first.startDate.slice(0, 7),
-    last.endDate.slice(0, 7),
+    // monthTicks drops the months past `to`.
+    monthStartAfter(last.endDate, Math.ceil(heldDays / 28)).slice(0, 7),
     from,
     to,
   );

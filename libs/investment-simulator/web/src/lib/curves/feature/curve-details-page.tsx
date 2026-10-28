@@ -64,7 +64,7 @@ function CurveTerms({ curve }: { readonly curve: CurveDetail }) {
     [
       'Cobertura',
       first && last
-        ? `${formatIsoDate(first.startDate)} a ${formatIsoDate(last.endDate)}`
+        ? `${formatIsoDate(first.startDate)} a ${formatIsoDate(last.endDate)}; o último valor vale em diante`
         : 'Sem intervalos',
     ],
     [

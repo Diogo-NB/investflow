@@ -133,6 +133,16 @@ export class Curve extends AggregateRoot {
     return [...this.props.intervals];
   }
 
+  // A curve always has an interval; intervals are sorted by start.
+  get firstInterval(): CurveInterval {
+    return this.props.intervals[0];
+  }
+
+  // Its value holds after its end too.
+  get lastInterval(): CurveInterval {
+    return this.props.intervals[this.props.intervals.length - 1];
+  }
+
   get deletedAt(): UtcInstant | null {
     return this.props.deletedAt;
   }
@@ -257,7 +267,11 @@ export class Curve extends AggregateRoot {
     );
   }
 
+  // After the last end, the last interval's value holds onwards.
   private findInterval(reference: CalendarDate): CurveInterval | undefined {
+    if (reference.isAfter(this.lastInterval.range.end)) {
+      return this.lastInterval;
+    }
     let low = 0;
     let high = this.props.intervals.length - 1;
     while (low <= high) {

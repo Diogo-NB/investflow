@@ -13,18 +13,27 @@ const november: CurveInterval = {
   value: '0.115',
 };
 describe('curveChartData', () => {
-  it('steps each interval up to the day after its end', () => {
+  it('steps each interval up to the day after its end, then holds the last', () => {
     const data = curveChartData([november, october]);
+    const point = (
+      day: string,
+      value: number | null,
+      heldValue: number | null,
+      interval: CurveInterval,
+      isHeld = false,
+    ) => ({ day: dayNumber(day), value, heldValue, interval, isHeld });
 
     expect(data?.points).toEqual([
-      { day: dayNumber('2026-10-01'), value: 12, interval: october },
-      { day: dayNumber('2026-11-01'), value: 12, interval: october },
-      { day: dayNumber('2026-11-01'), value: 11.5, interval: november },
-      { day: dayNumber('2026-12-01'), value: 11.5, interval: november },
+      point('2026-10-01', 12, null, october),
+      point('2026-11-01', 12, null, october),
+      point('2026-11-01', 11.5, null, november),
+      point('2026-12-01', 11.5, 11.5, november),
+      // At least 31 days held: a sixth of 61 days is less.
+      point('2027-01-01', null, 11.5, november, true),
     ]);
     expect(data?.domain).toEqual([
       dayNumber('2026-10-01'),
-      dayNumber('2026-12-01'),
+      dayNumber('2027-01-01'),
     ]);
     expect(data?.crossesZero).toBe(false);
   });
@@ -48,6 +57,7 @@ describe('curveChartData', () => {
       [dayNumber('2026-11-03'), 12],
       [dayNumber('2026-11-03'), -0.25],
       [dayNumber('2026-12-01'), -0.25],
+      [dayNumber('2027-01-01'), null],
     ]);
     expect(data?.crossesZero).toBe(true);
   });
@@ -56,6 +66,8 @@ describe('curveChartData', () => {
     expect(curveChartData([october, november])?.ticks).toEqual([
       { day: dayNumber('2026-10-01'), label: 'out/26' },
       { day: dayNumber('2026-11-01'), label: 'nov/26' },
+      { day: dayNumber('2026-12-01'), label: 'dez/26' },
+      { day: dayNumber('2027-01-01'), label: 'jan/27' },
     ]);
 
     const fiveYears = curveChartData([
@@ -67,6 +79,7 @@ describe('curveChartData', () => {
       '2026',
       '2027',
       '2028',
+      '2029',
     ]);
   });
 

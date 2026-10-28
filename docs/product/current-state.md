@@ -24,7 +24,10 @@ this file in the same change that ships or changes a built behavior.
   identifier-only event to the outbox. The seed creates the system curves
   through the same use case with the system actor. A curve has no missing
   business days (or months, for IPCA) between its first and last intervals;
-  the domain rejects a gap with `CURVE_INTERVAL_GAP`. The `/curvas` screens
+  the domain rejects a gap with `CURVE_INTERVAL_GAP`. After the last
+  interval's end its value holds onwards, so coverage can be missing only
+  before the first start; the screens say so and the chart dashes the held
+  stretch. The `/curvas` screens
   list (filtered by index, with coverage), show (with a chart), create
   (optionally copying a base curve's intervals), edit, duplicate, and delete
   curves; intervals are typed in a row table kept contiguous, with
@@ -79,7 +82,9 @@ this file in the same change that ships or changes a built behavior.
   rate), and for the period, all derived from the balances and taxes.
   `simulation_result` also stores the rates and business days as a read model
   for sorting and aggregation. The workspace query returns the result in the
-  same shape (term, gross, net, taxes), and the remaining term (phase,
+  same shape (term, gross, net, taxes), the curve with its `lastIntervalEnd`
+  (its last declared date, after which its last value holds), and the remaining
+  term (phase,
   calendar days, and their years, months, and days) computed at read time
   from `Clock.today()` and the current dates, in any status. The results panel shows the term above the status, the net annual
   return beside the net value, and the "Rentabilidade" table with its

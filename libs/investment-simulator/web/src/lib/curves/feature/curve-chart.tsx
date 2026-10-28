@@ -29,8 +29,9 @@ function ActiveIntervalReadout({ index }: { readonly index: EconomicIndex }) {
   const plot = usePlotArea();
   if (!point || !plot) return null;
   const { startDate, endDate, value } = point.interval;
-  const period =
-    startDate === endDate
+  const period = point.isHeld
+    ? `após ${formatIsoDate(endDate)} (taxa mantida)`
+    : startDate === endDate
       ? formatIsoDate(startDate)
       : `${formatIsoDate(startDate)} a ${formatIsoDate(endDate)}`;
   return (
@@ -62,7 +63,8 @@ export function CurveChart({
     <figure className="m-0 px-3 pt-4 pb-2 sm:px-6">
       <figcaption className="sr-only">
         Gráfico {isMonthly(index) ? 'da variação mensal' : 'da taxa anual'} em
-        cada intervalo da curva; os valores exatos estão na tabela a seguir
+        cada intervalo da curva, com o último valor tracejado depois do fim
+        porque vale em diante; os valores exatos estão na tabela a seguir
       </figcaption>
       <LineChart
         responsive
@@ -108,6 +110,16 @@ export function CurveChart({
           type="linear"
           stroke="var(--color-accent)"
           strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4, fill: 'var(--color-accent)' }}
+          isAnimationActive={false}
+        />
+        <Line
+          dataKey="heldValue"
+          type="linear"
+          stroke="var(--color-accent)"
+          strokeWidth={2}
+          strokeDasharray="6 4"
           dot={false}
           activeDot={{ r: 4, fill: 'var(--color-accent)' }}
           isAnimationActive={false}

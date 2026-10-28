@@ -181,6 +181,8 @@ export interface SimulationWorkspace {
     readonly id: string;
     readonly name: string;
     readonly deleted: boolean;
+    // The curve's last declared date; its last value holds after it.
+    readonly lastIntervalEnd: string;
   } | null;
   readonly calculation: SimulationCalculation;
   // From the current dates on today's UTC date, in any status; null without

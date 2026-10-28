@@ -262,12 +262,6 @@ No MVP, apresentar resultados em tabelas simples; a evolução do saldo de uma
 simulação também tem um gráfico. Os demais gráficos e a exportação para
 PDF/CSV ficam fora do escopo.
 
-Provisoriamente, o gráfico da evolução do saldo marca o dia de hoje com o
-saldo bruto estimado para essa data, quando hoje está entre a aplicação e o
-vencimento. A marcação apenas lê o resultado e não substitui o saldo hoje,
-que ainda precisa ser definido (ver
-[Pendências de Produto](#pendências-de-produto)).
-
 ## Regras de Cálculo
 
 ### Convenções

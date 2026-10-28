@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isIsoDate, previousDay } from '../../dates/calendar-date';
+import { isIsoDate } from '../../dates/calendar-date';
 import {
   fitsDecimalStorage,
   parseBrazilianDecimal,
@@ -216,20 +216,15 @@ export function offerTermValues(
   };
 }
 
-export function coverageGap(
-  values: Pick<SimulationFormValues, 'investmentDate' | 'maturityDate'>,
+// The first rate is referenced on the investment date; after the curve's
+// end, its last value holds onwards.
+export function startsBeforeCurve(
+  investmentDate: string,
   curve: CurveOption | undefined,
-): CurveOption['coverage'] | null {
-  if (
-    !curve ||
-    !isIsoDate(values.investmentDate) ||
-    !isIsoDate(values.maturityDate)
-  ) {
-    return null;
-  }
-  // Rates are referenced from the investment date up to the day before maturity.
-  return values.investmentDate < curve.coverage.startDate ||
-    previousDay(values.maturityDate) > curve.coverage.endDate
-    ? curve.coverage
-    : null;
+): boolean {
+  return (
+    curve !== undefined &&
+    isIsoDate(investmentDate) &&
+    investmentDate < curve.coverage.startDate
+  );
 }

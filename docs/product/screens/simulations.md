@@ -98,8 +98,10 @@ any of them changes.
     defaults to "No vencimento".
   - "Investimento": principal, investment date, and the curve for indexed
     kinds. The curve list is filtered by the offer's index and grouped by
-    origin ("Do sistema", "Minhas"), auto-selects a sole curve, shows its
-    coverage, and warns when the period may exceed it.
+    origin ("Do sistema", "Minhas"), auto-selects a sole curve, and shows its
+    coverage with its last value held onwards; it warns instead when the
+    investment date precedes the curve ("A curva começa em 01/01/2024 e não
+    cobre a data da aplicação.").
 - The investment and maturity date pickers grey out weekends and holidays.
   `BusinessDateField` (in the library's `business-calendar/` folder, for any
   screen that needs business days) uses the shared business calendar (see
@@ -130,9 +132,9 @@ any of them changes.
   changes; a simulation that never succeeded shows only the status.
   - "Requer ação" shows the reason with its recovery: choose another curve
     or offer when one was deleted ("Sem curva, escolha outra", "Sem
-    oferta, escolha outra"), or fix the field. A coverage gap names the first
-    gap the API reports ("A curva não tem valores entre 02/01/2029 e
-    28/12/2029 e em mais 2 períodos"); the domain groups consecutive missing
+    oferta, escolha outra"), or fix the field. Missing coverage, which only
+    happens before a curve's first start, names the range the API reports
+    ("A curva não tem valores entre 02/01/2023 e 29/12/2023"); the domain groups consecutive missing
     rate references into ranges and the browser only phrases them.
   - "Falha técnica" explains that the automatic retries were exhausted and
     offers "Tentar novamente", which queues the calculation again.
@@ -149,8 +151,10 @@ any of them changes.
   ("10,28% ao ano, já descontados os tributos"), which answers the user's two
   first questions: how much they get and how good that is. Then the
   "Rentabilidade" block, then principal, gross balance, gross earnings, IOF,
-  income tax, total taxes and net value, with the dates, business days,
-  calculation instant in São Paulo time and the methodology version.
+  income tax, total taxes and net value, with the dates, business days, the
+  curve's last end, for every simulation with a curve ("A curva tem valores
+  até 31/12/2028; depois, a taxa é mantida."), calculation instant in São Paulo time and the
+  methodology version.
   "Evolução do saldo" is a disclosure.
 - "Rentabilidade" is a small table with the rows "Ao ano", "Ao mês" and "No
   período" and the columns "Líquida" (first) and "Bruta", with two decimal

@@ -1,6 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
 import {
-  cdiCurve,
   cdiOffer,
   options,
   remunerations,
@@ -126,13 +125,16 @@ describe('useSimulationForm', () => {
     expect(result.current.offer).toBeUndefined();
   });
 
-  it('warns when the chosen curve does not cover the period', () => {
+  it('warns when the investment date precedes the chosen curve', () => {
     const { result } = render();
-    expect(result.current.coverageWarning).toBeNull();
+    expect(result.current.startsBeforeCurve).toBe(false);
 
+    // After the curve's end its last value holds.
     act(() => result.current.form.setValue('maturityDate', '2029-06-01'));
+    expect(result.current.startsBeforeCurve).toBe(false);
 
-    expect(result.current.coverageWarning).toEqual(cdiCurve.coverage);
+    act(() => result.current.form.setValue('investmentDate', '2025-12-31'));
+    expect(result.current.startsBeforeCurve).toBe(true);
   });
 
   it('shows rejections on their field', () => {

@@ -86,6 +86,7 @@ function workspace(
       name: 'CDI base',
       valuesRevision: 4,
       deletedAt: null,
+      intervals: [{ endDate: date('2026-02-02') }],
       ...overrides.curve,
     },
     calculation: {
@@ -156,6 +157,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
       id: 'curve-id',
       name: 'CDI base',
       deleted: false,
+      lastIntervalEnd: '2026-02-02',
     });
     expect(output.value.calculation).toEqual({
       status: 'CALCULATED',

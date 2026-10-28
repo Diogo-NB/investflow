@@ -7,7 +7,7 @@ import type {
 } from '../models/simulation.types';
 import type { SaveProblem } from '../utils/simulation-save-problem';
 import {
-  coverageGap,
+  startsBeforeCurve,
   defaultCurveId,
   offerTermValues,
   remunerationOption,
@@ -145,7 +145,7 @@ export function useSimulationForm({
     curveOptions,
     curve,
     // Curve dates that may not cover the period; the API has the final word.
-    coverageWarning: coverageGap(values, curve),
+    startsBeforeCurve: startsBeforeCurve(values.investmentDate, curve),
     changeKind,
     chooseOffer,
     duplicateOffer,

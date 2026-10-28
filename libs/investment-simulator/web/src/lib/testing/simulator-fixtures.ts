@@ -177,7 +177,12 @@ export const workspace: SimulationWorkspace = {
     remunerationTerms: cdiOffer.remunerationTerms,
     deleted: false,
   },
-  curve: { id: 'cdi', name: 'CDI Local', deleted: false },
+  curve: {
+    id: 'cdi',
+    name: 'CDI Local',
+    deleted: false,
+    lastIntervalEnd: '2028-12-31',
+  },
   calculation: {
     status: 'CALCULATED',
     changedAt: '2026-10-10T12:00:00.000Z',

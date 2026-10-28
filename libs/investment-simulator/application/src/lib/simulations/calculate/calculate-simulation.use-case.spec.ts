@@ -22,7 +22,7 @@ import {
   catalogOffer,
   cdiCurve,
   ownedSimulation,
-  uncoveredCdiOffer,
+  cdiOffer,
 } from '../shared/simulation-fixture';
 import { CalculateSimulationCommand } from './calculate-simulation.command';
 import { CalculateSimulationUseCase } from './calculate-simulation.use-case';
@@ -79,11 +79,11 @@ describe('CalculateSimulationUseCase', () => {
   });
 
   it('records an uncovered period as invalid without retrying', async () => {
-    const curve = cdiCurve();
+    const curve = cdiCurve(null, '2026-01-05');
     const { simulation, simulations, offers, curves, execute } = setup(
       curve.id,
     );
-    offers.findById.mockResolvedValue(Result.ok(uncoveredCdiOffer()));
+    offers.findById.mockResolvedValue(Result.ok(cdiOffer()));
     curves.findById.mockResolvedValue(Result.ok(curve));
 
     expect((await execute()).isOk()).toBe(true);
@@ -170,9 +170,9 @@ describe('CalculateSimulationUseCase', () => {
   });
 
   it('skips an invalid outcome recorded for the current inputs', async () => {
-    const curve = cdiCurve();
+    const curve = cdiCurve(null, '2026-01-05');
     const deps = setup(curve.id);
-    deps.offers.findById.mockResolvedValue(Result.ok(uncoveredCdiOffer()));
+    deps.offers.findById.mockResolvedValue(Result.ok(cdiOffer()));
     deps.curves.findById.mockResolvedValue(Result.ok(curve));
     await deps.execute();
 

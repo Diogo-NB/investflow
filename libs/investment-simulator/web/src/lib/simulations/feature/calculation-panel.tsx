@@ -249,11 +249,13 @@ function CalculationResult({
   result,
   remunerationKind,
   calculation,
+  curve,
   unsavedEdits,
   taxRules,
 }: {
   readonly simulationId: string;
   readonly result: SimulationResult;
+  readonly curve: SimulationWorkspace['curve'];
   readonly remunerationKind: RemunerationKind;
   readonly calculation: SimulationCalculation;
   readonly unsavedEdits: boolean;
@@ -323,9 +325,12 @@ function CalculationResult({
         <p className="m-0 text-sm text-muted">
           Aplicação em {formatIsoDate(result.term.investmentDate)}, vencimento
           em {formatIsoDate(result.term.maturityDate)} ·{' '}
-          {result.term.businessDays} dias úteis. IOF e imposto de renda incidem
-          no vencimento. Calculado em {formatInstant(result.calculatedAt)} ·
-          metodologia {result.methodologyVersion}.
+          {result.term.businessDays} dias úteis.{' '}
+          {curve &&
+            `A curva tem valores até ${formatIsoDate(curve.lastIntervalEnd)}; depois, a taxa é mantida. `}
+          IOF e imposto de renda incidem no vencimento. Calculado em{' '}
+          {formatInstant(result.calculatedAt)} · metodologia{' '}
+          {result.methodologyVersion}.
         </p>
       </div>
       {balances.data ? (
@@ -419,6 +424,7 @@ export function CalculationPanel({
           result={result}
           remunerationKind={workspace.offer.remunerationTerms.kind}
           calculation={workspace.calculation}
+          curve={workspace.curve}
           unsavedEdits={unsavedEdits}
           taxRules={taxRules}
         />

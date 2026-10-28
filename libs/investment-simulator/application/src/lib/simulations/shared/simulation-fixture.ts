@@ -40,8 +40,7 @@ export function catalogOffer(ownerId: string | null = null) {
   ).value;
 }
 
-// Matures after the fixture curve's last value.
-export function uncoveredCdiOffer() {
+export function cdiOffer() {
   return Offer.create(
     {
       ownerId: null,
@@ -59,7 +58,11 @@ export function uncoveredCdiOffer() {
   ).value;
 }
 
-export function cdiCurve(ownerId: string | null = null) {
+// A later start leaves the fixture simulation's investment date uncovered.
+export function cdiCurve(
+  ownerId: string | null = null,
+  startDate = '2026-01-01',
+) {
   return Curve.create(
     {
       ownerId,
@@ -68,7 +71,7 @@ export function cdiCurve(ownerId: string | null = null) {
       intervals: [
         CurveInterval.create(
           CalendarDateRange.of(
-            CalendarDate.of('2026-01-01'),
+            CalendarDate.of(startDate),
             CalendarDate.of('2030-01-01'),
           ),
           IndexValue.of('0.12'),

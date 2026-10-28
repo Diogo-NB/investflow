@@ -185,7 +185,7 @@ function CoverageSummary({
   return (
     <p aria-live="polite" className="m-0 text-sm text-muted">
       {coverage
-        ? `Cobertura: ${format(coverage.startDate)} a ${format(coverage.endDate)}.`
+        ? `Cobertura: ${format(coverage.startDate)} a ${format(coverage.endDate)}; o último valor vale em diante.`
         : 'Cobertura: informe as datas de um intervalo.'}
     </p>
   );

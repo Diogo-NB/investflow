@@ -13,7 +13,8 @@ import {
 } from './simulation-fixture';
 
 // After the end of the fixture curve's values.
-const UNCOVERED_MATURITY = '2026-03-06';
+// A business day before the fixture curve's first start.
+const UNCOVERED_INVESTMENT_DATE = '2025-12-31';
 
 function simulation(chosen: Offer, inputs: InvestmentInputs): Simulation {
   return Simulation.create(
@@ -71,8 +72,11 @@ describe('SimulationCalculationService', () => {
       expect(
         calculationService
           .validate(
-            investment({ curveId: curve.id, investmentDate: '2026-01-02' }),
-            offer('CDI_PERCENTAGE', null, UNCOVERED_MATURITY),
+            investment({
+              curveId: curve.id,
+              investmentDate: UNCOVERED_INVESTMENT_DATE,
+            }),
+            offer('CDI_PERCENTAGE'),
             curve,
           )
           .isOk(),
@@ -118,11 +122,14 @@ describe('SimulationCalculationService', () => {
 
     it('returns missing curve coverage as an invalid outcome', () => {
       const curve = cdiCurve();
-      const chosen = offer('CDI_PERCENTAGE', null, UNCOVERED_MATURITY);
+      const chosen = offer('CDI_PERCENTAGE');
 
       const outcome = calculate(
         chosen,
-        investment({ curveId: curve.id }),
+        investment({
+          curveId: curve.id,
+          investmentDate: UNCOVERED_INVESTMENT_DATE,
+        }),
         curve,
       );
 

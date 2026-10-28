@@ -54,7 +54,7 @@ function CurveRow({
         </span>
         <span className="pl-8 text-sm text-muted tabular-nums sm:pl-0 sm:text-right">
           {formatIsoDate(curve.coverage.startDate)} a{' '}
-          {formatIsoDate(curve.coverage.endDate)}
+          {formatIsoDate(curve.coverage.endDate)}, mantida em diante
         </span>
       </Link>
     </li>

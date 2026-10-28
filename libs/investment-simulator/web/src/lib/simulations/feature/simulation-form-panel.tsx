@@ -383,18 +383,17 @@ function InvestmentFieldset({
   readonly savedCurve: SimulationWorkspace['curve'];
   readonly pending: boolean;
 }) {
-  const { form, values, index, curveOptions, curve, coverageWarning } =
+  const { form, values, index, curveOptions, curve, startsBeforeCurve } =
     simulation;
   const curveDeleted =
     savedCurve?.deleted === true && values.curveId === savedCurve.id;
   const { errors } = form.formState;
   const curveHint = (() => {
-    if (coverageWarning) {
-      return `A curva cobre de ${formatIsoDate(coverageWarning.startDate)} a ${formatIsoDate(coverageWarning.endDate)} e pode não alcançar todo o período.`;
+    if (!curve) return undefined;
+    if (startsBeforeCurve) {
+      return `A curva começa em ${formatIsoDate(curve.coverage.startDate)} e não cobre a data da aplicação.`;
     }
-    return curve
-      ? `Cobertura de ${formatIsoDate(curve.coverage.startDate)} a ${formatIsoDate(curve.coverage.endDate)}.`
-      : undefined;
+    return `Cobertura de ${formatIsoDate(curve.coverage.startDate)} a ${formatIsoDate(curve.coverage.endDate)}; o último valor vale em diante.`;
   })();
   const curveGroups = (['SYSTEM', 'OWN'] as const)
     .map((origin) => ({
