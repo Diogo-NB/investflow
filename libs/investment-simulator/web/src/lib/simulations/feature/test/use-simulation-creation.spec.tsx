@@ -48,10 +48,56 @@ const emptyList = {
 };
 
 function render(api: ReturnType<typeof fakeApi>, entry = '/simulacoes/nova') {
-  return renderHook(
+  const options = harness(api, entry);
+  const added = vi.spyOn(options.toasts, 'add');
+  const updated = vi.spyOn(options.toasts, 'update');
+  const rendered = renderHook(
     withLocation(() => useSimulationCreation()),
-    harness(api, entry),
+    options,
   );
+  return { ...rendered, ...options, added, updated };
+}
+
+const PLAN_URL = `${API}/investment-plans/plan`;
+const fromPlan = '/simulacoes/nova?plano=plan';
+const plan = {
+  id: 'plan',
+  name: 'Reserva',
+  description: null,
+  revision: 1,
+  simulationCount: 2,
+  availableSimulationSlots: 48,
+  status: {
+    calculatingCount: 0,
+    pendingIssueCount: 0,
+    outdatedResultCount: 0,
+    isSettled: true,
+  },
+};
+
+const createRoutes = {
+  ...optionsRoute,
+  ...emptyList,
+  [`POST ${API}/simulations`]: { simulationId: 'sim' },
+  [`GET ${API}/simulation-workspaces/sim`]: workspace,
+};
+
+type Rendered = ReturnType<typeof render>;
+
+async function createFrom(rendered: Rendered, onProblem = vi.fn()) {
+  await waitFor(() =>
+    expect(rendered.result.current.hook.setup.status).toBe('ready'),
+  );
+  act(() => rendered.result.current.hook.create.run(values, onProblem));
+  await waitFor(() =>
+    expect(rendered.result.current.location.pathname).toBe('/simulacoes/sim'),
+  );
+}
+
+// The toast's action, as the viewport would click it.
+function clickOfferAction(rendered: Rendered) {
+  const offer = rendered.added.mock.calls[0][0];
+  act(() => offer.actionProps?.onClick?.({} as never));
 }
 
 describe('useSimulationCreation', () => {
@@ -226,5 +272,134 @@ describe('useSimulationCreation', () => {
     expect(api.calls().filter((call) => call.startsWith('POST'))).toHaveLength(
       1,
     );
+  });
+
+  describe('from a plan', () => {
+    it('offers the plan once the new simulation is open', async () => {
+      const onProblem = vi.fn();
+      const rendered = render(
+        fakeApi({ ...createRoutes, [`GET ${PLAN_URL}`]: plan }),
+        fromPlan,
+      );
+
+      await createFrom(rendered, onProblem);
+
+      await waitFor(() => expect(rendered.added).toHaveBeenCalledTimes(1));
+      expect(rendered.added.mock.calls[0][0]).toMatchObject({
+        title: 'Simulação criada. Adicionar ao plano Reserva?',
+        actionProps: { children: 'Adicionar ao plano' },
+      });
+      expect(onProblem).not.toHaveBeenCalled();
+      expect(rendered.result.current.hook.create.problem).toBeNull();
+    });
+
+    it.each([
+      [
+        'is full',
+        { [`GET ${PLAN_URL}`]: { ...plan, availableSimulationSlots: 0 } },
+      ],
+      [
+        'is missing or deleted',
+        { [`GET ${PLAN_URL}`]: apiFailure(404, 'INVESTMENT_PLAN_NOT_FOUND') },
+      ],
+    ])('offers nothing when the plan %s', async (_, planRoute) => {
+      const onProblem = vi.fn();
+      const api = fakeApi({ ...createRoutes, ...planRoute });
+      const rendered = render(api, fromPlan);
+
+      await createFrom(rendered, onProblem);
+
+      await waitFor(() =>
+        expect(
+          rendered.queryClient.getQueryState([
+            'investment-plans',
+            'detail',
+            'plan',
+          ])?.status,
+        ).not.toBe('pending'),
+      );
+      await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(rendered.added).not.toHaveBeenCalled();
+      expect(onProblem).not.toHaveBeenCalled();
+      expect(rendered.result.current.hook.create.problem).toBeNull();
+    });
+
+    it('offers nothing without a plan', async () => {
+      const api = fakeApi(createRoutes);
+      const rendered = render(api);
+
+      await createFrom(rendered);
+
+      await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(rendered.added).not.toHaveBeenCalled();
+      expect(
+        api.calls().some((call) => call.includes('investment-plans')),
+      ).toBe(false);
+    });
+
+    it('adds the simulation once and links to the plan', async () => {
+      const api = fakeApi({
+        ...createRoutes,
+        [`GET ${PLAN_URL}`]: plan,
+        [`POST ${PLAN_URL}/simulations`]: undefined,
+      });
+      const rendered = render(api, fromPlan);
+      await createFrom(rendered);
+      await waitFor(() => expect(rendered.added).toHaveBeenCalled());
+      const invalidated = vi.spyOn(rendered.queryClient, 'invalidateQueries');
+
+      clickOfferAction(rendered);
+      clickOfferAction(rendered);
+
+      await waitFor(() =>
+        expect(rendered.updated).toHaveBeenLastCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            type: 'success',
+            title: 'Adicionada ao plano Reserva',
+            data: { link: { to: '/planos/plan', label: 'Ver plano' } },
+          }),
+        ),
+      );
+      expect(api.bodies(`POST ${PLAN_URL}/simulations`)).toEqual([
+        { simulationIds: ['sim'] },
+      ]);
+      expect(invalidated).toHaveBeenCalledWith({
+        queryKey: ['investment-plans'],
+      });
+    });
+
+    it('says why the add failed without reporting the create as failed', async () => {
+      const onProblem = vi.fn();
+      const rendered = render(
+        fakeApi({
+          ...createRoutes,
+          [`GET ${PLAN_URL}`]: plan,
+          [`POST ${PLAN_URL}/simulations`]: apiFailure(
+            422,
+            'INVESTMENT_PLAN_SIMULATION_LIMIT',
+          ),
+        }),
+        fromPlan,
+      );
+      await createFrom(rendered, onProblem);
+      await waitFor(() => expect(rendered.added).toHaveBeenCalled());
+
+      clickOfferAction(rendered);
+
+      await waitFor(() =>
+        expect(rendered.updated).toHaveBeenLastCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            type: 'error',
+            title: 'Não foi possível adicionar ao plano Reserva',
+            description: 'Mensagem de INVESTMENT_PLAN_SIMULATION_LIMIT.',
+          }),
+        ),
+      );
+      expect(onProblem).not.toHaveBeenCalled();
+      expect(rendered.result.current.hook.create.problem).toBeNull();
+      expect(rendered.result.current.location.pathname).toBe('/simulacoes/sim');
+    });
   });
 });

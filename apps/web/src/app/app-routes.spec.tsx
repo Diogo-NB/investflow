@@ -1,10 +1,14 @@
+import { Toast } from '@base-ui/react/toast';
 import { isValidElement } from 'react';
 import { Navigate, type RouteObject } from 'react-router';
 import { createAppRoutes } from './app-routes';
 import { Welcome } from './welcome/welcome';
 
 function pageRoutes(): RouteObject[] {
-  const routes = createAppRoutes({ fetch: vi.fn() });
+  const routes = createAppRoutes({
+    fetch: vi.fn(),
+    toasts: Toast.createToastManager(),
+  });
   return routes[0]?.children?.[0]?.children ?? [];
 }
 

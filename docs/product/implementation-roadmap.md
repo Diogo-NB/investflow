@@ -25,9 +25,10 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-27. D0 to D8 and D4b are done: offer and curve changes
+Last updated 2026-10-27. D0 to D9 and D4b are done: offer and curve changes
 recalculate the simulations that use them, over FIFO queues grouped per
-aggregate. Events are now published right after their transaction commits.
+aggregate, and investment plans group the simulations a user would invest in
+together. Events are now published right after their transaction commits.
 
 What is built, area by area, and where it differs from the target model
 is in [Current State](./current-state.md).
@@ -40,10 +41,8 @@ PRD's "Pendências de Produto").
 
 ## Next Steps
 
-1. Finish D9 with its third pull request (linking simulations to plans from
-   the simulation screens).
-2. Settle the plan aggregation decisions (see D10) before D10.
-3. Settle D12's decisions before D12.
+1. Settle the plan aggregation decisions (see D10) before D10.
+2. Settle D12's decisions before D12.
 
 ## Overview
 
@@ -52,7 +51,7 @@ PRD's "Pendências de Produto").
 | D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | Done        |
 | D7  | Simulation return rates and remaining term                        | —                             | Done        |
 | D8  | Side-by-side simulation comparison                                | D7                            | Done        |
-| D9  | Investment plans: management, membership, and derived status      | —                             | In progress |
+| D9  | Investment plans: management, membership, and derived status      | —                             | Done        |
 | D10 | Investment plan totals and average return                         | D7, D9, aggregation decisions | Not started |
 | D11 | Investment plan comparison                                        | D8, D10                       | Not started |
 | D12 | Open-ended last curve interval and observed system curves         | D12 decisions                 | Not started |
@@ -66,7 +65,7 @@ D4a                     ──► D4b
 (D12 decisions)         ──► D12
 ```
 
-Recommended order: D9, D10, D11. D12 and D13 depend on none of them and can
+Recommended order: D10, D11. D12 and D13 depend on none of them and can
 be scheduled in between. D7 went first because comparing
 simulations with different terms needs their annualized return, and a
 plan's average return builds on the simulations' rates. D11 comes last because it reuses the comparison screen's patterns
@@ -75,51 +74,6 @@ and the plan totals.
 None of the new deliverables depends on D4b: comparison and plans read
 each simulation's status and last successful result, and their statuses
 converge on their own as recalculations land.
-
-## D9 — Investment plans: management, membership, and derived status
-
-Decided 2026-10-27. "Portfolio" mixed two meanings: a saved group of
-alternatives, which D8 leaves to the comparison, and money invested together,
-whose totals add up (D10). Summing alternatives counts money twice, so the
-concept is an **investment plan**: the simulations a user would invest in
-together. Saving comparisons is deferred
-([Deferred Work](../architecture/deferred-work.md)).
-
-Decisions:
-
-- **Naming:** "Plano de investimento" / "Planos" and `/planos` in the
-  product; `InvestmentPlan`, the `investment-plans` feature root, and
-  `investment-simulator/investment-plans` in code. "Carteira" stays free for
-  real holdings later.
-- **Membership:** a simulation can belong to many plans; a plan holds at most 50. No use case changes two aggregates: a simulation is added from the plan
-  (picker) or, after it is created, from a non-blocking offer on the
-  simulation screens.
-- **Deletion:** plans are soft deleted and their simulations stay. A deleted
-  simulation leaves its plans silently, filtered at read time, which frees
-  its slot; its delete dialog says how many plans it leaves.
-- **Revision:** name and description edits send a revision (`409` on
-  mismatch, like offers). Membership changes send none but are still
-  conditional on the stored revision, so two concurrent adds cannot pass the
-  limit together.
-- **Status:** never stored. `InvestmentPlanStatus` derives the counts in
-  update, with a pending issue, and with an outdated result from the members'
-  calculation states; the queries return it (PRD "Planos de Investimento").
-
-Delivered in three pull requests:
-
-1. Done: the simulation workspace separates creation from editing (the
-   precondition for the offer to add a new simulation to a plan).
-2. Done: the backend and the `/planos` screens
-   ([screens/investment-plans.md](./screens/investment-plans.md)).
-3. Remaining: linking from the simulation screens. A toast after a create
-   started from a plan's "Nova simulação" offers "Adicionar ao plano"; the
-   workspace shows a "Planos" line with an add action; the simulation delete
-   dialog says how many plans it leaves. The toast is a new frontend-wide
-   pattern, recorded in `frontend-patterns.md` with it.
-
-**Done when** a user can manage plans and their simulations from both the
-plan and the simulation screens, and a plan's status follows its
-simulations' statuses.
 
 ## D10 — Investment plan totals and average return
 

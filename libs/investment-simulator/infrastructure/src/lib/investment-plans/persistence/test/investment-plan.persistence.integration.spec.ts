@@ -403,6 +403,7 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
         name: 'A status',
         description: null,
         simulationCount: 4,
+        availableSimulationSlots: InvestmentPlan.SIMULATION_LIMIT - 4,
         status: detail.status,
       },
       {
@@ -410,6 +411,7 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
         name: 'B sem membros',
         description: null,
         simulationCount: 0,
+        availableSimulationSlots: InvestmentPlan.SIMULATION_LIMIT,
         status: {
           calculatingCount: 0,
           pendingIssueCount: 0,
@@ -427,7 +429,17 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
         simulationId: current.id,
       })
     ).value;
-    expect(ofCurrent.items.map(({ id }) => id)).toEqual([plan.id]);
+    expect(
+      ofCurrent.items.map(({ id, availableSimulationSlots }) => ({
+        id,
+        availableSimulationSlots,
+      })),
+    ).toEqual([
+      {
+        id: plan.id,
+        availableSimulationSlots: InvestmentPlan.SIMULATION_LIMIT - 4,
+      },
+    ]);
     expect(ofCurrent.total).toBe(1);
     expect(
       (

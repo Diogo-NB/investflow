@@ -1,6 +1,7 @@
 import {
   ESimulationCalculationStatus,
   ETitleType,
+  InvestmentPlan,
   InvestmentPlanStatus,
   SimulationResult,
 } from '@investflow/investment-simulator-domain';
@@ -44,6 +45,13 @@ export const liveInvestmentPlanMembers = {
 type InvestmentPlanMemberRecord = Prisma.InvestmentPlanSimulationGetPayload<{
   select: (typeof liveInvestmentPlanMembers)['select'];
 }>;
+
+// Zero when the plan is full.
+export function toAvailableSimulationSlots(
+  members: readonly InvestmentPlanMemberRecord[],
+): number {
+  return Math.max(0, InvestmentPlan.SIMULATION_LIMIT - members.length);
+}
 
 export function toInvestmentPlanStatus(
   members: readonly InvestmentPlanMemberRecord[],

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { ApiError } from '../../http/api-error';
+import { investmentPlanKeys } from '../../investment-plans/api/investment-plan-api';
 import { useApiFetch } from '../../routes/investment-simulator-deps';
 import {
   deleteSimulation,
@@ -78,6 +79,13 @@ export function useSimulationWorkspace(simulationId: string) {
     mutationFn: () => deleteSimulation(fetchFn, simulationId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: simulationKeys.lists() });
+      // The simulation left its plans, so their counts and status changed.
+      // Only marked stale: refetching now would re-render this page, which
+      // stays mounted until the navigation commits.
+      void queryClient.invalidateQueries({
+        queryKey: investmentPlanKeys.all,
+        refetchType: 'none',
+      });
       // Dropped only once the list has replaced this page: while a lazy
       // route loads, the page is still mounted and would refetch it.
       await navigate(`/simulacoes${listSearch(searchParams)}`);

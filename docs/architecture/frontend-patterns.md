@@ -123,11 +123,12 @@ export function investmentSimulatorRoutes(deps: InvestmentSimulatorDeps): RouteO
 
 interface InvestmentSimulatorDeps {
   fetch: (input: string, init?: RequestInit) => Promise<Response>;
+  toasts: ToastManager<{ link?: { to: string; label: string } }>;
 }
 ```
 
-The app passes its bearer-attaching `authorizedFetch` and spreads the result
-into its shell routes. Right after login it also calls
+The app passes its bearer-attaching `authorizedFetch` and its toast manager
+(see "Toasts"), and spreads the result into its shell routes. Right after login it also calls
 `prefetchInvestmentSimulator(queryClient, deps)`, which starts the reads every
 screen needs (the business calendar) without blocking the first render. The library also exports `investmentSimulatorSections`
 (path, label, description, action, and canonical icon of each screen), which
@@ -136,6 +137,32 @@ sections are named and drawn. The factory returns top-level paths (`simulacoes`,
 `ofertas` and `curvas`), and each page module loads through route `lazy`. The library puts `deps` in its own internal
 context, which its API adapters read. Features never import Keycloak or app
 modules, and they use relative `/api` URLs.
+
+## Toasts
+
+Decided 2026-10-27 with D9: a toast reports the outcome of something that
+already happened and may offer one follow-up action, without blocking the
+page (a new simulation offered to the plan it was started from).
+
+- One manager, `Toast.createToastManager()` from `@base-ui/react/toast`,
+  created in `main.tsx`. `Toast.Provider` wraps the router there with a
+  10-second timeout. The shell renders the viewport once (`AppToasts`), inside
+  the router so a toast's link works and outside the routes so a toast
+  outlives the page that raised it.
+- Contexts reach the manager through their deps (`useToasts()`), never by
+  importing the app. A context sets the title, the description, `type`
+  (`loading` holds the toast open, `error` colors the description), the
+  action through `actionProps`, and `data.link`, which the viewport renders
+  as a router `Link` (so "Ver plano" is a real link). An action updates its
+  own toast in place with `update`.
+- Base UI pauses the timers while the pointer or focus is in the viewport
+  (F6 reaches it), announces toasts in a polite live region, and lets them be
+  swiped or closed. Styling follows `DESIGN.md`: an edged surface with no
+  shadow, full width below 640px and 24rem bottom-right above, reduced motion
+  respected.
+- A toast is never the only path to its action (WCAG 2.2.1): whatever it
+  offers stays available on a screen. Errors that need input stay in the
+  page, beside what caused them.
 
 ## Configuration
 

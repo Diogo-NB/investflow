@@ -3,7 +3,12 @@ import { useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { todayInSaoPaulo } from '../../dates/calendar-date';
 import { ApiError } from '../../http/api-error';
-import { useApiFetch } from '../../routes/investment-simulator-deps';
+import {
+  addInvestmentPlanSimulations,
+  investmentPlanDetailQuery,
+  investmentPlanKeys,
+} from '../../investment-plans/api/investment-plan-api';
+import { useApiFetch, useToasts } from '../../routes/investment-simulator-deps';
 import {
   createSimulation,
   simulationKeys,
@@ -22,6 +27,8 @@ import {
 } from '../utils/simulation-save-problem';
 
 export const TEMPLATE_PARAM = 'a-partir-de';
+// The plan the user started from; the new simulation is offered to it.
+export const INVESTMENT_PLAN_PARAM = 'plano';
 
 export function useSimulationCreation() {
   const fetchFn = useApiFetch();
@@ -29,11 +36,18 @@ export function useSimulationCreation() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get(TEMPLATE_PARAM);
+  const investmentPlanId = searchParams.get(INVESTMENT_PLAN_PARAM);
+  const toasts = useToasts();
 
   const options = useQuery(simulationOptionsQuery(fetchFn));
   const template = useQuery({
     ...simulationWorkspaceQuery(fetchFn, templateId ?? ''),
     enabled: templateId !== null,
+  });
+  // Read ahead for the offer after the create; the form never waits for it.
+  useQuery({
+    ...investmentPlanDetailQuery(fetchFn, investmentPlanId ?? ''),
+    enabled: investmentPlanId !== null,
   });
 
   const create = useMutation({
@@ -61,19 +75,79 @@ export function useSimulationCreation() {
   // Rendered pending state lags a double click; this guard does not.
   const creating = useRef(false);
 
+  // Offered once the create has settled and this page has been replaced, so
+  // whatever happens to the plan cannot report the simulation as unsaved.
+  // A missing, deleted, or full plan gets no offer.
+  async function offerInvestmentPlan(planId: string, simulationId: string) {
+    const plan = await queryClient
+      .ensureQueryData(investmentPlanDetailQuery(fetchFn, planId))
+      .catch(() => null);
+    if (!plan || plan.availableSimulationSlots === 0) return;
+    let adding = false;
+    const toastId = toasts.add({
+      title: `Simulação criada. Adicionar ao plano ${plan.name}?`,
+      actionProps: {
+        children: 'Adicionar ao plano',
+        onClick: () => {
+          if (adding) return;
+          adding = true;
+          // Loading holds the toast open until the add answers.
+          toasts.update(toastId, {
+            type: 'loading',
+            title: `Adicionando ao plano ${plan.name}…`,
+            actionProps: undefined,
+          });
+          addInvestmentPlanSimulations(fetchFn, planId, [simulationId]).then(
+            () => {
+              void queryClient.invalidateQueries({
+                queryKey: investmentPlanKeys.all,
+              });
+              void queryClient.invalidateQueries({
+                queryKey: simulationKeys.lists(),
+              });
+              toasts.update(toastId, {
+                type: 'success',
+                title: `Adicionada ao plano ${plan.name}`,
+                data: { link: { to: `/planos/${planId}`, label: 'Ver plano' } },
+              });
+            },
+            (error: unknown) =>
+              toasts.update(toastId, {
+                type: 'error',
+                title: `Não foi possível adicionar ao plano ${plan.name}`,
+                description:
+                  error instanceof ApiError && error.userMessage
+                    ? error.userMessage
+                    : 'Verifique sua conexão e use "Adicionar ao plano" na simulação.',
+              }),
+          );
+        },
+      },
+    });
+  }
+
   function run(
     values: SimulationFormValues,
     onProblem: (problem: SaveProblem) => void,
   ) {
     if (creating.current) return;
     creating.current = true;
-    create.mutate(values, {
-      onError: (error) =>
-        onProblem(describeSaveProblem(error, values.offerMode)),
-      onSettled: () => {
+    // Not mutate's callbacks: React Query drops them once the navigation
+    // unmounts this page, and this promise settles after onSuccess.
+    create
+      .mutateAsync(values)
+      .then(
+        ({ simulationId }) => {
+          if (investmentPlanId !== null) {
+            void offerInvestmentPlan(investmentPlanId, simulationId);
+          }
+        },
+        (error: unknown) =>
+          onProblem(describeSaveProblem(error, values.offerMode)),
+      )
+      .finally(() => {
         creating.current = false;
-      },
-    });
+      });
   }
 
   const problem: SaveProblem | null =

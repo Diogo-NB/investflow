@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { investmentSimulatorSections } from '@investflow/investment-simulator-web';
 import { useIdentity, useLogout } from './auth/auth-context';
+import { AppToasts } from './toasts';
 
 const navLink =
   'group flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 whitespace-nowrap font-medium text-muted no-underline transition-colors duration-200 hover:bg-accent-soft hover:text-fg aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent';
@@ -97,6 +98,7 @@ export function Shell() {
         )}
         <Outlet />
       </main>
+      <AppToasts />
     </div>
   );
 }

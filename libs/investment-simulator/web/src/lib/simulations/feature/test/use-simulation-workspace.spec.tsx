@@ -41,10 +41,14 @@ const savedRoutes = {
 };
 
 function render(api: ReturnType<typeof fakeApi>, id: string, entry: string) {
-  return renderHook(
-    withLocation(() => useSimulationWorkspace(id)),
-    harness(api, entry),
-  );
+  const options = harness(api, entry);
+  return {
+    ...renderHook(
+      withLocation(() => useSimulationWorkspace(id)),
+      options,
+    ),
+    queryClient: options.queryClient,
+  };
 }
 
 describe('useSimulationWorkspace', () => {
@@ -305,5 +309,33 @@ describe('useSimulationWorkspace', () => {
     );
     expect(result.current.location.search).toBe('?titleType=CDB&page=2');
     expect(api.calls()).toContain(`DELETE ${API}/simulations/sim`);
+  });
+
+  it('marks its plans stale on delete without refetching them', async () => {
+    const api = fakeApi({
+      ...savedRoutes,
+      [`DELETE ${API}/simulations/sim`]: undefined,
+    });
+    const { result, queryClient } = render(api, 'sim', '/simulacoes/sim');
+    queryClient.setQueryData(['investment-plans', 'list', { page: 1 }], {
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+    });
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() => result.current.hook.remove.run());
+
+    await waitFor(() =>
+      expect(result.current.location.pathname).toBe('/simulacoes'),
+    );
+    expect(
+      queryClient.getQueryState(['investment-plans', 'list', { page: 1 }])
+        ?.isInvalidated,
+    ).toBe(true);
+    expect(api.calls().some((call) => call.includes('investment-plans'))).toBe(
+      false,
+    );
   });
 });

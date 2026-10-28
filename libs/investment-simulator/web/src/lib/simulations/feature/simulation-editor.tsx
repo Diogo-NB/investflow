@@ -2,6 +2,11 @@ import { useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
+import { SimulationInvestmentPlans } from '../../investment-plans/feature/simulation-investment-plans';
+import {
+  useSimulationInvestmentPlans,
+  type SimulationInvestmentPlansState,
+} from '../../investment-plans/feature/use-simulation-investment-plans';
 import { remunerationLabel } from '../../offers/models/offer-terms';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import {
@@ -39,6 +44,20 @@ type Creation = ReturnType<typeof useSimulationCreation>['create'];
 type Workspace = ReturnType<typeof useSimulationWorkspace>;
 
 const ORIGIN_LABELS = { SYSTEM: 'Oferta do sistema', OWN: 'Minha oferta' };
+
+const DELETION_NOTICE =
+  'A simulação e o resultado deixam de aparecer. A oferta e a curva continuam disponíveis.';
+
+function deletionNotice(plans: SimulationInvestmentPlansState): string {
+  const count = plans.status === 'ready' ? plans.total : 0;
+  const leaves =
+    count === 0
+      ? ''
+      : count === 1
+        ? ' Ela sai de 1 plano.'
+        : ` Ela sai de ${count} planos.`;
+  return `${DELETION_NOTICE}${leaves} Não é possível desfazer.`;
+}
 
 function SavedSimulationHeading({
   workspace,
@@ -217,6 +236,7 @@ export function SavedSimulationEditor({
     remunerations: options.remunerations,
   });
   const [searchParams] = useSearchParams();
+  const investmentPlans = useSimulationInvestmentPlans(simulation.id);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // The revision the form's values were saved at; the next edit sends it.
   const [baseRevision, setBaseRevision] = useState(simulation.revision);
@@ -238,7 +258,14 @@ export function SavedSimulationEditor({
       documentTitle="Simulação | InvestFlow"
       header={
         <>
-          <SavedSimulationHeading workspace={workspace} />
+          <div className="grid min-w-0 gap-3">
+            <SavedSimulationHeading workspace={workspace} />
+            <SimulationInvestmentPlans
+              simulationId={simulation.id}
+              state={investmentPlans.state}
+              onRetry={investmentPlans.retry}
+            />
+          </div>
           <div className="flex flex-wrap gap-2">
             <Link to="/simulacoes/nova" className={secondaryButton}>
               <PlusIcon className="size-4 shrink-0" />
@@ -286,7 +313,7 @@ export function SavedSimulationEditor({
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
         title="Excluir esta simulação?"
-        description="A simulação e o resultado deixam de aparecer. A oferta e a curva continuam disponíveis. Não é possível desfazer."
+        description={deletionNotice(investmentPlans.state)}
         cancelLabel="Cancelar"
         confirmLabel={remove.pending ? 'Excluindo…' : 'Excluir simulação'}
         destructive

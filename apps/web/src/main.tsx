@@ -1,3 +1,4 @@
+import { Toast } from '@base-ui/react/toast';
 import { prefetchInvestmentSimulator } from '@investflow/investment-simulator-web';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Keycloak from 'keycloak-js';
@@ -9,6 +10,7 @@ import { createAppRoutes } from './app/app-routes';
 import { AuthSessionContext } from './app/auth/auth-context';
 import { createAuthorizedFetch } from './app/auth/authorized-fetch';
 import { startAuthentication } from './app/auth/session';
+import { TOAST_TIMEOUT_MS, type AppToastData } from './app/toasts';
 import { environment } from './environments/environment';
 import './styles.css';
 
@@ -36,9 +38,14 @@ const queryClient = new QueryClient({
   },
 });
 
+const toastManager = Toast.createToastManager<AppToastData>();
+
 startAuthentication(keycloak, window.location)
   .then((session) => {
-    const deps = { fetch: createAuthorizedFetch(keycloak) };
+    const deps = {
+      fetch: createAuthorizedFetch(keycloak),
+      toasts: toastManager,
+    };
     prefetchInvestmentSimulator(queryClient, deps);
     // Created after init, which removes Keycloak's callback fragment from the URL.
     const router = createBrowserRouter(createAppRoutes(deps));
@@ -46,7 +53,12 @@ startAuthentication(keycloak, window.location)
       <StrictMode>
         <AuthSessionContext value={session}>
           <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
+            <Toast.Provider
+              toastManager={toastManager}
+              timeout={TOAST_TIMEOUT_MS}
+            >
+              <RouterProvider router={router} />
+            </Toast.Provider>
           </QueryClientProvider>
         </AuthSessionContext>
       </StrictMode>,

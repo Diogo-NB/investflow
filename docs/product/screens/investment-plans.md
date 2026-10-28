@@ -38,8 +38,10 @@ simulations: the ones they would invest in together. Business rules are in
   plano"), and the choice stops at the plan's free slots. One request adds
   them all; a failure keeps the choice and shows the API's message. The
   dialog stays open while the add is pending.
-- "Nova simulação" opens `/simulacoes/nova?plano=<id>`. Adding the new
-  simulation to the plan from there is not built yet (roadmap D9).
+- "Nova simulação" opens `/simulacoes/nova?plano=<id>`. Once the
+  simulation is created, a toast offers to add it to the plan (see "Plans"
+  in [Simulation Workspace Behavior](./simulations.md)); creating it never
+  adds it on its own.
 - A full plan disables "Adicionar simulações" and "Nova simulação" and says
   why: "O plano está cheio: 50 simulações, o máximo. Remova uma para incluir
   outra."

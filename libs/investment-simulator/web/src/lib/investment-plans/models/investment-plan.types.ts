@@ -11,13 +11,13 @@ export interface InvestmentPlanListItem {
   readonly name: string;
   readonly description: string | null;
   readonly simulationCount: number;
+  // Zero when the plan is full.
+  readonly availableSimulationSlots: number;
   readonly status: InvestmentPlanStatus;
 }
 
 export interface InvestmentPlanDetail extends InvestmentPlanListItem {
   readonly revision: number;
-  // Zero when the plan is full.
-  readonly availableSimulationSlots: number;
 }
 
 export interface InvestmentPlanInput {

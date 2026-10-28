@@ -124,16 +124,17 @@ this file in the same change that ships or changes a built behavior.
   `404`), and removes one (`DELETE …/simulations/:simulationId`, safe to
   repeat). Only the plan changes; `SimulationRepository.findIdsOwnedBy` checks
   the simulations. Reads return the member count, the free slots, and the
-  status derived by `InvestmentPlanStatus`. No events. The `/planos` screens
-  list, create, edit, delete, and show plans with their members
-  ([screens/investment-plans.md](./screens/investment-plans.md)).
+  status derived by `InvestmentPlanStatus`, in the list as well as the
+  details. No events. The `/planos` screens list, create, edit, delete, and
+  show plans with their members
+  ([screens/investment-plans.md](./screens/investment-plans.md)). The
+  simulation screens link to plans too: the workspace's "Planos" line names
+  the simulation's plans and adds it to another one, its delete dialog says
+  how many plans it leaves, and a simulation created from a plan's "Nova
+  simulação" is offered to that plan in a toast
+  ([screens/simulations.md](./screens/simulations.md)).
 
 ## Differs From the Target Model
-
-- The simulation screens do not yet link simulations to plans: no offer to
-  add a newly created simulation to the plan it was started from, no
-  "Planos" line in the workspace, and no plan count in the simulation delete
-  dialog (roadmap D9, third pull request).
 
 - The simulation workspace cannot yet edit its own offer in place, with the
   offer editor's impact notice (see [Simulation Workspace

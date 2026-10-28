@@ -8,6 +8,7 @@ import { InvestmentPlanQueryError } from './investment-plan-query.error';
 import {
   InvestmentPlanStatusOutput,
   liveInvestmentPlanMembers,
+  toAvailableSimulationSlots,
   toInvestmentPlanStatus,
 } from './investment-plan-status-projection';
 
@@ -24,6 +25,8 @@ export interface InvestmentPlanListItem {
   readonly name: string;
   readonly description: string | null;
   readonly simulationCount: number;
+  // Zero when the plan is full.
+  readonly availableSimulationSlots: number;
   readonly status: InvestmentPlanStatusOutput;
 }
 
@@ -74,6 +77,7 @@ export class ListInvestmentPlansQueryHandler
           items: records.map(({ simulations, ...plan }) => ({
             ...plan,
             simulationCount: simulations.length,
+            availableSimulationSlots: toAvailableSimulationSlots(simulations),
             status: toInvestmentPlanStatus(simulations),
           })),
           total,

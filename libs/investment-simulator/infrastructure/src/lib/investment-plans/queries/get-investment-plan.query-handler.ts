@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { InvestmentPlanNotFoundError } from '@investflow/investment-simulator-application';
-import { InvestmentPlan } from '@investflow/investment-simulator-domain';
 import { QueryHandler } from '@investflow/shared-application';
 import { Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
@@ -9,6 +8,7 @@ import { InvestmentPlanQueryError } from './investment-plan-query.error';
 import {
   InvestmentPlanStatusOutput,
   liveInvestmentPlanMembers,
+  toAvailableSimulationSlots,
   toInvestmentPlanStatus,
 } from './investment-plan-status-projection';
 
@@ -81,10 +81,7 @@ export class GetInvestmentPlanQueryHandler
     return {
       ...plan,
       simulationCount: simulations.length,
-      availableSimulationSlots: Math.max(
-        0,
-        InvestmentPlan.SIMULATION_LIMIT - simulations.length,
-      ),
+      availableSimulationSlots: toAvailableSimulationSlots(simulations),
       status: toInvestmentPlanStatus(simulations),
     };
   }

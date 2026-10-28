@@ -1,8 +1,12 @@
+import { Toast } from '@base-ui/react/toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { MemoryRouter, useLocation } from 'react-router';
 import type { FetchFn } from '../http/request-json';
-import { InvestmentSimulatorDepsContext } from '../routes/investment-simulator-deps';
+import {
+  InvestmentSimulatorDepsContext,
+  type InvestmentSimulatorToastData,
+} from '../routes/investment-simulator-deps';
 
 type Handler = (init: RequestInit) => unknown;
 
@@ -56,10 +60,13 @@ export function harness(api: FakeApi, initialEntry = '/') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: 0 } },
   });
+  // Tests read what the hooks asked for through spies on add and update.
+  const toasts = Toast.createToastManager<InvestmentSimulatorToastData>();
+  const deps = { fetch: api.fetch, toasts };
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <InvestmentSimulatorDepsContext value={{ fetch: api.fetch }}>
+        <InvestmentSimulatorDepsContext value={deps}>
           <MemoryRouter initialEntries={[initialEntry]}>
             {children}
           </MemoryRouter>
@@ -67,7 +74,7 @@ export function harness(api: FakeApi, initialEntry = '/') {
       </QueryClientProvider>
     );
   }
-  return { wrapper: Wrapper, queryClient };
+  return { wrapper: Wrapper, queryClient, toasts };
 }
 
 export function withLocation<T>(useHook: () => T) {

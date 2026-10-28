@@ -15,6 +15,7 @@ const listed = {
   name: plan.name,
   description: null,
   simulationCount: 2,
+  availableSimulationSlots: 48,
   status: settled,
 };
 

@@ -13,6 +13,9 @@ export const INVESTMENT_PLAN_PAGE_SIZE = 20;
 
 export interface InvestmentPlanListRequest {
   readonly page: number;
+  readonly pageSize?: number;
+  // Only the plans this simulation belongs to.
+  readonly simulationId?: string;
 }
 
 export const investmentPlanKeys = {
@@ -29,8 +32,9 @@ export function investmentPlanListQuery(
 ) {
   const search = new URLSearchParams({
     page: String(request.page),
-    pageSize: String(INVESTMENT_PLAN_PAGE_SIZE),
+    pageSize: String(request.pageSize ?? INVESTMENT_PLAN_PAGE_SIZE),
   });
+  if (request.simulationId) search.set('simulationId', request.simulationId);
   return queryOptions({
     queryKey: investmentPlanKeys.list(request),
     queryFn: ({ signal }) =>

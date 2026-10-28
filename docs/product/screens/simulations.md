@@ -184,9 +184,28 @@ any of them changes.
   from the domain; the browser only finds the applied row by rate.
 - A saved simulation's header offers "Nova simulação" (a blank form at
   `/simulacoes/nova`), "Duplicar" and "Excluir".
+- Plans: under the title, a "Planos" line links each plan the simulation
+  belongs to (`GET investment-plans?simulationId=&pageSize=100`, "e mais N"
+  past 100; "nenhum" without plans), with its own loading and retry.
+  "Adicionar ao plano" opens a Base UI Popover listing the owner's plans by
+  name, 20 per page, each with "Adicionar". Plans that already include the
+  simulation ("Já inclui esta simulação") and full ones ("Plano cheio: 50
+  simulações", from the list's `availableSimulationSlots`) are disabled with
+  the reason as text. One add at a time; the result, or the failure with the
+  plan's name and the API's message, is announced in the popover, which stays
+  open. This is the permanent way to add a simulation to a plan.
+- From a plan: `/simulacoes/nova?plano=<id>` (a plan's "Nova simulação")
+  reads the plan ahead. After the create succeeds and the new simulation's
+  page is open, a toast says "Simulação criada. Adicionar ao plano {nome}?"
+  with "Adicionar ao plano". The action adds it (safe to repeat) and turns
+  the toast into "Adicionada ao plano {nome}" with "Ver plano", or "Não foi
+  possível adicionar ao plano {nome}" with the API's message. A missing,
+  deleted, or full plan shows no toast, and nothing about the plan can
+  report the simulation as unsaved.
 - "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled with the same
   offer, curve and investment, for side-by-side comparison. "Excluir"
-  confirms in an AlertDialog and says the deletion is permanent. Unsaved edits
+  confirms in an AlertDialog and says the deletion is permanent and, when the
+  simulation is in plans, "Ela sai de N planos". Unsaved edits
   are guarded by `useBlocker` and `beforeunload`.
 - Reads are screen-oriented (Backend for Frontend): the options query (title
   types, remuneration kinds with their index, visible offers with their origin
