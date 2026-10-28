@@ -10,7 +10,10 @@ describe('GetBusinessCalendarQueryHandler', () => {
       new GetBusinessCalendarQueryHandler(),
     );
 
-    const { value } = await controller.get({ fromYear: 2023, toYear: 2026 });
+    const { value } = await controller.get(
+      { fromYear: 2023, toYear: 2026 },
+      { setHeader: jest.fn() },
+    );
 
     expect([value.fromYear, value.toYear]).toEqual([2023, 2026]);
     expect(value.holidays).toEqual(
@@ -35,6 +38,23 @@ describe('GetBusinessCalendarQueryHandler', () => {
     expect(
       (await handler.execute({ fromYear: 2027, toYear: 2027 })).value.fromYear,
     ).toBe(2027);
+  });
+
+  it('lets browsers keep a served calendar for a day, never a failure', async () => {
+    const controller = new BusinessCalendarController(
+      new GetBusinessCalendarQueryHandler(),
+    );
+    const served = { setHeader: jest.fn() };
+    const rejected = { setHeader: jest.fn() };
+
+    await controller.get({ fromYear: 2026, toYear: 2026 }, served);
+    await controller.get({ fromYear: 2027, toYear: 2026 }, rejected);
+
+    expect(served.setHeader).toHaveBeenCalledWith(
+      'Cache-Control',
+      'private, max-age=86400',
+    );
+    expect(rejected.setHeader).not.toHaveBeenCalled();
   });
 
   it('rejects years in the wrong order', async () => {

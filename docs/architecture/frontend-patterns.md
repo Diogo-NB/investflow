@@ -212,7 +212,10 @@ weekdays in those years; the browser treats Saturday and Sunday as
 non-business. Date fields outside the curve editor (offer maturity,
 simulation investment date) reject typed dates outside those years with the
 same message. The app starts this read right after login
-(`prefetchInvestmentSimulator`), it lasts the session, and
+(`prefetchInvestmentSimulator`), it lasts the session (the response is
+`Cache-Control: private, max-age=86400` with Express's body-hash `ETag`, so
+later sessions within a day skip the request and later ones revalidate with a
+`304`; a holiday rule change reaches browsers within a day), and
 `useBusinessCalendar()` turns it into a synchronous `BusinessCalendar`: no
 screen reasons about years being loaded. Screens that need it (the curve
 editor) wait for it with their own loading and retry states, and every

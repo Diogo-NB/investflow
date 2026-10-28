@@ -4,26 +4,6 @@ Work that was consciously postponed but must still be implemented. Each item
 says why it was deferred, what exists today, and what "done" means. Remove an
 item when it ships.
 
-## HTTP caching of the business calendar (deferred 2026-10-10)
-
-`GET /investment-simulator/business-calendar?fromYear=&toYear=` returns the
-weekday holidays of the requested years (about 2,000 dates for the 201 years
-the page asks for).
-
-- **Today:** the API keeps its last answer in memory, so the range every
-  browser asks for is computed once per process until the year changes; the browser reads it once per session. The
-  response sends no cache headers, so every new session repeats the request.
-- **Why deferred:** one small request per session is cheap, and correctness
-  came first.
-- **Done means:**
-  - Responses carry HTTP caching headers. They are bearer-authenticated, so
-    use `Cache-Control: private` with a `max-age` ending at the next year
-    change plus an `ETag`, so browsers revalidate cheaply.
-  - The `ETag` includes a version of the calendar rules. A change to the
-    holiday rules (a new national holiday, an ANBIMA calendar change) must
-    invalidate cached responses instead of serving stale dates.
-  - Tests cover the headers and invalidation on a rules version change.
-
 ## Fan-out at scale (deferred 2026-10-26)
 
 - **Today:** fan-out records every
