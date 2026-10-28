@@ -109,10 +109,15 @@ carries per-type variation and why it is the minimum.
 - Put a value object in shared domain only when its semantics are reusable
   across contexts.
 - Domain services hold calculations that do not belong to one aggregate or
-  value object. An aggregate method that receives other aggregates, carries
-  heavy logic, or needs another domain service is a domain service in
-  disguise; extract it. A stateless domain service with no dependencies (such
-  as `BusinessDayCalendar`) may be static.
+  value object. An aggregate method or value-object factory that receives
+  other aggregates or a collection to aggregate, carries heavy logic, or
+  needs another domain service is a domain service in disguise; extract it,
+  and let the value object derive what follows from its facts
+  (`InvestmentPlanTotalsCalculator` builds `InvestmentPlanTotals`, as
+  `InvestmentCalculator` builds `InvestmentProjection`). A stateless domain
+  service with no dependencies (such as `BusinessDayCalendar`) may be static.
+- `Money` and `Decimal` arithmetic keeps decimal.js's default 20 significant
+  digits, the project's precision; do not raise it.
 
 ## Time
 
@@ -147,15 +152,13 @@ carries per-type variation and why it is the minimum.
   and persistence only, no list, count, existence, or read-model helpers.
   The one exception is a criteria
   lookup returning the ids of the repository's own aggregates for a
-  command-side flow, such as a fan-out (`findIdsByOffer()`). Anything a screen
-  reads is a query handler in infrastructure; never load aggregates to render
-  a response.
+  command-side flow, such as a fan-out (`findIdsByOffer()`). Screens read
+  through query handlers in infrastructure, never by loading aggregates; a
+  domain concept they show that spans aggregates is built by a read use case
+  from a read port in domain terms (`BuildInvestmentPlanTotalsUseCase`,
+  `docs/architecture/queries.md`).
 - Prefer database constraints for simple uniqueness rules and map their
   failures to stable application errors.
-- A rule belongs to its aggregate, value object, or domain service; a
-  capability several services need belongs on a port; a type several commands
-  build owns its factory as a static method (see the small-functions rule in
-  `AGENTS.md`).
 
 ## Errors and Results
 
@@ -177,8 +180,6 @@ carries per-type variation and why it is the minimum.
   for single non-failing transformations; `map()` does not catch exceptions
   from its callback. Read optional lookups with `valueOrNull`, inline:
   `id ? repository.findById(id) : Result.ok(null)`.
-- Prefer a `Result` over a boolean for an operation that can fail, so the
-  caller gets the error instead of guessing why.
 - Let Results flow unchanged; do not re-wrap them in ad hoc unions
   (`{ value } | { missing }`) or nested Results. When a caller treats some
   failures differently, branch once where it decides, on the shared hierarchy
@@ -199,8 +200,9 @@ changes, raises, or records an event.
 
 Review your own diff for the mistakes this codebase has had to correct:
 
-- An aggregate method that takes other aggregates or another domain service
-  (a domain service in disguise).
+- An aggregate method or value-object factory that takes other aggregates, a
+  collection to aggregate, or another domain service (a domain service in
+  disguise), or a query handler assembling a domain concept's inputs.
 - Two aggregates changed in one use case or transaction.
 - A list, count, or existence helper on a command repository.
 - One operation hidden behind a `kind`, a mode flag, or several factories.

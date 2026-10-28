@@ -36,7 +36,9 @@ Find what the work touches before reading, then read only that
   `messaging.md`, `queries.md`, `frontend-patterns.md`) and every
   `docs/architecture/deferred-work.md` item that names it.
 
-Recorded decisions are revisable. Check whether their premises still hold
+Recorded decisions are revisable, and so is a design handed over in the
+request, even one called agreed: review it as you would your own (see
+"Self-review before presenting"). Check whether their premises still hold
 instead of building on them blindly, and say which parts of the area are
 built, designed only, or newly proposed: "the docs say X" and "the code does
 X" are different claims, so check the code.
@@ -70,7 +72,8 @@ routine work):
    current product behavior, such as an AWS service limit. Do not tune by
    trial and error what reasoning or a measurement can settle.
 3. Judge at production scale, not by today's data volume (see "Project
-   Overview" in `AGENTS.md`).
+   Overview" in `AGENTS.md`), and by the shape of real data: a grouping key
+   that rarely repeats (exact maturity dates) yields one row per record.
 
 ## Present options
 
@@ -79,7 +82,9 @@ For any decision that is not obvious, present two or three real options
 clarity of the model, hexagonal boundaries, behavior at scale, user
 experience, and the size of the change. Mark one as **recommended** and say
 why. When the user proposes an option, evaluate it with the same rigor as
-your own, then compare it to them.
+your own, then compare it to them. Say where each rule you apply comes from
+(a skill, a doc, a named pattern and its source); call your own heuristic a
+heuristic.
 
 ### Simplicity pass
 
@@ -128,10 +133,10 @@ The user should not have to ask "why didn't you catch this when planning?".
 Before presenting, run the "Before finishing" list of every layer skill the
 plan touches against the sketches, and check the plan for:
 
-- any option, recommended or not, that breaks a skill rule, such as two
-  aggregates changed in one use case or transaction. Existing code that
-  breaks a rule is a finding to report, not a precedent to follow; if every
-  option breaks a rule, say so and ask;
+- any option, recommended, handed over, or not, that breaks a skill rule,
+  such as two aggregates changed in one use case or transaction. Existing
+  code that breaks a rule is a finding to report, not a precedent to
+  follow; if every option breaks a rule, say so and ask;
 - an obstacle in existing code that the plan works around (see "Done
   means" in `AGENTS.md`);
 - dead mechanisms, duplicate entry points, or two methods doing one job;
@@ -140,7 +145,10 @@ plan touches against the sketches, and check the plan for:
   naming rule in "Coding Conventions" in `AGENTS.md`): read each new type,
   method, event, endpoint, route, and file name as a newcomer would;
 - knowledge on the wrong side of a port (a transport limit or timeout in
-  application code, persistence in a domain service);
+  application code, persistence in a domain service), or a domain rule
+  decided outside the domain: a query handler that picks the records a rule
+  counts or fills a value object's inputs from rows, or a screen deriving
+  one business fact from another (provisional from `isSettled`);
 - rules the plan states but no file in the sketches implements;
 - the same discriminant checked twice in one flow.
 

@@ -118,9 +118,12 @@ generators and preserve project tags.
 ## Coding Conventions
 
 TypeScript uses Prettier with single quotes and the Nx flat ESLint
-configuration. Use kebab-case filenames, PascalCase classes, and camelCase
-methods and variables. Prefix every enum name with `E` (`ETitleType`,
-`EAppErrorCode`). Prefer guard clauses.
+configuration. Format only the files you changed
+(`pnpm prettier --write <file>…`), never a folder: `pnpm check` does not
+enforce formatting, so formatting a folder rewrites unrelated files. Use
+kebab-case filenames, PascalCase classes, and camelCase methods and
+variables. Prefix every enum name with `E` (`ETitleType`, `EAppErrorCode`).
+Prefer guard clauses.
 
 Name things for what they are and where they apply, so a reader does not
 need the body or the docs to know: types, methods, events, endpoints, routes,

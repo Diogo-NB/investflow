@@ -112,6 +112,11 @@ screen reads.
 - Screen-oriented queries shape the output for the screen's usage and
   compute business facts (eligibility, status, counts, derived dates) on the
   server; never layout, UI structures, labels, or formatted values.
+- A domain concept computed from several aggregates' state (a plan's status
+  and totals) is built by an application read use case from a read port in
+  domain terms; the handler calls the use case and serializes. Never select
+  fields to fill a value object's inputs in a handler: that handler is the
+  concept's domain service in disguise (`docs/architecture/queries.md`).
 
 ## HTTP boundary
 
@@ -170,6 +175,8 @@ which side owns the knowledge, and say so in the plan:
 - A boolean that reports success or failure is a `Result` instead.
 - A new or changed query handler that serves a screen computes its business
   facts, not its formatting.
+- No query handler builds domain value objects from records or decides which
+  records a domain rule counts; a read port and use case do.
 
 ## Tests
 
