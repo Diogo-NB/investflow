@@ -8,8 +8,8 @@ Delivery plan for the investment simulator. Product rules are in the
 
 The mutable-premises redesign (decided 2026-10-11, D0 to D6) has shipped,
 D4b last (2026-10-26). This plan adds the next features: side-by-side
-simulation comparison, investment plans, and the index curves observed from the
-Banco Central with their kept rate.
+simulation comparison, investment plans with their totals, and the index
+curves observed from the Banco Central with their kept rate.
 
 Each deliverable is one pull request. Every pull request keeps `pnpm check`
 green and the app working end to end: a backend change also adapts the screens
@@ -25,10 +25,10 @@ migrating existing rows.
 
 ## Current State
 
-Last updated 2026-10-27. D0 to D9 and D4b are done: offer and curve changes
+Last updated 2026-10-28. D0 to D10 and D4b are done: offer and curve changes
 recalculate the simulations that use them, over FIFO queues grouped per
 aggregate, and investment plans group the simulations a user would invest in
-together. Events are now published right after their transaction commits.
+together, with their totals, maturity schedule, and liquidity. Events are now published right after their transaction commits.
 
 What is built, area by area, and where it differs from the target model
 is in [Current State](./current-state.md).
@@ -41,76 +41,37 @@ PRD's "Pendências de Produto").
 
 ## Next Steps
 
-1. Settle the plan aggregation decisions (see D10) before D10.
-2. Settle D12's decisions before D12.
+1. Settle D12's decisions before D12.
 
 ## Overview
 
-| #   | Deliverable                                                       | Depends on                    | Status      |
-| --- | ----------------------------------------------------------------- | ----------------------------- | ----------- |
-| D4b | Offer and curve changes recalculate the simulations that use them | D4a                           | Done        |
-| D7  | Simulation return rates and remaining term                        | —                             | Done        |
-| D8  | Side-by-side simulation comparison                                | D7                            | Done        |
-| D9  | Investment plans: management, membership, and derived status      | —                             | Done        |
-| D10 | Investment plan totals and average return                         | D7, D9, aggregation decisions | Not started |
-| D11 | Investment plan comparison                                        | D8, D10                       | Not started |
-| D12 | Open-ended last curve interval and observed system curves         | D12 decisions                 | Not started |
-| D13 | "Hoje" marker on the balance chart (interim)                      | —                             | Not started |
+| #   | Deliverable                                                       | Depends on    | Status      |
+| --- | ----------------------------------------------------------------- | ------------- | ----------- |
+| D4b | Offer and curve changes recalculate the simulations that use them | D4a           | Done        |
+| D7  | Simulation return rates and remaining term                        | —             | Done        |
+| D8  | Side-by-side simulation comparison                                | D7            | Done        |
+| D9  | Investment plans: management, membership, and derived status      | —             | Done        |
+| D10 | Investment plan totals, maturity schedule, and liquidity          | D9            | Done        |
+| D12 | Open-ended last curve interval and observed system curves         | D12 decisions | Not started |
+| D13 | "Hoje" marker on the balance chart (interim)                      | —             | Not started |
 
 ```text
 D7                      ──► D8
-D7, D9 + (aggregation decisions) ──► D10
-D8, D10                 ──► D11
+D9                      ──► D10
 D4a                     ──► D4b
 (D12 decisions)         ──► D12
 ```
 
-Recommended order: D10, D11. D12 and D13 depend on none of them and can
-be scheduled in between. D7 went first because comparing
-simulations with different terms needs their annualized return, and a
-plan's average return builds on the simulations' rates. D11 comes last because it reuses the comparison screen's patterns
-and the plan totals.
+Recommended order: D13, which depends on nothing open, while D12's
+decisions are settled, then D12.
+
+D11 (investment plan comparison) was dropped on 2026-10-28: judging which
+plan is better is outside the project's scope, and a plan has no return rate
+of its own (PRD "Totais do Plano").
 
 None of the new deliverables depends on D4b: comparison and plans read
 each simulation's status and last successful result, and their statuses
 converge on their own as recalculations land.
-
-## D10 — Investment plan totals and average return
-
-**Decisions needed first** (PRD "Pendências de Produto"):
-
-- The aggregation rule for simulations with different maturities (PRD "Plano
-  com Vencimentos Diferentes"). The direction considered counts matured
-  simulations at their net value, without reinvestment, with a
-  money-weighted return; it must be validated.
-- The meaning and calculation of the average return (for example, weighted by
-  principal) and whether it is gross or net, consistent with D7.
-
-Scope:
-
-- The plan query computes the totals (principal, gross and net amounts,
-  income, IOF, income tax) and the average return on the server, using each
-  simulation's last successful result (PRD), and marks them provisional while
-  the plan's status is not settled.
-- The plan screen shows the totals with the plan's status.
-
-**Done when** a plan shows its totals and average return under the
-settled rules, with tests for mixed maturities, missing results, and
-statuses that are not up to date.
-
-## D11 — Investment plan comparison
-
-The PRD asks to compare plans by their aggregated values and average return.
-
-Scope:
-
-- Selecting plans and comparing their totals, average returns, and
-  statuses side by side, reusing D8's approach: the selection in the URL with
-  a sticky bar, a verdict ranked on the server, a table on desktop and ranked
-  cards below 1024px, and polling only while something is calculating.
-
-**Done when** a user can compare two or more plans' totals and average
-returns side by side.
 
 ## D12 — Open-ended last curve interval and observed system curves
 

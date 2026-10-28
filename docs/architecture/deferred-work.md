@@ -184,6 +184,19 @@ through its term. It is a required feature, not an optional nicety.
 - **Done when** a user can name and keep a comparison as its own concept,
   apart from plans, and reopen it.
 
+## Simulation comparison built in its query handler (deferred 2026-10-28)
+
+- **Today:** `GetSimulationComparisonQueryHandler` builds each
+  `ComparedResult` from rows and decides which results count as current, so
+  the comparison's inputs are assembled outside the domain and application.
+- **Why deferred:** found while moving investment plan status and totals
+  behind a read port (D10); changing the comparison is outside that work.
+- **Revisit with:** "Domain Concepts on a Screen Read" in
+  [queries.md](./queries.md): a read port returning the compared simulations
+  in domain terms and a read use case that builds `SimulationComparison`.
+- **Done when** the handler only reads what belongs to the screen and
+  serializes the comparison the application built.
+
 ## Creating a private offer and its simulation in one transaction (deferred 2026-10-27)
 
 - **Today:** "Digitar termos" and "Duplicar e ajustar" save the new private

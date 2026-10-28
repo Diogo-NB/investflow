@@ -1,14 +1,10 @@
 import {
-  ESimulationCalculationStatus,
-  ETitleType,
   InvestmentPlan,
   InvestmentPlanStatus,
-  SimulationResult,
 } from '@investflow/investment-simulator-domain';
 import { Prisma } from '@prisma/client';
 
-// Shared by the list and detail queries: both report the same status from
-// the same member rows.
+// Shared by the list and detail queries: both report the same status.
 export interface InvestmentPlanStatusOutput {
   // Members waiting for a calculation.
   readonly calculatingCount: number;
@@ -20,64 +16,20 @@ export interface InvestmentPlanStatusOutput {
 }
 
 // Members whose simulation was deleted have left the plan.
-export const liveInvestmentPlanMembers = {
-  where: { simulation: { deletedAt: null } },
-  select: {
-    simulation: {
-      select: {
-        revision: true,
-        offer: { select: { titleType: true, termsRevision: true } },
-        curve: { select: { valuesRevision: true } },
-        calculation: { select: { status: true } },
-        result: {
-          select: {
-            simulationRevision: true,
-            offerTermsRevision: true,
-            curveValuesRevision: true,
-            methodologyVersion: true,
-          },
-        },
-      },
-    },
+export const liveMemberCount = {
+  _count: {
+    select: { simulations: { where: { simulation: { deletedAt: null } } } },
   },
-} satisfies Prisma.InvestmentPlan$simulationsArgs;
-
-type InvestmentPlanMemberRecord = Prisma.InvestmentPlanSimulationGetPayload<{
-  select: (typeof liveInvestmentPlanMembers)['select'];
-}>;
+} satisfies Prisma.InvestmentPlanSelect;
 
 // Zero when the plan is full.
-export function toAvailableSimulationSlots(
-  members: readonly InvestmentPlanMemberRecord[],
-): number {
-  return Math.max(0, InvestmentPlan.SIMULATION_LIMIT - members.length);
+export function toAvailableSimulationSlots(memberCount: number): number {
+  return Math.max(0, InvestmentPlan.SIMULATION_LIMIT - memberCount);
 }
 
-export function toInvestmentPlanStatus(
-  members: readonly InvestmentPlanMemberRecord[],
+export function toInvestmentPlanStatusOutput(
+  status: InvestmentPlanStatus,
 ): InvestmentPlanStatusOutput {
-  const status = InvestmentPlanStatus.of(
-    members.map(({ simulation }) => {
-      const { offer, result, calculation } = simulation;
-      if (!calculation) {
-        throw new Error('A plan member without a calculation row');
-      }
-      return {
-        calculationStatus: calculation.status as ESimulationCalculationStatus,
-        isResultCurrent:
-          result !== null &&
-          SimulationResult.isCurrent(
-            result,
-            SimulationResult.targetFor(
-              simulation.revision,
-              offer.titleType as ETitleType,
-              offer.termsRevision,
-              simulation.curve?.valuesRevision ?? null,
-            ),
-          ),
-      };
-    }),
-  );
   return {
     calculatingCount: status.calculatingCount,
     pendingIssueCount: status.pendingIssueCount,

@@ -125,8 +125,19 @@ this file in the same change that ships or changes a built behavior.
   repeat). Only the plan changes; `SimulationRepository.findIdsOwnedBy` checks
   the simulations. Reads return the member count, the free slots, and the
   status derived by `InvestmentPlanStatus`, in the list as well as the
-  details. No events. The `/planos` screens list, create, edit, delete, and
-  show plans with their members
+  details. The details also return `totals` (null without any result),
+  computed at read time by `InvestmentPlanTotalsCalculator` from each live
+  member's last successful result, current or not, and its offer's current
+  redemption type: the summed principal, IOF, income tax, net amount, and
+  net earnings, the period, the maturity schedule by month, the principal
+  split by liquidity, how many members were left out without a result, and
+  whether the totals are provisional. Both are built in the application
+  (`BuildInvestmentPlanStatusesUseCase`, `BuildInvestmentPlanTotalsUseCase`)
+  from `InvestmentPlanMember`s read through the `InvestmentPlanMemberReader`
+  port; the query handlers read only the plan and serialize (see "Domain
+  Concepts on a Screen Read" in
+  [queries.md](../architecture/queries.md)). No events. The `/planos` screens list, create, edit, delete,
+  and show plans with their members and totals
   ([screens/investment-plans.md](./screens/investment-plans.md)). The
   simulation screens link to plans too: the workspace's "Planos" line names
   the simulation's plans and adds it to another one, its delete dialog says

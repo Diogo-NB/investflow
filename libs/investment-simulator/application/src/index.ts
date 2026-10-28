@@ -43,6 +43,7 @@ export * from './lib/simulations/fail-calculation/fail-simulation-calculation.co
 export * from './lib/simulations/fail-calculation/fail-simulation-calculation.use-case';
 export * from './lib/investment-plans/investment-plan.repository';
 export * from './lib/investment-plans/investment-plan-not-found.error';
+export * from './lib/investment-plans/investment-plan-member-reader.port';
 export * from './lib/investment-plans/shared/investment-plan-command-input.type';
 export * from './lib/investment-plans/create/create-investment-plan.command';
 export * from './lib/investment-plans/create/create-investment-plan.use-case';
@@ -54,3 +55,7 @@ export * from './lib/investment-plans/add-simulations/add-investment-plan-simula
 export * from './lib/investment-plans/add-simulations/add-investment-plan-simulations.use-case';
 export * from './lib/investment-plans/remove-simulation/remove-investment-plan-simulation.command';
 export * from './lib/investment-plans/remove-simulation/remove-investment-plan-simulation.use-case';
+export * from './lib/investment-plans/build-totals/build-investment-plan-totals.query';
+export * from './lib/investment-plans/build-totals/build-investment-plan-totals.use-case';
+export * from './lib/investment-plans/build-statuses/build-investment-plan-statuses.query';
+export * from './lib/investment-plans/build-statuses/build-investment-plan-statuses.use-case';

@@ -212,7 +212,8 @@ state is kept; a transition history is deferred work.
   change token with `ETag` and `304` can be added to the same endpoint if
   polling load ever shows up; real-time push is future work.
 - An investment plan's status is never stored: `InvestmentPlanStatus`
-  derives it at read time from its members' calculation states, counting
+  derives it at read time from its members (`InvestmentPlanMember`, which
+  says whether its result is current), counting
   those in update (`PENDING`), with a pending issue (`INVALID`, `FAILED`),
   and with an outdated result (`CALCULATED` but not current). Outdated is
   kept apart from in update on purpose: a methodology change, a fan-out

@@ -1,15 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import {
+  BuildInvestmentPlanStatusesQuery,
+  BuildInvestmentPlanStatusesUseCase,
+} from '@investflow/investment-simulator-application';
 import { QueryHandler } from '@investflow/shared-application';
 import type { PaginatedResult } from '@investflow/shared-types';
-import { Result } from '@investflow/shared-domain';
+import { AppError, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { InvestmentPlanQueryError } from './investment-plan-query.error';
 import {
   InvestmentPlanStatusOutput,
-  liveInvestmentPlanMembers,
+  liveMemberCount,
   toAvailableSimulationSlots,
-  toInvestmentPlanStatus,
+  toInvestmentPlanStatusOutput,
 } from './investment-plan-status-projection';
 
 export interface ListInvestmentPlansQuery {
@@ -32,24 +36,26 @@ export interface InvestmentPlanListItem {
 
 export type ListInvestmentPlansOutput = PaginatedResult<InvestmentPlanListItem>;
 
-// A page reads at most pageSize × InvestmentPlan.SIMULATION_LIMIT members.
 const investmentPlanSelect = {
   id: true,
   name: true,
   description: true,
-  simulations: liveInvestmentPlanMembers,
+  ...liveMemberCount,
 } satisfies Prisma.InvestmentPlanSelect;
 
 @Injectable()
 export class ListInvestmentPlansQueryHandler
   implements QueryHandler<ListInvestmentPlansQuery, ListInvestmentPlansOutput>
 {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly statuses: BuildInvestmentPlanStatusesUseCase,
+  ) {}
 
-  execute(
+  async execute(
     query: ListInvestmentPlansQuery,
-  ): Promise<Result<ListInvestmentPlansOutput, InvestmentPlanQueryError>> {
-    return Result.fromPromise(
+  ): Promise<Result<ListInvestmentPlansOutput, AppError>> {
+    const page = await Result.fromPromise(
       async () => {
         const where: Prisma.InvestmentPlanWhereInput = {
           ownerId: query.ownerId,
@@ -73,19 +79,40 @@ export class ListInvestmentPlansQueryHandler
           }),
           this.prisma.client.investmentPlan.count({ where }),
         ]);
-        return {
-          items: records.map(({ simulations, ...plan }) => ({
-            ...plan,
-            simulationCount: simulations.length,
-            availableSimulationSlots: toAvailableSimulationSlots(simulations),
-            status: toInvestmentPlanStatus(simulations),
-          })),
-          total,
-          page: query.page,
-          pageSize: query.pageSize,
-        };
+        return { records, total };
       },
       (cause) => new InvestmentPlanQueryError(cause),
     );
+    if (page.isErr()) return page;
+    const { records, total } = page.value;
+    // One read of every member on the page, at most
+    // pageSize × InvestmentPlan.SIMULATION_LIMIT rows.
+    const statuses = await this.statuses.execute(
+      BuildInvestmentPlanStatusesQuery.of(
+        query.ownerId,
+        records.map(({ id }) => id),
+      ),
+    );
+    if (statuses.isErr()) return statuses;
+    return Result.ok({
+      // A plan deleted between the two reads is left out.
+      items: records.flatMap(({ _count, ...plan }) => {
+        const status = statuses.value.get(plan.id);
+        if (!status) return [];
+        return [
+          {
+            ...plan,
+            simulationCount: _count.simulations,
+            availableSimulationSlots: toAvailableSimulationSlots(
+              _count.simulations,
+            ),
+            status: toInvestmentPlanStatusOutput(status),
+          },
+        ];
+      }),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 }

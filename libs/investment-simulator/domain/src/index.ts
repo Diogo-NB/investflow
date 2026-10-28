@@ -36,4 +36,7 @@ export * from './lib/simulations/simulation-calculation.vo';
 export * from './lib/simulations/simulation-calculation.domain-service';
 export * from './lib/investment-plans/investment-plan.error';
 export * from './lib/investment-plans/investment-plan.aggregate';
+export * from './lib/investment-plans/investment-plan-member.vo';
 export * from './lib/investment-plans/investment-plan-status.vo';
+export * from './lib/investment-plans/investment-plan-totals.vo';
+export * from './lib/investment-plans/investment-plan-totals-calculator.domain-service';

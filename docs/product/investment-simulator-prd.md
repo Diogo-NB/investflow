@@ -135,8 +135,10 @@ contaria o mesmo dinheiro duas vezes.
 
   Sem nenhuma delas, os resultados do plano estão atualizados.
 
-- Comparar planos por valores agregados e rentabilidade média. Os totais usam
-  o último resultado bem sucedido de cada simulação.
+- Mostrar os totais do plano, o cronograma de vencimentos e a liquidez (ver
+  [Totais do Plano](#totais-do-plano)). O plano não tem rentabilidade
+  própria e não é comparado com outros planos: decidir qual plano é melhor
+  está fora do escopo.
 
 ### Simulações de Títulos Bancários
 
@@ -250,9 +252,10 @@ Por simulação:
 
 Por plano de investimento:
 
-- soma dos valores aplicáveis;
-- rentabilidade média;
-- comparação agregada entre planos;
+- valor aplicado, IOF, IR, montante líquido e rendimento líquido somados;
+- período, da primeira aplicação ao último vencimento;
+- cronograma de vencimentos;
+- valor aplicado por liquidez;
 - estado derivado das simulações.
 
 No MVP, apresentar resultados em tabelas simples; a evolução do saldo de uma
@@ -530,12 +533,34 @@ A comparação responde qual simulação rende mais e por quê:
 - Liquidez no vencimento: não permitir resgate antecipado; calcular até o
   vencimento.
 
-### Plano com Vencimentos Diferentes
+### Totais do Plano
 
-Pendente, a decidir antes dos totais do plano. A direção considerada: as
-simulações já vencidas entram pelo seu valor líquido no vencimento, sem
-reinvestimento, e a rentabilidade média do plano é ponderada pelo dinheiro
-aplicado e pelo tempo (money-weighted).
+Decisão de 2026-10-28.
+
+Os totais de um plano respondem quanto o usuário aplica, quanto recebe e
+quando:
+
+- Usam o último resultado bem sucedido de cada simulação, atualizado ou não.
+  Uma simulação sem resultado fica fora dos totais, e o plano informa quantas
+  ficaram. Enquanto o estado do plano não está atualizado, os totais aparecem
+  como provisórios.
+- Somam o valor aplicado, o IOF, o IR, o montante líquido e o rendimento
+  líquido de cada simulação no seu próprio vencimento, sem reinvestimento
+  entre um vencimento e outro. Como os valores são de datas diferentes, o
+  plano mostra o seu período: da primeira aplicação ao último vencimento.
+- O cronograma de vencimentos agrupa as simulações pelo mês de vencimento,
+  já que poucas vencem no mesmo dia: cada mês com algum vencimento mostra
+  quantas simulações vencem, o montante líquido recebido e o acumulado até
+  ele, e indica quantas já venceram (as de vencimento até hoje).
+- A liquidez divide o valor aplicado entre liquidez diária e somente no
+  vencimento, em reais e em percentual. O resgate antecipado ainda não é
+  calculado: a parte com liquidez diária diz quanto pode ser resgatado, não
+  quanto um resgate renderia.
+- O plano não tem uma rentabilidade própria, como uma média ou uma taxa
+  interna de retorno: nenhuma delas tem um significado que o usuário
+  verifique, e cada simulação já mostra a sua. Planos não são comparados nem
+  ordenados entre si; alternativas se comparam na
+  [Comparação de Simulações](#comparação-de-simulações).
 
 ## Requisitos Não Funcionais
 
@@ -556,6 +581,7 @@ aplicado e pelo tempo (money-weighted).
 - reprodução de resultados passados e histórico de cálculos;
 - consulta de auditoria das alterações;
 - edição de ofertas e curvas do sistema por usuários;
+- indicar qual plano de investimento é melhor ou comparar planos entre si;
 - gráficos além da evolução do saldo;
 - exportação PDF/CSV;
 - aportes recorrentes e reinvestimento automático;
@@ -591,9 +617,6 @@ aplicado e pelo tempo (money-weighted).
 - Definir o perfil contratual de atualização e a fórmula completa dos títulos
   híbridos por IPCA, conforme a documentação de curvas, incluindo os prazos
   mínimos de LCI e LCA indexadas a índice de preços.
-- Validar a regra de agregação para planos com vencimentos diferentes (ver
-  [Plano com Vencimentos Diferentes](#plano-com-vencimentos-diferentes)).
-- Definir significado e cálculo da rentabilidade média do plano.
 - Definir comportamento após vencimento e eventual resgate. A exibição do
   prazo restante de uma simulação vencida já está definida em
   [Rentabilidade e Prazo Restante](#rentabilidade-e-prazo-restante).

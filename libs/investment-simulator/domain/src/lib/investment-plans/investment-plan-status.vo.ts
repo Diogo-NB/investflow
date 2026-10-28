@@ -1,11 +1,6 @@
 import { ValueObject } from '@investflow/shared-domain';
 import { ESimulationCalculationStatus } from '../simulations/simulation-calculation.vo';
-
-export interface InvestmentPlanMemberState {
-  readonly calculationStatus: ESimulationCalculationStatus;
-  // False when there is no result.
-  readonly isResultCurrent: boolean;
-}
+import { InvestmentPlanMember } from './investment-plan-member.vo';
 
 // Derived from the members at read time, never stored. A stale result counts
 // apart from a calculation in progress: a methodology change, exhausted
@@ -19,9 +14,7 @@ export class InvestmentPlanStatus extends ValueObject<InvestmentPlanStatus> {
     super();
   }
 
-  static of(
-    members: readonly InvestmentPlanMemberState[],
-  ): InvestmentPlanStatus {
+  static of(members: readonly InvestmentPlanMember[]): InvestmentPlanStatus {
     let calculating = 0;
     let pendingIssues = 0;
     let outdated = 0;

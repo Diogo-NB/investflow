@@ -41,3 +41,25 @@ Exception (2026-10-10): a calculation's tax explanation formulas (such as
 "R$ 217,38 × 22,5% = R$ 48,91") are written out by the query projection from
 the values the domain recorded, so the screen shows them as they are. The
 projection only formats; the domain decides every value and the tax rules.
+
+## Domain Concepts on a Screen Read
+
+Decision dated 2026-10-28: when a screen shows a domain concept computed from
+several aggregates' state, such as an investment plan's status and totals, the
+domain models the concept and the application builds it. A read port in
+domain terms (`InvestmentPlanMemberReader`) returns the inputs as domain
+objects, a read use case (`BuildInvestmentPlanTotalsUseCase`) gets today from
+`Clock` and calls the domain, and the query handler reads only what belongs
+to the screen itself and serializes the result.
+
+- The query handler never assembles domain inputs from rows: which records
+  count, which result applies, and which date is today are domain and
+  application decisions. A handler that selects fields to fill a value
+  object's input contract is that concept's domain service in disguise.
+- The concept is derived at read time and never stored. A stored projection
+  kept by events pays off only with a need it serves: sorting or filtering
+  by the concept across many records, a frozen snapshot the business names,
+  or another context consuming it.
+- Each read is bounded by a domain invariant, not by today's volume: a plan
+  reads at most `InvestmentPlan.SIMULATION_LIMIT` members, a page of plans
+  at most the page size times that limit.

@@ -6,7 +6,15 @@ import {
   withLocation,
 } from '../../../testing/simulator-harness';
 import { useInvestmentPlanDetails } from '../use-investment-plan-details';
-import { API, page, plan, PLAN_ID, PLAN_URL, simulation } from './fixtures';
+import {
+  API,
+  page,
+  plan,
+  PLAN_ID,
+  PLAN_URL,
+  simulation,
+  totals,
+} from './fixtures';
 
 const membersUrl = `GET ${API}/simulations?page=1&pageSize=100&investmentPlanId=${PLAN_ID}`;
 const members = [simulation('a'), simulation('b'), simulation('c')];
@@ -38,6 +46,62 @@ describe('useInvestmentPlanDetails', () => {
       }),
     );
     expect(result.current.hook.members.ids).toEqual(['a', 'b', 'c']);
+  });
+
+  it('reads the totals with the plan, or none without results', async () => {
+    const withTotals = render(
+      fakeApi({ ...routes, [`GET ${PLAN_URL}`]: { ...plan, totals } }),
+    );
+    await waitFor(() =>
+      expect(withTotals.result.current.hook.state).toEqual({
+        status: 'ready',
+        plan: { ...plan, totals },
+      }),
+    );
+
+    const withoutResults = render(fakeApi(routes));
+    await waitFor(() =>
+      expect(withoutResults.result.current.hook.state).toMatchObject({
+        status: 'ready',
+        plan: { totals: null },
+      }),
+    );
+  });
+
+  it('refreshes the totals while a member is calculating', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let calculating = true;
+      const calculatingStatus = {
+        calculatingCount: 1,
+        pendingIssueCount: 0,
+        outdatedResultCount: 0,
+        isSettled: false,
+      };
+      const api = fakeApi({
+        ...routes,
+        [`GET ${PLAN_URL}`]: () =>
+          calculating
+            ? { ...plan, status: calculatingStatus, totals: null }
+            : { ...plan, totals },
+      });
+      const { result } = render(api);
+      await waitFor(() =>
+        expect(result.current.hook.state).toMatchObject({
+          plan: { totals: null },
+        }),
+      );
+
+      calculating = false;
+      await act(() => vi.advanceTimersByTimeAsync(3000));
+      await waitFor(() =>
+        expect(result.current.hook.state).toMatchObject({
+          plan: { status: plan.status, totals },
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('orders the members as the URL asks and drops an unknown order', async () => {

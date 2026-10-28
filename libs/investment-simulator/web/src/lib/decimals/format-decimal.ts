@@ -12,7 +12,7 @@ const percent = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 4,
 });
 
-const returnPercent = new Intl.NumberFormat('pt-BR', {
+const twoDecimalPercent = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -27,10 +27,15 @@ export function formatPercentOf(fraction: string): string {
 }
 
 export function formatReturnPercent(fraction: string): string {
-  return `${returnPercent.format(shiftDecimal(fraction, 2) as NumericString)}%`;
+  return `${twoDecimalPercent.format(shiftDecimal(fraction, 2) as NumericString)}%`;
+}
+
+// A part of a whole, such as the principal with daily liquidity.
+export function formatSharePercent(fraction: string): string {
+  return `${twoDecimalPercent.format(shiftDecimal(fraction, 2) as NumericString)}%`;
 }
 
 /** A difference between two rates of return, in percentage points. */
 export function formatPercentagePoints(fraction: string): string {
-  return `${returnPercent.format(shiftDecimal(fraction, 2) as NumericString)} p.p.`;
+  return `${twoDecimalPercent.format(shiftDecimal(fraction, 2) as NumericString)} p.p.`;
 }

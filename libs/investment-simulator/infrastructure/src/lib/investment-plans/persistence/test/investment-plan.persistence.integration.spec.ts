@@ -5,6 +5,7 @@ import {
   InvestmentCalculator,
   InvestmentInputs,
   InvestmentPlan,
+  InvestmentPlanTotalsCalculator,
   Offer,
   RedemptionTerms,
   RemunerationTerms,
@@ -19,17 +20,24 @@ import {
   Rate,
   UtcInstant,
 } from '@investflow/shared-domain';
+import {
+  BuildInvestmentPlanStatusesUseCase,
+  BuildInvestmentPlanTotalsUseCase,
+} from '@investflow/investment-simulator-application';
 import { Clock } from '@investflow/shared-application';
 import {
   PrismaService,
   TransactionalDomainEventRecorder,
   UnitOfWork,
 } from '@investflow/shared-infrastructure';
+import { Prisma } from '@prisma/client';
+import Decimal from 'decimal.js';
 import { PrismaOfferRepository } from '../../../offers/persistence/prisma-offer.repository';
 import { PrismaSimulationRepository } from '../../../simulations/persistence/prisma-simulation.repository';
 import { ListSimulationsQueryHandler } from '../../../simulations/queries/list-simulations.query-handler';
 import { GetInvestmentPlanQueryHandler } from '../../queries/get-investment-plan.query-handler';
 import { ListInvestmentPlansQueryHandler } from '../../queries/list-investment-plans.query-handler';
+import { PrismaInvestmentPlanMemberReader } from '../prisma-investment-plan-member-reader';
 import { PrismaInvestmentPlanRepository } from '../prisma-investment-plan.repository';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -138,16 +146,27 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
     actorId: ownerId,
   };
 
-  async function savedOffer(rate = '0.12') {
+  async function savedOffer({
+    titleType = ETitleType.CDB,
+    maturityDate = '2027-01-04',
+    redemption = 'AT_MATURITY',
+  }: {
+    titleType?: ETitleType;
+    maturityDate?: string;
+    redemption?: 'AT_MATURITY' | 'DAILY';
+  } = {}) {
     const offer = Offer.create(
       {
         ownerId: null,
-        titleType: ETitleType.CDB,
+        titleType,
         name: 'Integration prefixado',
         issuerName,
-        maturityDate: CalendarDate.of('2027-01-04'),
-        redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
-        remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of(rate)),
+        maturityDate: CalendarDate.of(maturityDate),
+        redemptionTerms: RedemptionTerms.create(redemption),
+        remunerationTerms: RemunerationTerms.create(
+          'PREFIXED',
+          Rate.of('0.12'),
+        ),
       },
       at('2026-10-01'),
     ).value;
@@ -156,13 +175,17 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
   }
 
   // Waiting for its first calculation.
-  async function savedSimulation(offer: Offer, owner = ownerId) {
+  async function savedSimulation(
+    offer: Offer,
+    owner = ownerId,
+    principal = '10000',
+  ) {
     const simulation = Simulation.create(
       {
         ownerId: owner,
         offerId: offer.id,
         investment: InvestmentInputs.create({
-          principal: Money.of('10000'),
+          principal: Money.of(principal),
           investmentDate: CalendarDate.of('2026-01-02'),
           curveId: null,
         }),
@@ -196,6 +219,22 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
     expect((await plans.save(plan)).isOk()).toBe(true);
     return plan;
   }
+
+  // The handlers as the module composes them.
+  const statusesUseCase = () =>
+    new BuildInvestmentPlanStatusesUseCase(
+      new PrismaInvestmentPlanMemberReader(prisma),
+    );
+  const detailsHandler = () =>
+    new GetInvestmentPlanQueryHandler(
+      prisma,
+      statusesUseCase(),
+      new BuildInvestmentPlanTotalsUseCase(
+        new PrismaInvestmentPlanMemberReader(prisma),
+        new InvestmentPlanTotalsCalculator(),
+        clock,
+      ),
+    );
 
   const load = async (id: string) => (await plans.findOwned(id, ownerId)).value;
   const memberRows = (investmentPlanId: string) =>
@@ -367,7 +406,7 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
     ).toBe(true);
     await deleted(gone);
 
-    const get = new GetInvestmentPlanQueryHandler(prisma);
+    const get = detailsHandler();
     const detail = (await get.execute({ ownerId, investmentPlanId: plan.id }))
       .value;
     expect(detail).toEqual({
@@ -383,6 +422,7 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
         outdatedResultCount: 1,
         isSettled: false,
       },
+      totals: expect.objectContaining({ excludedSimulationCount: 2 }),
     });
     expect(
       (await get.execute({ ownerId: otherOwnerId, investmentPlanId: plan.id }))
@@ -392,7 +432,7 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
       (await get.execute({ ownerId, investmentPlanId: removed.id })).error.code,
     ).toBe(EAppErrorCode.INVESTMENT_PLAN_NOT_FOUND);
 
-    const list = new ListInvestmentPlansQueryHandler(prisma);
+    const list = new ListInvestmentPlansQueryHandler(prisma, statusesUseCase());
     const all = (await list.execute({ ownerId, page: 1, pageSize: 100 })).value;
     const listed = all.items.filter(({ id }) =>
       [plan.id, other.id, removed.id].includes(id),
@@ -480,5 +520,173 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
       (await plans.save((await load(plan.id)).delete(at('2026-10-27')))).isOk(),
     ).toBe(true);
     expect((await members()).total).toBe(0);
+  });
+  it('totals the last results of the live members to the exact decimal', async () => {
+    const atMaturity = await savedOffer();
+    const matured = await savedOffer({
+      maturityDate: '2026-06-01',
+      redemption: 'DAILY',
+    });
+    const exempt = await savedOffer({
+      titleType: ETitleType.LCI,
+      redemption: 'DAILY',
+    });
+    const changing = await savedOffer({ maturityDate: '2027-01-25' });
+    const removedOffer = await savedOffer({
+      maturityDate: '2027-07-01',
+      redemption: 'DAILY',
+    });
+    const cdb = await savedSimulation(atMaturity, ownerId, '10000.01');
+    await calculated(cdb, atMaturity);
+    const past = await savedSimulation(matured, ownerId, '2500.37');
+    await calculated(past, matured);
+    const lci = await savedSimulation(exempt, ownerId, '3000.5');
+    await calculated(lci, exempt);
+    const stale = await savedSimulation(changing, ownerId, '1234.56');
+    await calculated(stale, changing);
+    const orphan = await savedSimulation(removedOffer, ownerId, '777.77');
+    await calculated(orphan, removedOffer);
+    const waiting = await savedSimulation(atMaturity);
+    const gone = await savedSimulation(atMaturity);
+    await calculated(gone, atMaturity);
+    const edited = (await offers.findById(changing.id)).value;
+    edited.edit(
+      {
+        remunerationTerms: RemunerationTerms.create(
+          'PREFIXED',
+          Rate.of('0.13'),
+        ),
+      },
+      at('2026-10-03'),
+    );
+    expect((await offers.save(edited)).isOk()).toBe(true);
+    const deletedOffer = (await offers.findById(removedOffer.id)).value;
+    expect(
+      (await offers.save(deletedOffer.delete(at('2026-10-03')))).isOk(),
+    ).toBe(true);
+    const plan = await savedPlan(
+      'Totais',
+      [cdb, past, lci, stale, orphan, waiting, gone].map(({ id }) => id),
+    );
+    await deleted(gone);
+
+    const included = [cdb, past, lci, stale, orphan].map(({ id }) => id);
+    const rows = await prisma.client.simulationResult.findMany({
+      where: { simulationId: { in: included } },
+    });
+    expect(rows).toHaveLength(included.length);
+    const sum = (amountOf: (row: (typeof rows)[number]) => Prisma.Decimal) =>
+      rows
+        .reduce(
+          (total, row) => total.plus(amountOf(row).toFixed()),
+          new Decimal(0),
+        )
+        .toFixed();
+    const rowOf = (id: string) => {
+      const row = rows.find(({ simulationId }) => simulationId === id);
+      if (!row) throw new Error(`No result for ${id}`);
+      return row;
+    };
+    const net = (...ids: string[]) =>
+      ids
+        .reduce(
+          (total, id) => total.plus(rowOf(id).netBalance.toFixed()),
+          new Decimal(0),
+        )
+        .toFixed();
+    const principal = sum(({ principal }) => principal);
+    const dailyPrincipal = new Decimal('2500.37').plus('3000.5').plus('777.77');
+    const dailyShare = dailyPrincipal.div(principal);
+
+    const { totals } = (
+      await detailsHandler().execute({
+        ownerId,
+        investmentPlanId: plan.id,
+      })
+    ).value;
+
+    expect(principal).toBe('17513.21');
+    expect(rowOf(lci.id).incomeTax.isZero()).toBe(true);
+    expect(totals).toEqual({
+      excludedSimulationCount: 1,
+      isProvisional: true,
+      principal,
+      iof: sum(({ iof }) => iof),
+      incomeTax: sum(({ incomeTax }) => incomeTax),
+      netFinalBalance: sum(({ netBalance }) => netBalance),
+      netEarnings: new Decimal(sum(({ netBalance }) => netBalance))
+        .minus(principal)
+        .toFixed(),
+      period: { start: '2026-01-02', end: '2027-07-01' },
+      maturityMonths: [
+        {
+          month: '2026-06',
+          simulationCount: 1,
+          maturedSimulationCount: 1,
+          netFinalBalance: net(past.id),
+          accumulatedNetFinalBalance: net(past.id),
+        },
+        {
+          month: '2027-01',
+          simulationCount: 3,
+          maturedSimulationCount: 0,
+          netFinalBalance: net(cdb.id, lci.id, stale.id),
+          accumulatedNetFinalBalance: net(past.id, cdb.id, lci.id, stale.id),
+        },
+        {
+          month: '2027-07',
+          simulationCount: 1,
+          maturedSimulationCount: 0,
+          netFinalBalance: net(orphan.id),
+          accumulatedNetFinalBalance: net(...included),
+        },
+      ],
+      liquidity: {
+        dailyPrincipal: dailyPrincipal.toFixed(),
+        atMaturityPrincipal: new Decimal(principal)
+          .minus(dailyPrincipal)
+          .toFixed(),
+        dailyShare: dailyShare.toFixed(),
+        atMaturityShare: new Decimal(1).minus(dailyShare).toFixed(),
+      },
+    });
+  });
+  it("reads the live members of the owner's live plans only", async () => {
+    const offer = await savedOffer();
+    const [kept, gone, theirs] = await Promise.all([
+      savedSimulation(offer),
+      savedSimulation(offer),
+      savedSimulation(offer, otherOwnerId),
+    ]);
+    await calculated(kept, offer);
+    const plan = await savedPlan('Leitor', [kept.id, gone.id]);
+    const removed = await savedPlan('Leitor excluído', [kept.id]);
+    expect(
+      (
+        await plans.save((await load(removed.id)).delete(at('2026-10-04')))
+      ).isOk(),
+    ).toBe(true);
+    const otherPlan = InvestmentPlan.create({
+      ownerId: otherOwnerId,
+      name: 'Outro dono',
+    }).value;
+    otherPlan.addSimulations([theirs.id]);
+    expect((await plans.save(otherPlan)).isOk()).toBe(true);
+    await deleted(gone);
+
+    const byPlan = (
+      await new PrismaInvestmentPlanMemberReader(prisma).findByPlans(ownerId, [
+        plan.id,
+        removed.id,
+        otherPlan.id,
+      ])
+    ).value;
+
+    expect([...byPlan.keys()]).toEqual([plan.id]);
+    const [member] = byPlan.get(plan.id) ?? [];
+    expect(byPlan.get(plan.id)).toHaveLength(1);
+    expect(member.isResultCurrent).toBe(true);
+    expect(member.lastResult?.principal.amount.toFixed()).toBe('10000');
+    expect(member.redemptionTerms.kind).toBe('AT_MATURITY');
   });
 });

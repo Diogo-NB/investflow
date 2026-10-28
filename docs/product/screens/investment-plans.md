@@ -1,6 +1,7 @@
 # Investment Plan Behavior
 
-Recorded 2026-10-27 and implemented under `/planos` (D9). A plan has a name,
+Recorded 2026-10-27 and implemented under `/planos` (D9); the "Resumo"
+block was added 2026-10-28 (D10). A plan has a name,
 an optional description, an owner, a revision, and up to 50 of the owner's
 simulations: the ones they would invest in together. Business rules are in
 "Planos de Investimento" in the [PRD](../investment-simulator-prd.md).
@@ -23,6 +24,27 @@ simulations: the ones they would invest in together. Business rules are in
 - Details show the name, the description, the status tags, "Editar", and
   "Excluir". The delete dialog says the deletion is permanent and that "As N
   simulações continuam em Simulações".
+- "Resumo" sits between the status tags and the members, hidden while the
+  plan has no members. It reads `totals` from the plan read itself, so the
+  plan's polling refreshes it, and shows "Totais provisórios" while the
+  totals are provisional (`totals.isProvisional`: some member is
+  calculating, has a pending issue, or a stale result). Without any result
+  it says "Nenhuma simulação tem
+  resultado ainda."; otherwise it says "Valores no vencimento de cada
+  simulação, sem reinvestimento." and, when some members have no result,
+  "N simulações sem resultado ficam fora dos totais." Then come a row of
+  values (Aplicado, IOF, IR, Montante líquido, Rendimento líquido, and the
+  Período from the first investment to the last maturity), and the
+  "Vencimentos" table and the "Liquidez" card, side by side from 1024px and
+  stacked below. "Vencimentos" has one row per month with a maturity
+  ("janeiro de 2027"), with the simulation count (under the month below
+  640px), the net amount, and the running total. A month whose maturities
+  have all passed (on or before today) carries "Vencido"; one where only
+  some have passed, "N de M vencidas". It shows 6 rows, then "Mostrar todos
+  (N)", which turns into "Mostrar menos".
+  "Liquidez" splits the amount invested into "Diária" and "No vencimento",
+  each in R$ and %, over a two-segment bar that repeats the text. Rules are
+  in "Totais do Plano" in the PRD.
 - "Simulações do plano" lists every member (one read of
   `GET simulations?investmentPlanId=&pageSize=100`, above the limit) in the
   simulation list's table and rows, with "Ordenar por" (`sort` URL parameter,

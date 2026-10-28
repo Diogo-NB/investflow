@@ -28,6 +28,7 @@ import {
 } from '../../ui/styles';
 import type { InvestmentPlanDetail } from '../models/investment-plan.types';
 import { InvestmentPlanStatusTags } from '../ui/investment-plan-status-tags';
+import { InvestmentPlanTotalsSection } from './investment-plan-totals-section';
 import { useInvestmentPlanDetails } from './use-investment-plan-details';
 
 const ConfirmDialog = lazy(() =>
@@ -331,6 +332,7 @@ export function InvestmentPlanDetailsPage() {
           <div aria-live="polite">
             <InvestmentPlanStatusTags status={state.plan.status} />
           </div>
+          <InvestmentPlanTotalsSection plan={state.plan} />
           <Members
             plan={state.plan}
             details={details}

@@ -1,15 +1,17 @@
 import { ESimulationCalculationStatus } from '../../simulations/simulation-calculation.vo';
-import {
-  InvestmentPlanMemberState,
-  InvestmentPlanStatus,
-} from '../investment-plan-status.vo';
+import { InvestmentPlanStatus } from '../investment-plan-status.vo';
+import { member as memberOf } from './investment-plan-member-fixture';
 
 const { PENDING, CALCULATED, INVALID, FAILED } = ESimulationCalculationStatus;
 
 const member = (
   calculationStatus: ESimulationCalculationStatus,
   isResultCurrent = true,
-): InvestmentPlanMemberState => ({ calculationStatus, isResultCurrent });
+) =>
+  memberOf({
+    calculationStatus,
+    result: isResultCurrent ? 'current' : 'stale',
+  });
 
 const counts = (status: InvestmentPlanStatus) => ({
   calculating: status.calculatingCount,
