@@ -1,11 +1,13 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
   IsIn,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import {
@@ -43,6 +45,14 @@ export class ListSimulationsRequest
   @IsOptional()
   @IsUUID()
   curveId?: string;
+
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
 
   @IsOptional()
   @IsUUID()

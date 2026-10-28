@@ -138,14 +138,15 @@ describe('useSimulationList', () => {
   });
 
   it('sends every valid filter from the URL to the request', async () => {
-    const filters = `&offerId=${OFFER_ID}&curveId=${CURVE_ID}&titleType=LCI&remunerationKind=CDI_PERCENTAGE&calculationStatus=INVALID`;
+    const filters = `&q=Banco+X&offerId=${OFFER_ID}&curveId=${CURVE_ID}&titleType=LCI&remunerationKind=CDI_PERCENTAGE&calculationStatus=INVALID`;
     const api = fakeApi({ [listUrl(2, filters)]: emptyPage });
     const { result } = render(
       api,
-      `/simulacoes?calculationStatus=INVALID&page=2&titleType=LCI&curveId=${CURVE_ID}&remunerationKind=CDI_PERCENTAGE&offerId=${OFFER_ID}`,
+      `/simulacoes?calculationStatus=INVALID&q=Banco+X&page=2&titleType=LCI&curveId=${CURVE_ID}&remunerationKind=CDI_PERCENTAGE&offerId=${OFFER_ID}`,
     );
 
     expect(result.current.filters).toEqual({
+      q: 'Banco X',
       offerId: OFFER_ID,
       curveId: CURVE_ID,
       titleType: 'LCI',

@@ -56,7 +56,14 @@ simulations: the ones they would invest in together. Business rules are in
   `/simulacoes/comparar?ids=…`; the selection is not kept in the URL. The
   page polls the plan and its members while any member is calculating.
 - "Adicionar simulações" opens a dialog listing the owner's simulations,
-  newest first, 20 per page. Members show checked and disabled ("já no
+  20 per page, with the simulation list's filter bar (search, filters, and
+  "Ordenar por"; see [Simulation Workspace Behavior](./simulations.md)) held
+  in the dialog instead of the URL; in the dialog's width the filters
+  collapse behind "Filtros (N)". Changing a filter or the order returns to
+  the first page and keeps the choice, including simulations the filters
+  now hide. A filtered list with no rows says "Nenhuma simulação
+  corresponde aos filtros." with "Limpar filtros", distinct from having no
+  simulations. Members show checked and disabled ("já no
   plano"), and the choice stops at the plan's free slots. One request adds
   them all; a failure keeps the choice and shows the API's message. The
   dialog stays open while the add is pending.

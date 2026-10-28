@@ -1,6 +1,7 @@
 import {
   listSearch,
   listSearchSelecting,
+  parseFilters,
   parseSort,
 } from '../simulation-list-search';
 
@@ -20,6 +21,21 @@ describe('listSearch', () => {
     expect(listSearch(new URLSearchParams(`comparar=${A}`))).toBe(
       `?comparar=${A}`,
     );
+  });
+});
+
+describe('parseFilters', () => {
+  it('accepts a trimmed search of up to 100 characters', () => {
+    expect(parseFilters(new URLSearchParams('q=Banco+X'))).toEqual({
+      filters: { q: 'Banco X' },
+      invalid: [],
+    });
+    for (const q of ['', ' Banco', 'x'.repeat(101)]) {
+      expect(parseFilters(new URLSearchParams({ q }))).toEqual({
+        filters: {},
+        invalid: ['q'],
+      });
+    }
   });
 });
 

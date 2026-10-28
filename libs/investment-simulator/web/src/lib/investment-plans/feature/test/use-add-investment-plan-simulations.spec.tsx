@@ -52,6 +52,53 @@ describe('useAddInvestmentPlanSimulations', () => {
     );
   });
 
+  it('filters, searches, and sorts from the first page, keeping the choice', async () => {
+    const filtered = `${pickerUrl(1)}&titleType=LCI&q=Banco+X`;
+    const api = fakeApi({
+      [pickerUrl(1)]: page([simulation('b')], 25),
+      [pickerUrl(2)]: page([simulation('z')], 25),
+      [filtered]: page([], 0),
+      [`${filtered}&sort=netAnnualReturn`]: page([simulation('c')]),
+      [`${pickerUrl(1)}&q=Banco+X`]: page([simulation('c')]),
+    });
+    const { result } = render(api);
+    await waitFor(() => expect(result.current.state.status).toBe('ready'));
+    act(() => result.current.toggle('b'));
+    act(() => result.current.setPage(2));
+
+    act(() => {
+      result.current.setFilter('titleType', 'LCI');
+      result.current.setFilter('q', 'Banco X');
+    });
+
+    expect(result.current.page).toBe(1);
+    expect(result.current.filtered).toBe(true);
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({ total: 0, updating: false }),
+    );
+    act(() => result.current.setSort('netAnnualReturn'));
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        items: [simulation('c')],
+        updating: false,
+      }),
+    );
+    act(() => {
+      result.current.setSort(null);
+      result.current.setFilter('titleType', null);
+    });
+    await waitFor(() =>
+      expect(result.current.state).toMatchObject({
+        items: [simulation('c')],
+        updating: false,
+      }),
+    );
+    expect(result.current.filters).toEqual({ q: 'Banco X' });
+    act(() => result.current.clearFilters());
+    expect(result.current.filtered).toBe(false);
+    expect(result.current.chosen).toEqual(['b']);
+  });
+
   it('chooses no more than the free slots', async () => {
     const { result } = render(fakeApi({ [pickerUrl(1)]: page([]) }), {
       availableSlots: 2,

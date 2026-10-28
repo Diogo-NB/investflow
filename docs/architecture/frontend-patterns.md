@@ -88,6 +88,12 @@ libs/investment-simulator/web     @nx/react library, bundled by the app
     ui/ and utils/                only when useful
 ```
 
+A component rendered in places of different widths, such as the simulation
+filter bar on `/simulacoes` and in the investment plan picker dialog, lays
+out with Tailwind container queries (`@container` and `@lg:`-style variants)
+instead of viewport breakpoints, so each place gets the layout its width
+fits.
+
 Keep the app a thin composition root. A generic welcome page belongs there.
 Business screens belong in one lazy-loaded web library per bounded context. The
 context library isn't buildable: the app's Vite build bundles it, so it needs

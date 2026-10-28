@@ -50,6 +50,17 @@ describe('ListSimulationsQueryHandler', () => {
       { offer: { remunerationType: 'SELIC_PERCENTAGE' } },
     ],
     [{ calculationStatus: 'INVALID' }, { calculation: { status: 'INVALID' } }],
+    [
+      { q: 'banco' },
+      {
+        offer: {
+          OR: [
+            { name: { contains: 'banco', mode: 'insensitive' } },
+            { issuerName: { contains: 'banco', mode: 'insensitive' } },
+          ],
+        },
+      },
+    ],
   ] as const)('filters by %o within the owner scope', async (filter, part) => {
     expect(await whereFor(filter)).toEqual([OWNED, part]);
   });

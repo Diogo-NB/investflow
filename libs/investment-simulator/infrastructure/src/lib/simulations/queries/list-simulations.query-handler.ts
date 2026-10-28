@@ -16,6 +16,8 @@ export interface ListSimulationsQuery {
   readonly pageSize: number;
   readonly offerId?: string;
   readonly curveId?: string;
+  // Part of the offer's name or issuer, ignoring case.
+  readonly q?: string;
   // Only the members of this plan; none when it was deleted.
   readonly investmentPlanId?: string;
   readonly titleType?: 'CDB' | 'LCI' | 'LCA';
@@ -117,6 +119,18 @@ export class ListSimulationsQueryHandler
             { ownerId: query.ownerId, deletedAt: null },
             query.offerId ? { offerId: query.offerId } : {},
             query.curveId ? { curveId: query.curveId } : {},
+            query.q
+              ? {
+                  offer: {
+                    OR: [
+                      { name: { contains: query.q, mode: 'insensitive' } },
+                      {
+                        issuerName: { contains: query.q, mode: 'insensitive' },
+                      },
+                    ],
+                  },
+                }
+              : {},
             query.investmentPlanId
               ? {
                   investmentPlans: {

@@ -10,6 +10,8 @@ import {
 } from './simulation-comparison-search';
 
 export interface SimulationListFilters {
+  // Part of the offer's name or issuer.
+  readonly q?: string;
   readonly offerId?: string;
   readonly curveId?: string;
   readonly titleType?: TitleType;
@@ -27,6 +29,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // The URL uses the API's parameter names and values.
 const FILTER_VALUES: Record<SimulationListFilter, (value: string) => boolean> =
   {
+    q: (value) => value !== '' && value.trim() === value && value.length <= 100,
     offerId: (value) => UUID.test(value),
     curveId: (value) => UUID.test(value),
     titleType: (value) => ['CDB', 'LCI', 'LCA'].includes(value),

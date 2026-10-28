@@ -94,11 +94,14 @@ this file in the same change that ships or changes a built behavior.
   newest first); `/simulacoes` shows the column and sorts with "Ordenar por",
   kept in the URL.
 - **Simulation list filters:** `GET simulations` filters the owner's
-  simulations by `offerId`, `curveId`, `investmentPlanId` (the live members
+  simulations by `q` (part of the offer's name or issuer, ignoring case,
+  up to 100 characters), `offerId`, `curveId`, `investmentPlanId` (the live members
   of a live plan), `titleType`, `remunerationKind`, and
   `calculationStatus`, combined with AND; there is no index filter because
   the remuneration kind fixes the index. `/simulacoes` filters with the same
-  URL parameters, carried to a simulation and back, and the offer and curve
+  URL parameters, carried to a simulation and back; the investment plan's
+  "Adicionar simulações" dialog reuses the filter bar with the filters held
+  in memory, and the offer and curve
   screens count affected simulations from the `offerId` and `curveId`
   filters' totals.
 

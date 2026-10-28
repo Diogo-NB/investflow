@@ -1,13 +1,16 @@
 import { Dialog } from '@base-ui/react/dialog';
+import { useRef } from 'react';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
 import { remunerationLabel } from '../../offers/models/offer-terms';
+import { SimulationListFilterBar } from '../../simulations/feature/simulation-list-filters';
 import type { SimulationListItem } from '../../simulations/models/simulation.types';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PlusIcon,
   SpinningRefreshIcon,
+  XIcon,
 } from '../../ui/icons';
 import { ListSkeleton } from '../../ui/list-skeleton';
 import { primaryButton, quietButton, secondaryButton } from '../../ui/styles';
@@ -57,7 +60,13 @@ function PickerRow({
   );
 }
 
-function PickerBody({ picker }: { readonly picker: Picker }) {
+function PickerBody({
+  picker,
+  onClearFilters,
+}: {
+  readonly picker: Picker;
+  readonly onClearFilters: () => void;
+}) {
   const { state } = picker;
   if (state.status === 'loading') {
     return <ListSkeleton label="Carregando simulações…" />;
@@ -73,6 +82,23 @@ function PickerBody({ picker }: { readonly picker: Picker }) {
           onClick={picker.retry}
         >
           {state.retrying ? 'Tentando…' : 'Tentar novamente'}
+        </button>
+      </div>
+    );
+  }
+  if (state.total === 0 && picker.filtered) {
+    return (
+      <div className="grid justify-items-start gap-4">
+        <p className="m-0 text-muted">
+          Nenhuma simulação corresponde aos filtros.
+        </p>
+        <button
+          type="button"
+          className={secondaryButton}
+          onClick={onClearFilters}
+        >
+          <XIcon className="size-4 shrink-0" />
+          Limpar filtros
         </button>
       </div>
     );
@@ -142,6 +168,14 @@ export function AddInvestmentPlanSimulationsDialog({
     onAdded: onClose,
   });
   const count = picker.chosen.length;
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // The button pressed is disabled or removed once the filters are cleared.
+  function clearFilters() {
+    picker.clearFilters();
+    listRef.current?.focus();
+  }
+
   return (
     <Dialog.Root
       open
@@ -156,13 +190,30 @@ export function AddInvestmentPlanSimulationsDialog({
             Adicionar simulações
           </Dialog.Title>
           <Dialog.Description className="m-0 text-muted">
-            Suas simulações, das mais recentes.{' '}
+            Suas simulações.{' '}
             {availableSlots === 1
               ? 'Cabe mais 1 neste plano.'
               : `Cabem mais ${availableSlots} neste plano.`}
           </Dialog.Description>
-          <div className="min-h-0 overflow-y-auto">
-            <PickerBody picker={picker} />
+          {/* The open filters scroll with the list so the actions stay in
+              view on short screens. */}
+          <div className="grid min-h-0 content-start gap-4 overflow-y-auto">
+            <SimulationListFilterBar
+              filters={picker.filters}
+              sort={picker.sort}
+              onChange={picker.setFilter}
+              onSortChange={picker.setSort}
+              onClear={clearFilters}
+            />
+            <div
+              ref={listRef}
+              tabIndex={-1}
+              role="region"
+              aria-label="Simulações"
+              className="outline-none"
+            >
+              <PickerBody picker={picker} onClearFilters={clearFilters} />
+            </div>
           </div>
           <div className="grid gap-3">
             <p aria-live="polite" className="m-0 text-sm text-muted">

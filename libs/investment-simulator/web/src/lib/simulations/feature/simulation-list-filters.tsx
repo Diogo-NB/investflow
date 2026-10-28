@@ -19,10 +19,16 @@ import {
   CurveIcon,
   FilterIcon,
   OfferIcon,
+  SearchIcon,
   XIcon,
   type IconComponent,
 } from '../../ui/icons';
-import { quietButton, secondaryButton } from '../../ui/styles';
+import {
+  bareInput,
+  fieldBox,
+  quietButton,
+  secondaryButton,
+} from '../../ui/styles';
 import { simulationOptionsQuery } from '../api/simulation-api';
 import type {
   CalculationStatus,
@@ -205,13 +211,19 @@ export function SimulationListFilterBar({
   const [expanded, setExpanded] = useState(false);
   const active = Object.keys(filters).length;
 
+  // Laid out by its own width, not the window's: the page and the investment
+  // plan's picker dialog both render it.
   return (
-    <div role="search" aria-label="Filtrar simulações" className="grid gap-4">
+    <div
+      role="search"
+      aria-label="Filtrar simulações"
+      className="@container grid gap-4"
+    >
       {/* Sorting narrows nothing, so it stays out of the collapsed filters. */}
       <div className="flex items-end gap-3">
         <button
           type="button"
-          className={`${secondaryButton} shrink-0 sm:hidden`}
+          className={`${secondaryButton} shrink-0 @xl:hidden`}
           aria-expanded={expanded}
           aria-controls={panelId}
           onClick={() => setExpanded(!expanded)}
@@ -225,14 +237,46 @@ export function SimulationListFilterBar({
             ▾
           </span>
         </button>
-        <div className="min-w-0 flex-1 sm:ml-auto sm:max-w-72">
+        <div className="min-w-0 flex-1 @xl:ml-auto @xl:max-w-72">
           <SimulationSortField sort={sort} onSortChange={onSortChange} />
         </div>
       </div>
       <div
         id={panelId}
-        className={`${expanded ? 'grid' : 'hidden'} items-end gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]`}
+        className={`${expanded ? 'grid' : 'hidden'} items-end gap-4 @lg:grid-cols-2 @xl:grid @4xl:grid-cols-[repeat(5,minmax(0,1fr))_auto]`}
       >
+        <form
+          // A new search remounts the field with the current one.
+          key={filters.q}
+          className="col-span-full flex items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const q = String(new FormData(event.currentTarget).get('q') ?? '');
+            onChange('q', q.trim() || null);
+          }}
+        >
+          <div className="min-w-0 flex-1">
+            <FormField label="Buscar por oferta ou emissor">
+              {(control) => (
+                <div className={fieldBox}>
+                  <SearchIcon className="ml-3 size-5 shrink-0 text-muted" />
+                  <input
+                    {...control}
+                    name="q"
+                    type="search"
+                    maxLength={100}
+                    defaultValue={filters.q}
+                    className={bareInput}
+                  />
+                </div>
+              )}
+            </FormField>
+          </div>
+          <button type="submit" className={secondaryButton}>
+            <SearchIcon className="size-4 shrink-0" />
+            Buscar
+          </button>
+        </form>
         <FilterSelect
           label="Oferta"
           icon={OfferIcon}

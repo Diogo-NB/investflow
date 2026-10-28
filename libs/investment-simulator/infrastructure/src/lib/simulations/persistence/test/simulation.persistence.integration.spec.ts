@@ -621,6 +621,31 @@ describe('Simulation PostgreSQL persistence', () => {
     ).rejects.toThrow();
   });
 
+  it("searches the owner's simulations by offer name or issuer, ignoring case", async () => {
+    const { simulation } = await savedSimulation();
+    const list = new ListSimulationsQueryHandler(prisma);
+    const ids = async (q: string) =>
+      (
+        await list.execute({ ownerId, page: 1, pageSize: 100, q })
+      ).value.items.map((item) => item.id);
+
+    expect(await ids('INTEGRATION 105')).toContain(simulation.id);
+    expect(await ids(issuerName.slice(-12).toUpperCase())).toContain(
+      simulation.id,
+    );
+    expect(await ids('Sem correspondência')).toEqual([]);
+    expect(
+      (
+        await list.execute({
+          ownerId: `other-${generateUuid()}`,
+          page: 1,
+          pageSize: 100,
+          q: issuerName,
+        })
+      ).value.total,
+    ).toBe(0);
+  });
+
   it('lists by net annual return, simulations without a result last', async () => {
     const { offer, curve } = await savedSimulation(ETitleType.LCI);
     await savedSimulation(ETitleType.CDB);

@@ -14,15 +14,19 @@ any of them changes.
 
 - `/simulacoes` lists the user's simulations, 20 per page (`page` URL
   parameter, corrected by navigation when stale).
-  - A filter bar of Base UI Selects narrows the list by offer, curve, title
-    type, remuneration kind, and calculation status, with "Limpar filtros".
+  - A filter bar narrows the list with a submitted search by offer name or
+    issuer ("Buscar por oferta ou emissor") and Base UI Selects by offer,
+    curve, title type, remuneration kind, and calculation status, with
+    "Limpar filtros".
     The offer and curve choices come from the options query the workspace
     already caches; an offer or curve no longer listed shows as "Oferta
     excluída" or "Curva excluída". There is no index filter: the remuneration
     kind fixes the index. Offers that cannot be calculated yet stay
     selectable, and "Calculada" notes that it includes outdated results.
-    Below 640px the filters collapse behind "Filtros (N)", N counting the
-    active ones.
+    The bar lays out by its own width, since the investment plan picker
+    reuses it: narrower than 36rem (below about 656px on this page) the
+    filters collapse behind "Filtros (N)", N counting the active ones,
+    including the search.
   - A status line above the list states the total ("N simulações", or "N
     simulações encontradas" when filtered) and "Atualizando simulações…"
     while a newer page or filter loads, during which the previous rows stay
@@ -33,10 +37,11 @@ any of them changes.
     come last, and an outdated one ranks by its last result, still tagged.
     It is the `sort` URL parameter (`netAnnualReturn`, omitted for the
     default), kept with the filters and reset to page 1 when changed. Sorting
-    is not filtering: below 640px it stays visible beside "Filtros (N)",
+    is not filtering: when the filters collapse it stays visible beside "Filtros (N)",
     outside the collapsed filters, and does not count toward N.
-  - The filters live in the URL under the API's names (`offerId`, `curveId`,
-    `titleType`, `remunerationKind`, `calculationStatus`). Changing one
+  - The filters live in the URL under the API's names (`q`, `offerId`,
+    `curveId`, `titleType`, `remunerationKind`, `calculationStatus`); a
+    search is trimmed, up to 100 characters. Changing one
     resets to page 1, and an invalid value is dropped by navigating with
     `replace`. The list's parameters carry to a simulation's page and back
     to the list, including after deleting it.
