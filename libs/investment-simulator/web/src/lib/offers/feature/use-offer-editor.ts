@@ -53,14 +53,12 @@ function describeProblem(error: unknown): OfferSaveProblem {
   };
 }
 
-interface SaveRequest {
+interface EditRequest {
+  readonly baseline: OfferSummary;
   readonly values: OfferFormValues;
-  // The offer the form started from; absent when creating one.
-  readonly baseline: OfferSummary | null;
-  // Runs before leaving, while the save is still pending, so the unsaved
-  // changes guard never asks.
-  readonly onSaved: () => void;
 }
+
+type OnProblem = (problem: OfferSaveProblem) => void;
 
 export function useOfferEditor(offerId: string | undefined) {
   const fetchFn = useApiFetch();
@@ -76,52 +74,45 @@ export function useOfferEditor(offerId: string | undefined) {
   // Bumped after a reload so the editor restarts from the version read.
   const [loadGeneration, setLoadGeneration] = useState(0);
 
-  const save = useMutation({
+  // Both run their follow-up while still pending, so the unsaved-changes
+  // guard lets the navigation through. Only steps that cannot fail belong
+  // there: a failure would report the saved offer as unsaved.
+  const create = useMutation({
     retry: 0,
-    mutationFn: async ({ values, baseline }: SaveRequest) => {
-      if (!baseline) {
-        const created = await createOffer(fetchFn, toOfferInput(values));
-        return created.offerId;
-      }
-      await editOffer(fetchFn, baseline.id, offerEdit(baseline, values));
-      return baseline.id;
+    mutationFn: (values: OfferFormValues) =>
+      createOffer(fetchFn, toOfferInput(values)),
+    onSuccess: async ({ offerId: createdId }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: offerKeys.lists() }),
+        // The new offer joins the simulation form's options.
+        queryClient.invalidateQueries({ queryKey: simulationKeys.options() }),
+      ]);
+      navigate(`/ofertas/${createdId}${listSearch}`, { replace: true });
     },
-    onSuccess: async (savedId, { onSaved }) => {
+  });
+  const edit = useMutation({
+    retry: 0,
+    mutationFn: ({ baseline, values }: EditRequest) =>
+      editOffer(fetchFn, baseline.id, offerEdit(baseline, values)),
+    onSuccess: async (_, { baseline }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: offerKeys.all }),
         // Their simulations show the offer's new terms.
         queryClient.invalidateQueries({ queryKey: simulationKeys.all }),
       ]);
-      onSaved();
-      navigate(`/ofertas/${savedId}${listSearch}`, {
-        replace: offerId === undefined,
-      });
+      navigate(`/ofertas/${baseline.id}${listSearch}`);
     },
   });
+  const mutation = offerId === undefined ? create : edit;
 
   // Rendered pending state lags a double click; this guard does not.
   const saving = useRef(false);
-
-  function run(
-    values: OfferFormValues,
-    baseline: OfferSummary | null,
-    callbacks: {
-      onSaved: () => void;
-      onProblem: (problem: OfferSaveProblem) => void;
+  const settle = (onProblem: OnProblem) => ({
+    onError: (error: unknown) => onProblem(describeProblem(error)),
+    onSettled: () => {
+      saving.current = false;
     },
-  ) {
-    if (saving.current) return;
-    saving.current = true;
-    save.mutate(
-      { values, baseline, onSaved: callbacks.onSaved },
-      {
-        onError: (error) => callbacks.onProblem(describeProblem(error)),
-        onSettled: () => {
-          saving.current = false;
-        },
-      },
-    );
-  }
+  });
 
   const setup = (() => {
     if (offerId === undefined) {
@@ -157,13 +148,28 @@ export function useOfferEditor(offerId: string | undefined) {
     retrySetup: () => void detail.refetch(),
     simulations: simulations.state,
     save: {
-      run,
-      pending: save.isPending,
+      create: (values: OfferFormValues, onProblem: OnProblem) => {
+        if (saving.current) return;
+        saving.current = true;
+        create.mutate(values, settle(onProblem));
+      },
+      edit: (
+        baseline: OfferSummary,
+        values: OfferFormValues,
+        onProblem: OnProblem,
+      ) => {
+        if (saving.current) return;
+        saving.current = true;
+        edit.mutate({ baseline, values }, settle(onProblem));
+      },
+      pending: mutation.isPending,
       problem:
-        !save.isPending && save.error ? describeProblem(save.error) : null,
+        !mutation.isPending && mutation.error
+          ? describeProblem(mutation.error)
+          : null,
       // Loads the version saved elsewhere; the editor restarts from it.
       reload: async () => {
-        save.reset();
+        edit.reset();
         await detail.refetch();
         setLoadGeneration((generation) => generation + 1);
       },

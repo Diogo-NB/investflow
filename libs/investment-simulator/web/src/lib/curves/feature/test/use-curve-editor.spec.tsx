@@ -112,26 +112,20 @@ describe('useCurveEditor', () => {
   it('creates a curve and opens it, keeping the list parameters', async () => {
     const api = fakeApi({ [`POST ${API}/curves`]: { curveId: 'new-curve' } });
     const { result } = render(api, undefined, '/curvas/nova?index=IPCA');
-    const onSaved = vi.fn();
 
     act(() =>
-      result.current.hook.save.run(
-        {
-          index: 'IPCA',
-          name: ' IPCA base ',
-          description: '',
-          intervals: [{ start: '01/2027', end: '12/2027', value: '0,4' }],
-        },
-        null,
-        onSaved,
-      ),
+      result.current.hook.save.create({
+        index: 'IPCA',
+        name: ' IPCA base ',
+        description: '',
+        intervals: [{ start: '01/2027', end: '12/2027', value: '0,4' }],
+      }),
     );
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/curvas/new-curve'),
     );
     expect(result.current.location.search).toBe('?index=IPCA');
-    expect(onSaved).toHaveBeenCalled();
     expect(api.bodies(`POST ${API}/curves`)).toEqual([
       {
         index: 'IPCA',
@@ -163,8 +157,8 @@ describe('useCurveEditor', () => {
     });
 
     act(() => {
-      result.current.hook.save.run(values, curve, vi.fn());
-      result.current.hook.save.run(values, curve, vi.fn());
+      result.current.hook.save.edit(curve, values);
+      result.current.hook.save.edit(curve, values);
     });
     await waitFor(() =>
       expect(api.calls()).toContain(`PATCH ${API}/curves/${CURVE_ID}`),
@@ -195,21 +189,18 @@ describe('useCurveEditor', () => {
     });
     const { result } = render(api, CURVE_ID, `/curvas/${CURVE_ID}/editar`);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-    const onSaved = vi.fn();
 
     act(() =>
-      result.current.hook.save.run(
-        { ...curveValues(curve), name: 'Outro' },
-        curve,
-        onSaved,
-      ),
+      result.current.hook.save.edit(curve, {
+        ...curveValues(curve),
+        name: 'Outro',
+      }),
     );
     await waitFor(() =>
       expect(result.current.hook.save.problem).toMatchObject({
         conflict: true,
       }),
     );
-    expect(onSaved).not.toHaveBeenCalled();
     expect(result.current.location.pathname).toBe(`/curvas/${CURVE_ID}/editar`);
 
     await act(() => result.current.hook.save.reload());
@@ -230,7 +221,7 @@ describe('useCurveEditor', () => {
     });
     const { result } = render(api, undefined, '/curvas/nova');
 
-    act(() => result.current.hook.save.run(curveValues(curve), null, vi.fn()));
+    act(() => result.current.hook.save.create(curveValues(curve)));
 
     await waitFor(() =>
       expect(result.current.hook.save.problem).toEqual({

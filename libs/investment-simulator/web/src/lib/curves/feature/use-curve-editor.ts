@@ -90,13 +90,9 @@ function useBaseCurves(enabled: boolean) {
   };
 }
 
-interface SaveRequest {
+interface EditRequest {
+  readonly baseline: CurveDetail;
   readonly values: CurveFormValues;
-  // The curve the form started from; absent when creating one.
-  readonly baseline: CurveDetail | null;
-  // Runs before leaving, while the save is still pending, so the unsaved
-  // changes guard never asks.
-  readonly onSaved: () => void;
 }
 
 export function useCurveEditor(curveId: string | undefined) {
@@ -114,48 +110,44 @@ export function useCurveEditor(curveId: string | undefined) {
   const [loadGeneration, setLoadGeneration] = useState(0);
   const bases = useBaseCurves(curveId === undefined);
 
-  const save = useMutation({
+  // Both run their follow-up while still pending, so the unsaved-changes
+  // guard lets the navigation through. Only steps that cannot fail belong
+  // there: a failure would report the saved curve as unsaved.
+  const create = useMutation({
     retry: 0,
-    mutationFn: async ({ values, baseline }: SaveRequest) => {
-      if (!baseline) {
-        const created = await createCurve(fetchFn, toCurveInput(values));
-        return created.curveId;
-      }
-      await editCurve(fetchFn, baseline.id, curveEdit(baseline, values));
-      return baseline.id;
+    mutationFn: (values: CurveFormValues) =>
+      createCurve(fetchFn, toCurveInput(values)),
+    onSuccess: async ({ curveId: createdId }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: curveKeys.lists() }),
+        // The new curve joins the simulation form's options.
+        queryClient.invalidateQueries({ queryKey: simulationKeys.options() }),
+      ]);
+      navigate(`/curvas/${createdId}${listSearch}`, { replace: true });
     },
-    onSuccess: async (savedId, { onSaved }) => {
+  });
+  const edit = useMutation({
+    retry: 0,
+    mutationFn: ({ baseline, values }: EditRequest) =>
+      editCurve(fetchFn, baseline.id, curveEdit(baseline, values)),
+    onSuccess: async (_, { baseline }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: curveKeys.all }),
         // Simulation options list the curve, and its simulations are outdated.
         queryClient.invalidateQueries({ queryKey: simulationKeys.all }),
       ]);
-      onSaved();
-      navigate(`/curvas/${savedId}${listSearch}`, {
-        replace: curveId === undefined,
-      });
+      navigate(`/curvas/${baseline.id}${listSearch}`);
     },
   });
+  const mutation = curveId === undefined ? create : edit;
 
   // Rendered pending state lags a double click; this guard does not.
   const saving = useRef(false);
-
-  function run(
-    values: CurveFormValues,
-    baseline: CurveDetail | null,
-    onSaved: () => void,
-  ) {
-    if (saving.current) return;
-    saving.current = true;
-    save.mutate(
-      { values, baseline, onSaved },
-      {
-        onSettled: () => {
-          saving.current = false;
-        },
-      },
-    );
-  }
+  const settle = {
+    onSettled: () => {
+      saving.current = false;
+    },
+  };
 
   const setup = (() => {
     if (curveId === undefined) {
@@ -195,13 +187,24 @@ export function useCurveEditor(curveId: string | undefined) {
     simulations: simulations.state,
     bases,
     save: {
-      run,
-      pending: save.isPending,
+      create: (values: CurveFormValues) => {
+        if (saving.current) return;
+        saving.current = true;
+        create.mutate(values, settle);
+      },
+      edit: (baseline: CurveDetail, values: CurveFormValues) => {
+        if (saving.current) return;
+        saving.current = true;
+        edit.mutate({ baseline, values }, settle);
+      },
+      pending: mutation.isPending,
       problem:
-        !save.isPending && save.error ? describeProblem(save.error) : null,
+        !mutation.isPending && mutation.error
+          ? describeProblem(mutation.error)
+          : null,
       // Loads the version saved elsewhere; the editor restarts from it.
       reload: async () => {
-        save.reset();
+        edit.reset();
         await detail.refetch();
         setLoadGeneration((generation) => generation + 1);
       },

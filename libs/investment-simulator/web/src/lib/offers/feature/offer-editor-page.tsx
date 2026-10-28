@@ -39,7 +39,7 @@ import {
   type OfferFormValues,
 } from '../utils/offer-form';
 import type { OfferSimulationsState } from './use-offer-details';
-import { useOfferEditor } from './use-offer-editor';
+import { useOfferEditor, type OfferSaveProblem } from './use-offer-editor';
 
 type Editor = ReturnType<typeof useOfferEditor>;
 
@@ -105,19 +105,19 @@ function OfferEditorForm({
   const pending = save.pending;
   const problem = save.problem;
 
+  function focusProblem(problem: OfferSaveProblem) {
+    if (!problem.field) return;
+    form.setError(
+      problem.field,
+      { type: 'server', message: problem.message },
+      { shouldFocus: true },
+    );
+  }
+
   const submit = form.handleSubmit((values) =>
-    save.run(values, baseline, {
-      onSaved: () => form.reset(values),
-      onProblem: (next) => {
-        if (next.field) {
-          form.setError(
-            next.field,
-            { type: 'server', message: next.message },
-            { shouldFocus: true },
-          );
-        }
-      },
-    }),
+    baseline
+      ? save.edit(baseline, values, focusProblem)
+      : save.create(values, focusProblem),
   );
 
   return (

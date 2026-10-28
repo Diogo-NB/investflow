@@ -34,8 +34,6 @@ const routes = {
   },
 };
 
-const callbacks = () => ({ onSaved: vi.fn(), onProblem: vi.fn() });
-
 function render(
   api: ReturnType<typeof fakeApi>,
   id: string | undefined,
@@ -91,15 +89,13 @@ describe('useOfferEditor', () => {
       titleType: 'LCI',
       issuerName: ' ',
     };
-    const saved = callbacks();
 
-    act(() => result.current.hook.save.run(values, null, saved));
+    act(() => result.current.hook.save.create(values, vi.fn()));
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/ofertas/new-offer'),
     );
     expect(result.current.location.search).toBe('?titleType=LCI');
-    expect(saved.onSaved).toHaveBeenCalled();
     expect(api.bodies(`POST ${API}/offers`)).toEqual([
       {
         titleType: 'LCI',
@@ -126,8 +122,8 @@ describe('useOfferEditor', () => {
     const values = { ...offerValues(offer), name: 'CDB renomeado' };
 
     act(() => {
-      result.current.hook.save.run(values, offer, callbacks());
-      result.current.hook.save.run(values, offer, callbacks());
+      result.current.hook.save.edit(offer, values, vi.fn());
+      result.current.hook.save.edit(offer, values, vi.fn());
     });
     await waitFor(() =>
       expect(api.calls()).toContain(`PATCH ${API}/offers/${OFFER_ID}`),
@@ -152,13 +148,13 @@ describe('useOfferEditor', () => {
     });
     const { result } = render(api, OFFER_ID, `/ofertas/${OFFER_ID}/editar`);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-    const saved = callbacks();
+    const onProblem = vi.fn();
 
     act(() =>
-      result.current.hook.save.run(
-        { ...offerValues(offer), name: 'Outro' },
+      result.current.hook.save.edit(
         offer,
-        saved,
+        { ...offerValues(offer), name: 'Outro' },
+        onProblem,
       ),
     );
     await waitFor(() =>
@@ -167,7 +163,7 @@ describe('useOfferEditor', () => {
         field: null,
       }),
     );
-    expect(saved.onSaved).not.toHaveBeenCalled();
+    expect(onProblem).toHaveBeenCalled();
     expect(result.current.location.pathname).toBe(
       `/ofertas/${OFFER_ID}/editar`,
     );
@@ -184,12 +180,12 @@ describe('useOfferEditor', () => {
       [`POST ${API}/offers`]: apiFailure(400, 'INVALID_OFFER'),
     });
     const { result } = render(api, undefined, '/ofertas/nova');
-    const saved = callbacks();
+    const onProblem = vi.fn();
 
-    act(() => result.current.hook.save.run(offerValues(offer), null, saved));
+    act(() => result.current.hook.save.create(offerValues(offer), onProblem));
 
-    await waitFor(() => expect(saved.onProblem).toHaveBeenCalled());
-    expect(saved.onProblem.mock.calls[0][0]).toMatchObject({
+    await waitFor(() => expect(onProblem).toHaveBeenCalled());
+    expect(onProblem.mock.calls[0][0]).toMatchObject({
       field: 'name',
       conflict: false,
     });

@@ -716,7 +716,11 @@ function CurveEditorForm({
 
   const submit = form.handleSubmit((values) => {
     setUndo(null);
-    save.run(values, baseline, () => form.reset(values));
+    if (baseline) {
+      save.edit(baseline, values);
+    } else {
+      save.create(values);
+    }
   });
 
   return (
