@@ -17,17 +17,19 @@ import { BuildSimulationComparisonQuery } from './build-simulation-comparison.qu
 import { BuildSimulationComparisonUseCase } from './build-simulation-comparison.use-case';
 
 const OWNER = 'owner';
+const INPUT_FINGERPRINT = SimulationResult.inputFingerprintFor({
+  simulationRevision: 1,
+  offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+  curveValuesRevision: null,
+});
 
 function compared(id: string, netAnnualReturn: string): ComparedSimulation {
   return ComparedSimulation.create({
     id,
     calculationStatus: ESimulationCalculationStatus.CALCULATED,
-    simulationRevision: 1,
-    titleType: ETitleType.CDB,
-    offerTermsRevision: 1,
-    curveValuesRevision: null,
+    currentInputFingerprint: INPUT_FINGERPRINT,
     lastResult: {
-      inputs: SimulationResult.targetFor(1, ETitleType.CDB, 1, null),
+      inputFingerprint: INPUT_FINGERPRINT,
       principal: Money.of('1000'),
       investmentDate: CalendarDate.of('2026-01-02'),
       maturityDate: CalendarDate.of('2027-01-04'),

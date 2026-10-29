@@ -152,7 +152,7 @@ export class PrismaSimulationRepository
     stored: StoredState,
   ): Promise<void> {
     const { simulationId, ...calculation } = data.calculation;
-    const { simulationRevision } = stored.calculation.inputs;
+    const { simulationRevision } = stored.calculation;
     const { count } = await client.simulationCalculation.updateMany({
       where: {
         simulationId,

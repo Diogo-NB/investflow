@@ -1,16 +1,16 @@
-import { CalendarDate, Money, ValueObject } from '@investflow/shared-domain';
-import { RedemptionTerms } from '../offers/terms/redemption/redemption-terms.vo';
-import { ETitleType } from '../offers/title-type.enum';
-import { ESimulationCalculationStatus } from '../simulations/simulation-calculation.vo';
 import {
-  SimulationResult,
-  SimulationResultInputs,
-} from '../simulations/simulation-result.vo';
+  CalendarDate,
+  InputFingerprint,
+  Money,
+  ValueObject,
+} from '@investflow/shared-domain';
+import { RedemptionTerms } from '../offers/terms/redemption/redemption-terms.vo';
+import { ESimulationCalculationStatus } from '../simulations/simulation-calculation.vo';
 
-// What a member's last successful result returns at maturity, and the
-// revisions and methodology it was calculated from.
+// What a member's last successful result returns at maturity, and what it
+// was calculated from.
 export interface InvestmentPlanMemberResult {
-  readonly inputs: SimulationResultInputs;
+  readonly inputFingerprint: InputFingerprint;
   readonly principal: Money;
   readonly iof: Money;
   readonly incomeTax: Money;
@@ -21,12 +21,9 @@ export interface InvestmentPlanMemberResult {
 
 export interface InvestmentPlanMemberProps {
   readonly calculationStatus: ESimulationCalculationStatus;
-  // The premises the simulation is at now; its result is current only when
-  // it was calculated from them.
-  readonly simulationRevision: number;
-  readonly titleType: ETitleType;
-  readonly offerTermsRevision: number;
-  readonly curveValuesRevision: number | null;
+  // Of the premises the simulation is at now; its result is current only
+  // when it was calculated from them.
+  readonly currentInputFingerprint: InputFingerprint;
   // The offer's current terms: results don't record liquidity.
   readonly redemptionTerms: RedemptionTerms;
   readonly lastResult: InvestmentPlanMemberResult | null;
@@ -57,28 +54,19 @@ export class InvestmentPlanMember extends ValueObject<InvestmentPlanMember> {
 
   // False without a result.
   get isResultCurrent(): boolean {
-    const { lastResult } = this.props;
     return (
-      lastResult !== null &&
-      SimulationResult.isCurrent(
-        lastResult.inputs,
-        SimulationResult.targetFor(
-          this.props.simulationRevision,
-          this.props.titleType,
-          this.props.offerTermsRevision,
-          this.props.curveValuesRevision,
-        ),
-      )
+      this.props.lastResult?.inputFingerprint.equals(
+        this.props.currentInputFingerprint,
+      ) ?? false
     );
   }
 
   equals(other: InvestmentPlanMember): boolean {
     return (
       this.props.calculationStatus === other.props.calculationStatus &&
-      this.props.simulationRevision === other.props.simulationRevision &&
-      this.props.titleType === other.props.titleType &&
-      this.props.offerTermsRevision === other.props.offerTermsRevision &&
-      this.props.curveValuesRevision === other.props.curveValuesRevision &&
+      this.props.currentInputFingerprint.equals(
+        other.props.currentInputFingerprint,
+      ) &&
       this.props.redemptionTerms.equals(other.props.redemptionTerms) &&
       sameResult(this.props.lastResult, other.props.lastResult)
     );
@@ -91,7 +79,7 @@ function sameResult(
 ): boolean {
   if (a === null || b === null) return a === b;
   return (
-    SimulationResult.isCurrent(a.inputs, b.inputs) &&
+    a.inputFingerprint.equals(b.inputFingerprint) &&
     a.principal.equals(b.principal) &&
     a.iof.equals(b.iof) &&
     a.incomeTax.equals(b.incomeTax) &&

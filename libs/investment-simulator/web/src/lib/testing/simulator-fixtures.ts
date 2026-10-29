@@ -109,7 +109,6 @@ export function simulationResult(
 ): SimulationResult {
   return {
     calculatedAt: '2026-10-10T12:00:00.000Z',
-    methodologyVersion: 'cdb-252-v1',
     outdated: false,
     principal: '10000',
     term: {

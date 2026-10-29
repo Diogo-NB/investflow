@@ -5,8 +5,14 @@ import {
   ETitleType,
   InvestmentPlanMember,
   RedemptionTerms,
+  SimulationResult,
 } from '@investflow/investment-simulator-domain';
-import { CalendarDate, Money, Result } from '@investflow/shared-domain';
+import {
+  CalendarDate,
+  InputFingerprint,
+  Money,
+  Result,
+} from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { InvestmentPlanQueryError } from '../queries/investment-plan-query.error';
@@ -22,10 +28,7 @@ const memberSelect = {
       calculation: { select: { status: true } },
       result: {
         select: {
-          simulationRevision: true,
-          offerTermsRevision: true,
-          curveValuesRevision: true,
-          methodologyVersion: true,
+          inputFingerprint: true,
           principal: true,
           iof: true,
           incomeTax: true,
@@ -92,18 +95,17 @@ export class PrismaInvestmentPlanMemberReader
     }
     return InvestmentPlanMember.create({
       calculationStatus: calculation.status as ESimulationCalculationStatus,
-      simulationRevision: simulation.revision,
-      titleType: offer.titleType as ETitleType,
-      offerTermsRevision: offer.termsRevision,
-      curveValuesRevision: curve?.valuesRevision ?? null,
+      currentInputFingerprint: SimulationResult.inputFingerprintFor({
+        simulationRevision: simulation.revision,
+        offer: {
+          titleType: offer.titleType as ETitleType,
+          termsRevision: offer.termsRevision,
+        },
+        curveValuesRevision: curve?.valuesRevision ?? null,
+      }),
       redemptionTerms: RedemptionTerms.create(offer.redemptionType),
       lastResult: result && {
-        inputs: {
-          simulationRevision: result.simulationRevision,
-          offerTermsRevision: result.offerTermsRevision,
-          curveValuesRevision: result.curveValuesRevision,
-          methodologyVersion: result.methodologyVersion,
-        },
+        inputFingerprint: InputFingerprint.restore(result.inputFingerprint),
         principal: Money.of(result.principal.toFixed()),
         iof: Money.of(result.iof.toFixed()),
         incomeTax: Money.of(result.incomeTax.toFixed()),

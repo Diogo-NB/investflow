@@ -144,14 +144,15 @@ Each simulation has one row in `simulation_calculation`, next to its
 `simulation_result`. It is part of the `Simulation` aggregate as the
 `SimulationCalculation` value object.
 
-| Field                                                                  | Holds                                                                                                                     |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `status`                                                               | `PENDING`, `CALCULATED`, `INVALID`, or `FAILED`                                                                           |
-| `changed_at`                                                           | When it entered this status                                                                                               |
-| `cause_kind`                                                           | Why it was last queued (list below)                                                                                       |
-| `cause_actor_id`                                                       | Who made the change; `null` for system processes                                                                          |
-| `simulation_revision`, `offer_terms_revision`, `curve_values_revision` | The inputs this status applies to: the simulation revision, the offer's `termsRevision`, and the curve's `valuesRevision` |
-| `reason_code`, `reason_metadata`                                       | Only for `INVALID`: the stable error code and details, such as uncovered periods                                          |
+| Field                            | Holds                                                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `status`                         | `PENDING`, `CALCULATED`, `INVALID`, or `FAILED`                                                                           |
+| `changed_at`                     | When it entered this status                                                                                               |
+| `cause_kind`                     | Why it was last queued (list below)                                                                                       |
+| `cause_actor_id`                 | Who made the change; `null` for system processes                                                                          |
+| `simulation_revision`            | The simulation revision this status was written for; an outcome is saved only while it still matches                      |
+| `input_fingerprint`              | Only for `CALCULATED` and `INVALID`: what the outcome was calculated from (see "Input fingerprint" in `recalculation.md`) |
+| `reason_code`, `reason_metadata` | Only for `INVALID`: the stable error code and details, such as uncovered periods                                          |
 
 Causes: `CREATED`, `SIMULATION_EDITED`, `METHODOLOGY_CHANGED`,
 `RETRY_REQUESTED`. There are no offer or curve causes: fan-out writes no

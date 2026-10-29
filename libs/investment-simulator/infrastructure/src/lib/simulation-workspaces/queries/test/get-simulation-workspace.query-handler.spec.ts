@@ -1,3 +1,7 @@
+import {
+  ETitleType,
+  SimulationResult,
+} from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
 import { CalendarDate, EAppErrorCode } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
@@ -8,12 +12,18 @@ jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
 const date = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
+// The fingerprint of the workspace's premises unless overridden.
+function recordedFrom({ titleType = ETitleType.CDB } = {}) {
+  return SimulationResult.inputFingerprintFor({
+    simulationRevision: 2,
+    offer: { titleType, termsRevision: 3 },
+    curveValuesRevision: 4,
+  }).toString();
+}
+
 function result(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    simulationRevision: 2,
-    offerTermsRevision: 3,
-    curveValuesRevision: 4,
-    methodologyVersion: 'cdb-252-v1',
+    inputFingerprint: recordedFrom(),
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
     investmentDate: date('2026-01-02'),
     maturityDate: date('2026-03-02'),
@@ -167,7 +177,6 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     });
     expect(output.value.result).toEqual({
       calculatedAt: '2026-10-10T12:00:00.000Z',
-      methodologyVersion: 'cdb-252-v1',
       outdated: false,
       principal: '1000.5',
       term: {
@@ -259,7 +268,11 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     ['the curve values changed', workspace({ curve: { valuesRevision: 5 } })],
     [
       'the methodology changed',
-      workspace({ result: result({ methodologyVersion: 'cdb-252-v0' }) }),
+      workspace({
+        result: result({
+          inputFingerprint: recordedFrom({ titleType: ETitleType.LCI }),
+        }),
+      }),
     ],
   ])('flags the result as outdated when %s', async (_, record) => {
     const output = await setup(record)();
@@ -308,7 +321,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
       workspace({
         offer: { titleType: 'LCI' },
         result: result({
-          methodologyVersion: 'lci-252-v1',
+          inputFingerprint: recordedFrom({ titleType: ETitleType.LCI }),
           incomeTaxRate: null,
           incomeTax: new Prisma.Decimal('0'),
         }),

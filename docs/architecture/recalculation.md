@@ -11,8 +11,8 @@ append-only calculation history kept for reproducibility). Product rules are in
 **Status:** partly implemented. Curves and offers are built on this model:
 independent `Curve` and `Offer` aggregates with owners, revisions, and events
 in the outbox. `Simulation` references an offer and an optional curve, has its
-own revision, and keeps one current `SimulationResult` recording the
-simulation, offer, and curve revisions and the methodology version it used;
+own revision, and keeps one current `SimulationResult` recording the input
+fingerprint of what it was calculated from (see "Input fingerprint");
 "Digitar termos" and "Duplicar e ajustar" create a private offer in the same
 request. A simulation's own calculation is asynchronous: saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
@@ -84,15 +84,42 @@ below was settled on 2026-10-12 and revised on 2026-10-26.
   changes that affect a calculation, are what results record. Renaming an
   offer or describing a curve therefore leaves its simulations up to date.
 
+### Input fingerprint
+
+Decided 2026-10-28. A stored value derived from other state records one
+`InputFingerprint` (`@investflow/shared-domain`): the versions of the inputs
+it was computed from, as a canonical string such as
+`v1|simulation:4|offerTerms:2|curveValues:19|methodology:"cdb-252-v1"`. It is
+current exactly when the recorded fingerprint equals the one built from the
+current versions. One factory on the owner builds it,
+`SimulationResult.inputFingerprintFor()` for simulations, from the
+simulation revision, the offer's `termsRevision`, the curve's
+`valuesRevision`, and the title type's methodology version (`null` for a
+premise that could not be read).
+
+- **Compared, never parsed.** Nothing reads an input back out of a
+  fingerprint, so its encoding can change; a new input or a changed meaning
+  takes a new encoding version, which makes every recorded fingerprint
+  differ.
+- **Readable, not hashed.** The inputs are a few short values, so the string
+  itself is the fingerprint: it cannot collide and a row shows what a result
+  was computed from. Hash only inputs too large to store, such as a whole
+  curve.
+- **Revisions stay the concurrency tokens.** `revision` guards concurrent
+  edits and the worker's conditional save; the fingerprint only says what a
+  derivation was computed from.
+- **The methodology version is internal.** It is recorded only through the
+  fingerprint and never shown.
+
 ## Recalculation
 
 Settled on 2026-10-12. `docs/architecture/event-flow.md` walks through the
 flow with diagrams and every failure case.
 
-A simulation has one current result. It stores what it was computed from: the
-simulation revision, the offer's `termsRevision`, the curve's
-`valuesRevision`, and the methodology version (see Model). The target is read from the current references, not
-copied, so it can never drift from them.
+A simulation has one current result. It stores what it was computed from as
+one input fingerprint (see "Input fingerprint"). The current fingerprint is
+built from the current references, not copied, so it can never drift from
+them.
 
 The calculation state is a `SimulationCalculation` value object of the
 `Simulation` aggregate, persisted in a 1:1 `simulation_calculation` table next
@@ -105,8 +132,9 @@ to `simulation_result`; nothing about it is stored on `simulation`.
 | `INVALID`    | A business rule blocks the calculation; the reason code and metadata are stored.     |
 | `FAILED`     | A technical failure exhausted the queue's retries and the message was dead-lettered. |
 
-Every status also records `changedAt`, the simulation, offer, and curve
-revisions it applies to, and the cause of the last queuing: its kind
+Every status also records `changedAt`, the simulation revision it was
+written for, the input fingerprint of its outcome (`CALCULATED` and
+`INVALID` only), and the cause of the last queuing: its kind
 (`CREATED`, `SIMULATION_EDITED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`)
 and the actor (`null` for system processes). There are no offer or curve
 causes: fan-out writes no calculation rows, so nothing would set them, and
@@ -184,11 +212,9 @@ state is kept; there is no transition history.
   prompt.
 - **Workers skip current work.** `CalculateSimulationUseCase` returns early,
   acknowledging the message, when the calculation already applies to the
-  current inputs: a `CALCULATED` outcome recorded for the current simulation
-  revision, offer `termsRevision`, curve `valuesRevision`, and methodology
-  version; an `INVALID` one for the same revisions (it records no
-  methodology); or an `INVALID` for a missing offer or curve that is still
-  missing. `PENDING` and `FAILED` always
+  current inputs: a `CALCULATED` or `INVALID` outcome whose input
+  fingerprint equals the current one, including an `INVALID` for a missing
+  offer or curve that is still missing. `PENDING` and `FAILED` always
   calculate. Replays, duplicates, and overlapping fan-outs therefore cost one
   read.
 - **Deletion requeues like a change.** Deleting an offer or curve fans out
@@ -201,9 +227,10 @@ state is kept; there is no transition history.
 - **Convergence without a sweep.** The outbox writes each event in the same
   transaction as its change, and SQS redelivers a message until it is handled
   or dead-lettered, so no change is left without a calculation. A methodology
-  version change does not requeue anything yet (see Deferred Work).
+  version change requeues nothing: its results show "Desatualizado" until
+  the simulation is saved again.
 - **Reads** return the last successful result together with the status, its
-  cause, and the inputs it was computed from, so the screen can show
+  cause, and whether it is outdated, so the screen can show
   "Calculando" or "Requer ação" over the previous values. The details screen
   polls the same endpoint about every 3 seconds whatever the status; the
   monthly balances refetch only when the result's `calculatedAt` changes. A

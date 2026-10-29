@@ -4,6 +4,8 @@ import {
   InvestmentCalculator,
   SimulationCalculationService,
   SimulationCalculationStaleError,
+  SimulationPremiseVersions,
+  SimulationResult,
 } from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
 import {
@@ -32,6 +34,9 @@ const FAILURE = new AppError('Falhou.', {
   code: EAppErrorCode.REPOSITORY_SAVE_FAILED,
   kind: 'unexpected',
 });
+
+const recordedFrom = (premises: SimulationPremiseVersions) =>
+  SimulationResult.inputFingerprintFor(premises).toString();
 
 function setup(curveId: string | null = null) {
   const offer = catalogOffer();
@@ -71,10 +76,9 @@ describe('CalculateSimulationUseCase', () => {
     expect(simulation.calculation.cause.kind).toBe(
       ESimulationCalculationCauseKind.CREATED,
     );
-    expect(simulation.result?.inputs).toMatchObject({
-      simulationRevision: 1,
-      offerTermsRevision: offer.termsRevision,
-    });
+    expect(simulation.result?.inputFingerprint.toString()).toBe(
+      recordedFrom({ simulationRevision: 1, offer, curveValuesRevision: null }),
+    );
     expect(simulation.result?.calculatedAt).toBe(NOW);
   });
 
@@ -94,8 +98,12 @@ describe('CalculateSimulationUseCase', () => {
     expect(simulation.calculation.reason?.code).toBe(
       EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
     );
-    expect(simulation.calculation.inputs.curveValuesRevision).toBe(
-      curve.valuesRevision,
+    expect(simulation.calculation.inputFingerprint?.toString()).toBe(
+      recordedFrom({
+        simulationRevision: 1,
+        offer: cdiOffer(),
+        curveValuesRevision: curve.valuesRevision,
+      }),
     );
     expect(simulations.save).toHaveBeenCalledWith(simulation);
   });
@@ -127,11 +135,13 @@ describe('CalculateSimulationUseCase', () => {
       ESimulationCalculationStatus.INVALID,
     );
     expect(deps.simulation.calculation.reason?.code).toBe(code);
-    expect(deps.simulation.calculation.inputs).toEqual({
-      simulationRevision: 1,
-      offerTermsRevision: null,
-      curveValuesRevision: null,
-    });
+    expect(deps.simulation.calculation.inputFingerprint?.toString()).toBe(
+      recordedFrom({
+        simulationRevision: 1,
+        offer: null,
+        curveValuesRevision: null,
+      }),
+    );
   });
 
   it.each([
@@ -166,7 +176,10 @@ describe('CalculateSimulationUseCase', () => {
     expect((await execute()).isOk()).toBe(true);
 
     expect(simulations.save).toHaveBeenCalledTimes(2);
-    expect(simulation.calculation.inputs.offerTermsRevision).toBe(2);
+    expect(offer.termsRevision).toBe(2);
+    expect(simulation.calculation.inputFingerprint?.toString()).toBe(
+      recordedFrom({ simulationRevision: 1, offer, curveValuesRevision: null }),
+    );
   });
 
   it('skips an invalid outcome recorded for the current inputs', async () => {

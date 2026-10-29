@@ -130,11 +130,12 @@ model SimulationCalculation {
   causeKind           SimulationCalculationCauseKind @map("cause_kind")
   // Null for system processes.
   causeActorId        String?                        @map("cause_actor_id")
-  // The inputs the status applies to; outcomes are written only while the
-  // simulation revision still matches.
+  // The simulation revision the status was written for; outcomes are written
+  // only while it still matches.
   simulationRevision  Int                            @map("simulation_revision")
-  offerTermsRevision  Int?                           @map("offer_terms_revision")
-  curveValuesRevision Int?                           @map("curve_values_revision")
+  // Only for CALCULATED and INVALID: what the outcome was calculated from
+  // (InputFingerprint); compared, never parsed.
+  inputFingerprint    String?                        @map("input_fingerprint")
   // Only for INVALID.
   reasonCode          String?                        @map("reason_code")
   reasonMetadata      Json?                          @map("reason_metadata")
@@ -145,10 +146,9 @@ model SimulationCalculation {
 
 model SimulationResult {
   simulationId              String                    @id @map("simulation_id") @db.Uuid
-  simulationRevision        Int                       @map("simulation_revision")
-  offerTermsRevision        Int                       @map("offer_terms_revision")
-  curveValuesRevision       Int?                      @map("curve_values_revision")
-  methodologyVersion        String                    @map("methodology_version")
+  // What the result was calculated from (InputFingerprint); compared, never
+  // parsed.
+  inputFingerprint          String                    @map("input_fingerprint")
   calculatedAt              DateTime                  @map("calculated_at") @db.Timestamptz(3)
   investmentDate            DateTime                  @map("investment_date") @db.Date
   maturityDate              DateTime                  @map("maturity_date") @db.Date

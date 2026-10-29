@@ -10,6 +10,12 @@ import {
 import { CalendarDate, Money, Result } from '@investflow/shared-domain';
 import { InvestmentPlanMemberReader } from '../investment-plan-member-reader.port';
 
+const INPUT_FINGERPRINT = SimulationResult.inputFingerprintFor({
+  simulationRevision: 1,
+  offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+  curveValuesRevision: null,
+});
+
 export function planMember({
   calculationStatus = ESimulationCalculationStatus.CALCULATED,
   hasResult = true,
@@ -23,14 +29,11 @@ export function planMember({
 } = {}): InvestmentPlanMember {
   return InvestmentPlanMember.create({
     calculationStatus,
-    simulationRevision: 1,
-    titleType: ETitleType.CDB,
-    offerTermsRevision: 1,
-    curveValuesRevision: null,
+    currentInputFingerprint: INPUT_FINGERPRINT,
     redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
     lastResult: hasResult
       ? {
-          inputs: SimulationResult.targetFor(1, ETitleType.CDB, 1, null),
+          inputFingerprint: INPUT_FINGERPRINT,
           principal: Money.of(principal),
           iof: Money.zero(),
           incomeTax: Money.of('20'),

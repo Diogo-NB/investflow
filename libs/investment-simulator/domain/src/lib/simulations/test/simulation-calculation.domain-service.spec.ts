@@ -1,7 +1,14 @@
-import { DomainError, EAppErrorCode, Money } from '@investflow/shared-domain';
+import {
+  CalendarDate,
+  DomainError,
+  EAppErrorCode,
+  Money,
+} from '@investflow/shared-domain';
 import { Curve } from '../../curves/curve.aggregate';
 import { Offer } from '../../offers/offer.aggregate';
+import { ETitleType } from '../../offers/title-type.enum';
 import { InvestmentInputs } from '../investment-inputs.vo';
+import { SimulationResult } from '../simulation-result.vo';
 import { Simulation } from '../simulation.aggregate';
 import {
   CALCULATED_AT,
@@ -94,12 +101,16 @@ describe('SimulationCalculationService', () => {
       );
 
       if (outcome.kind !== 'CALCULATED') throw new Error(outcome.kind);
-      expect(outcome.result.inputs).toEqual({
-        simulationRevision: 1,
-        offerTermsRevision: 1,
-        curveValuesRevision: curve.valuesRevision,
-        methodologyVersion: 'cdb-252-v1',
-      });
+      expect(outcome.simulationRevision).toBe(1);
+      expect(
+        outcome.result.inputFingerprint.equals(
+          SimulationResult.inputFingerprintFor({
+            simulationRevision: 1,
+            offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+            curveValuesRevision: curve.valuesRevision,
+          }),
+        ),
+      ).toBe(true);
       expect(outcome.result.calculatedAt).toBe(CALCULATED_AT);
       expect(
         outcome.result.projection.dailyBalances.at(-1)?.date.toIsoString(),
@@ -109,15 +120,18 @@ describe('SimulationCalculationService', () => {
     it('returns a broken rule as an invalid outcome', () => {
       const outcome = calculate(offer('CDI_PERCENTAGE'));
 
-      expect(outcome).toMatchObject({
-        kind: 'INVALID',
-        inputs: {
-          simulationRevision: 1,
-          offerTermsRevision: 1,
-          curveValuesRevision: null,
-        },
-        reason: { code: EAppErrorCode.INVESTMENT_CURVE_REQUIRED },
-      });
+      if (outcome.kind !== 'INVALID') throw new Error(outcome.kind);
+      expect(outcome.simulationRevision).toBe(1);
+      expect(outcome.reason.code).toBe(EAppErrorCode.INVESTMENT_CURVE_REQUIRED);
+      expect(
+        outcome.inputFingerprint.equals(
+          SimulationResult.inputFingerprintFor({
+            simulationRevision: 1,
+            offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+            curveValuesRevision: null,
+          }),
+        ),
+      ).toBe(true);
     });
 
     it('returns missing curve coverage as an invalid outcome', () => {
@@ -146,6 +160,54 @@ describe('SimulationCalculationService', () => {
           cdiCurve(),
         ),
       ).toThrow(DomainError);
+    });
+  });
+
+  describe('isCurrent', () => {
+    it('is not current while waiting for an outcome', () => {
+      const chosen = offer();
+
+      expect(
+        calculationService.isCurrent(
+          simulation(chosen, investment()),
+          chosen,
+          null,
+        ),
+      ).toBe(false);
+    });
+
+    it.each(['CALCULATED', 'INVALID'])(
+      'is current once a %s outcome is recorded for the premises',
+      (kind) => {
+        const chosen = offer(
+          kind === 'CALCULATED' ? 'PREFIXED' : 'CDI_PERCENTAGE',
+        );
+        const recorded = simulation(chosen, investment());
+        recorded.recordCalculation(
+          calculationService.calculate(recorded, chosen, null, CALCULATED_AT),
+          CALCULATED_AT,
+        );
+
+        expect(calculationService.isCurrent(recorded, chosen, null)).toBe(true);
+      },
+    );
+
+    it('is not current after the offer terms changed', () => {
+      const chosen = offer();
+      const recorded = simulation(chosen, investment());
+      recorded.recordCalculation(
+        calculationService.calculate(recorded, chosen, null, CALCULATED_AT),
+        CALCULATED_AT,
+      );
+
+      chosen.markPersisted();
+      chosen.edit(
+        { maturityDate: CalendarDate.of('2026-01-07') },
+        CALCULATED_AT,
+      );
+
+      expect(chosen.termsRevision).toBe(2);
+      expect(calculationService.isCurrent(recorded, chosen, null)).toBe(false);
     });
   });
 });

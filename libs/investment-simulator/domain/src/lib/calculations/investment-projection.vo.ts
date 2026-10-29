@@ -17,8 +17,6 @@ export interface DailyInvestmentBalance {
 }
 
 export interface InvestmentProjectionProps {
-  // Identifies the calendar and formulas that produced the figures.
-  readonly methodologyVersion: string;
   readonly principal: Money;
   readonly term: InvestmentTerm;
   // One gross balance per business day of the term; taxes are due only at
@@ -75,10 +73,6 @@ export class InvestmentProjection extends ValueObject<InvestmentProjection> {
     });
   }
 
-  get methodologyVersion(): string {
-    return this.props.methodologyVersion;
-  }
-
   get principal(): Money {
     return this.props.principal;
   }
@@ -97,7 +91,6 @@ export class InvestmentProjection extends ValueObject<InvestmentProjection> {
 
   equals(other: InvestmentProjection): boolean {
     return (
-      this.methodologyVersion === other.methodologyVersion &&
       this.term.equals(other.term) &&
       this.gross.equals(other.gross) &&
       this.net.equals(other.net)

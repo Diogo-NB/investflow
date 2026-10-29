@@ -5,6 +5,7 @@ import { SimulationComparison } from '../simulation-comparison.vo';
 import {
   comparedResult as result,
   comparedSimulation as simulation,
+  inputFingerprint,
   REVISION,
 } from './compared-simulation-fixture';
 
@@ -134,7 +135,7 @@ describe('SimulationComparison value object', () => {
   it('ranks stale results and is settled only when every simulation is', () => {
     const stale = SimulationComparison.of([
       simulation('a', result({ netAnnualReturn: new Decimal('0.2') }), {
-        simulationRevision: REVISION + 1,
+        currentInputFingerprint: inputFingerprint(REVISION + 1),
       }),
       simulation('b'),
     ]);

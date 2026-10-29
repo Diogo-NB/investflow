@@ -1,6 +1,7 @@
 import { EAppErrorCode, Money, UtcInstant } from '@investflow/shared-domain';
 import { InvestmentCalculationError } from '../../calculations/investment-calculation.error';
 import { Offer } from '../../offers/offer.aggregate';
+import { ETitleType } from '../../offers/title-type.enum';
 import { InvestmentInputs } from '../investment-inputs.vo';
 import {
   ESimulationCalculationCauseKind,
@@ -8,6 +9,7 @@ import {
   SimulationCalculation,
   SimulationCalculationOutcome,
 } from '../simulation-calculation.vo';
+import { SimulationResult } from '../simulation-result.vo';
 import { Simulation } from '../simulation.aggregate';
 import { SimulationCreated } from '../simulation.events';
 import {
@@ -44,11 +46,12 @@ function calculated(simulation: Simulation, chosen: Offer = offer()) {
 function invalid(simulationRevision: number): SimulationCalculationOutcome {
   return {
     kind: 'INVALID',
-    inputs: {
+    simulationRevision,
+    inputFingerprint: SimulationResult.inputFingerprintFor({
       simulationRevision,
-      offerTermsRevision: 1,
+      offer: { titleType: ETitleType.CDB, termsRevision: 1 },
       curveValuesRevision: 1,
-    },
+    }),
     reason: new InvestmentCalculationError(
       EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
       'Sem cobertura.',
@@ -76,7 +79,7 @@ describe('Simulation', () => {
     );
     expect(simulation.calculation.cause).toEqual(cause());
     expect(simulation.calculation.changedAt).toBe(CALCULATED_AT);
-    expect(simulation.calculation.inputs.simulationRevision).toBe(1);
+    expect(simulation.calculation.simulationRevision).toBe(1);
     const events = simulation.getDomainEvents();
     expect(events).toHaveLength(1);
     expect(events[0]).toBeInstanceOf(SimulationCreated);
@@ -99,7 +102,7 @@ describe('Simulation', () => {
       ESimulationCalculationStatus.PENDING,
     );
     expect(simulation.calculation.cause).toEqual(EDITED);
-    expect(simulation.calculation.inputs.simulationRevision).toBe(2);
+    expect(simulation.calculation.simulationRevision).toBe(2);
     expect(
       simulation.getDomainEvents().map(({ eventType }) => eventType),
     ).toEqual(['SimulationEdited']);
@@ -152,11 +155,16 @@ describe('Simulation', () => {
     );
     expect(simulation.calculation.cause).toEqual(cause());
     expect(simulation.calculation.changedAt).toBe(LATER);
-    expect(simulation.calculation.inputs).toEqual({
-      simulationRevision: 1,
-      offerTermsRevision: 1,
-      curveValuesRevision: null,
-    });
+    expect(simulation.calculation.simulationRevision).toBe(1);
+    expect(
+      simulation.calculation.inputFingerprint?.equals(
+        SimulationResult.inputFingerprintFor({
+          simulationRevision: 1,
+          offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+          curveValuesRevision: null,
+        }),
+      ),
+    ).toBe(true);
     expect(outcome.kind === 'CALCULATED' && simulation.result).toBe(
       outcome.kind === 'CALCULATED' && outcome.result,
     );
@@ -228,7 +236,7 @@ describe('Simulation', () => {
       LATER,
     );
     expect(fresh.revision).toBe(1);
-    expect(fresh.calculation.inputs.simulationRevision).toBe(1);
+    expect(fresh.calculation.simulationRevision).toBe(1);
 
     const simulation = create();
     simulation.edit(
@@ -245,7 +253,7 @@ describe('Simulation', () => {
       LATER,
     );
     expect(simulation.revision).toBe(2);
-    expect(simulation.calculation.inputs.simulationRevision).toBe(2);
+    expect(simulation.calculation.simulationRevision).toBe(2);
 
     simulation.markPersisted().delete(LATER);
     expect(simulation.revision).toBe(3);

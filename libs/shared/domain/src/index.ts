@@ -1,5 +1,6 @@
 export * from './lib/foundations/aggregate-root.base';
 export * from './lib/foundations/revision';
+export * from './lib/foundations/input-fingerprint.vo';
 export * from './lib/foundations/app-error-code.enum';
 export * from './lib/foundations/app.error';
 export * from './lib/foundations/domain.error';

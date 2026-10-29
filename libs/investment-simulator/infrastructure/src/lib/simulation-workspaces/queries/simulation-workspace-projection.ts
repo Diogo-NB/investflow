@@ -3,9 +3,8 @@ import {
   IOF_EXEMPT_FROM_CALENDAR_DAYS,
   RemainingTerm,
   SimulationResult,
-  SimulationResultInputs,
 } from '@investflow/investment-simulator-domain';
-import { CalendarDate } from '@investflow/shared-domain';
+import { CalendarDate, InputFingerprint } from '@investflow/shared-domain';
 import { Prisma } from '@prisma/client';
 import {
   OfferSummary,
@@ -49,9 +48,8 @@ export interface TaxOutput {
 // An investment held to maturity, as last calculated successfully.
 export interface SimulationResultOutput {
   readonly calculatedAt: string;
-  readonly methodologyVersion: string;
-  // True when the simulation, its offer's terms, or its curve's values changed
-  // since, or the current methodology could produce different figures.
+  // True when the simulation, its offer's terms, its curve's values, or the
+  // rules of its calculation changed since.
   readonly outdated: boolean;
   readonly principal: string;
   // The period calculated, which later edits may have changed. Business days
@@ -123,10 +121,7 @@ export interface SimulationWorkspaceProjection {
 }
 
 const resultSelect = {
-  simulationRevision: true,
-  offerTermsRevision: true,
-  curveValuesRevision: true,
-  methodologyVersion: true,
+  inputFingerprint: true,
   calculatedAt: true,
   investmentDate: true,
   maturityDate: true,
@@ -278,12 +273,14 @@ export function toSimulationWorkspace(
     result: record.result
       ? toResultOutput(
           record.result,
-          SimulationResult.targetFor(
-            record.revision,
-            offer.titleType as ETitleType,
-            offer.termsRevision,
-            curve?.valuesRevision ?? null,
-          ),
+          SimulationResult.inputFingerprintFor({
+            simulationRevision: record.revision,
+            offer: {
+              titleType: offer.titleType as ETitleType,
+              termsRevision: offer.termsRevision,
+            },
+            curveValuesRevision: curve?.valuesRevision ?? null,
+          }),
         )
       : null,
   };
@@ -291,12 +288,13 @@ export function toSimulationWorkspace(
 
 function toResultOutput(
   record: ResultRecord,
-  target: SimulationResultInputs,
+  current: InputFingerprint,
 ): SimulationResultOutput {
   return {
     calculatedAt: record.calculatedAt.toISOString(),
-    methodologyVersion: record.methodologyVersion,
-    outdated: !SimulationResult.isCurrent(record, target),
+    outdated: !InputFingerprint.restore(record.inputFingerprint).equals(
+      current,
+    ),
     principal: record.principal.toFixed(),
     term: {
       investmentDate: CalendarDate.fromUtcDate(

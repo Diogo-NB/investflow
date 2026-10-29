@@ -11,11 +11,19 @@ import {
 
 export const REVISION = 2;
 
+export function inputFingerprint(simulationRevision = REVISION) {
+  return SimulationResult.inputFingerprintFor({
+    simulationRevision,
+    offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+    curveValuesRevision: null,
+  });
+}
+
 export function comparedResult(
   overrides: Partial<ComparedResult> = {},
 ): ComparedResult {
   return {
-    inputs: SimulationResult.targetFor(REVISION, ETitleType.CDB, 1, null),
+    inputFingerprint: inputFingerprint(),
     principal: Money.of('10000'),
     investmentDate: CalendarDate.of('2026-01-02'),
     maturityDate: CalendarDate.of('2028-01-03'),
@@ -34,10 +42,7 @@ export function comparedSimulation(
   return ComparedSimulation.create({
     id,
     calculationStatus: ESimulationCalculationStatus.CALCULATED,
-    simulationRevision: REVISION,
-    titleType: ETitleType.CDB,
-    offerTermsRevision: 1,
-    curveValuesRevision: null,
+    currentInputFingerprint: inputFingerprint(),
     lastResult,
     ...overrides,
   });

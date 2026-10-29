@@ -6,6 +6,7 @@ import {
   SimulationCalculationOutcome,
   SimulationCalculationService,
   SimulationCalculationStaleError,
+  SimulationResult,
 } from '@investflow/investment-simulator-domain';
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import {
@@ -73,15 +74,22 @@ export class CalculateSimulationUseCase
     simulation: Simulation,
     missing: NotFoundError,
   ): Promise<Result<void, AppError>> {
-    const inputs = {
+    const inputFingerprint = SimulationResult.inputFingerprintFor({
       simulationRevision: simulation.revision,
-      offerTermsRevision: null,
+      offer: null,
       curveValuesRevision: null,
-    };
-    if (simulation.calculation.appliesTo(inputs)) return Result.ok(undefined);
+    });
+    if (simulation.calculation.appliesTo(inputFingerprint)) {
+      return Result.ok(undefined);
+    }
     return this.record(
       simulation,
-      { kind: 'INVALID', inputs, reason: missing },
+      {
+        kind: 'INVALID',
+        simulationRevision: simulation.revision,
+        inputFingerprint,
+        reason: missing,
+      },
       this.clock.now(),
     );
   }

@@ -1,27 +1,41 @@
 import { ETitleType } from '../../offers/title-type.enum';
-import { SimulationResult } from '../simulation-result.vo';
+import {
+  SimulationPremiseVersions,
+  SimulationResult,
+} from '../simulation-result.vo';
 
 describe('SimulationResult', () => {
-  const recorded = SimulationResult.targetFor(2, ETitleType.CDB, 3, 1);
+  const premises: SimulationPremiseVersions = {
+    simulationRevision: 2,
+    offer: { titleType: ETitleType.CDB, termsRevision: 3 },
+    curveValuesRevision: 1,
+  };
+  const recorded = SimulationResult.inputFingerprintFor(premises);
 
-  it('targets the title methodology', () => {
-    expect(recorded.methodologyVersion).toBe('cdb-252-v1');
+  it('has the same input fingerprint for the same premises', () => {
     expect(
-      SimulationResult.targetFor(1, ETitleType.LCA, 1, null).methodologyVersion,
-    ).toBe('lca-252-v1');
+      recorded.equals(SimulationResult.inputFingerprintFor({ ...premises })),
+    ).toBe(true);
   });
 
-  it('is current only when every input matches the target', () => {
-    expect(SimulationResult.isCurrent(recorded, { ...recorded })).toBe(true);
-    for (const changed of [
-      { simulationRevision: 3 },
-      { offerTermsRevision: 4 },
-      { curveValuesRevision: null },
-      { methodologyVersion: 'cdb-252-v0' },
-    ]) {
-      expect(
-        SimulationResult.isCurrent(recorded, { ...recorded, ...changed }),
-      ).toBe(false);
-    }
+  it.each<[string, Partial<SimulationPremiseVersions>]>([
+    ['the simulation', { simulationRevision: 3 }],
+    [
+      'the offer terms',
+      { offer: { titleType: ETitleType.CDB, termsRevision: 4 } },
+    ],
+    ['the curve values', { curveValuesRevision: 2 }],
+    ['the curve', { curveValuesRevision: null }],
+    [
+      'the methodology of the title type',
+      { offer: { titleType: ETitleType.LCA, termsRevision: 3 } },
+    ],
+    ['a missing offer', { offer: null }],
+  ])('has another input fingerprint after %s changed', (_, change) => {
+    expect(
+      recorded.equals(
+        SimulationResult.inputFingerprintFor({ ...premises, ...change }),
+      ),
+    ).toBe(false);
   });
 });

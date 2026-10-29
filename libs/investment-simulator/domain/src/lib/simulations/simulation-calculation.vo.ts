@@ -2,6 +2,7 @@ import {
   AppError,
   AppErrorMetadata,
   EAppErrorCode,
+  InputFingerprint,
   UtcInstant,
   ValueObject,
 } from '@investflow/shared-domain';
@@ -27,23 +28,21 @@ export interface SimulationCalculationCause {
   readonly actorId: string | null;
 }
 
-// Revisions are null when the premise could not be read.
-export interface SimulationCalculationInputs {
-  readonly simulationRevision: number;
-  readonly offerTermsRevision: number | null;
-  readonly curveValuesRevision: number | null;
-}
-
 export interface SimulationCalculationReason {
   readonly code: EAppErrorCode;
   readonly metadata: AppErrorMetadata;
 }
 
 export type SimulationCalculationOutcome =
-  | { readonly kind: 'CALCULATED'; readonly result: SimulationResult }
+  | {
+      readonly kind: 'CALCULATED';
+      readonly simulationRevision: number;
+      readonly result: SimulationResult;
+    }
   | {
       readonly kind: 'INVALID';
-      readonly inputs: SimulationCalculationInputs;
+      readonly simulationRevision: number;
+      readonly inputFingerprint: InputFingerprint;
       readonly reason: AppError;
     };
 
@@ -51,7 +50,12 @@ export interface SimulationCalculationProps {
   readonly status: ESimulationCalculationStatus;
   readonly changedAt: UtcInstant;
   readonly cause: SimulationCalculationCause;
-  readonly inputs: SimulationCalculationInputs;
+  // The simulation revision the status was written for; an outcome is saved
+  // only while it is unchanged.
+  readonly simulationRevision: number;
+  // What the outcome was calculated from; null for PENDING and FAILED, which
+  // recorded none.
+  readonly inputFingerprint: InputFingerprint | null;
   // Only for INVALID.
   readonly reason: SimulationCalculationReason | null;
 }
@@ -72,11 +76,8 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
       status: ESimulationCalculationStatus.PENDING,
       changedAt: at,
       cause,
-      inputs: {
-        simulationRevision,
-        offerTermsRevision: null,
-        curveValuesRevision: null,
-      },
+      simulationRevision,
+      inputFingerprint: null,
       reason: null,
     });
   }
@@ -99,8 +100,12 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
     return this.props.cause;
   }
 
-  get inputs(): SimulationCalculationInputs {
-    return this.props.inputs;
+  get simulationRevision(): number {
+    return this.props.simulationRevision;
+  }
+
+  get inputFingerprint(): InputFingerprint | null {
+    return this.props.inputFingerprint;
   }
 
   get reason(): SimulationCalculationReason | null {
@@ -111,18 +116,9 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
     return this.props.status === ESimulationCalculationStatus.PENDING;
   }
 
-  // Whether an outcome was recorded for these inputs; PENDING and FAILED
-  // recorded none.
-  appliesTo(inputs: SimulationCalculationInputs): boolean {
-    const { status } = this.props;
-    const recorded = this.props.inputs;
-    return (
-      (status === ESimulationCalculationStatus.CALCULATED ||
-        status === ESimulationCalculationStatus.INVALID) &&
-      recorded.simulationRevision === inputs.simulationRevision &&
-      recorded.offerTermsRevision === inputs.offerTermsRevision &&
-      recorded.curveValuesRevision === inputs.curveValuesRevision
-    );
+  // Whether an outcome was recorded for the inputs with this fingerprint.
+  appliesTo(current: InputFingerprint): boolean {
+    return this.props.inputFingerprint?.equals(current) ?? false;
   }
 
   recorded(
@@ -130,13 +126,12 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
     at: UtcInstant,
   ): SimulationCalculation {
     if (outcome.kind === 'CALCULATED') {
-      const { simulationRevision, offerTermsRevision, curveValuesRevision } =
-        outcome.result.inputs;
       return new SimulationCalculation({
         ...this.props,
         status: ESimulationCalculationStatus.CALCULATED,
         changedAt: at,
-        inputs: { simulationRevision, offerTermsRevision, curveValuesRevision },
+        simulationRevision: outcome.simulationRevision,
+        inputFingerprint: outcome.result.inputFingerprint,
         reason: null,
       });
     }
@@ -144,7 +139,8 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
       ...this.props,
       status: ESimulationCalculationStatus.INVALID,
       changedAt: at,
-      inputs: outcome.inputs,
+      simulationRevision: outcome.simulationRevision,
+      inputFingerprint: outcome.inputFingerprint,
       reason: {
         code: outcome.reason.code,
         metadata: outcome.reason.metadata ?? {},
@@ -165,7 +161,7 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
     return (
       this.status === other.status &&
       this.changedAt.equals(other.changedAt) &&
-      this.inputs.simulationRevision === other.inputs.simulationRevision
+      this.simulationRevision === other.simulationRevision
     );
   }
 }

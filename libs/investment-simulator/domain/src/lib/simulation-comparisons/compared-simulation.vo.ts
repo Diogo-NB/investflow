@@ -1,16 +1,16 @@
-import { CalendarDate, Money, ValueObject } from '@investflow/shared-domain';
-import Decimal from 'decimal.js';
-import { ETitleType } from '../offers/title-type.enum';
-import { ESimulationCalculationStatus } from '../simulations/simulation-calculation.vo';
 import {
-  SimulationResult,
-  SimulationResultInputs,
-} from '../simulations/simulation-result.vo';
+  CalendarDate,
+  InputFingerprint,
+  Money,
+  ValueObject,
+} from '@investflow/shared-domain';
+import Decimal from 'decimal.js';
+import { ESimulationCalculationStatus } from '../simulations/simulation-calculation.vo';
 
 // What a simulation's last successful result returns at maturity, as far as
-// comparing it goes, and the revisions and methodology it was calculated from.
+// comparing it goes, and what it was calculated from.
 export interface ComparedResult {
-  readonly inputs: SimulationResultInputs;
+  readonly inputFingerprint: InputFingerprint;
   readonly principal: Money;
   readonly investmentDate: CalendarDate;
   readonly maturityDate: CalendarDate;
@@ -21,12 +21,9 @@ export interface ComparedResult {
 export interface ComparedSimulationProps {
   readonly id: string;
   readonly calculationStatus: ESimulationCalculationStatus;
-  // The premises the simulation is at now; its result is current only when
-  // it was calculated from them.
-  readonly simulationRevision: number;
-  readonly titleType: ETitleType;
-  readonly offerTermsRevision: number;
-  readonly curveValuesRevision: number | null;
+  // Of the premises the simulation is at now; its result is current only
+  // when it was calculated from them.
+  readonly currentInputFingerprint: InputFingerprint;
   readonly lastResult: ComparedResult | null;
 }
 
@@ -55,18 +52,10 @@ export class ComparedSimulation extends ValueObject<ComparedSimulation> {
 
   // False without a result.
   get isResultCurrent(): boolean {
-    const { lastResult } = this.props;
     return (
-      lastResult !== null &&
-      SimulationResult.isCurrent(
-        lastResult.inputs,
-        SimulationResult.targetFor(
-          this.props.simulationRevision,
-          this.props.titleType,
-          this.props.offerTermsRevision,
-          this.props.curveValuesRevision,
-        ),
-      )
+      this.props.lastResult?.inputFingerprint.equals(
+        this.props.currentInputFingerprint,
+      ) ?? false
     );
   }
 
@@ -83,10 +72,9 @@ export class ComparedSimulation extends ValueObject<ComparedSimulation> {
     return (
       this.props.id === other.props.id &&
       this.props.calculationStatus === other.props.calculationStatus &&
-      this.props.simulationRevision === other.props.simulationRevision &&
-      this.props.titleType === other.props.titleType &&
-      this.props.offerTermsRevision === other.props.offerTermsRevision &&
-      this.props.curveValuesRevision === other.props.curveValuesRevision &&
+      this.props.currentInputFingerprint.equals(
+        other.props.currentInputFingerprint,
+      ) &&
       sameResult(this.props.lastResult, other.props.lastResult)
     );
   }
@@ -98,7 +86,7 @@ function sameResult(
 ): boolean {
   if (a === null || b === null) return a === b;
   return (
-    SimulationResult.isCurrent(a.inputs, b.inputs) &&
+    a.inputFingerprint.equals(b.inputFingerprint) &&
     a.principal.equals(b.principal) &&
     a.investmentDate.equals(b.investmentDate) &&
     a.maturityDate.equals(b.maturityDate) &&

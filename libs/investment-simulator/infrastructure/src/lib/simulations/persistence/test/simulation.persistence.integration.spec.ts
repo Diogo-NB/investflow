@@ -15,6 +15,7 @@ import {
   Simulation,
   SimulationCalculationCause,
   SimulationCalculationService,
+  SimulationResult,
 } from '@investflow/investment-simulator-domain';
 import {
   CalendarDate,
@@ -225,6 +226,18 @@ describe('Simulation PostgreSQL persistence', () => {
     return (await simulations.findOwned(id, ownerId)).value;
   }
 
+  function fingerprintOf(
+    simulationRevision: number,
+    offer: Offer,
+    curve: Curve,
+  ) {
+    return SimulationResult.inputFingerprintFor({
+      simulationRevision,
+      offer,
+      curveValuesRevision: curve.valuesRevision,
+    });
+  }
+
   it('restores a simulation only for its owner and while it is not deleted', async () => {
     const { simulation } = await savedSimulation();
 
@@ -296,7 +309,10 @@ describe('Simulation PostgreSQL persistence', () => {
       ESimulationCalculationStatus.PENDING,
     );
     expect(reloaded.calculation.cause).toEqual(EDITED);
-    expect(reloaded.result?.inputs.simulationRevision).toBe(1);
+    expect(reloaded.calculation.inputFingerprint).toBeNull();
+    expect(
+      reloaded.result?.inputFingerprint.equals(fingerprintOf(1, offer, curve)),
+    ).toBe(true);
   });
 
   it('records a failure only over a calculation still pending', async () => {
@@ -337,7 +353,9 @@ describe('Simulation PostgreSQL persistence', () => {
 
     const loaded = (await load(simulation.id)).result;
 
-    expect(loaded?.inputs).toEqual(simulation.result?.inputs);
+    expect(
+      loaded?.inputFingerprint.equals(simulation.result!.inputFingerprint),
+    ).toBe(true);
     expect(loaded?.calculatedAt.equals(at('2026-10-09'))).toBe(true);
     expect(loaded?.projection.equals(result!)).toBe(true);
     expect(loaded?.projection.net.finalBalance.amount.toFixed()).toBe(
@@ -359,11 +377,14 @@ describe('Simulation PostgreSQL persistence', () => {
   });
 
   it('stores an LCI income tax exemption as a null rate', async () => {
-    const { simulation } = await savedSimulation(ETitleType.LCI);
+    const { simulation, offer, curve } = await savedSimulation(ETitleType.LCI);
 
-    const loaded = (await load(simulation.id)).result?.projection;
+    const reloaded = (await load(simulation.id)).result;
+    const loaded = reloaded?.projection;
 
-    expect(loaded?.methodologyVersion).toBe('lci-252-v1');
+    expect(
+      reloaded?.inputFingerprint.equals(fingerprintOf(1, offer, curve)),
+    ).toBe(true);
     expect(loaded?.taxes.incomeTax.rate).toBeNull();
     expect(loaded?.taxes.incomeTax.amount.isZero).toBe(true);
   });
@@ -401,7 +422,11 @@ describe('Simulation PostgreSQL persistence', () => {
     const reloaded = await load(simulation.id);
     expect(reloaded.revision).toBe(2);
     expect(reloaded.offerId).toBe(shorter.id);
-    expect(reloaded.result?.inputs.simulationRevision).toBe(2);
+    expect(
+      reloaded.result?.inputFingerprint.equals(
+        fingerprintOf(2, shorter, curve),
+      ),
+    ).toBe(true);
     expect(
       await prisma.client.simulationResultBalance.count({
         where: { simulationId: simulation.id },

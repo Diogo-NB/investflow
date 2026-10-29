@@ -184,8 +184,9 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   simulações afetadas. Mudar a versão da metodologia de um título não agenda
   recálculo: o resultado aparece como desatualizado até a simulação ser salva
   de novo.
-- Cada simulação tem um único resultado atual: o investimento usado, a versão
-  da metodologia, as revisões da oferta e da curva usadas, o instante do
+- Cada simulação tem um único resultado atual: o investimento usado, a
+  impressão das entradas de que foi calculado (revisões da simulação, da
+  oferta e da curva e versão da metodologia), o instante do
   cálculo, o resumo no vencimento, a apuração dos tributos (prazo em dias
   corridos, base, alíquota e valor do IOF ou isenção, base, alíquota e valor do
   IR), a rentabilidade (ver
@@ -201,9 +202,8 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   | Requer ação   | Uma regra de negócio impede o cálculo; o motivo é exibido.                    | Usuário                                    |
   | Falha técnica | O cálculo falhou por erro do sistema depois das novas tentativas automáticas. | Sistema; usuário pode pedir nova tentativa |
 
-- Cada estado informa sua causa: a criação da simulação, sua edição, a
-  alteração ou exclusão da oferta ou da curva (e quem a fez) ou o pedido de
-  nova tentativa. A causa acompanha o
+- Cada estado informa sua causa: a criação da simulação, sua edição ou o
+  pedido de nova tentativa. A causa acompanha o
   resultado do cálculo: "Requer ação" exibe o motivo e também a alteração
   que levou a ele. Somente o estado atual é mantido; não há histórico de
   estados.
@@ -229,7 +229,7 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   com os valores do cálculo e as tabelas de IOF e IR com a faixa aplicada
   destacada.
 - Cada título tem sua própria versão da metodologia (`cdb-252-v1`,
-  `lci-252-v1`, `lca-252-v1`), que muda sempre que fórmulas, convenções,
+  `lci-252-v1`, `lca-252-v1`), interna e nunca exibida, que muda sempre que fórmulas, convenções,
   tributação, o calendário ou a definição da rentabilidade alterarem os
   valores calculados daquele título.
 - Resultados de simulações excluídas deixam de ser consultáveis.

@@ -38,7 +38,6 @@ function projection(
   ],
 ) {
   return InvestmentProjection.create({
-    methodologyVersion: 'cdb-252-v1',
     principal: Money.of('1000'),
     term,
     dailyBalances,

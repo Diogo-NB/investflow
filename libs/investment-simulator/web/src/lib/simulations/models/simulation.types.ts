@@ -148,9 +148,8 @@ export interface InvestmentTerm {
 
 export interface SimulationResult {
   readonly calculatedAt: string;
-  readonly methodologyVersion: string;
-  // The simulation, its offer or curve changed since, or the current
-  // methodology could produce different figures.
+  // The simulation, its offer or curve, or the rules of its calculation
+  // changed since.
   readonly outdated: boolean;
   readonly principal: string;
   // The period calculated, which later edits may have changed.

@@ -8,6 +8,11 @@ import { SimulationMapper, SimulationRecord } from '../simulation.mapper';
 
 const id = 'a1d7a2a4-7c39-4b8e-9a8f-0d6c1f0b2f11';
 const decimal = (value: string) => new Prisma.Decimal(value);
+// Stored as is; the mapper never parses them.
+const CALCULATION_FINGERPRINT =
+  'v1|simulation:3|offerTerms:4|curveValues:6|methodology:"cdb-252-v1"';
+const RESULT_FINGERPRINT =
+  'v1|simulation:2|offerTerms:4|curveValues:5|methodology:"cdb-252-v1"';
 
 const calculation: NonNullable<SimulationRecord['calculation']> = {
   simulationId: id,
@@ -16,8 +21,7 @@ const calculation: NonNullable<SimulationRecord['calculation']> = {
   causeKind: 'RETRY_REQUESTED',
   causeActorId: 'owner-id',
   simulationRevision: 3,
-  offerTermsRevision: 4,
-  curveValuesRevision: 6,
+  inputFingerprint: CALCULATION_FINGERPRINT,
   reasonCode: 'INVESTMENT_CURVE_COVERAGE_MISSING',
   reasonMetadata: {
     missingRanges: [{ start: '2026-01-05', end: '2026-01-05' }],
@@ -38,10 +42,7 @@ const record: SimulationRecord = {
   calculation,
   result: {
     simulationId: id,
-    simulationRevision: 2,
-    offerTermsRevision: 4,
-    curveValuesRevision: 5,
-    methodologyVersion: 'cdb-252-v1',
+    inputFingerprint: RESULT_FINGERPRINT,
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
     investmentDate: new Date('2026-01-02T00:00:00.000Z'),
     maturityDate: new Date('2026-01-05T00:00:00.000Z'),
@@ -82,12 +83,9 @@ describe('SimulationMapper', () => {
     const simulation = SimulationMapper.toDomain(record);
 
     expect(simulation.revision).toBe(3);
-    expect(simulation.result?.inputs).toEqual({
-      simulationRevision: 2,
-      offerTermsRevision: 4,
-      curveValuesRevision: 5,
-      methodologyVersion: 'cdb-252-v1',
-    });
+    expect(simulation.result?.inputFingerprint.toString()).toBe(
+      RESULT_FINGERPRINT,
+    );
     const data = SimulationMapper.toPersistence(simulation);
     expect(data.simulation).toEqual({
       id,
@@ -102,7 +100,7 @@ describe('SimulationMapper', () => {
     expect(data.calculation).toEqual(calculation);
     expect(data.result).toMatchObject({
       simulationId: id,
-      offerTermsRevision: 4,
+      inputFingerprint: RESULT_FINGERPRINT,
       investmentDate: new Date('2026-01-02T00:00:00.000Z'),
       maturityDate: new Date('2026-01-05T00:00:00.000Z'),
       // Derived from the balances at decimal.js precision, not read back.
@@ -143,11 +141,10 @@ describe('SimulationMapper', () => {
       kind: ESimulationCalculationCauseKind.RETRY_REQUESTED,
       actorId: 'owner-id',
     });
-    expect(calculation.inputs).toEqual({
-      simulationRevision: 3,
-      offerTermsRevision: 4,
-      curveValuesRevision: 6,
-    });
+    expect(calculation.simulationRevision).toBe(3);
+    expect(calculation.inputFingerprint?.toString()).toBe(
+      CALCULATION_FINGERPRINT,
+    );
     expect(calculation.reason).toEqual({
       code: EAppErrorCode.INVESTMENT_CURVE_COVERAGE_MISSING,
       metadata: { missingRanges: [{ start: '2026-01-05', end: '2026-01-05' }] },
@@ -169,6 +166,24 @@ describe('SimulationMapper', () => {
     expect(
       SimulationMapper.toPersistence(simulation).calculation,
     ).toMatchObject({ reasonCode: null, reasonMetadata: Prisma.DbNull });
+  });
+
+  it('stores no input fingerprint while pending', () => {
+    const simulation = SimulationMapper.toDomain({
+      ...record,
+      calculation: {
+        ...calculation,
+        status: 'PENDING',
+        inputFingerprint: null,
+        reasonCode: null,
+        reasonMetadata: null,
+      },
+    });
+
+    expect(simulation.calculation.inputFingerprint).toBeNull();
+    expect(
+      SimulationMapper.toPersistence(simulation).calculation,
+    ).toMatchObject({ inputFingerprint: null });
   });
 
   it('maps a simulation without a result', () => {

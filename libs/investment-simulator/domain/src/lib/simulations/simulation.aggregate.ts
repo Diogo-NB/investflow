@@ -152,10 +152,7 @@ export class Simulation extends AggregateRoot {
     outcome: SimulationCalculationOutcome,
     at: UtcInstant,
   ): Result<this, SimulationCalculationStaleError> {
-    const simulationRevision =
-      outcome.kind === 'CALCULATED'
-        ? outcome.result.inputs.simulationRevision
-        : outcome.inputs.simulationRevision;
+    const { simulationRevision } = outcome;
     if (this.props.deletedAt || simulationRevision !== this.revision) {
       return Result.err(
         new SimulationCalculationStaleError(this.id, simulationRevision),

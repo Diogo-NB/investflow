@@ -39,7 +39,11 @@ it.
   counts from collections), and enforce the relationship as an invariant. A
   stored copy needs a reason that belongs to the domain. Storage needs such as
   sorting or aggregation belong to persistence and never shape the domain
-  type.
+  type. A stored value derived from other state records one
+  `InputFingerprint`, built by one factory on its owner
+  (`SimulationResult.inputFingerprintFor()`); it is current exactly when it
+  equals the current fingerprint. Compare fingerprints, never parse them;
+  revisions stay the concurrency tokens.
 - **Check names for collisions.** Before reusing a name such as `Rate`,
   `Calculation`, or `Result`, look up what it already means in the context.
 - **Treat extension as a trigger.** Adding fields to an existing type means

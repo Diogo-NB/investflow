@@ -20,6 +20,14 @@ export interface MemberOptions {
 
 const REVISION = 2;
 
+function fingerprint(simulationRevision: number) {
+  return SimulationResult.inputFingerprintFor({
+    simulationRevision,
+    offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+    curveValuesRevision: null,
+  });
+}
+
 export function member({
   calculationStatus = ESimulationCalculationStatus.CALCULATED,
   result = 'current',
@@ -33,20 +41,14 @@ export function member({
 }: MemberOptions = {}): InvestmentPlanMember {
   return InvestmentPlanMember.create({
     calculationStatus,
-    simulationRevision: REVISION,
-    titleType: ETitleType.CDB,
-    offerTermsRevision: 1,
-    curveValuesRevision: null,
+    currentInputFingerprint: fingerprint(REVISION),
     redemptionTerms: RedemptionTerms.create(redemption),
     lastResult:
       result === 'none'
         ? null
         : {
-            inputs: SimulationResult.targetFor(
+            inputFingerprint: fingerprint(
               result === 'current' ? REVISION : REVISION - 1,
-              ETitleType.CDB,
-              1,
-              null,
             ),
             principal: Money.of(principal),
             iof: Money.of(iof),

@@ -12,6 +12,7 @@ import {
   AppErrorMetadata,
   CalendarDate,
   EAppErrorCode,
+  InputFingerprint,
   Money,
   Rate,
   UtcInstant,
@@ -109,11 +110,10 @@ export class SimulationMapper {
         kind: record.causeKind as ESimulationCalculationCauseKind,
         actorId: record.causeActorId,
       },
-      inputs: {
-        simulationRevision: record.simulationRevision,
-        offerTermsRevision: record.offerTermsRevision,
-        curveValuesRevision: record.curveValuesRevision,
-      },
+      simulationRevision: record.simulationRevision,
+      inputFingerprint: record.inputFingerprint
+        ? InputFingerprint.restore(record.inputFingerprint)
+        : null,
       reason: record.reasonCode
         ? {
             code: record.reasonCode as EAppErrorCode,
@@ -127,16 +127,15 @@ export class SimulationMapper {
     simulationId: string,
     calculation: SimulationCalculation,
   ): SimulationPersistenceData['calculation'] {
-    const { cause, inputs, reason } = calculation;
+    const { cause, reason } = calculation;
     return {
       simulationId,
       status: calculation.status,
       changedAt: calculation.changedAt.date,
       causeKind: cause.kind,
       causeActorId: cause.actorId,
-      simulationRevision: inputs.simulationRevision,
-      offerTermsRevision: inputs.offerTermsRevision,
-      curveValuesRevision: inputs.curveValuesRevision,
+      simulationRevision: calculation.simulationRevision,
+      inputFingerprint: calculation.inputFingerprint?.toString() ?? null,
       reasonCode: reason?.code ?? null,
       reasonMetadata: reason
         ? (reason.metadata as Prisma.InputJsonObject)
@@ -150,14 +149,8 @@ export class SimulationMapper {
     record: SimulationResultRecord,
   ): SimulationResult {
     return SimulationResult.create({
-      inputs: {
-        simulationRevision: record.simulationRevision,
-        offerTermsRevision: record.offerTermsRevision,
-        curveValuesRevision: record.curveValuesRevision,
-        methodologyVersion: record.methodologyVersion,
-      },
+      inputFingerprint: InputFingerprint.restore(record.inputFingerprint),
       projection: InvestmentProjection.create({
-        methodologyVersion: record.methodologyVersion,
         principal: money(record.principal),
         term: InvestmentTerm.of({
           investmentDate: CalendarDate.fromUtcDate(record.investmentDate).value,
@@ -194,14 +187,11 @@ export class SimulationMapper {
     simulationId: string,
     result: SimulationResult,
   ): NonNullable<SimulationPersistenceData['result']> {
-    const { inputs, projection } = result;
+    const { projection } = result;
     const { term, taxes, gross, net } = projection;
     return {
       simulationId,
-      simulationRevision: inputs.simulationRevision,
-      offerTermsRevision: inputs.offerTermsRevision,
-      curveValuesRevision: inputs.curveValuesRevision,
-      methodologyVersion: inputs.methodologyVersion,
+      inputFingerprint: result.inputFingerprint.toString(),
       calculatedAt: result.calculatedAt.date,
       investmentDate: term.investmentDate.toUtcDate(),
       maturityDate: term.maturityDate.toUtcDate(),

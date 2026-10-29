@@ -8,7 +8,6 @@ import {
 } from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
 import type { RemunerationKind } from '../offers/terms/remuneration/remuneration-terms.vo';
-import { TITLE_TYPE_RULES } from '../offers/title-type-rules';
 import { TaxCalculator } from '../taxes/tax-calculator.domain-service';
 import {
   InvestmentCalculationError,
@@ -171,10 +170,9 @@ export class InvestmentCalculator {
       businessDays: rates.length,
     });
     const dailyBalances = this.accrue(principal, rates);
-    const grossEarnings = dailyBalances[dailyBalances.length - 1].grossBalance
-      .subtract(principal);
+    const grossEarnings =
+      dailyBalances[dailyBalances.length - 1].grossBalance.subtract(principal);
     return InvestmentProjection.create({
-      methodologyVersion: TITLE_TYPE_RULES[titleType].methodologyVersion,
       principal,
       term,
       dailyBalances,

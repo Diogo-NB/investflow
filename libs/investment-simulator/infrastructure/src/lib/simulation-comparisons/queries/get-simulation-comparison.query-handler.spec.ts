@@ -1,4 +1,8 @@
 import { BuildSimulationComparisonUseCase } from '@investflow/investment-simulator-application';
+import {
+  ETitleType,
+  SimulationResult,
+} from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
 import { CalendarDate, EAppErrorCode } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
@@ -12,10 +16,11 @@ const date = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 function result(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    simulationRevision: 2,
-    offerTermsRevision: 3,
-    curveValuesRevision: null,
-    methodologyVersion: 'cdb-252-v1',
+    inputFingerprint: SimulationResult.inputFingerprintFor({
+      simulationRevision: 2,
+      offer: { titleType: ETitleType.CDB, termsRevision: 3 },
+      curveValuesRevision: null,
+    }).toString(),
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
     investmentDate: date('2026-01-02'),
     maturityDate: date('2028-01-03'),

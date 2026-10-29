@@ -1,19 +1,26 @@
-import { UtcInstant, ValueObject } from '@investflow/shared-domain';
+import {
+  InputFingerprint,
+  UtcInstant,
+  ValueObject,
+} from '@investflow/shared-domain';
 import { InvestmentProjection } from '../calculations/investment-projection.vo';
 import { TITLE_TYPE_RULES } from '../offers/title-type-rules';
 import { ETitleType } from '../offers/title-type.enum';
 
-// The revisions and methodology a result was calculated from. Plain values so
-// read sides can compare them without loading the aggregates.
-export interface SimulationResultInputs {
+// The versions a simulation's calculation depends on, as read sides hold them
+// without loading the aggregates.
+export interface SimulationPremiseVersions {
   readonly simulationRevision: number;
-  readonly offerTermsRevision: number;
+  // Null when the offer could not be read.
+  readonly offer: {
+    readonly titleType: ETitleType;
+    readonly termsRevision: number;
+  } | null;
   readonly curveValuesRevision: number | null;
-  readonly methodologyVersion: string;
 }
 
 export interface SimulationResultProps {
-  readonly inputs: SimulationResultInputs;
+  readonly inputFingerprint: InputFingerprint;
   // Its term is the period calculated, which later edits may have changed.
   readonly projection: InvestmentProjection;
   readonly calculatedAt: UtcInstant;
@@ -28,34 +35,23 @@ export class SimulationResult extends ValueObject<SimulationResult> {
     return new SimulationResult({ ...props });
   }
 
-  static targetFor(
-    simulationRevision: number,
-    titleType: ETitleType,
-    offerTermsRevision: number,
-    curveValuesRevision: number | null,
-  ): SimulationResultInputs {
-    return {
-      simulationRevision,
-      offerTermsRevision,
-      curveValuesRevision,
-      methodologyVersion: TITLE_TYPE_RULES[titleType].methodologyVersion,
-    };
+  // The only place that says what a simulation's calculation depends on.
+  static inputFingerprintFor(
+    premises: SimulationPremiseVersions,
+  ): InputFingerprint {
+    const { simulationRevision, offer, curveValuesRevision } = premises;
+    return InputFingerprint.of(1, {
+      simulation: simulationRevision,
+      offerTerms: offer?.termsRevision ?? null,
+      curveValues: curveValuesRevision,
+      methodology: offer
+        ? TITLE_TYPE_RULES[offer.titleType].methodologyVersion
+        : null,
+    });
   }
 
-  static isCurrent(
-    recorded: SimulationResultInputs,
-    target: SimulationResultInputs,
-  ): boolean {
-    return (
-      recorded.simulationRevision === target.simulationRevision &&
-      recorded.offerTermsRevision === target.offerTermsRevision &&
-      recorded.curveValuesRevision === target.curveValuesRevision &&
-      recorded.methodologyVersion === target.methodologyVersion
-    );
-  }
-
-  get inputs(): SimulationResultInputs {
-    return this.props.inputs;
+  get inputFingerprint(): InputFingerprint {
+    return this.props.inputFingerprint;
   }
 
   get projection(): InvestmentProjection {
@@ -68,7 +64,7 @@ export class SimulationResult extends ValueObject<SimulationResult> {
 
   equals(other: SimulationResult): boolean {
     return (
-      SimulationResult.isCurrent(this.inputs, other.inputs) &&
+      this.inputFingerprint.equals(other.inputFingerprint) &&
       this.calculatedAt.equals(other.calculatedAt)
     );
   }

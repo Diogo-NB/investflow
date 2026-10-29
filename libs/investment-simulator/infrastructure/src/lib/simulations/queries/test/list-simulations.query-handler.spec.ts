@@ -1,3 +1,7 @@
+import {
+  ETitleType,
+  SimulationResult,
+} from '@investflow/investment-simulator-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import {
@@ -133,10 +137,11 @@ describe('ListSimulationsQueryHandler', () => {
       curve: null,
       calculation: { status: netAnnualReturn ? 'CALCULATED' : 'PENDING' },
       result: netAnnualReturn && {
-        simulationRevision: 1,
-        offerTermsRevision: 1,
-        curveValuesRevision: null,
-        methodologyVersion: 'cdb-252-v1',
+        inputFingerprint: SimulationResult.inputFingerprintFor({
+          simulationRevision: 1,
+          offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+          curveValuesRevision: null,
+        }).toString(),
         calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
         netBalance: new Prisma.Decimal('1100'),
         netAnnualReturn: new Prisma.Decimal(netAnnualReturn),

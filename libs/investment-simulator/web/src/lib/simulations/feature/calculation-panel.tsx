@@ -97,7 +97,7 @@ function StaleNotice({
     : calculation.status !== 'CALCULATED'
       ? 'Este resultado é anterior às últimas alterações.'
       : result.outdated
-        ? 'A simulação, a oferta, a curva ou a metodologia de cálculo mudou desde este cálculo. Salve e calcule para ver o resultado atual.'
+        ? 'A simulação, a oferta, a curva ou as regras de cálculo mudaram desde este cálculo. Salve e calcule para ver o resultado atual.'
         : null;
   if (!reason) return null;
   return (
@@ -329,8 +329,7 @@ function CalculationResult({
           {curve &&
             `A curva tem valores até ${formatIsoDate(curve.lastIntervalEnd)}; depois, a taxa é mantida. `}
           IOF e imposto de renda incidem no vencimento. Calculado em{' '}
-          {formatInstant(result.calculatedAt)} · metodologia{' '}
-          {result.methodologyVersion}.
+          {formatInstant(result.calculatedAt)}.
         </p>
       </div>
       {balances.data ? (

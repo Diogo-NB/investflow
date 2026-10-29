@@ -1,6 +1,7 @@
 import {
   DomainError,
   EAppErrorCode,
+  InputFingerprint,
   Result,
   UtcInstant,
 } from '@investflow/shared-domain';
@@ -10,10 +11,7 @@ import { InvestmentScenario } from '../calculations/investment-scenario.vo';
 import type { Curve } from '../curves/curve.aggregate';
 import type { Offer } from '../offers/offer.aggregate';
 import type { InvestmentInputs } from './investment-inputs.vo';
-import {
-  ESimulationCalculationStatus,
-  type SimulationCalculationOutcome,
-} from './simulation-calculation.vo';
+import type { SimulationCalculationOutcome } from './simulation-calculation.vo';
 import { SimulationResult } from './simulation-result.vo';
 import type { Simulation } from './simulation.aggregate';
 
@@ -42,35 +40,14 @@ export class SimulationCalculationService {
   }
 
   // Whether the recorded outcome already applies to the current premises, so
-  // calculating again would change nothing. A result also needs the current
-  // methodology; INVALID records none.
+  // calculating again would change nothing.
   isCurrent(
     simulation: Simulation,
     offer: Offer,
     curve: Curve | null,
   ): boolean {
-    const inputs = SimulationCalculationService.inputsOf(
-      simulation,
-      offer,
-      curve,
-    );
-    if (!simulation.calculation.appliesTo(inputs)) return false;
-    if (
-      simulation.calculation.status !== ESimulationCalculationStatus.CALCULATED
-    ) {
-      return true;
-    }
-    return (
-      simulation.result !== null &&
-      SimulationResult.isCurrent(
-        simulation.result.inputs,
-        SimulationResult.targetFor(
-          inputs.simulationRevision,
-          offer.titleType,
-          inputs.offerTermsRevision,
-          inputs.curveValuesRevision,
-        ),
-      )
+    return simulation.calculation.appliesTo(
+      SimulationCalculationService.inputFingerprintOf(simulation, offer, curve),
     );
   }
 
@@ -93,7 +70,8 @@ export class SimulationCalculationService {
         },
       });
     }
-    const inputs = SimulationCalculationService.inputsOf(
+    const simulationRevision = simulation.revision;
+    const inputFingerprint = SimulationCalculationService.inputFingerprintOf(
       simulation,
       offer,
       curve,
@@ -101,35 +79,43 @@ export class SimulationCalculationService {
 
     const scenario = this.validate(investment, offer, curve);
     if (scenario.isErr()) {
-      return { kind: 'INVALID', inputs, reason: scenario.error };
+      return {
+        kind: 'INVALID',
+        simulationRevision,
+        inputFingerprint,
+        reason: scenario.error,
+      };
     }
     const projection = this.calculator.calculate(scenario.value);
     if (projection.isErr()) {
       if (projection.error.kind === 'unexpected') throw projection.error;
-      return { kind: 'INVALID', inputs, reason: projection.error };
+      return {
+        kind: 'INVALID',
+        simulationRevision,
+        inputFingerprint,
+        reason: projection.error,
+      };
     }
     return {
       kind: 'CALCULATED',
+      simulationRevision,
       result: SimulationResult.create({
-        inputs: {
-          ...inputs,
-          methodologyVersion: projection.value.methodologyVersion,
-        },
+        inputFingerprint,
         projection: projection.value,
         calculatedAt: at,
       }),
     };
   }
 
-  private static inputsOf(
+  private static inputFingerprintOf(
     simulation: Simulation,
     offer: Offer,
     curve: Curve | null,
-  ) {
-    return {
+  ): InputFingerprint {
+    return SimulationResult.inputFingerprintFor({
       simulationRevision: simulation.revision,
-      offerTermsRevision: offer.termsRevision,
+      offer,
       curveValuesRevision: curve?.valuesRevision ?? null,
-    };
+    });
   }
 }

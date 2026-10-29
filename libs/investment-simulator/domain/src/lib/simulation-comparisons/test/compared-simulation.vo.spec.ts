@@ -1,11 +1,10 @@
 import { Money } from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
-import { ETitleType } from '../../offers/title-type.enum';
 import { ESimulationCalculationStatus } from '../../simulations/simulation-calculation.vo';
-import { SimulationResult } from '../../simulations/simulation-result.vo';
 import {
   comparedResult,
   comparedSimulation,
+  inputFingerprint,
   REVISION,
 } from './compared-simulation-fixture';
 
@@ -17,13 +16,10 @@ describe('ComparedSimulation', () => {
     expect(simulation.isSettled).toBe(true);
   });
 
-  it.each([
-    ['the simulation', { simulationRevision: REVISION + 1 }],
-    ['the offer terms', { offerTermsRevision: 2 }],
-    ['the curve values', { curveValuesRevision: 1 }],
-    ['the methodology of the title type', { titleType: ETitleType.LCI }],
-  ])('has a stale result after %s changed', (_, change) => {
-    const simulation = comparedSimulation('a', comparedResult(), change);
+  it('has a stale result once its premises changed', () => {
+    const simulation = comparedSimulation('a', comparedResult(), {
+      currentInputFingerprint: inputFingerprint(REVISION + 1),
+    });
 
     expect(simulation.isResultCurrent).toBe(false);
     expect(simulation.isSettled).toBe(false);
@@ -64,9 +60,7 @@ describe('ComparedSimulation', () => {
       comparedSimulation('a').equals(
         comparedSimulation(
           'a',
-          comparedResult({
-            inputs: SimulationResult.targetFor(1, ETitleType.CDB, 1, null),
-          }),
+          comparedResult({ inputFingerprint: inputFingerprint(1) }),
         ),
       ),
     ).toBe(false);

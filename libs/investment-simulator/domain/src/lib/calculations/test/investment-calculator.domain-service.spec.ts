@@ -73,7 +73,6 @@ describe('InvestmentCalculator domain service', () => {
   it('returns gross daily balances and a separate maturity tax summary', () => {
     const input = scenario();
     const result = calculator.calculate(input).value;
-    expect(result.methodologyVersion).toBe('cdb-252-v1');
     expect(result.dailyBalances.map((row) => row.date.toIsoString())).toEqual([
       '2026-01-05',
       '2026-01-06',
@@ -324,24 +323,25 @@ describe('InvestmentCalculator domain service', () => {
     });
   });
 
-  it.each([
-    [ETitleType.LCI, 'lci-252-v1'],
-    [ETitleType.LCA, 'lca-252-v1'],
-  ])('accrues %s like a CDB, without income tax', (titleType, version) => {
-    const dates = { start: '2026-01-02', end: '2026-10-02' };
-    const cdb = calculator.calculate(scenario(dates)).value;
-    const result = calculator.calculate(
-      scenario({ ...dates, titleType }),
-    ).value;
-    expect(result.methodologyVersion).toBe(version);
-    expect(result.gross.finalBalance.equals(cdb.gross.finalBalance)).toBe(true);
-    expect(result.taxes.incomeTax.rate).toBeNull();
-    expect(result.taxes.total.isZero).toBe(true);
-    expect(result.net.finalBalance.equals(result.gross.finalBalance)).toBe(
-      true,
-    );
-    expect(cdb.taxes.total.isPositive).toBe(true);
-  });
+  it.each([ETitleType.LCI, ETitleType.LCA])(
+    'accrues %s like a CDB, without income tax',
+    (titleType) => {
+      const dates = { start: '2026-01-02', end: '2026-10-02' };
+      const cdb = calculator.calculate(scenario(dates)).value;
+      const result = calculator.calculate(
+        scenario({ ...dates, titleType }),
+      ).value;
+      expect(result.gross.finalBalance.equals(cdb.gross.finalBalance)).toBe(
+        true,
+      );
+      expect(result.taxes.incomeTax.rate).toBeNull();
+      expect(result.taxes.total.isZero).toBe(true);
+      expect(result.net.finalBalance.equals(result.gross.finalBalance)).toBe(
+        true,
+      );
+      expect(cdb.taxes.total.isPositive).toBe(true);
+    },
+  );
 
   it('returns an explicit error for deferred IPCA', () => {
     const ipca = curve(EEconomicIndex.IPCA, [

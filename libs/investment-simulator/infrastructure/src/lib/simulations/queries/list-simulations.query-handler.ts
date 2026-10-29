@@ -5,7 +5,11 @@ import {
   ETitleType,
   SimulationResult,
 } from '@investflow/investment-simulator-domain';
-import { CalendarDate, Result } from '@investflow/shared-domain';
+import {
+  CalendarDate,
+  InputFingerprint,
+  Result,
+} from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { SimulationQueryError } from './simulation-query.error';
@@ -81,10 +85,7 @@ const simulationSelect = {
   calculation: { select: { status: true } },
   result: {
     select: {
-      simulationRevision: true,
-      offerTermsRevision: true,
-      curveValuesRevision: true,
-      methodologyVersion: true,
+      inputFingerprint: true,
       calculatedAt: true,
       netBalance: true,
       netAnnualReturn: true,
@@ -233,14 +234,15 @@ export class ListSimulationsQueryHandler
       result: result
         ? {
             calculatedAt: result.calculatedAt.toISOString(),
-            outdated: !SimulationResult.isCurrent(
-              result,
-              SimulationResult.targetFor(
-                record.revision,
-                offer.titleType as ETitleType,
-                offer.termsRevision,
-                record.curve?.valuesRevision ?? null,
-              ),
+            outdated: !InputFingerprint.restore(result.inputFingerprint).equals(
+              SimulationResult.inputFingerprintFor({
+                simulationRevision: record.revision,
+                offer: {
+                  titleType: offer.titleType as ETitleType,
+                  termsRevision: offer.termsRevision,
+                },
+                curveValuesRevision: record.curve?.valuesRevision ?? null,
+              }),
             ),
             netBalance: result.netBalance.toFixed(),
             netAnnualReturn: result.netAnnualReturn.toFixed(),

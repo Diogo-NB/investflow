@@ -42,13 +42,16 @@ item when it ships.
 
 ## Result currency decided in query projections (deferred 2026-10-28)
 
-- **Today:** the workspace projection
-  (`simulation-workspace-projection.ts`, also used by the comparison for what
-  it shows) and `ListSimulationsQueryHandler` compute `result.outdated` from
-  rows with `SimulationResult.isCurrent`, and the workspace editor derives
-  "up to date" from the status and `outdated` (`simulation-editor.tsx`). The
-  comparison and investment plans get the same facts from `ComparedSimulation`
-  and `InvestmentPlanMember`, each repeating the currency check.
+- **Today:** whether a result is current is decided only by comparing input
+  fingerprints built by `SimulationResult.inputFingerprintFor()` (see "Input
+  fingerprint" in [recalculation.md](./recalculation.md)). But the workspace
+  projection (`simulation-workspace-projection.ts`, also used by the
+  comparison for what it shows) and `ListSimulationsQueryHandler` still
+  select the current revisions from rows to build that fingerprint, and the
+  workspace editor derives "up to date" from the status and `outdated`
+  (`simulation-editor.tsx`). The comparison and investment plans get the
+  same facts through their read ports (`ComparedSimulation`,
+  `InvestmentPlanMember`).
 - **Why deferred:** found while moving the simulation comparison behind a
   read port; the workspace and the list are other screens.
 - **Revisit with:** "Domain Concepts on a Screen Read" in

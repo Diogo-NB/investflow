@@ -107,7 +107,7 @@ describe('EditSimulationUseCase', () => {
     );
 
     expect(simulation.revision).toBe(2);
-    expect(simulation.calculation.inputs.simulationRevision).toBe(2);
+    expect(simulation.calculation.simulationRevision).toBe(2);
     expect(simulation.investment.principal.equals(Money.of('2500'))).toBe(true);
   });
 

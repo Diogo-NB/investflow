@@ -158,8 +158,7 @@ any of them changes.
   "Rentabilidade" block, then principal, gross balance, gross earnings, IOF,
   income tax, total taxes and net value, with the dates, business days, the
   curve's last end, for every simulation with a curve ("A curva tem valores
-  até 31/12/2028; depois, a taxa é mantida."), calculation instant in São Paulo time and the
-  methodology version.
+  até 31/12/2028; depois, a taxa é mantida."), calculation instant in São Paulo time.
   "Evolução do saldo" is a disclosure.
 - "Rentabilidade" is a small table with the rows "Ao ano", "Ao mês" and "No
   período" and the columns "Líquida" (first) and "Bruta", with two decimal
