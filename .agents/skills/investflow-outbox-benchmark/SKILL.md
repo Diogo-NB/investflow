@@ -79,7 +79,8 @@ definitions. One row per load, with the healthy ranges measured locally on
 - **After commit p99 (µs):** COMMIT acknowledged → `run()` resolved: work on the request's path after commit. Healthy: tens to low hundreds of µs
 - **Published:** `all`, or `TIMED OUT` (exit code 1). Healthy: `all`
 
-Idle should be about 1.0 database calls/s: one poll per second.
+Idle should be about 1.0 database calls/s: one poll per second. The outbox
+retention first runs 5 minutes after start, so a default run never sees it.
 
 Before the relay (the 1-second poller only), the same simulated loads
 waited up to 9.8 s (steady), 18.5 s (concurrent), and 115.7 s (fan-out).

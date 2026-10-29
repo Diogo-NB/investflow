@@ -61,6 +61,8 @@ export class OutboxPollerService
 
     return this.prisma.$transaction(async (client) => {
       const now = this.clock.now();
+      // The planner reads the partial index of unpublished rows only when the
+      // query repeats its predicate, published_at IS NULL.
       const rows = await client.$queryRaw<ClaimedRow[]>`
         SELECT id, event_type AS "eventType", context, payload, attempts
         FROM outbox_events

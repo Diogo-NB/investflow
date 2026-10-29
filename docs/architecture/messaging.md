@@ -96,13 +96,42 @@ This replaces the earlier SNS topic per context.
   pause the relay and the poller together for 1 second. While the broker
   stays down, the first call after each pause fails and starts a pause twice
   as long, up to 60 seconds; a successful call resumes publishing.
+- **Retention.** Decided and built 2026-10-28: published rows are kept 7
+  days, long enough to check when an event went out or to resend it after an
+  incident found days later, and then deleted. Nothing in the code reads
+  them: consumers deduplicate in `processed_events`, keyed on the event ID.
+  - Two partial indexes split the table, so each row is in one: unpublished
+    rows by `created_at`, which the poller claims from, and published rows by
+    `published_at`, which retention deletes from. With 1,000,000 published
+    rows locally, the claim's index is 16 kB instead of 54 MB, and the claim
+    takes 0.2 ms either way: a B-tree already kept the unpublished rows
+    together, so the gain is size and cache, not speed. Prisma generates
+    them through its `partialIndexes` preview feature.
+  - `OutboxRetentionService` is a loop like the poller's, in every
+    publishing host: 5 minutes after the process starts, and 5 minutes after
+    each run ends, it deletes batches of 1,000 rows, the oldest first, with
+    `FOR UPDATE SKIP LOCKED`, until a batch comes back short. Runs never
+    overlap, and shutdown waits for the batch in progress. A batch is one
+    short statement (about 8 ms locally), so it locks only its own rows, and
+    concurrent instances delete disjoint rows. A 100 ms pause between batches
+    spreads a large backlog, such as the first run on an old table, while one
+    instance still deletes about 9,000 rows per second, over three times what
+    it can publish. Rows expire continuously, so the interval only sets how
+    many pile up between runs.
+  - Rejected: deleting rows as they are published, which keeps the table
+    minimal but leaves nothing to debug or replay; a daily run, which keeps
+    rows up to 8 days and deletes a whole day of rows at once; a cron
+    (`@nestjs/schedule`), which fires every instance at the same moment and
+    needs its own overlap and shutdown handling for what one loop does; and
+    dropping daily partitions, the answer at a much larger volume, deferred
+    because Prisma cannot model them.
 - **Payload limit.** The outbox owns a 200 KB payload limit, enforced when the
   event is recorded: events carry identifiers and changed fields, not documents.
   The limit is not derived from the transport; every broker adapter must
   accept payloads of that size (EventBridge accepts 256 KB per entry).
 - **Hosts.** A host publishes by importing `OutboxModule`, which runs its
-  relay and poller. A host without it, such as the seed, records events
-  that a publishing host's poller sends after the grace period. A Lambda
+  relay, poller, and retention. A host without it, such as the seed, records
+  events that a publishing host's poller sends after the grace period. A Lambda
   host would freeze the relay's work after returning, so it would await the
   relay or rely on the poller. Long synchronous work delays the relay like
   any other callback of its process. Consumers run in the API today and can

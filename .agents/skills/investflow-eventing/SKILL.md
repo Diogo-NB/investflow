@@ -105,7 +105,7 @@ queueUrlConfigKey }])`. A dead-letter consumer is bound the same way.
 
 Reusable messaging code lives under
 `shared/infrastructure/src/lib/messaging`: `outbox` (writer, recorder, relay,
-publisher, poller, `MessageBroker` port), `eventbridge`, `consumers`
+publisher, poller, retention, `MessageBroker` port), `eventbridge`, `consumers`
 (`EventDispatcher`, `@OnEvent`), and `sqs`. Transport-specific code stays in
 `eventbridge` and `sqs`. Importing persistence or authentication modules must
 never start background work.
@@ -129,7 +129,7 @@ Cover atomic aggregate and outbox persistence, commit hooks (order,
 rollback, after-commit only on success and outside the scope), serialization
 and the payload limit, routing and rejected entries, batching and the
 in-flight limit, the relay's hand-off, cap, staleness, and shutdown, the
-poller's claim and grace period, per-event failure isolation, pausing,
+poller's claim and grace period, retention's batches and shutdown, per-event failure isolation, pausing,
 processed-event deduplication, consumer rollback, message deletion, and host
 activation. `messaging.integration.spec.ts` covers the whole path against
 Floci and runs in `pnpm check:integration`. Finish with the checks for

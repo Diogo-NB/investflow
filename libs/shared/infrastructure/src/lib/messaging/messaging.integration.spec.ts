@@ -33,6 +33,7 @@ import { MessageBroker, OutboxMessage } from './outbox/message-broker.port';
 import { OutboxModule } from './outbox/outbox.module';
 import { OutboxPollerService } from './outbox/outbox-poller.service';
 import { OutboxPublisher } from './outbox/outbox-publisher';
+import { OutboxRetentionService } from './outbox/outbox-retention.service';
 import { SqsConsumersModule } from './sqs/sqs-consumers.module';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -303,6 +304,51 @@ describe('Messaging through EventBridge and SQS', () => {
     });
     expect(unpublished.map(({ id }) => id).sort()).toEqual(
       [...freshIds].sort(),
+    );
+  }, 30_000);
+
+  it('deletes rows published over 7 days ago across concurrent instances and keeps the rest', async () => {
+    const clock = app.get(Clock, { strict: false });
+    const instances = [1, 2].map(
+      () => new OutboxRetentionService(prisma, clock),
+    );
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 24 * 60 * 60_000);
+    const row = (id: string, createdAt: Date, publishedAt: Date | null) => ({
+      id,
+      aggregateType: 'TestAggregate',
+      aggregateId: generateUuid(),
+      eventType: 'TestHappened',
+      context,
+      payload: { eventId: id },
+      occurredAt: createdAt,
+      createdAt,
+      publishedAt,
+    });
+    const expiredIds = Array.from({ length: 2_500 }, () => generateUuid());
+    const recentId = generateUuid();
+    const unpublishedId = generateUuid();
+    await prisma.client.outboxEvent.createMany({
+      data: [
+        ...expiredIds.map((id) => row(id, daysAgo(9), daysAgo(8))),
+        row(recentId, daysAgo(6), daysAgo(6)),
+        row(unpublishedId, daysAgo(9), null),
+      ],
+    });
+
+    for (;;) {
+      const deleted = await Promise.all(
+        instances.map((instance) => instance.deleteExpiredOnce()),
+      );
+      if (deleted.every((count) => count === 0)) break;
+    }
+
+    const remaining = await prisma.client.outboxEvent.findMany({
+      where: { id: { in: [...expiredIds, recentId, unpublishedId] } },
+      select: { id: true },
+    });
+    expect(remaining.map(({ id }) => id).sort()).toEqual(
+      [recentId, unpublishedId].sort(),
     );
   }, 30_000);
 });

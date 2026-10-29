@@ -53,7 +53,7 @@ Three ideas carry the whole design:
 | Domain event       | A past-tense fact, such as `OfferTermsChanged`. Carries identifiers, never values.                           |
 | Unit of work       | `UnitOfWork.run()`: the transaction of a request or consumer. Its recorded events are written with it.       |
 | Recorder           | `DomainEventRecorder`: records events in the unit of work. Repositories use it on save; services directly.   |
-| Outbox             | The `outbox_events` table. Events wait here until published.                                                 |
+| Outbox             | The `outbox_events` table. Events wait here until published and are kept 7 days after.                       |
 | After-commit hook  | A callback a unit of work runs once its transaction commits. Best effort: never run on rollback.             |
 | Outbox relay       | `OutboxRelay`. Publishes a committed unit of work's rows from memory, right after commit.                    |
 | Outbox publisher   | `OutboxPublisher`. Sends batches with a cap on calls in flight, marks rows, backs off failures, pauses.      |
