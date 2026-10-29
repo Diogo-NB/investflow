@@ -123,8 +123,9 @@ This replaces the earlier SNS topic per context.
     rows up to 8 days and deletes a whole day of rows at once; a cron
     (`@nestjs/schedule`), which fires every instance at the same moment and
     needs its own overlap and shutdown handling for what one loop does; and
-    dropping daily partitions, the answer at a much larger volume, deferred
-    because Prisma cannot model them.
+    dropping daily partitions, which needs hand-written migrations because
+    Prisma cannot model them, while batched deletes of about 1/7 of the table
+    a day leave autovacuum's defaults able to keep up.
   - `processed_events` is kept forever. Its only access is the dispatcher's
     insert, a primary-key lookup whose cost grows with the logarithm of the
     table, and its rows are never updated or deleted, so it leaves autovacuum

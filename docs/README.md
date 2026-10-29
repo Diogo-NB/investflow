@@ -5,7 +5,7 @@ other files link to it instead of repeating it.
 
 ## Product
 
-- [planned/](product/planned/): one file per pending feature, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](product/planned/bcb-rate-import.md). Read when: planning or starting that feature.
+- [planned/](product/planned/): one file per pending feature, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](product/planned/bcb-rate-import.md), [fan-out-at-scale.md](product/planned/fan-out-at-scale.md). Read when: planning or starting that feature.
 - [current-state.md](product/current-state.md): what is built, per area, and where it differs from the target model. Read when: checking whether something exists before planning or building on it.
 - [investment-simulator-prd.md](product/investment-simulator-prd.md): business rules, calculations, taxes, access (pt-BR). Read when: a change touches a business rule or calculation.
 - [index-value-curves.md](product/index-value-curves.md): curve rules: intervals, conventions, coverage, BCB curves (pt-BR). Read when: a change touches curves or index values.

@@ -204,8 +204,9 @@ state is kept; there is no transition history.
   in the consumer's single unit of work: all or nothing, no paging, no
   aggregates loaded, no calculation rows written. The calculation worker
   then handles each request as usual. That transaction grows with the number
-  of simulations, a deliberate simplification (see "Fan-out at scale" in
-  Deferred Work). While a recalculation is on its way the screen shows the
+  of simulations, a deliberate simplification (see the planned
+  [Fan-out at Scale](../product/planned/fan-out-at-scale.md)). While a
+  recalculation is on its way the screen shows the
   derived "Desatualizado", not "Calculando" (see "Recalculation status on
   screen" in Deferred Work). The fan-out queue has a dead-letter queue but
   no consumer bound to it: a dead-lettered fan-out wrote nothing, so its

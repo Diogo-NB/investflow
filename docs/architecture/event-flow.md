@@ -304,8 +304,8 @@ describing a curve (`OfferDetailsChanged`, `CurveDetailsChanged`) reaches no
 consumer and leaves its simulations up to date. Fan-out never loads
 simulations and writes no calculation rows: until each result lands, the
 screen shows "Desatualizado", derived from the term revisions. It records
-all its requests in one transaction, a simplification listed under
-"Fan-out at scale" in [Deferred Work](./deferred-work.md).
+all its requests in one transaction, a simplification covered by
+the planned [Fan-out at Scale](../product/planned/fan-out-at-scale.md).
 
 ### Walkthrough 6: An Offer or Curve Is Deleted
 

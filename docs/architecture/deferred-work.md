@@ -4,24 +4,6 @@ Work that was consciously postponed but must still be implemented. Each item
 says why it was deferred, what exists today, and what "done" means. Remove an
 item when it ships.
 
-## Fan-out at scale (deferred 2026-10-26)
-
-- **Today:** fan-out records every
-  `SimulationCalculationRequested` for a premise in one unit of work. A
-  system curve used by hundreds of thousands of simulations would need one
-  very large transaction, which could outlast the 30-second visibility
-  timeout and be dead-lettered. Publishing is batched (about 2,700 events
-  per second per instance at a 30 ms round trip, bounded by the `PutEvents`
-  quota), but the relay takes at most 5,000 rows of a burst; the poller
-  publishes the rest after the grace period, 100 rows per claim.
-- **Revisit with:** recording through the outbox in bounded chunks (a
-  dispatcher mode whose handler opens its own units of work, ids streamed
-  from the repository, a visibility heartbeat), and listeners that handle
-  different message groups concurrently.
-- **Done when** a premise reaching any number of simulations fans out in
-  bounded transactions within the visibility timeout, and publishing keeps
-  up.
-
 ## Recalculation status on screen (deferred 2026-10-26)
 
 - **Today:** fan-out writes no calculation rows, so a
@@ -69,16 +51,3 @@ item when it ships.
   eventual step, and how the screen recovers when the second step fails.
 - **Done when** each use case changes one aggregate, or the exception is
   justified and recorded.
-
-## Time-partitioned outbox (deferred 2026-10-28)
-
-- **Today:** `OutboxRetentionService` deletes published rows older than 7
-  days in batches of 1,000, and autovacuum reclaims the dead rows they leave
-  (`docs/architecture/messaging.md`).
-- **Why deferred:** at about 1/7 of the table deleted per day, autovacuum's
-  defaults keep up, and Prisma cannot model a partitioned table, so it needs
-  hand-written migrations.
-- **Revisit when** vacuum on `outbox_events` becomes a measurable cost
-  (bloat, I/O, or replication lag during cleanup).
-- **Done when** the outbox is partitioned by day and retention drops whole
-  partitions instead of deleting rows.
