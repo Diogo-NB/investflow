@@ -53,13 +53,25 @@ item when it ships.
   same facts through their read ports (`ComparedSimulation`,
   `InvestmentPlanMember`).
 - **Why deferred:** found while moving the simulation comparison behind a
-  read port; the workspace and the list are other screens.
+  read port; the workspace and the list are other screens. The input
+  fingerprint (2026-10-28) moved the rule into the domain but left these two
+  reads as they were.
 - **Revisit with:** "Domain Concepts on a Screen Read" in
-  [queries.md](./queries.md): one domain concept for a simulation's last
-  result against its current premises (whether it is current and settled),
-  shared by the plan member, the compared simulation, the workspace, and the
-  list.
-- **Done when** no query projection or screen decides whether a result is
+  [queries.md](./queries.md), as the plans and the comparison already do:
+  - a read port in domain terms for the workspace and one for the list,
+    returning per simulation its calculation status, current input
+    fingerprint, and result's fingerprint as a domain object; the list's
+    port returns a page, since the list is paged, sorted by net return, and
+    filtered by status, unlike the plan and comparison readers, which look
+    up ids (the open design question);
+  - a read use case that derives `outdated` and `isSettled` from it;
+  - query handlers that stop selecting revisions and calling
+    `SimulationResult.inputFingerprintFor()`, and only serialize;
+  - `isSettled` in the workspace output, read by `simulation-editor.tsx`
+    instead of its own condition.
+
+  No schema, event, or messaging change, and nothing the user sees changes.
+- **Done when** no query handler or screen decides whether a result is
   current or settled.
 
 ## Composed screen reads without one snapshot (deferred 2026-10-28)
