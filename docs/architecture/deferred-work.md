@@ -70,21 +70,6 @@ item when it ships.
 - **Done when** each use case changes one aggregate, or the exception is
   justified and recorded.
 
-## Trigram index for offer and simulation search (deferred 2026-10-28)
-
-- **Today:** the `q` search of `GET offers` and `GET simulations` is a
-  case-insensitive `contains` (`ILIKE '%…%'`), which no B-tree index serves.
-  The simulation search runs after the `ownerId` index narrows the rows, so
-  it scans one owner's simulations; the offer search scans the offers
-  visible to the user.
-- **Why deferred:** both scans are bounded by what one user owns or sees,
-  and a `pg_trgm` GIN index needs a hand-written migration (the extension
-  and the operator class) with no measured need.
-- **Revisit when** a search is measurably slow for a user with many
-  simulations or a large offer catalog.
-- **Done when** `pg_trgm` GIN indexes on the offer's name and issuer serve
-  both searches, confirmed with `EXPLAIN ANALYZE`.
-
 ## Time-partitioned outbox (deferred 2026-10-28)
 
 - **Today:** `OutboxRetentionService` deletes published rows older than 7
@@ -97,13 +82,3 @@ item when it ships.
   (bloat, I/O, or replication lag during cleanup).
 - **Done when** the outbox is partitioned by day and retention drops whole
   partitions instead of deleting rows.
-
-## Retention of processed events (deferred 2026-10-28)
-
-- **Today:** `EventDispatcher` writes one `processed_events` row per consumer
-  and event, and nothing deletes them, so the table grows forever.
-- **Why deferred:** its safe retention depends on how late a duplicate can
-  arrive (SQS message retention, and a dead-letter redrive up to 14 days
-  later), not on the outbox's 7 days, so it is a separate decision.
-- **Done when** rows older than the redelivery horizon are deleted in
-  bounded batches, like the outbox's retention.

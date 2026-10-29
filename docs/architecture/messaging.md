@@ -125,6 +125,12 @@ This replaces the earlier SNS topic per context.
     needs its own overlap and shutdown handling for what one loop does; and
     dropping daily partitions, the answer at a much larger volume, deferred
     because Prisma cannot model them.
+  - `processed_events` is kept forever. Its only access is the dispatcher's
+    insert, a primary-key lookup whose cost grows with the logarithm of the
+    table, and its rows are never updated or deleted, so it leaves autovacuum
+    nothing to reclaim. Its cost is storage. Retention would also have to
+    outlast the latest a duplicate can arrive (SQS message retention and a
+    dead-letter redrive up to 14 days later), not the outbox's 7 days.
 - **Payload limit.** The outbox owns a 200 KB payload limit, enforced when the
   event is recorded: events carry identifiers and changed fields, not documents.
   The limit is not derived from the transport; every broker adapter must
