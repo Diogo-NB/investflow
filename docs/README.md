@@ -5,7 +5,7 @@ other files link to it instead of repeating it.
 
 ## Product
 
-- [planned/](product/planned/): one file per pending feature, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](product/planned/bcb-rate-import.md), [fan-out-at-scale.md](product/planned/fan-out-at-scale.md). Read when: planning or starting that feature.
+- [planned/](product/planned/): one file per pending feature or postponed work, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](product/planned/bcb-rate-import.md), [fan-out-at-scale.md](product/planned/fan-out-at-scale.md). Read when: planning or starting that feature, or touching an area it names.
 - [current-state.md](product/current-state.md): what is built, per area, and where it differs from the target model. Read when: checking whether something exists before planning or building on it.
 - [investment-simulator-prd.md](product/investment-simulator-prd.md): business rules, calculations, taxes, access (pt-BR). Read when: a change touches a business rule or calculation.
 - [index-value-curves.md](product/index-value-curves.md): curve rules: intervals, conventions, coverage, BCB curves (pt-BR). Read when: a change touches curves or index values.
@@ -23,6 +23,5 @@ other files link to it instead of repeating it.
 - [messaging.md](architecture/messaging.md): outbox, relay, poller, EventBridge, SQS FIFO, consumers, hosts. Read when: changing how events are recorded, published, routed, or consumed.
 - [event-flow.md](architecture/event-flow.md): visual walkthrough of events and recalculation; the Event Catalog. Read when: adding or changing an event, or learning the flow.
 - [frontend-patterns.md](architecture/frontend-patterns.md): frontend decisions, pinned stack, app structure, composition contract, configuration, browser verification, the business calendar. Read when: adding a dependency, project, route export, or form business rule, or before browser checks.
-- [deferred-work.md](architecture/deferred-work.md): consciously postponed work, with why and when to revisit. Read when: before touching an area it names; when postponing something.
 
 [`DESIGN.md`](../DESIGN.md) at the root owns the visual design tokens.

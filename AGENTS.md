@@ -90,7 +90,7 @@ are revisable; check that their premises still hold.
   libraries.
 - The web page limits dates to the current year ± 100; the API accepts any
   date.
-- Postponed work is in `docs/architecture/deferred-work.md`; check it before
+- Pending and postponed work is in `docs/product/planned/`; check it before
   touching an area it names.
 
 ## Build, Test, and Development Commands

@@ -33,7 +33,7 @@ Find what the work touches before reading, then read only that
   and the screen file in `docs/product/screens/` for screen work.
 - The architecture file of each area touched (`recalculation.md`,
   `messaging.md`, `queries.md`, `frontend-patterns.md`) and every
-  `docs/architecture/deferred-work.md` item that names it.
+  `docs/product/planned/` file that names it.
 
 Recorded decisions are revisable, and so is a design handed over in the
 request, even one called agreed: review it as you would your own (see
@@ -55,7 +55,7 @@ The request sets how far to go. Respect it, and ask when it is unclear:
   settled; return to planning when a real design question appears.
 
 When the user narrows the scope ("only step 1 + docs", "pin the fan-out"), plan only
-that and record the remainder as deferred or as a planned feature.
+that and record the remainder as a planned feature.
 
 ## Shape the problem before the solution
 
@@ -95,7 +95,7 @@ anything heavier. Reject what the user has rejected before:
 - a new aggregate, table, or status where a column or a derived value works;
 - copies of data that can be referenced;
 - paging, caching, generalization, or configurability with no current need
-  (record it as deferred work instead).
+  (record it as a planned feature instead).
 
 ### Open questions
 
@@ -163,9 +163,10 @@ After a decision is agreed or an implementation lands, update the docs in
 the same change. The user should never have to ask whether the docs are up
 to date:
 
-- **Planned features**: a feature agreed but not built gets its own file in
-  `docs/product/planned/` with a pending status line, its open decisions,
-  scope, and done criteria. Mark settled points, pauses (with the date), and
+- **Planned features**: a feature agreed but not built, or work consciously
+  postponed, gets its own file in `docs/product/planned/` with a pending
+  status line, its open decisions, scope, and done criteria; postponed work
+  also says why and when to revisit it. Mark settled points, pauses (with the date), and
   what remains; delete the file once the feature ships. Name features for
   what they are, not with sequence numbers.
 - **Current State**: what the change built or changed, in
@@ -177,9 +178,6 @@ to date:
 - **Architecture docs**: record decisions with their date in the file that
   owns the area (`docs/README.md`), the Event Catalog for any event change,
   and the matching one-line invariant in `AGENTS.md` when one exists.
-- **Deferred Work**: add each consciously postponed item to
-  `docs/architecture/deferred-work.md` with its date, the reason, and when to
-  revisit it. Remove an item when it ships.
 - **Skills**: when a coding convention changed, update the skill that owns
   it (coding rules live in skills, not docs). When files move to another
   skill, update the "Agent Skills" routing in `AGENTS.md` and the hook's
