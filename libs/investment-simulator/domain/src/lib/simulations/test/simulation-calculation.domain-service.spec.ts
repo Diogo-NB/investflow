@@ -8,6 +8,7 @@ import { Curve } from '../../curves/curve.aggregate';
 import { Offer } from '../../offers/offer.aggregate';
 import { ETitleType } from '../../offers/title-type.enum';
 import { InvestmentInputs } from '../investment-inputs.vo';
+import { SimulationCalculationService } from '../simulation-calculation.domain-service';
 import { SimulationResult } from '../simulation-result.vo';
 import { Simulation } from '../simulation.aggregate';
 import {
@@ -168,10 +169,9 @@ describe('SimulationCalculationService', () => {
       const chosen = offer();
 
       expect(
-        calculationService.isCurrent(
+        SimulationCalculationService.isCurrent(
           simulation(chosen, investment()),
-          chosen,
-          null,
+          { offer: chosen, curve: null },
         ),
       ).toBe(false);
     });
@@ -188,7 +188,12 @@ describe('SimulationCalculationService', () => {
           CALCULATED_AT,
         );
 
-        expect(calculationService.isCurrent(recorded, chosen, null)).toBe(true);
+        expect(
+          SimulationCalculationService.isCurrent(recorded, {
+            offer: chosen,
+            curve: null,
+          }),
+        ).toBe(true);
       },
     );
 
@@ -207,7 +212,41 @@ describe('SimulationCalculationService', () => {
       );
 
       expect(chosen.termsRevision).toBe(2);
-      expect(calculationService.isCurrent(recorded, chosen, null)).toBe(false);
+      expect(
+        SimulationCalculationService.isCurrent(recorded, {
+          offer: chosen,
+          curve: null,
+        }),
+      ).toBe(false);
+    });
+
+    it('treats missing premises as current only for the outcome recorded for them', () => {
+      const chosen = offer();
+      const recorded = simulation(chosen, investment());
+      recorded.recordCalculation(
+        calculationService.calculate(recorded, chosen, null, CALCULATED_AT),
+        CALCULATED_AT,
+      );
+      expect(SimulationCalculationService.isCurrent(recorded, null)).toBe(
+        false,
+      );
+
+      recorded.recordCalculation(
+        {
+          kind: 'INVALID',
+          simulationRevision: recorded.revision,
+          inputFingerprint: SimulationCalculationService.inputFingerprintOf(
+            recorded,
+            null,
+          ),
+          reason: new DomainError('Sem oferta.', {
+            code: EAppErrorCode.OFFER_NOT_FOUND,
+            kind: 'not-found',
+          }),
+        },
+        CALCULATED_AT,
+      );
+      expect(SimulationCalculationService.isCurrent(recorded, null)).toBe(true);
     });
   });
 });

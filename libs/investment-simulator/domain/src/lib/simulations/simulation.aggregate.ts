@@ -163,9 +163,9 @@ export class Simulation extends AggregateRoot {
     return Result.ok(this);
   }
 
-  // Only a calculation still waiting can fail; a newer outcome stands.
+  // Callers check first that no outcome for the current premises was
+  // recorded, which needs the offer and curve.
   markCalculationFailed(at: UtcInstant): this {
-    if (!this.props.calculation.isPending) return this;
     this.props.calculation = this.props.calculation.failed(at);
     return this;
   }

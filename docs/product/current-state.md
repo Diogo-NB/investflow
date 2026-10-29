@@ -62,7 +62,8 @@ this file in the same change that ships or changes a built behavior.
   `SimulationCalculationService` and records `CALCULATED` or `INVALID` (an
   uncovered period, a deleted offer or curve) with a write conditional on the
   simulation revision, discarding stale outcomes. Its dead-letter consumer
-  records `FAILED` over a calculation still `PENDING`, and
+  records `FAILED` unless the outcome is current for the premises, also
+  after a premise recalculation, and
   `POST simulations/:id/recalculate` ("Tentar novamente") queues it again
   with `SimulationCalculationRequested`. The consumer handles all three
   events.

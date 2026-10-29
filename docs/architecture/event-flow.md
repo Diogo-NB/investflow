@@ -124,6 +124,8 @@ stateDiagram-v2
   PENDING --> FAILED: retries exhausted
   CALCULATED --> PENDING: edited or premise changed
   INVALID --> PENDING: edited or premise changed
+  CALCULATED --> FAILED: a recalculation's retries exhausted
+  INVALID --> FAILED: a recalculation's retries exhausted
   FAILED --> PENDING: Tentar novamente or edited
 ```
 
@@ -181,7 +183,7 @@ Only the current state is kept. A status history is listed in
 | Application    | Create, edit, retry use cases               | Check visibility, validate, save.                                                                                                                                      |
 | Application    | `CalculateSimulationUseCase`                | Load current state, calculate, record, save; a conflict is a discard.                                                                                                  |
 | Infrastructure | `SimulationCalculationConsumer`             | One `@OnEvent` per event above, all calculating; throws on technical failure so SQS retries.                                                                           |
-| Infrastructure | Dead-letter consumer                        | Sets `FAILED` while the simulation is still `PENDING`.                                                                                                                 |
+| Infrastructure | Dead-letter consumer                        | Sets `FAILED` unless the outcome is current for the premises.                                                                                                          |
 | Infrastructure | Repository                                  | Conditional update of `simulation_calculation` on the revisions read.                                                                                                  |
 | SQS            | `simulation-calculations` queue and its DLQ | One worker per message, redelivery, retries, giving up.                                                                                                                |
 
@@ -264,17 +266,19 @@ sequenceDiagram
   W->>W: throws (for example a database timeout)
   Note over Q,W: not deleted, reappears after 30 s, fails 4 more times
   Q-->>D: 5th failure moves m1 to the dead-letter queue
-  D->>DB: markCalculationFailed() while still PENDING
+  D->>DB: markCalculationFailed() unless the outcome is current
   B->>A: poll returns FAILED ("Falha técnica")
   B->>A: POST /simulations/:id/recalculate (Tentar novamente)
   A->>DB: PENDING (RETRY_REQUESTED), SimulationCalculationRequested in the outbox
 ```
 
-The dead-letter consumer writes `FAILED` only while the row is still
-`PENDING` for the revision it read, so it never replaces an outcome written
-meanwhile. If a newer message for the same revision is already in flight (a
-retry, or saving without changes), the screen may show "Falha técnica" briefly
-before that calculation replaces it.
+The dead-letter consumer writes `FAILED` over `PENDING` or over an outcome
+for older inputs, such as a result made stale by an offer change whose
+recalculation failed. An outcome current for the premises stands, and the
+write requires the row to be unchanged since it was read, so it never
+replaces an outcome written meanwhile. If a newer message for the same
+revision is already in flight (a retry, or saving without changes), the
+screen may show "Falha técnica" briefly before that calculation replaces it.
 
 ### Walkthrough 5: An Offer's Terms or a Curve's Values Change
 

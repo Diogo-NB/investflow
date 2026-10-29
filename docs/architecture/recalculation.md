@@ -171,17 +171,16 @@ state is kept; there is no transition history.
   timeout keeps a message with one worker; a worker that dies leaves its
   message to reappear; a failing
   message is retried until `maxReceiveCount` and then dead-lettered; a
-  consumer bound to the dead-letter queue sets `FAILED` while the simulation
-  is still `PENDING`; `EventDispatcher` skips duplicate deliveries. There are
+  consumer bound to the dead-letter queue sets `FAILED` unless the
+  simulation's outcome is current (see Failures); `EventDispatcher`
+  skips duplicate deliveries. There are
   no leases, claims, or `CALCULATING` status, and domain code knows nothing
   about queues.
 - **Conditional writes.** Edits always overwrite the calculation row with
   `PENDING`, whatever is in flight; fan-out writes no calculation rows (see
   Fan-out). A worker calculates from current
   state, never from the event payload, and its save requires the row to still
-  apply to the simulation revision it read; a `FAILED` write also requires the
-  row to still be `PENDING`, so a late dead-letter delivery never replaces an
-  outcome written meanwhile. Otherwise it discards the outcome and
+  apply to the simulation revision it read. Otherwise it discards the outcome and
   acknowledges the message: whatever made its inputs out of date queued its
   own message. The check does not cover the offer and curve revisions, and
   does not need to: a premise change queues a message in the same simulation
@@ -190,6 +189,14 @@ state is kept; there is no transition history.
   can therefore land, shown "Desatualizado", but it is never the last write.
   Late, duplicate, or concurrent deliveries therefore cannot leave a stale
   state behind.
+- **Failures.** The dead-letter consumer loads the offer and curve as the
+  worker does and records `FAILED` over `PENDING` or over an outcome for older
+  inputs, including a result made stale by a premise change whose
+  recalculation failed. An outcome current for the premises stands, since a
+  newer request may have succeeded meanwhile. Its write requires the row to be
+  unchanged since it was read (status and `changedAt`), because the worker
+  reads another queue and can record an outcome in between (decided
+  2026-10-29).
 - **Fan-out** (decided and built 2026-10-26). A splitter in the
   simulations feature: `SimulationRecalculationConsumer` handles the facts
   that affect a calculation (`OfferTermsChanged`, `OfferDeleted`,
@@ -229,9 +236,7 @@ state is kept; there is no transition history.
   calculation.
 - **Convergence without a sweep.** The outbox writes each event in the same
   transaction as its change, and SQS redelivers a message until it is handled
-  or dead-lettered, so no change is left without a calculation. A methodology
-  version change requeues nothing: its results show "Desatualizado" until
-  the simulation is saved again.
+  or dead-lettered, so no change is left without a calculation.
 - **Reads** return the last successful result together with the status, its
   cause, and whether it is settled (`SimulationResultValidity`), so the
   screen can show
@@ -245,9 +250,8 @@ state is kept; there is no transition history.
   says whether its result is current), counting
   those in update (`PENDING`), with a pending issue (`INVALID`, `FAILED`),
   and with an outdated result (`CALCULATED` but not current). Outdated is
-  kept apart from in update on purpose: a methodology change, a fan-out
-  calculation that exhausted its retries, or a deleted offer leaves a result
-  stale with nothing queued, and counting it as in update would show the
-  plan updating and poll forever. Since fan-out writes no calculation rows,
+  kept apart from in update on purpose: a methodology change or a
+  dead-lettered fan-out leaves a result stale with nothing queued, and
+  counting it as in update would show the plan updating and poll forever. Since fan-out writes no calculation rows,
   members waiting for a premise recalculation count as outdated too (see
   Deferred Work).

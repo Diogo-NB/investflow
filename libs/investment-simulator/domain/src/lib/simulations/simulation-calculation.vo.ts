@@ -153,6 +153,7 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
       ...this.props,
       status: ESimulationCalculationStatus.FAILED,
       changedAt: at,
+      inputFingerprint: null,
       reason: null,
     });
   }

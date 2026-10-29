@@ -209,19 +209,21 @@ describe('Simulation', () => {
     ).toBe(EAppErrorCode.SIMULATION_CALCULATION_STALE);
   });
 
-  it('fails a calculation only while it is pending', () => {
+  it('fails a pending calculation or one with an outcome', () => {
     const simulation = create();
     simulation.markCalculationFailed(LATER);
     expect(simulation.calculation.status).toBe(
       ESimulationCalculationStatus.FAILED,
     );
+    expect(simulation.calculation.changedAt).toBe(LATER);
 
     const done = create();
-    done.recordCalculation(calculated(done), LATER);
+    done.recordCalculation(calculated(done), CALCULATED_AT);
     done.markCalculationFailed(LATER);
-    expect(done.calculation.status).toBe(
-      ESimulationCalculationStatus.CALCULATED,
-    );
+    expect(done.calculation.status).toBe(ESimulationCalculationStatus.FAILED);
+    expect(done.calculation.cause).toEqual(cause());
+    expect(done.calculation.inputFingerprint).toBeNull();
+    expect(done.result).not.toBeNull();
   });
 
   it('gives all changes before a save one revision, and a new one after it', () => {

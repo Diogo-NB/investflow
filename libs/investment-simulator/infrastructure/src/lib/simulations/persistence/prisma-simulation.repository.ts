@@ -144,8 +144,9 @@ export class PrismaSimulationRepository
     this.remember(simulation);
   }
 
-  // A failure is recorded only over a calculation still waiting: a late
-  // dead-letter delivery must not replace an outcome written meanwhile.
+  // A failure is recorded only over the calculation the use case read: the
+  // dead-letter consumer and the worker read different queues, so an outcome
+  // can land in between. Every transition sets changedAt.
   private async recordOutcome(
     client: TransactionalPrismaClient,
     data: SimulationPersistenceData,
@@ -158,7 +159,8 @@ export class PrismaSimulationRepository
         simulationId,
         simulationRevision,
         ...(calculation.status === ESimulationCalculationStatus.FAILED && {
-          status: ESimulationCalculationStatus.PENDING,
+          status: stored.calculation.status,
+          changedAt: stored.calculation.changedAt.date,
         }),
       },
       data: calculation,

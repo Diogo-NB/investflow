@@ -15,6 +15,13 @@ import type { SimulationCalculationOutcome } from './simulation-calculation.vo';
 import { SimulationResult } from './simulation-result.vo';
 import type { Simulation } from './simulation.aggregate';
 
+// What a calculation reads besides the simulation; null when the offer or the
+// curve was deleted.
+export interface SimulationCalculationPremises {
+  readonly offer: Offer;
+  readonly curve: Curve | null;
+}
+
 export class SimulationCalculationService {
   constructor(private readonly calculator: InvestmentCalculator) {}
 
@@ -40,14 +47,14 @@ export class SimulationCalculationService {
   }
 
   // Whether the recorded outcome already applies to the current premises, so
-  // calculating again would change nothing.
-  isCurrent(
+  // calculating again would change nothing. Missing premises are current for
+  // the INVALID outcome recorded for them.
+  static isCurrent(
     simulation: Simulation,
-    offer: Offer,
-    curve: Curve | null,
+    premises: SimulationCalculationPremises | null,
   ): boolean {
     return simulation.calculation.appliesTo(
-      SimulationCalculationService.inputFingerprintOf(simulation, offer, curve),
+      SimulationCalculationService.inputFingerprintOf(simulation, premises),
     );
   }
 
@@ -73,8 +80,7 @@ export class SimulationCalculationService {
     const simulationRevision = simulation.revision;
     const inputFingerprint = SimulationCalculationService.inputFingerprintOf(
       simulation,
-      offer,
-      curve,
+      { offer, curve },
     );
 
     const scenario = this.validate(investment, offer, curve);
@@ -107,15 +113,14 @@ export class SimulationCalculationService {
     };
   }
 
-  private static inputFingerprintOf(
+  static inputFingerprintOf(
     simulation: Simulation,
-    offer: Offer,
-    curve: Curve | null,
+    premises: SimulationCalculationPremises | null,
   ): InputFingerprint {
     return SimulationResult.inputFingerprintFor({
       simulationRevision: simulation.revision,
-      offer,
-      curveValuesRevision: curve?.valuesRevision ?? null,
+      offer: premises?.offer ?? null,
+      curveValuesRevision: premises?.curve?.valuesRevision ?? null,
     });
   }
 }

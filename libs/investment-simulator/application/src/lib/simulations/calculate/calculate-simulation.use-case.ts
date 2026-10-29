@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
-  Curve,
-  Offer,
   Simulation,
   SimulationCalculationOutcome,
+  SimulationCalculationPremises,
   SimulationCalculationService,
   SimulationCalculationStaleError,
-  SimulationResult,
 } from '@investflow/investment-simulator-domain';
 import { Clock, CommandHandler } from '@investflow/shared-application';
 import {
@@ -57,7 +55,7 @@ export class CalculateSimulationUseCase
         : premises;
     }
     const { offer, curve } = premises.value;
-    if (this.calculation.isCurrent(simulation, offer, curve)) {
+    if (SimulationCalculationService.isCurrent(simulation, premises.value)) {
       return Result.ok(undefined);
     }
     const now = this.clock.now();
@@ -74,12 +72,7 @@ export class CalculateSimulationUseCase
     simulation: Simulation,
     missing: NotFoundError,
   ): Promise<Result<void, AppError>> {
-    const inputFingerprint = SimulationResult.inputFingerprintFor({
-      simulationRevision: simulation.revision,
-      offer: null,
-      curveValuesRevision: null,
-    });
-    if (simulation.calculation.appliesTo(inputFingerprint)) {
+    if (SimulationCalculationService.isCurrent(simulation, null)) {
       return Result.ok(undefined);
     }
     return this.record(
@@ -87,7 +80,10 @@ export class CalculateSimulationUseCase
       {
         kind: 'INVALID',
         simulationRevision: simulation.revision,
-        inputFingerprint,
+        inputFingerprint: SimulationCalculationService.inputFingerprintOf(
+          simulation,
+          null,
+        ),
         reason: missing,
       },
       this.clock.now(),
@@ -110,7 +106,7 @@ export class CalculateSimulationUseCase
 
   private async premises(
     simulation: Simulation,
-  ): Promise<Result<{ offer: Offer; curve: Curve | null }, AppError>> {
+  ): Promise<Result<SimulationCalculationPremises, AppError>> {
     const offer = await this.offerRepository.findById(simulation.offerId);
     if (offer.isErr()) return offer;
     const { curveId } = simulation.investment;

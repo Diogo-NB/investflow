@@ -130,8 +130,9 @@ contaria o mesmo dinheiro duas vezes.
   - com pendência: impedidas ou com falha técnica;
   - com resultado desatualizado: com o último resultado anterior às
     alterações e nenhum cálculo pendente, como após uma mudança de
-    metodologia, retentativas esgotadas ou uma oferta excluída. Fica
-    separado de "em atualização" porque nenhum recálculo virá sozinho.
+    metodologia ou quando o agendamento dos recálculos de uma oferta ou
+    curva alterada falhou. Fica separado de "em atualização" porque nenhum
+    recálculo virá sozinho.
 
   Sem nenhuma delas, os resultados do plano estão atualizados.
 

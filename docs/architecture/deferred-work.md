@@ -8,19 +8,19 @@ item when it ships.
 
 - **Today:** fan-out writes no calculation rows, so a
   simulation waiting for the recalculation of a premise change shows the
-  derived "Desatualizado" until its new result lands, never "Calculando".
-  For the same reason a fan-out calculation that exhausts its retries is
-  not recorded `FAILED` (the dead-letter consumer writes `FAILED` only over
-  `PENDING`): the simulation stays "Desatualizado", never "Falha técnica".
-- **Revisit with:** a derived "Recalculando" status (the result's term or
-  value revisions differ from the current ones, so a recalculation is on its
-  way), with the cause from the input that differs and the actor from the
-  premise's owner, in the workspace, the list (including its
-  `calculationStatus` filter), the comparison, and the investment plans'
-  status (which counts those members as outdated today and so does not poll
-  for them).
+  derived "Desatualizado" until its new result lands, never "Calculando",
+  and keeps its own last cause. A failed premise recalculation already shows
+  "Falha técnica" (`recalculation.md`).
+- **Why deferred:** the recalculation lands within seconds, and the user who
+  changed the offer or curve was told before saving how many simulations
+  would be recalculated. Showing "Calculando" needs the fact that a
+  recalculation is queued stored somewhere; an event-kept projection and
+  fan-out writing `PENDING` were both rejected on 2026-10-29 as too heavy for
+  those seconds.
+- **Revisit with** the [BCB Rate Import](../product/planned/bcb-rate-import.md),
+  when system curves change without the user.
 - **Done when** the screens say a simulation is being recalculated because
-  its offer or curve changed, and say when that recalculation failed.
+  its offer or curve changed.
 
 ## Composed screen reads without one snapshot (deferred 2026-10-28)
 

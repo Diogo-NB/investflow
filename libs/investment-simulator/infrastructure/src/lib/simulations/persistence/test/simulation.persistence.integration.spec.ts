@@ -316,7 +316,7 @@ describe('Simulation PostgreSQL persistence', () => {
     ).toBe(true);
   });
 
-  it('records a failure only over a calculation still pending', async () => {
+  it('records a failure only over the calculation it read', async () => {
     const { simulation, offer, curve } = await savedSimulation();
     const requested = await load(simulation.id);
     requested.requestCalculation(
@@ -335,6 +335,13 @@ describe('Simulation PostgreSQL persistence', () => {
     expect((await load(simulation.id)).calculation.status).toBe(
       ESimulationCalculationStatus.CALCULATED,
     );
+
+    const outcome = await load(simulation.id);
+    outcome.markCalculationFailed(at('2026-10-12'));
+    expect((await simulations.save(outcome)).isOk()).toBe(true);
+    const failed = await load(simulation.id);
+    expect(failed.calculation.status).toBe(ESimulationCalculationStatus.FAILED);
+    expect(failed.calculation.inputFingerprint).toBeNull();
 
     const pending = await load(simulation.id);
     pending.requestCalculation(EDITED, at('2026-10-12'));
