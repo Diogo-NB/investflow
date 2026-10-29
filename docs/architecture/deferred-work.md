@@ -40,18 +40,6 @@ item when it ships.
 - **Done when** the screens say a simulation is being recalculated because
   its offer or curve changed, and say when that recalculation failed.
 
-## Requeue after a methodology version change (deferred 2026-10-12)
-
-- **Why deferred:** no methodology version has changed yet, and the trigger
-  (automatic at startup or a deploy-time command) is a separate decision from
-  premise fan-out.
-- **What exists today:** results record their methodology version, and reads
-  flag a result "Desatualizado" when its title type's current version
-  differs. Nothing requeues it; saving the simulation again recalculates it.
-- **Done when:** changing a title type's methodology version queues its
-  simulations with cause `METHODOLOGY_CHANGED` through the fan-out page path,
-  once per change.
-
 ## Result currency decided in query projections (deferred 2026-10-28)
 
 - **Today:** the workspace projection

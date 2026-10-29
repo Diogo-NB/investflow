@@ -181,9 +181,9 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   compatibilidade entre remuneração e índice, e oferta e curva existentes e
   visíveis para o usuário.
 - Alterar ou excluir uma oferta ou uma curva agenda o recálculo de todas as
-  simulações afetadas. Mudar a versão da metodologia de um título ainda não
-  agenda recálculo: o resultado aparece como desatualizado até a simulação
-  ser salva de novo.
+  simulações afetadas. Mudar a versão da metodologia de um título não agenda
+  recálculo: o resultado aparece como desatualizado até a simulação ser salva
+  de novo.
 - Cada simulação tem um único resultado atual: o investimento usado, a versão
   da metodologia, as revisões da oferta e da curva usadas, o instante do
   cálculo, o resumo no vencimento, a apuração dos tributos (prazo em dias
@@ -202,8 +202,8 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   | Falha técnica | O cálculo falhou por erro do sistema depois das novas tentativas automáticas. | Sistema; usuário pode pedir nova tentativa |
 
 - Cada estado informa sua causa: a criação da simulação, sua edição, a
-  alteração ou exclusão da oferta ou da curva (e quem a fez), a nova
-  versão da metodologia ou o pedido de nova tentativa. A causa acompanha o
+  alteração ou exclusão da oferta ou da curva (e quem a fez) ou o pedido de
+  nova tentativa. A causa acompanha o
   resultado do cálculo: "Requer ação" exibe o motivo e também a alteração
   que levou a ele. Somente o estado atual é mantido; não há histórico de
   estados.
