@@ -1,10 +1,8 @@
 import {
   ESimulationCalculationCauseKind,
   ESimulationCalculationStatus,
-  ETitleType,
   InvestmentCalculator,
   SimulationCalculationService,
-  Offer,
   Simulation,
 } from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
@@ -23,8 +21,8 @@ import { CreateSimulationCommandInput } from '../shared/simulation-command-input
 import {
   catalogOffer,
   cdiCurve,
+  cdiOffer,
   investmentRequest,
-  newOfferRequest,
   OWNER_ID,
 } from '../shared/simulation-fixture';
 import { SimulationPremisesService } from '../shared/simulation-premises.service';
@@ -41,7 +39,6 @@ function setup() {
   } as unknown as jest.Mocked<SimulationRepository>;
   const offers = {
     findById: jest.fn().mockResolvedValue(Result.ok(offer)),
-    save: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as jest.Mocked<OfferRepository>;
   const curves = {
     findById: jest.fn(),
@@ -50,7 +47,7 @@ function setup() {
   const clock = { now: () => NOW } as unknown as Clock;
   const useCase = new CreateSimulationUseCase(
     simulations,
-    new SimulationPremisesService(offers, curves, clock),
+    new SimulationPremisesService(offers, curves),
     new SimulationCalculationService(new InvestmentCalculator()),
     clock,
   );
@@ -59,26 +56,21 @@ function setup() {
 
 function command(overrides: Partial<CreateSimulationCommandInput> = {}) {
   return CreateSimulationCommand.fromRequest(OWNER_ID, {
-    offer: { id: 'offer-id' },
+    offerId: 'offer-id',
     investment: investmentRequest(),
     ...overrides,
   });
 }
 
 describe('CreateSimulationCommand', () => {
-  it('converts the request into an offer choice and an investment', () => {
-    const existing = command({
+  it('converts the request into an offer id and an investment', () => {
+    const created = command({
       investment: investmentRequest({ curveId: 'curve-id' }),
     });
-    const typed = command({ offer: { new: newOfferRequest() } });
 
-    expect(existing.offer).toEqual({ kind: 'existing', offerId: 'offer-id' });
-    expect(existing.investment.principal.equals(Money.of('1000'))).toBe(true);
-    expect(existing.investment.curveId).toBe('curve-id');
-    expect(typed.offer.kind).toBe('new');
-    expect(typed.offer.kind === 'new' && typed.offer.offer.actorId).toBe(
-      OWNER_ID,
-    );
+    expect(created.offerId).toBe('offer-id');
+    expect(created.investment.principal.equals(Money.of('1000'))).toBe(true);
+    expect(created.investment.curveId).toBe('curve-id');
   });
 });
 
@@ -90,7 +82,6 @@ describe('CreateSimulationUseCase', () => {
 
     const simulation = simulations.save.mock.calls[0][0] as Simulation;
     expect(offers.findById).toHaveBeenCalledWith('offer-id');
-    expect(offers.save).not.toHaveBeenCalled();
     expect(simulation.ownerId).toBe(OWNER_ID);
     expect(simulation.offerId).toBe(offer.id);
     expect(simulation.result).toBeNull();
@@ -108,37 +99,14 @@ describe('CreateSimulationUseCase', () => {
     expect(result.value).toEqual({ simulationId: simulation.id });
   });
 
-  it('creates a private offer from typed terms with the simulation', async () => {
-    const { simulations, offers, useCase } = setup();
-
-    const result = await useCase.execute(
-      command({ offer: { new: newOfferRequest() } }),
-    );
-
-    expect(result.isOk()).toBe(true);
-    const offer = offers.save.mock.calls[0][0] as Offer;
-    const simulation = simulations.save.mock.calls[0][0] as Simulation;
-    expect(offers.findById).not.toHaveBeenCalled();
-    expect(offer.ownerId).toBe(OWNER_ID);
-    expect(offer.name).toBe('CDB digitado');
-    expect(simulation.offerId).toBe(offer.id);
-  });
-
   it('loads the curve of indexed remuneration', async () => {
-    const { curves, simulations, useCase } = setup();
+    const { curves, offers, simulations, useCase } = setup();
     const curve = cdiCurve();
+    offers.findById.mockResolvedValue(Result.ok(cdiOffer()));
     curves.findById.mockResolvedValue(Result.ok(curve));
 
     await useCase.execute(
-      command({
-        offer: {
-          new: newOfferRequest({
-            maturityDate: '2026-02-02',
-            remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1' },
-          }),
-        },
-        investment: investmentRequest({ curveId: curve.id }),
-      }),
+      command({ investment: investmentRequest({ curveId: curve.id }) }),
     );
 
     expect(curves.findById).toHaveBeenCalledWith(curve.id);
@@ -146,33 +114,18 @@ describe('CreateSimulationUseCase', () => {
     expect(simulation.investment.curveId).toBe(curve.id);
   });
 
-  it('saves nothing, not even a new offer, when validation rejects it', async () => {
-    const { simulations, offers, useCase } = setup();
-
-    const result = await useCase.execute(
-      command({
-        offer: {
-          new: newOfferRequest({
-            titleType: ETitleType.LCA,
-            maturityDate: '2026-06-01',
-          }),
-        },
-      }),
-    );
-
-    expect(result.error.code).toBe(EAppErrorCode.INVESTMENT_TERM_TOO_SHORT);
-    expect(offers.save).not.toHaveBeenCalled();
-    expect(simulations.save).not.toHaveBeenCalled();
-  });
-
-  it('rejects typed terms without a name', async () => {
+  it('saves nothing when validation rejects it', async () => {
     const { simulations, useCase } = setup();
 
     const result = await useCase.execute(
-      command({ offer: { new: newOfferRequest({ name: ' ' }) } }),
+      command({
+        investment: investmentRequest({ investmentDate: '2026-01-03' }),
+      }),
     );
 
-    expect(result.error.code).toBe(EAppErrorCode.INVALID_OFFER);
+    expect(result.error.code).toBe(
+      EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY,
+    );
     expect(simulations.save).not.toHaveBeenCalled();
   });
 

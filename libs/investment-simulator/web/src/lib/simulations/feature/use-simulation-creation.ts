@@ -25,6 +25,10 @@ import {
   describeSaveProblem,
   type SaveProblem,
 } from '../utils/simulation-save-problem';
+import {
+  useTypedOfferSaving,
+  type SimulationSaveCallbacks,
+} from './use-typed-offer-saving';
 
 export const TEMPLATE_PARAM = 'a-partir-de';
 // The plan the user started from; the new simulation is offered to it.
@@ -38,6 +42,7 @@ export function useSimulationCreation() {
   const templateId = searchParams.get(TEMPLATE_PARAM);
   const investmentPlanId = searchParams.get(INVESTMENT_PLAN_PARAM);
   const toasts = useToasts();
+  const typedOffer = useTypedOfferSaving();
 
   const options = useQuery(simulationOptionsQuery(fetchFn));
   const template = useQuery({
@@ -59,11 +64,7 @@ export function useSimulationCreation() {
     // a failure would report the committed simulation as unsaved and invite
     // a duplicate.
     onSuccess: async ({ simulationId }) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: simulationKeys.lists() }),
-        // A new private offer joins the options.
-        queryClient.invalidateQueries({ queryKey: simulationKeys.options() }),
-      ]);
+      await queryClient.invalidateQueries({ queryKey: simulationKeys.lists() });
       // Load the new page's data first so it opens with its status.
       await queryClient.prefetchQuery(
         simulationWorkspaceQuery(fetchFn, simulationId),
@@ -126,37 +127,39 @@ export function useSimulationCreation() {
     });
   }
 
-  function run(
+  async function run(
     values: SimulationFormValues,
-    onProblem: (problem: SaveProblem) => void,
+    callbacks: SimulationSaveCallbacks,
   ) {
     if (creating.current) return;
     creating.current = true;
-    // Not mutate's callbacks: React Query drops them once the navigation
-    // unmounts this page, and this promise settles after onSuccess.
-    create
-      .mutateAsync(values)
-      .then(
+    create.reset();
+    try {
+      const chosen = await typedOffer.choose(values, callbacks);
+      if (!chosen) return;
+      // Not mutate's callbacks: React Query drops them once the navigation
+      // unmounts this page, and this promise settles after onSuccess.
+      await create.mutateAsync(chosen).then(
         ({ simulationId }) => {
           if (investmentPlanId !== null) {
             void offerInvestmentPlan(investmentPlanId, simulationId);
           }
         },
-        (error: unknown) =>
-          onProblem(describeSaveProblem(error, values.offerMode)),
-      )
-      .finally(() => {
-        creating.current = false;
-      });
+        (error: unknown) => {
+          typedOffer.reportKept(values, chosen);
+          callbacks.onProblem(describeSaveProblem(error, chosen.offerMode));
+        },
+      );
+    } finally {
+      creating.current = false;
+    }
   }
 
   const problem: SaveProblem | null =
-    !create.isPending && create.error
-      ? describeSaveProblem(
-          create.error,
-          create.variables?.offerMode ?? 'existing',
-        )
-      : null;
+    typedOffer.problem ??
+    (!create.isPending && create.error
+      ? describeSaveProblem(create.error, 'existing')
+      : null);
 
   const setup = (() => {
     if (options.isError || template.isError) {
@@ -191,6 +194,11 @@ export function useSimulationCreation() {
         if (query.isError) void query.refetch();
       }
     },
-    create: { run, pending: create.isPending, problem },
+    create: {
+      run: (values: SimulationFormValues, callbacks: SimulationSaveCallbacks) =>
+        void run(values, callbacks),
+      pending: typedOffer.pending || create.isPending,
+      problem,
+    },
   };
 }

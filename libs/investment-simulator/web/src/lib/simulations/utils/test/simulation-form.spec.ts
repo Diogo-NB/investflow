@@ -11,9 +11,11 @@ import {
   startsBeforeCurve,
   defaultCurveId,
   offerTermValues,
+  savedOfferValues,
   simulationFormSchema,
   simulationValues,
   toSimulationInput,
+  toTypedOfferInput,
   type SimulationFormValues,
 } from '../simulation-form';
 
@@ -51,17 +53,27 @@ function errors(values: SimulationFormValues) {
 describe('simulation form', () => {
   it('accepts typed terms and builds the new offer payload', () => {
     expect(errors(valid)).toEqual({});
-    expect(toSimulationInput(valid)).toEqual({
-      offer: {
-        new: {
-          titleType: 'CDB',
-          name: 'CDB digitado',
-          issuerName: 'Banco Local',
-          maturityDate: '2026-03-02',
-          redemptionTerms: { kind: 'DAILY' },
-          remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
-        },
-      },
+    expect(toTypedOfferInput(valid)).toEqual({
+      titleType: 'CDB',
+      name: 'CDB digitado',
+      issuerName: 'Banco Local',
+      maturityDate: '2026-03-02',
+      redemptionTerms: { kind: 'DAILY' },
+      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+    });
+  });
+
+  it('chooses the saved offer and sends the simulation with its id', () => {
+    const saved = savedOfferValues(valid, 'typed-offer');
+
+    expect(saved).toEqual({
+      ...valid,
+      offerMode: 'existing',
+      offerId: 'typed-offer',
+      offerName: '',
+    });
+    expect(toSimulationInput(saved)).toEqual({
+      offerId: 'typed-offer',
       investment: {
         principal: '10000.5',
         investmentDate: '2026-01-02',
@@ -80,14 +92,15 @@ describe('simulation form', () => {
       rate: '12,5',
       curveId: '',
     });
-    expect(input.offer).toEqual({ id: 'offer' });
+    expect(input.offerId).toBe('offer');
     expect(input.investment.curveId).toBeNull();
   });
 
   it('sends typed terms without an issuer', () => {
     expect(errors({ ...valid, issuerName: '  ' })).toEqual({});
-    const input = toSimulationInput({ ...valid, issuerName: '  ' });
-    expect('new' in input.offer && input.offer.new.issuerName).toBeNull();
+    expect(
+      toTypedOfferInput({ ...valid, issuerName: '  ' }).issuerName,
+    ).toBeNull();
   });
 
   it('requires an offer, or a name for typed terms', () => {

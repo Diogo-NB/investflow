@@ -170,8 +170,8 @@ flowchart LR
   P --> I["INVALID · COVERAGE_MISSING · cause kept"]
 ```
 
-Only the current state is kept. A status history is listed in
-[Deferred Work](./deferred-work.md).
+Only the current state is kept; a calculation history is outside the MVP
+([PRD](../product/investment-simulator-prd.md#fora-do-escopo-do-mvp)).
 
 ### Who Does What
 

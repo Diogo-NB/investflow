@@ -18,9 +18,7 @@ simulations: the ones they would invest in together. Business rules are in
 - Status tags name each state with its count, in text and color: "Em
   atualização N", "Com pendência N", "Resultados desatualizados N". A plan
   whose results are all current shows none. While a premise change is being
-  recalculated, its members count as outdated, not in update (see
-  "Recalculation status on screen" in
-  [Deferred Work](../../architecture/deferred-work.md)).
+  recalculated, its members count as outdated, not in update.
 - Details show the name, the description, the status tags, "Editar", and
   "Excluir". The delete dialog says the deletion is permanent and that "As N
   simulações continuam em Simulações".

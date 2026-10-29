@@ -128,11 +128,11 @@ contaria o mesmo dinheiro duas vezes.
   quantas estão:
   - em atualização: aguardando cálculo;
   - com pendência: impedidas ou com falha técnica;
-  - com resultado desatualizado: com o último resultado anterior às
-    alterações e nenhum cálculo pendente, como após uma mudança de
-    metodologia ou quando o agendamento dos recálculos de uma oferta ou
-    curva alterada falhou. Fica separado de "em atualização" porque nenhum
-    recálculo virá sozinho.
+  - com resultado desatualizado: com o último resultado anterior a uma
+    mudança de metodologia ou a uma oferta ou curva alterada, cujo
+    recálculo ainda não chegou ou não pôde ser agendado. Fica separado de
+    "em atualização" porque, após uma mudança de metodologia ou um
+    agendamento que falhou, nenhum recálculo virá sozinho.
 
   Sem nenhuma delas, os resultados do plano estão atualizados.
 
@@ -159,8 +159,9 @@ Uma simulação sempre usa uma oferta. Ela é composta por:
 Todos esses itens são editáveis. Termos diferentes significam outra oferta:
 na tela da simulação, "Duplicar e ajustar" cria uma oferta privada a partir da
 oferta escolhida, e "Digitar termos" cria uma oferta privada com os termos
-digitados. A nova oferta é criada junto com a simulação: se a solicitação for
-rejeitada, nada é criado. Ofertas do sistema não podem ser editadas, somente
+digitados. A nova oferta é salva antes da simulação: se a simulação for
+rejeitada, a oferta continua salva em Ofertas e escolhida na simulação.
+Ofertas do sistema não podem ser editadas, somente
 duplicadas.
 
 Tipos de remuneração: prefixado ou pós-fixado por CDI ou SELIC efetiva. O
@@ -182,7 +183,9 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   compatibilidade entre remuneração e índice, e oferta e curva existentes e
   visíveis para o usuário.
 - Alterar ou excluir uma oferta ou uma curva agenda o recálculo de todas as
-  simulações afetadas. Mudar a versão da metodologia de um título não agenda
+  simulações afetadas. Até o novo resultado chegar, em poucos segundos, elas
+  aparecem como desatualizadas, não como calculando. Mudar a versão da
+  metodologia de um título não agenda
   recálculo: o resultado aparece como desatualizado até a simulação ser salva
   de novo.
 - Cada simulação tem um único resultado atual: o investimento usado, a

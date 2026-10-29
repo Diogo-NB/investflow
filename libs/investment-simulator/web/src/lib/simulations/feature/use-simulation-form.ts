@@ -102,6 +102,11 @@ export function useSimulationForm({
     setValues({ ...blank, offerMode: 'new', offerName: '' });
   }
 
+  /** Chooses the offer the typed terms were saved as; the terms stay. */
+  function chooseSavedOffer(offerId: string) {
+    setValues({ offerMode: 'existing', offerId, offerName: '' });
+  }
+
   /** Back to the chosen offer, discarding the typed terms. */
   function backToChosenOffer() {
     if (offer) chooseOffer(offer);
@@ -151,6 +156,7 @@ export function useSimulationForm({
     duplicateOffer,
     typeTerms,
     backToChosenOffer,
+    chooseSavedOffer,
     showProblem,
   };
 }

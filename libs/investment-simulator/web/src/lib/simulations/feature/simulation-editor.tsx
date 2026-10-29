@@ -185,7 +185,10 @@ export function NewSimulationEditor({
     remunerations: options.remunerations,
   });
   const submit = form.form.handleSubmit((values) =>
-    create.run(values, form.showProblem),
+    create.run(values, {
+      onOfferSaved: form.chooseSavedOffer,
+      onProblem: form.showProblem,
+    }),
   );
 
   return (
@@ -245,6 +248,7 @@ export function SavedSimulationEditor({
         form.form.reset(savedValues);
         setBaseRevision(revision);
       },
+      onOfferSaved: form.chooseSavedOffer,
       onProblem: form.showProblem,
     }),
   );

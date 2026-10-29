@@ -1,11 +1,3 @@
-import { CreateOfferCommandInput } from '../../offers/shared/offer-command-input.type';
-
-// Exactly one of them: a visible offer, or terms for a new private offer.
-export interface SimulationOfferCommandInput {
-  readonly id?: string;
-  readonly new?: CreateOfferCommandInput;
-}
-
 export interface InvestmentCommandInput {
   readonly principal: string;
   readonly investmentDate: string;
@@ -13,7 +5,7 @@ export interface InvestmentCommandInput {
 }
 
 export interface CreateSimulationCommandInput {
-  readonly offer: SimulationOfferCommandInput;
+  readonly offerId: string;
   readonly investment: InvestmentCommandInput;
 }
 

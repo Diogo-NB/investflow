@@ -39,7 +39,7 @@ export class EditSimulationUseCase
 
     const premises = await this.premises.resolve(
       command.ownerId,
-      command.offer,
+      command.offerId,
       command.investment.curveId,
     );
     if (premises.isErr()) return premises;
@@ -60,8 +60,6 @@ export class EditSimulationUseCase
     );
     if (edited.isErr()) return edited;
 
-    const offerSaved = await this.premises.saveNewOffer(premises.value);
-    if (offerSaved.isErr()) return offerSaved;
     const saved = await this.simulationRepository.save(edited.value);
     return saved.map(() => ({ revision: edited.value.revision }));
   }

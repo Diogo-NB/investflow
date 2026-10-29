@@ -13,8 +13,9 @@ independent `Curve` and `Offer` aggregates with owners, revisions, and events
 in the outbox. `Simulation` references an offer and an optional curve, has its
 own revision, and keeps one current `SimulationResult` recording the input
 fingerprint of what it was calculated from (see "Input fingerprint");
-"Digitar termos" and "Duplicar e ajustar" create a private offer in the same
-request. A simulation's own calculation is asynchronous: saving
+"Digitar termos" and "Duplicar e ajustar" save a private offer with its own
+request before the simulation, so each request changes one aggregate
+(decided 2026-10-29). A simulation's own calculation is asynchronous: saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
 calculates; a dead-letter consumer records `FAILED`. Offer and curve changes
 recalculate the simulations that use them (built 2026-10-26). The design
@@ -142,8 +143,7 @@ and the actor (`null` for system processes). There are no offer or curve
 causes: fan-out writes no calculation rows, so nothing would set them, and
 premise events carry no actor either. The cause is set when the simulation
 is queued and kept by the outcome, so after a premise change "Requer ação"
-shows the reason with the simulation's own last cause (see "Recalculation
-status on screen" in Deferred Work). Only the current
+shows the reason with the simulation's own last cause. Only the current
 state is kept; there is no transition history.
 
 - **Requests validate synchronously, then calculate asynchronously.** Creating
@@ -214,8 +214,10 @@ state is kept; there is no transition history.
   of simulations, a deliberate simplification (see the planned
   [Fan-out at Scale](../product/planned/fan-out-at-scale.md)). While a
   recalculation is on its way the screen shows the
-  derived "Desatualizado", not "Calculando" (see "Recalculation status on
-  screen" in Deferred Work). The fan-out queue has a dead-letter queue but
+  derived "Desatualizado", not "Calculando", until its new result lands
+  within seconds. Storing that a recalculation is queued, by fan-out writing
+  `PENDING` or in an event-kept projection, is not worth it for those
+  seconds (decided 2026-10-29). The fan-out queue has a dead-letter queue but
   no consumer bound to it: a dead-lettered fan-out wrote nothing, so its
   simulations stay honestly "Desatualizado" until saved again or until the
   message is redriven, which an alarm on the dead-letter queue should
@@ -253,5 +255,4 @@ state is kept; there is no transition history.
   kept apart from in update on purpose: a methodology change or a
   dead-lettered fan-out leaves a result stale with nothing queued, and
   counting it as in update would show the plan updating and poll forever. Since fan-out writes no calculation rows,
-  members waiting for a premise recalculation count as outdated too (see
-  Deferred Work).
+  members waiting for a premise recalculation count as outdated too.

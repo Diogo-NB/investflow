@@ -20,7 +20,6 @@ import {
   Rate,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { CreateOfferCommandInput } from '../../offers/shared/offer-command-input.type';
 import { InvestmentCommandInput } from './simulation-command-input.type';
 
 export const OWNER_ID = 'owner-id';
@@ -109,20 +108,6 @@ export function ownedSimulation(
     result: null,
     deletedAt: null,
   });
-}
-
-export function newOfferRequest(
-  overrides: Partial<CreateOfferCommandInput> = {},
-): CreateOfferCommandInput {
-  return {
-    titleType: ETitleType.CDB,
-    name: 'CDB digitado',
-    issuerName: 'Banco Local',
-    maturityDate: '2030-01-02',
-    redemptionTerms: { kind: 'AT_MATURITY' },
-    remunerationTerms: { kind: 'PREFIXED', rate: '0.12' },
-    ...overrides,
-  };
 }
 
 export function investmentRequest(

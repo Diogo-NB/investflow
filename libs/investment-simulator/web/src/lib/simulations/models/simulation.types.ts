@@ -8,7 +8,6 @@ import type {
 import type {
   ContentOrigin,
   OfferSummary,
-  OfferTermsInput,
 } from '../../offers/models/offer.types';
 
 export type CalculationStatus = 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
@@ -248,13 +247,7 @@ export interface MonthlyBalance {
   readonly days: readonly DailyBalance[];
 }
 
-// A visible offer, or the terms of a new private offer saved with the
-// simulation.
-export type SimulationOfferInput =
-  | { readonly id: string }
-  | { readonly new: OfferTermsInput };
-
 export interface SimulationInput {
-  readonly offer: SimulationOfferInput;
+  readonly offerId: string;
   readonly investment: Investment;
 }

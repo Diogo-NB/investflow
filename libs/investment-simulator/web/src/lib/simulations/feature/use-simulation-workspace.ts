@@ -23,11 +23,15 @@ import {
   describeSaveProblem,
   type SaveProblem,
 } from '../utils/simulation-save-problem';
+import {
+  useTypedOfferSaving,
+  type SimulationSaveCallbacks,
+} from './use-typed-offer-saving';
 
-export interface EditCallbacks {
-  // revision is the one the next edit must send.
+export interface EditCallbacks extends SimulationSaveCallbacks {
+  // values are the ones saved, with a chosen offer; revision is the one the
+  // next edit must send.
   onSaved(values: SimulationFormValues, revision: number): void;
-  onProblem(problem: SaveProblem): void;
 }
 
 export function useSimulationWorkspace(simulationId: string) {
@@ -35,6 +39,7 @@ export function useSimulationWorkspace(simulationId: string) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const typedOffer = useTypedOfferSaving();
 
   const options = useQuery(simulationOptionsQuery(fetchFn));
   // Polled whatever the calculation status; TanStack Query pauses the
@@ -49,7 +54,7 @@ export function useSimulationWorkspace(simulationId: string) {
 
   const edit = useMutation({
     retry: 0,
-    // A rejected request saves nothing, so the form keeps its edits. An edit
+    // A rejected edit saves nothing, so the form keeps its edits. An edit
     // sends the revision its form started from, never a polled one, so a
     // change made elsewhere is reported as a conflict.
     mutationFn: ({
@@ -66,8 +71,6 @@ export function useSimulationWorkspace(simulationId: string) {
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: simulationKeys.lists() }),
-        // A new private offer joins the options.
-        queryClient.invalidateQueries({ queryKey: simulationKeys.options() }),
         queryClient.invalidateQueries({
           queryKey: simulationKeys.workspace(simulationId),
         }),
@@ -108,19 +111,27 @@ export function useSimulationWorkspace(simulationId: string) {
   const saving = useRef(false);
   const requesting = useRef(false);
 
-  function run(
+  async function run(
     values: SimulationFormValues,
     revision: number,
     callbacks: EditCallbacks,
   ) {
     if (saving.current) return;
     saving.current = true;
+    edit.reset();
+    const chosen = await typedOffer.choose(values, callbacks);
+    if (!chosen) {
+      saving.current = false;
+      return;
+    }
     edit.mutate(
-      { values, revision },
+      { values: chosen, revision },
       {
-        onSuccess: (saved) => callbacks.onSaved(values, saved.revision),
-        onError: (error) =>
-          callbacks.onProblem(describeSaveProblem(error, values.offerMode)),
+        onSuccess: (saved) => callbacks.onSaved(chosen, saved.revision),
+        onError: (error) => {
+          typedOffer.reportKept(values, chosen);
+          callbacks.onProblem(describeSaveProblem(error, chosen.offerMode));
+        },
         onSettled: () => {
           saving.current = false;
         },
@@ -129,12 +140,10 @@ export function useSimulationWorkspace(simulationId: string) {
   }
 
   const problem: SaveProblem | null =
-    !edit.isPending && edit.error
-      ? describeSaveProblem(
-          edit.error,
-          edit.variables?.values.offerMode ?? 'existing',
-        )
-      : null;
+    typedOffer.problem ??
+    (!edit.isPending && edit.error
+      ? describeSaveProblem(edit.error, 'existing')
+      : null);
 
   const setup = (() => {
     if (options.isError || source.isError) {
@@ -167,11 +176,16 @@ export function useSimulationWorkspace(simulationId: string) {
       }
     },
     edit: {
-      run,
-      pending: edit.isPending,
+      run: (
+        values: SimulationFormValues,
+        revision: number,
+        callbacks: EditCallbacks,
+      ) => void run(values, revision, callbacks),
+      pending: typedOffer.pending || edit.isPending,
       problem,
       // Loads the version saved elsewhere; the editor restarts from it.
       reload: async () => {
+        typedOffer.reset();
         edit.reset();
         await source.refetch();
         setLoadGeneration((generation) => generation + 1);

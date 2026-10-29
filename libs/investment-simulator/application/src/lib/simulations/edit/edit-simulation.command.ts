@@ -1,8 +1,5 @@
 import { InvestmentInputs } from '@investflow/investment-simulator-domain';
-import {
-  CreateSimulationCommand,
-  SimulationOfferChoice,
-} from '../create/create-simulation.command';
+import { CreateSimulationCommand } from '../create/create-simulation.command';
 import {
   EditSimulationCommandInput,
   SimulationIdCommandInput,
@@ -13,7 +10,7 @@ export class EditSimulationCommand {
     readonly ownerId: string,
     readonly simulationId: string,
     readonly revision: number,
-    readonly offer: SimulationOfferChoice,
+    readonly offerId: string,
     readonly investment: InvestmentInputs,
   ) {}
 
@@ -26,7 +23,7 @@ export class EditSimulationCommand {
       ownerId,
       params.simulationId,
       request.revision,
-      CreateSimulationCommand.toOfferChoice(ownerId, request.offer),
+      request.offerId,
       CreateSimulationCommand.toInvestment(request.investment),
     );
   }

@@ -33,6 +33,20 @@ const typed: SimulationFormValues = {
   titleType: 'LCI',
 };
 
+const saveCallbacks = (onProblem = vi.fn(), onOfferSaved = vi.fn()) => ({
+  onOfferSaved,
+  onProblem,
+});
+
+const typedOfferBody = {
+  titleType: 'LCI',
+  name: 'LCI digitada',
+  issuerName: 'Banco Local',
+  maturityDate: '2026-03-02',
+  redemptionTerms: { kind: 'DAILY' },
+  remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+};
+
 const templateRoutes = {
   ...optionsRoute,
   [`GET ${API}/simulation-workspaces/sim`]: workspace,
@@ -88,7 +102,9 @@ async function createFrom(rendered: Rendered, onProblem = vi.fn()) {
   await waitFor(() =>
     expect(rendered.result.current.hook.setup.status).toBe('ready'),
   );
-  act(() => rendered.result.current.hook.create.run(values, onProblem));
+  act(() =>
+    rendered.result.current.hook.create.run(values, saveCallbacks(onProblem)),
+  );
   await waitFor(() =>
     expect(rendered.result.current.location.pathname).toBe('/simulacoes/sim'),
   );
@@ -161,32 +177,32 @@ describe('useSimulationCreation', () => {
     );
   });
 
-  it('creates a simulation with typed terms and opens it with its data loaded', async () => {
+  it('saves typed terms as an offer, then opens the simulation using it', async () => {
     const api = fakeApi({
       ...templateRoutes,
       ...emptyList,
+      [`POST ${API}/offers`]: { offerId: 'typed-offer' },
       [`POST ${API}/simulations`]: { simulationId: 'sim' },
     });
+    const onOfferSaved = vi.fn();
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(typed, vi.fn()));
+    act(() =>
+      result.current.hook.create.run(
+        typed,
+        saveCallbacks(vi.fn(), onOfferSaved),
+      ),
+    );
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/simulacoes/sim'),
     );
+    expect(onOfferSaved).toHaveBeenCalledWith('typed-offer');
+    expect(api.bodies(`POST ${API}/offers`)).toEqual([typedOfferBody]);
     expect(api.bodies(`POST ${API}/simulations`)).toEqual([
       {
-        offer: {
-          new: {
-            titleType: 'LCI',
-            name: 'LCI digitada',
-            issuerName: 'Banco Local',
-            maturityDate: '2026-03-02',
-            redemptionTerms: { kind: 'DAILY' },
-            remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
-          },
-        },
+        offerId: 'typed-offer',
         investment: {
           principal: '10000',
           investmentDate: '2026-01-02',
@@ -194,7 +210,67 @@ describe('useSimulationCreation', () => {
         },
       },
     ]);
+    // Read again so the form can choose the new offer.
+    expect(
+      api.calls().filter((call) => call === `GET ${API}/simulation-options`),
+    ).toHaveLength(2);
     expect(api.calls()).toContain(`GET ${API}/simulation-workspaces/sim`);
+  });
+
+  it('keeps the saved offer chosen when the simulation is then rejected', async () => {
+    const api = fakeApi({
+      ...optionsRoute,
+      [`POST ${API}/offers`]: { offerId: 'typed-offer' },
+      [`POST ${API}/simulations`]: apiFailure(422, 'INVESTMENT_TERM_TOO_SHORT'),
+    });
+    const onProblem = vi.fn();
+    const onOfferSaved = vi.fn();
+    const { result, added } = render(api);
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() =>
+      result.current.hook.create.run(
+        typed,
+        saveCallbacks(onProblem, onOfferSaved),
+      ),
+    );
+
+    await waitFor(() => expect(onProblem).toHaveBeenCalled());
+    expect(onOfferSaved).toHaveBeenCalledWith('typed-offer');
+    // The terms belong to the saved offer now, not to editable fields.
+    expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'offerId' });
+    expect(added).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Oferta LCI digitada salva em Ofertas',
+        data: { link: { to: '/ofertas/typed-offer', label: 'Ver oferta' } },
+      }),
+    );
+    expect(result.current.hook.create.problem?.field).toBe('offerId');
+    expect(result.current.location.pathname).toBe('/simulacoes/nova');
+  });
+
+  it('saves no simulation when the typed offer is rejected', async () => {
+    const api = fakeApi({
+      ...optionsRoute,
+      [`POST ${API}/offers`]: apiFailure(422, 'INVALID_OFFER'),
+    });
+    const onProblem = vi.fn();
+    const onOfferSaved = vi.fn();
+    const { result } = render(api);
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() =>
+      result.current.hook.create.run(
+        typed,
+        saveCallbacks(onProblem, onOfferSaved),
+      ),
+    );
+
+    await waitFor(() => expect(onProblem).toHaveBeenCalled());
+    expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'offerName' });
+    expect(onOfferSaved).not.toHaveBeenCalled();
+    expect(result.current.hook.create.problem?.field).toBe('offerName');
+    expect(api.calls()).not.toContain(`POST ${API}/simulations`);
   });
 
   it('opens the created simulation even when reading it ahead fails', async () => {
@@ -211,7 +287,7 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, onProblem));
+    act(() => result.current.hook.create.run(values, saveCallbacks(onProblem)));
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/simulacoes/sim'),
@@ -233,7 +309,7 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, onProblem));
+    act(() => result.current.hook.create.run(values, saveCallbacks(onProblem)));
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toEqual({
@@ -259,8 +335,8 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, vi.fn()));
-    act(() => result.current.hook.create.run(values, vi.fn()));
+    act(() => result.current.hook.create.run(values, saveCallbacks()));
+    act(() => result.current.hook.create.run(values, saveCallbacks()));
     await waitFor(() =>
       expect(api.calls()).toContain(`POST ${API}/simulations`),
     );

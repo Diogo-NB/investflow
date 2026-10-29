@@ -3,7 +3,6 @@ import {
   ESimulationCalculationStatus,
   InvestmentCalculator,
   SimulationCalculationService,
-  Offer,
 } from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
 import {
@@ -21,7 +20,6 @@ import { EditSimulationCommandInput } from '../shared/simulation-command-input.t
 import {
   catalogOffer,
   investmentRequest,
-  newOfferRequest,
   ownedSimulation,
   OWNER_ID,
 } from '../shared/simulation-fixture';
@@ -40,7 +38,6 @@ function setup() {
   } as unknown as jest.Mocked<SimulationRepository>;
   const offers = {
     findById: jest.fn().mockResolvedValue(Result.ok(offer)),
-    save: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as jest.Mocked<OfferRepository>;
   const curves = {
     findById: jest.fn(),
@@ -49,7 +46,7 @@ function setup() {
   const clock = { now: () => NOW } as unknown as Clock;
   const useCase = new EditSimulationUseCase(
     simulations,
-    new SimulationPremisesService(offers, curves, clock),
+    new SimulationPremisesService(offers, curves),
     new SimulationCalculationService(new InvestmentCalculator()),
     clock,
   );
@@ -65,7 +62,7 @@ function command(
     { simulationId: 'simulation-id' },
     {
       revision: 1,
-      offer: { id: offerId },
+      offerId,
       investment: investmentRequest(),
       ...overrides,
     },
@@ -111,17 +108,16 @@ describe('EditSimulationUseCase', () => {
     expect(simulation.investment.principal.equals(Money.of('2500'))).toBe(true);
   });
 
-  it('switches to a new private offer saved with the simulation', async () => {
-    const { simulation, offers, useCase } = setup();
+  it('switches to another visible offer', async () => {
+    const { offers, simulation, useCase } = setup();
+    const other = catalogOffer(OWNER_ID);
+    offers.findById.mockResolvedValue(Result.ok(other));
 
-    const result = await useCase.execute(
-      command('', { offer: { new: newOfferRequest() } }),
-    );
+    const result = await useCase.execute(command(other.id));
 
     expect(result.isOk()).toBe(true);
-    const offer = offers.save.mock.calls[0][0] as Offer;
-    expect(offer.ownerId).toBe(OWNER_ID);
-    expect(simulation.offerId).toBe(offer.id);
+    expect(offers.findById).toHaveBeenCalledWith(other.id);
+    expect(simulation.offerId).toBe(other.id);
   });
 
   it('reports a stale revision without saving', async () => {
@@ -134,7 +130,7 @@ describe('EditSimulationUseCase', () => {
   });
 
   it('saves nothing when validation rejects it', async () => {
-    const { offer, simulation, simulations, offers, useCase } = setup();
+    const { offer, simulation, simulations, useCase } = setup();
 
     const result = await useCase.execute(
       command(offer.id, {
@@ -146,7 +142,6 @@ describe('EditSimulationUseCase', () => {
       EAppErrorCode.INVESTMENT_DATE_NOT_BUSINESS_DAY,
     );
     expect(simulation.revision).toBe(1);
-    expect(offers.save).not.toHaveBeenCalled();
     expect(simulations.save).not.toHaveBeenCalled();
   });
 

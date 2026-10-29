@@ -18,6 +18,7 @@ import type {
   RemunerationKind,
   TitleType,
 } from '../../offers/models/offer-terms';
+import type { OfferTermsInput } from '../../offers/models/offer.types';
 import type {
   CurveOption,
   Investment,
@@ -32,8 +33,9 @@ import type {
  * are ISO calendar strings (or the raw text while a typed date is invalid).
  */
 export interface SimulationFormValues {
-  // A visible offer, or terms typed for a new private offer saved with the
-  // simulation. The term fields mirror the chosen offer in "existing" mode.
+  // A visible offer, or terms typed for a new private offer, saved as its own
+  // offer before the simulation. The term fields mirror the chosen offer in
+  // "existing" mode.
   offerMode: 'existing' | 'new';
   offerId: string;
   // The new offer's name; unused for an existing offer.
@@ -119,15 +121,27 @@ export function simulationFormSchema(
     });
 }
 
-/** Converts validated form values into the API's create or edit payload. */
+/** The typed terms as the new private offer. */
+export function toTypedOfferInput(
+  values: SimulationFormValues,
+): OfferTermsInput {
+  return toOfferInput({ ...values, name: values.offerName });
+}
+
+/** The form once its typed terms were saved as the offer with this id. */
+export function savedOfferValues(
+  values: SimulationFormValues,
+  offerId: string,
+): SimulationFormValues {
+  return { ...values, offerMode: 'existing', offerId, offerName: '' };
+}
+
+/** Converts validated values with a chosen offer into the create or edit payload. */
 export function toSimulationInput(
   values: SimulationFormValues,
 ): SimulationInput {
   return {
-    offer:
-      values.offerMode === 'existing'
-        ? { id: values.offerId }
-        : { new: toOfferInput({ ...values, name: values.offerName }) },
+    offerId: values.offerId,
     investment: {
       principal: validatedDecimal(values.principal),
       investmentDate: values.investmentDate,

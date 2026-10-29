@@ -95,8 +95,11 @@ any of them changes.
     with the title type hinted with its income-tax treatment and minimum term
     from the options query. "Duplicar e ajustar" opens the offer's terms as an
     editable copy that becomes a private offer; "Digitar termos" creates a
-    private offer (title type, optional issuer, name, terms). Either is created
-    together with the simulation when it is saved. The user's own chosen offer
+    private offer (title type, optional issuer, name, terms). Either is saved
+    as its own offer first when the simulation is saved; if the simulation is
+    then rejected, the form chooses the saved offer, a toast says it is in
+    Ofertas ("Ver oferta"), and other terms need another "Duplicar e
+    ajustar". The user's own chosen offer
     can also be edited in place, with the offer editor's impact notice; a
     system offer offers only "Duplicar e ajustar".
     Changing the remuneration kind clears the rate and the curve. Liquidity
@@ -115,14 +118,14 @@ any of them changes.
   the accepted years, and the request a non-business day, on its field. The INVALID notice for missing curve values
   links to the curve ("Ver curva <nome>").
 - "Salvar e calcular" sends the simulation (with its revision when editing) and
-  is disabled when nothing changed. A rejected request saves nothing: the form
+  is disabled when nothing changed. A rejected simulation is not saved: the form
   keeps its edits as unsaved changes and the reason appears on the responsible
   field (principal, non-business day, minimum term, index, missing offer
   or curve). A revision conflict says the simulation changed elsewhere and
   offers to reload. An accepted new simulation opens its own page, already
   waiting for its calculation.
 - Status: the results panel always shows the calculation status and its
-  cause in a live region ("Calculando · a curva CDI otimista foi alterada").
+  cause in a live region ("Calculando · simulação alterada").
   The simulation's page polls its details query about every 3 seconds
   whatever the status, so finished calculations, edits from another tab, and
   premise changes all appear without special cases; TanStack Query pauses it

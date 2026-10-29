@@ -14,8 +14,7 @@ export interface CreateSimulationOutput {
   readonly simulationId: string;
 }
 
-// A rejected request saves nothing, not even a new offer. The calculation
-// itself runs after the response.
+// The calculation itself runs after the response.
 @Injectable()
 export class CreateSimulationUseCase
   implements CommandHandler<CreateSimulationCommand, CreateSimulationOutput>
@@ -32,7 +31,7 @@ export class CreateSimulationUseCase
   ): Promise<Result<CreateSimulationOutput, AppError>> {
     const premises = await this.premises.resolve(
       command.ownerId,
-      command.offer,
+      command.offerId,
       command.investment.curveId,
     );
     if (premises.isErr()) return premises;
@@ -56,8 +55,6 @@ export class CreateSimulationUseCase
       this.clock.now(),
     );
 
-    const offerSaved = await this.premises.saveNewOffer(premises.value);
-    if (offerSaved.isErr()) return offerSaved;
     const saved = await this.simulationRepository.save(simulation);
     return saved.map(() => ({ simulationId: simulation.id }));
   }
