@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatIsoDate, formatMonth } from '../../dates/calendar-date';
+import { formatIsoDate, formatShortMonth } from '../../dates/calendar-date';
 import { shiftDecimal } from '../../decimals/decimal-string';
 import { formatMoney, formatSharePercent } from '../../decimals/format-decimal';
 import { TAG_BASE } from '../../simulations/ui/calculation-status-tag';
@@ -112,8 +112,8 @@ function MaturitySchedule({
               <tr key={month.month} className="border-b border-border">
                 <th scope="row" className="py-2 text-left font-normal">
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="whitespace-nowrap">
-                      {formatMonth(month.month)}
+                    <span className="whitespace-nowrap capitalize">
+                      {formatShortMonth(month.month)}
                     </span>
                     {matured && (
                       <span className={`${NEUTRAL_TAG} whitespace-nowrap`}>
