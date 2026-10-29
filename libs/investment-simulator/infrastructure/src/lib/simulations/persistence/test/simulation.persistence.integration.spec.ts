@@ -39,6 +39,7 @@ import { GetSimulationWorkspaceQueryHandler } from '../../../simulation-workspac
 import { ListSimulationMonthlyBalancesQueryHandler } from '../../queries/list-simulation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from '../../queries/list-simulations.query-handler';
 import { PrismaSimulationRepository } from '../prisma-simulation.repository';
+import { PrismaSimulationResultValidityReader } from '../prisma-simulation-result-validity-reader';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
@@ -462,12 +463,15 @@ describe('Simulation PostgreSQL persistence', () => {
     ).toBe(true);
   });
 
-  it('reads the result as outdated after its offer changes until it is calculated again', async () => {
+  it('reads the result as unsettled after its offer changes until it is calculated again', async () => {
     const { simulation, offer, curve } = await savedSimulation();
-    const workspace = new GetSimulationWorkspaceQueryHandler(prisma, {
-      today: () => CalendarDate.of('2026-10-16'),
-    } as Clock);
-    const list = new ListSimulationsQueryHandler(prisma);
+    const validities = new PrismaSimulationResultValidityReader(prisma);
+    const workspace = new GetSimulationWorkspaceQueryHandler(
+      prisma,
+      { today: () => CalendarDate.of('2026-10-16') } as Clock,
+      validities,
+    );
+    const list = new ListSimulationsQueryHandler(prisma, validities);
     const read = async () => ({
       workspace: (
         await workspace.execute({ ownerId, simulationId: simulation.id })
@@ -493,7 +497,7 @@ describe('Simulation PostgreSQL persistence', () => {
       revision: 1,
       deleted: false,
     });
-    expect(before.workspace.result?.outdated).toBe(false);
+    expect(before.workspace.isSettled).toBe(true);
     expect(before.workspace.remainingTerm).toEqual({
       phase: 'RUNNING',
       calendarDays: 80,
@@ -508,15 +512,15 @@ describe('Simulation PostgreSQL persistence', () => {
       offerName: 'Integration 105% do CDI',
       issuerName,
       maturityDate: '2027-01-04',
-      result: { outdated: false },
+      isSettled: true,
     });
 
     const renamed = (await offers.findById(offer.id)).value;
     renamed.edit({ name: 'Integration renomeada' }, at('2026-10-09'));
     expect((await offers.save(renamed)).isOk()).toBe(true);
     const afterRename = await read();
-    expect(afterRename.workspace.result?.outdated).toBe(false);
-    expect(afterRename.listed?.result?.outdated).toBe(false);
+    expect(afterRename.workspace.isSettled).toBe(true);
+    expect(afterRename.listed?.isSettled).toBe(true);
 
     const edited = (await offers.findById(offer.id)).value;
     edited.edit(
@@ -530,8 +534,9 @@ describe('Simulation PostgreSQL persistence', () => {
     );
     expect((await offers.save(edited)).isOk()).toBe(true);
     const changed = await read();
-    expect(changed.workspace.result?.outdated).toBe(true);
-    expect(changed.listed?.result?.outdated).toBe(true);
+    expect(changed.workspace.isSettled).toBe(false);
+    expect(changed.workspace.result).not.toBeNull();
+    expect(changed.listed?.isSettled).toBe(false);
 
     const loaded = await load(simulation.id);
     loaded.edit(
@@ -548,14 +553,15 @@ describe('Simulation PostgreSQL persistence', () => {
       reason: null,
     });
     expect(queued.listed?.calculationStatus).toBe('PENDING');
+    expect(queued.workspace.isSettled).toBe(false);
     await calculated(simulation.id, edited, curve, '2026-10-11');
     const recalculated = await read();
     expect(recalculated.workspace.calculation.status).toBe('CALCULATED');
     expect(recalculated.workspace.simulation.revision).toBe(1);
-    expect(recalculated.workspace.result).toMatchObject({
-      calculatedAt: '2026-10-11T12:00:00.000Z',
-      outdated: false,
-    });
+    expect(recalculated.workspace.isSettled).toBe(true);
+    expect(recalculated.workspace.result?.calculatedAt).toBe(
+      '2026-10-11T12:00:00.000Z',
+    );
     expect(
       (
         await workspace.execute({
@@ -564,6 +570,35 @@ describe('Simulation PostgreSQL persistence', () => {
         })
       ).error.code,
     ).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
+  });
+
+  it("reads the result validity of the owner's live simulations only", async () => {
+    const { simulation, offer, curve } = await savedSimulation();
+    const deleted = Simulation.create(
+      { ownerId, offerId: offer.id, investment: investmentOf(curve) },
+      cause(),
+      at('2026-10-09'),
+    );
+    expect((await simulations.save(deleted)).isOk()).toBe(true);
+    expect(
+      (
+        await simulations.save(
+          (await load(deleted.id)).delete(at('2026-10-10')),
+        )
+      ).isOk(),
+    ).toBe(true);
+    const reader = new PrismaSimulationResultValidityReader(prisma);
+    const ids = [simulation.id, deleted.id, generateUuid()];
+
+    const found = (await reader.findOwned(ownerId, ids)).value;
+
+    expect([...found.keys()]).toEqual([simulation.id]);
+    expect(found.get(simulation.id)).toMatchObject({
+      calculationStatus: ESimulationCalculationStatus.CALCULATED,
+      isResultCurrent: true,
+      isSettled: true,
+    });
+    expect((await reader.findOwned('someone-else', ids)).value.size).toBe(0);
   });
 
   it('groups the result by month and hides it with its simulation', async () => {
@@ -648,7 +683,10 @@ describe('Simulation PostgreSQL persistence', () => {
 
   it("searches the owner's simulations by offer name or issuer, ignoring case", async () => {
     const { simulation } = await savedSimulation();
-    const list = new ListSimulationsQueryHandler(prisma);
+    const list = new ListSimulationsQueryHandler(
+      prisma,
+      new PrismaSimulationResultValidityReader(prisma),
+    );
     const ids = async (q: string) =>
       (
         await list.execute({ ownerId, page: 1, pageSize: 100, q })
@@ -680,7 +718,10 @@ describe('Simulation PostgreSQL persistence', () => {
       at('2026-10-09'),
     );
     expect((await simulations.save(uncalculated)).isOk()).toBe(true);
-    const list = new ListSimulationsQueryHandler(prisma);
+    const list = new ListSimulationsQueryHandler(
+      prisma,
+      new PrismaSimulationResultValidityReader(prisma),
+    );
 
     const { items, total } = (
       await list.execute({

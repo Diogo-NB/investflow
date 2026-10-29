@@ -1,6 +1,5 @@
 import { Money } from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
-import { ESimulationCalculationStatus } from '../../simulations/simulation-calculation.vo';
 import {
   comparedResult,
   comparedSimulation,
@@ -20,26 +19,6 @@ describe('ComparedSimulation', () => {
     const simulation = comparedSimulation('a', comparedResult(), {
       currentInputFingerprint: inputFingerprint(REVISION + 1),
     });
-
-    expect(simulation.isResultCurrent).toBe(false);
-    expect(simulation.isSettled).toBe(false);
-  });
-
-  it.each([
-    ESimulationCalculationStatus.PENDING,
-    ESimulationCalculationStatus.INVALID,
-    ESimulationCalculationStatus.FAILED,
-  ])('is not settled while %s, even with a current result', (status) => {
-    const simulation = comparedSimulation('a', comparedResult(), {
-      calculationStatus: status,
-    });
-
-    expect(simulation.isResultCurrent).toBe(true);
-    expect(simulation.isSettled).toBe(false);
-  });
-
-  it('has no current result without a result', () => {
-    const simulation = comparedSimulation('a', null);
 
     expect(simulation.isResultCurrent).toBe(false);
     expect(simulation.isSettled).toBe(false);

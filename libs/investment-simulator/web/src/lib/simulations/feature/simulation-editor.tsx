@@ -116,11 +116,7 @@ function SimulationEditorLayout({
   const blocker = useUnsavedChangesGuard(guarding);
   const workspace = saved?.workspace ?? null;
   const { isDirty } = form.form.formState;
-  const upToDate =
-    !isDirty &&
-    workspace?.calculation.status === 'CALCULATED' &&
-    workspace.result !== null &&
-    !workspace.result.outdated;
+  const upToDate = !isDirty && workspace?.isSettled === true;
 
   return (
     <section aria-labelledby="simulation-title" className="grid gap-6">

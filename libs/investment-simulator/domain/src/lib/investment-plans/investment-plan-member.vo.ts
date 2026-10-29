@@ -6,6 +6,7 @@ import {
 } from '@investflow/shared-domain';
 import { RedemptionTerms } from '../offers/terms/redemption/redemption-terms.vo';
 import { ESimulationCalculationStatus } from '../simulations/simulation-calculation.vo';
+import { SimulationResultValidity } from '../simulations/simulation-result-validity.vo';
 
 // What a member's last successful result returns at maturity, and what it
 // was calculated from.
@@ -52,13 +53,16 @@ export class InvestmentPlanMember extends ValueObject<InvestmentPlanMember> {
     return this.props.lastResult;
   }
 
-  // False without a result.
+  get validity(): SimulationResultValidity {
+    return SimulationResultValidity.create({
+      calculationStatus: this.props.calculationStatus,
+      currentInputFingerprint: this.props.currentInputFingerprint,
+      resultInputFingerprint: this.props.lastResult?.inputFingerprint ?? null,
+    });
+  }
+
   get isResultCurrent(): boolean {
-    return (
-      this.props.lastResult?.inputFingerprint.equals(
-        this.props.currentInputFingerprint,
-      ) ?? false
-    );
+    return this.validity.isResultCurrent;
   }
 
   equals(other: InvestmentPlanMember): boolean {

@@ -1,7 +1,11 @@
+import { SimulationResultValidityReader } from '@investflow/investment-simulator-application';
 import {
+  ESimulationCalculationStatus,
   ETitleType,
   SimulationResult,
+  SimulationResultValidity,
 } from '@investflow/investment-simulator-domain';
+import { Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import {
@@ -16,13 +20,56 @@ const OWNED = { ownerId: OWNER, deletedAt: null };
 const OFFER_ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
 const CURVE_ID = '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e';
 
+const fingerprint = (simulationRevision: number) =>
+  SimulationResult.inputFingerprintFor({
+    simulationRevision,
+    offer: { titleType: ETitleType.CDB, termsRevision: 1 },
+    curveValuesRevision: null,
+  });
+
+const validity = (
+  calculationStatus: ESimulationCalculationStatus,
+  resultRevision: number | null = 1,
+) =>
+  SimulationResultValidity.create({
+    calculationStatus,
+    currentInputFingerprint: fingerprint(1),
+    resultInputFingerprint:
+      resultRevision === null ? null : fingerprint(resultRevision),
+  });
+
+// Settled for every id asked unless the map says otherwise; an id mapped to
+// null is left out, as a simulation deleted between the reads.
+function validityReader(
+  byId: Record<string, SimulationResultValidity | null> = {},
+) {
+  const findOwned = jest.fn(async (_: string, ids: readonly string[]) =>
+    Result.ok(
+      new Map(
+        ids.flatMap((id) => {
+          const found =
+            id in byId
+              ? byId[id]
+              : validity(ESimulationCalculationStatus.CALCULATED);
+          return found ? [[id, found] as const] : [];
+        }),
+      ),
+    ),
+  );
+  return { findOwned } satisfies SimulationResultValidityReader;
+}
+
 function fixture() {
   const findMany = jest.fn().mockResolvedValue([]);
   const count = jest.fn().mockResolvedValue(41);
   const prisma = {
     client: { simulation: { findMany, count } },
   } as unknown as PrismaService;
-  return { handler: new ListSimulationsQueryHandler(prisma), findMany, count };
+  return {
+    handler: new ListSimulationsQueryHandler(prisma, validityReader()),
+    findMany,
+    count,
+  };
 }
 
 async function whereFor(filters: Partial<ListSimulationsQuery>) {
@@ -122,7 +169,6 @@ describe('ListSimulationsQueryHandler', () => {
   describe('sorted by net annual return', () => {
     const record = (id: string, netAnnualReturn: string | null) => ({
       id,
-      revision: 1,
       principal: new Prisma.Decimal('1000'),
       investmentDate: new Date('2026-01-02T00:00:00.000Z'),
       offer: {
@@ -132,16 +178,9 @@ describe('ListSimulationsQueryHandler', () => {
         maturityDate: new Date('2027-01-04T00:00:00.000Z'),
         remunerationType: 'PREFIXED',
         rateValue: new Prisma.Decimal('0.12'),
-        termsRevision: 1,
       },
-      curve: null,
       calculation: { status: netAnnualReturn ? 'CALCULATED' : 'PENDING' },
       result: netAnnualReturn && {
-        inputFingerprint: SimulationResult.inputFingerprintFor({
-          simulationRevision: 1,
-          offer: { titleType: ETitleType.CDB, termsRevision: 1 },
-          curveValuesRevision: null,
-        }).toString(),
         calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
         netBalance: new Prisma.Decimal('1100'),
         netAnnualReturn: new Prisma.Decimal(netAnnualReturn),
@@ -149,7 +188,7 @@ describe('ListSimulationsQueryHandler', () => {
     });
 
     // 25 simulations have a result; 41 match in all.
-    function sortedFixture() {
+    function sortedFixture(validities = validityReader()) {
       const findMany = jest.fn();
       const count = jest.fn(({ where }) =>
         Promise.resolve(where.AND?.[1]?.result ? 25 : 41),
@@ -158,8 +197,9 @@ describe('ListSimulationsQueryHandler', () => {
         client: { simulation: { findMany, count } },
       } as unknown as PrismaService;
       return {
-        handler: new ListSimulationsQueryHandler(prisma),
+        handler: new ListSimulationsQueryHandler(prisma, validities),
         findMany,
+        validities,
       };
     }
 
@@ -233,6 +273,37 @@ describe('ListSimulationsQueryHandler', () => {
         skip: 15,
         take: 20,
       });
+    });
+
+    it("takes whether each result is settled from the page's validities", async () => {
+      const f = sortedFixture(
+        validityReader({
+          stale: validity(ESimulationCalculationStatus.CALCULATED, 0),
+          queued: validity(ESimulationCalculationStatus.PENDING),
+          gone: null,
+        }),
+      );
+      f.findMany
+        .mockResolvedValueOnce(
+          ['current', 'stale', 'queued', 'gone'].map((id) => record(id, '0.1')),
+        )
+        .mockResolvedValueOnce([]);
+
+      const result = await execute(f.handler, 1);
+
+      expect(f.validities.findOwned).toHaveBeenCalledWith(OWNER, [
+        'current',
+        'stale',
+        'queued',
+        'gone',
+      ]);
+      expect(
+        result.value.items.map(({ id, isSettled }) => [id, isSettled]),
+      ).toEqual([
+        ['current', true],
+        ['stale', false],
+        ['queued', false],
+      ]);
     });
   });
 });

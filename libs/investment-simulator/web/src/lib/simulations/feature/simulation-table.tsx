@@ -25,10 +25,9 @@ function NetResult({ item }: { readonly item: SimulationListItem }) {
       ) : (
         <span className="text-sm text-muted">Sem resultado</span>
       )}
-      <CalculationStatusTag
-        status={item.calculationStatus}
-        outdated={item.result?.outdated ?? false}
-      />
+      {!item.isSettled && (
+        <CalculationStatusTag status={item.calculationStatus} />
+      )}
     </span>
   );
 }
@@ -163,7 +162,9 @@ export function SimulationTable({
               {formatMoney(item.principal)}
             </td>
             <td className="px-4 py-3 whitespace-nowrap tabular-nums">
-              <span className="block">{formatIsoDate(item.investmentDate)}</span>
+              <span className="block">
+                {formatIsoDate(item.investmentDate)}
+              </span>
               <span className="block text-muted">
                 a {formatIsoDate(item.maturityDate)}
               </span>

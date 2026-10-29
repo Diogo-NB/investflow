@@ -1,10 +1,9 @@
 import {
-  ETitleType,
   IOF_EXEMPT_FROM_CALENDAR_DAYS,
   RemainingTerm,
-  SimulationResult,
+  SimulationResultValidity,
 } from '@investflow/investment-simulator-domain';
-import { CalendarDate, InputFingerprint } from '@investflow/shared-domain';
+import { CalendarDate } from '@investflow/shared-domain';
 import { Prisma } from '@prisma/client';
 import {
   OfferSummary,
@@ -48,9 +47,6 @@ export interface TaxOutput {
 // An investment held to maturity, as last calculated successfully.
 export interface SimulationResultOutput {
   readonly calculatedAt: string;
-  // True when the simulation, its offer's terms, its curve's values, or the
-  // rules of its calculation changed since.
-  readonly outdated: boolean;
   readonly principal: string;
   // The period calculated, which later edits may have changed. Business days
   // drive interest and returns; calendar days drive taxes.
@@ -107,6 +103,10 @@ export interface SimulationWorkspaceProjection {
     readonly lastIntervalEnd: string;
   } | null;
   readonly calculation: SimulationCalculationOutput;
+  // Calculated from the current premises with nothing queued, so the result
+  // shown is final. The premises are the simulation, its offer's terms, its
+  // curve's values, and the rules of its calculation.
+  readonly isSettled: boolean;
   // From today's UTC date and the current investment and maturity dates, in
   // any status; null without an offer or when maturity precedes investment.
   readonly remainingTerm: {
@@ -121,7 +121,6 @@ export interface SimulationWorkspaceProjection {
 }
 
 const resultSelect = {
-  inputFingerprint: true,
   calculatedAt: true,
   investmentDate: true,
   maturityDate: true,
@@ -179,13 +178,12 @@ export const simulationWorkspaceSelect = {
   investmentDate: true,
   curveId: true,
   offer: {
-    select: { ...offerSummarySelect, termsRevision: true, deletedAt: true },
+    select: { ...offerSummarySelect, deletedAt: true },
   },
   curve: {
     select: {
       id: true,
       name: true,
-      valuesRevision: true,
       deletedAt: true,
       intervals: {
         select: { endDate: true },
@@ -214,6 +212,7 @@ type ResultRecord = NonNullable<SimulationWorkspaceRecord['result']>;
 
 export function toSimulationWorkspace(
   record: SimulationWorkspaceRecord,
+  validity: SimulationResultValidity,
   today: CalendarDate,
 ): SimulationWorkspaceProjection {
   const { offer, curve, calculation } = record;
@@ -263,6 +262,7 @@ export function toSimulationWorkspace(
           }
         : null,
     },
+    isSettled: validity.isSettled,
     remainingTerm: remainingTerm && {
       phase: remainingTerm.phase,
       calendarDays: remainingTerm.calendarDays,
@@ -270,31 +270,13 @@ export function toSimulationWorkspace(
       months: remainingTerm.months,
       days: remainingTerm.days,
     },
-    result: record.result
-      ? toResultOutput(
-          record.result,
-          SimulationResult.inputFingerprintFor({
-            simulationRevision: record.revision,
-            offer: {
-              titleType: offer.titleType as ETitleType,
-              termsRevision: offer.termsRevision,
-            },
-            curveValuesRevision: curve?.valuesRevision ?? null,
-          }),
-        )
-      : null,
+    result: record.result && toResultOutput(record.result),
   };
 }
 
-function toResultOutput(
-  record: ResultRecord,
-  current: InputFingerprint,
-): SimulationResultOutput {
+function toResultOutput(record: ResultRecord): SimulationResultOutput {
   return {
     calculatedAt: record.calculatedAt.toISOString(),
-    outdated: !InputFingerprint.restore(record.inputFingerprint).equals(
-      current,
-    ),
     principal: record.principal.toFixed(),
     term: {
       investmentDate: CalendarDate.fromUtcDate(

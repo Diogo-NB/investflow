@@ -1,15 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { SimulationResultValidityReader } from '@investflow/investment-simulator-application';
+import { SimulationResultValidity } from '@investflow/investment-simulator-domain';
 import { QueryHandler } from '@investflow/shared-application';
 import type { PaginatedResult } from '@investflow/shared-types';
-import {
-  ETitleType,
-  SimulationResult,
-} from '@investflow/investment-simulator-domain';
-import {
-  CalendarDate,
-  InputFingerprint,
-  Result,
-} from '@investflow/shared-domain';
+import { AppError, CalendarDate, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { SimulationQueryError } from './simulation-query.error';
@@ -53,10 +47,12 @@ export interface SimulationListItem {
     readonly rate: string;
   };
   readonly calculationStatus: 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
+  // Calculated from the current premises with nothing queued, so the result
+  // shown is final.
+  readonly isSettled: boolean;
   // The last successful calculation; null until the first one.
   readonly result: {
     readonly calculatedAt: string;
-    readonly outdated: boolean;
     readonly netBalance: string;
     // A fraction: 0.1028 is 10.28% a year.
     readonly netAnnualReturn: string;
@@ -67,7 +63,6 @@ export type ListSimulationsOutput = PaginatedResult<SimulationListItem>;
 
 const simulationSelect = {
   id: true,
-  revision: true,
   principal: true,
   investmentDate: true,
   offer: {
@@ -78,14 +73,11 @@ const simulationSelect = {
       maturityDate: true,
       remunerationType: true,
       rateValue: true,
-      termsRevision: true,
     },
   },
-  curve: { select: { valuesRevision: true } },
   calculation: { select: { status: true } },
   result: {
     select: {
-      inputFingerprint: true,
       calculatedAt: true,
       netBalance: true,
       netAnnualReturn: true,
@@ -102,16 +94,22 @@ const newestFirst: Prisma.SimulationOrderByWithRelationInput[] = [
   { id: 'asc' },
 ];
 
+// The page depends only on stored columns: the status filter and the sort by
+// net annual return include stale results. Whether each listed result holds
+// comes from a read port in domain terms, once the page is known.
 @Injectable()
 export class ListSimulationsQueryHandler
   implements QueryHandler<ListSimulationsQuery, ListSimulationsOutput>
 {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly validities: SimulationResultValidityReader,
+  ) {}
 
-  execute(
+  async execute(
     query: ListSimulationsQuery,
-  ): Promise<Result<ListSimulationsOutput, SimulationQueryError>> {
-    return Result.fromPromise(
+  ): Promise<Result<ListSimulationsOutput, AppError>> {
+    const page = await Result.fromPromise(
       async () => {
         // A deleted offer or curve still matches its id, so the simulations
         // left without it can be counted and listed.
@@ -164,13 +162,28 @@ export class ListSimulationsQueryHandler
               }),
           this.prisma.client.simulation.count({ where }),
         ]);
-        return {
-          items: records.map((record) => this.toOutput(record)),
-          total,
-          page: query.page,
-          pageSize: query.pageSize,
-        };
+        return { records, total };
       },
+      (cause) => new SimulationQueryError(cause),
+    );
+    if (page.isErr()) return page;
+    const { records, total } = page.value;
+    const validities = await this.validities.findOwned(
+      query.ownerId,
+      records.map(({ id }) => id),
+    );
+    if (validities.isErr()) return validities;
+    return Result.fromThrowable(
+      () => ({
+        // A simulation deleted between the two reads is left out.
+        items: records.flatMap((record) => {
+          const validity = validities.value.get(record.id);
+          return validity ? [this.toOutput(record, validity)] : [];
+        }),
+        total,
+        page: query.page,
+        pageSize: query.pageSize,
+      }),
       (cause) => new SimulationQueryError(cause),
     );
   }
@@ -209,7 +222,10 @@ export class ListSimulationsQueryHandler
     return [...rankedRecords, ...unranked];
   }
 
-  private toOutput(record: SimulationRecord): SimulationListItem {
+  private toOutput(
+    record: SimulationRecord,
+    validity: SimulationResultValidity,
+  ): SimulationListItem {
     const { offer, result, calculation } = record;
     if (!calculation) {
       throw new Error(`Simulation ${record.id} without a calculation row`);
@@ -231,19 +247,10 @@ export class ListSimulationsQueryHandler
         rate: offer.rateValue.toFixed(),
       },
       calculationStatus: calculation.status,
+      isSettled: validity.isSettled,
       result: result
         ? {
             calculatedAt: result.calculatedAt.toISOString(),
-            outdated: !InputFingerprint.restore(result.inputFingerprint).equals(
-              SimulationResult.inputFingerprintFor({
-                simulationRevision: record.revision,
-                offer: {
-                  titleType: offer.titleType as ETitleType,
-                  termsRevision: offer.termsRevision,
-                },
-                curveValuesRevision: record.curve?.valuesRevision ?? null,
-              }),
-            ),
             netBalance: result.netBalance.toFixed(),
             netAnnualReturn: result.netAnnualReturn.toFixed(),
           }

@@ -17,7 +17,7 @@ In practice:
   usage, include only the fields the screen uses, and compose related data the
   screen always needs together into one read instead of several round trips.
 - Compute business facts on the server, where the rules live: eligibility
-  ("can be calculated"), status flags ("outdated"), counts, and derived dates
+  ("can be calculated"), status flags ("settled"), counts, and derived dates
   or periods. The browser must not re-implement domain rules to obtain values
   the screen displays or acts on.
 - Keep outputs plain data under the usual contract rules: ISO dates, exact
@@ -67,5 +67,20 @@ to the screen itself and serializes the result.
 - The simulation comparison follows the same shape:
   `ComparedSimulationReader` returns `ComparedSimulation`s, which say whether
   their result is current and settled, and `BuildSimulationComparisonUseCase`
-  builds `SimulationComparison`; each compared simulation's `isSettled` goes
-  to the screen, which never derives it from the status and `outdated`.
+  builds `SimulationComparison`.
+- Whether one simulation's result is current and settled is
+  `SimulationResultValidity`, which `ComparedSimulation` and
+  `InvestmentPlanMember` also delegate to. The workspace and the simulation
+  list read it through `SimulationResultValidityReader` and pass its
+  `isSettled` to the screen, which never derives it from the status.
+- A read use case exists when it adds a step: a check across the records
+  read, today from `Clock`, or a domain service. When the read port already
+  returns the concept, as `SimulationResultValidityReader` does, the query
+  handler calls the port directly (decided 2026-10-28).
+- A paged list pages by stored columns and then reads the domain concept for
+  the page's ids, bounded by the page size: the simulation list filters by
+  the stored calculation status and sorts by the last result's net annual
+  return, both of which include stale results, as the investment plan list
+  pages plans before `BuildInvestmentPlanStatusesUseCase` reads their
+  members. A port that returns a page would move the screen's filters and
+  sort into the application (decided 2026-10-28).

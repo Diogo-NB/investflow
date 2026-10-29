@@ -10,6 +10,7 @@ import {
   RecalculateCurveSimulationsUseCase,
   RecalculateOfferSimulationsUseCase,
   RecalculateSimulationUseCase,
+  SimulationResultValidityReader,
   SimulationPremisesService,
   SimulationRepository,
 } from '@investflow/investment-simulator-application';
@@ -24,6 +25,7 @@ import { SimulationCalculationFailureConsumer } from './simulations/messaging/si
 import { SimulationRecalculationConsumer } from './simulations/messaging/simulation-recalculation.consumer';
 import { SimulationCalculationConsumer } from './simulations/messaging/simulation-calculation.consumer';
 import { PrismaSimulationRepository } from './simulations/persistence/prisma-simulation.repository';
+import { PrismaSimulationResultValidityReader } from './simulations/persistence/prisma-simulation-result-validity-reader';
 import { ListSimulationMonthlyBalancesQueryHandler } from './simulations/queries/list-simulation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from './simulations/queries/list-simulations.query-handler';
 import { SimulationComparisonController } from './simulation-comparisons/http/simulation-comparison.controller';
@@ -66,6 +68,10 @@ import { OffersModule } from './offers/offers.module';
     RecalculateOfferSimulationsUseCase,
     RecalculateCurveSimulationsUseCase,
     SimulationRecalculationConsumer,
+    {
+      provide: SimulationResultValidityReader,
+      useClass: PrismaSimulationResultValidityReader,
+    },
     ListSimulationsQueryHandler,
     ListSimulationMonthlyBalancesQueryHandler,
     GetSimulationOptionsQueryHandler,

@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { SimulationNotFoundError } from '@investflow/investment-simulator-application';
+import {
+  SimulationNotFoundError,
+  SimulationResultValidityReader,
+} from '@investflow/investment-simulator-application';
 import { Clock, QueryHandler } from '@investflow/shared-application';
-import { Result } from '@investflow/shared-domain';
+import { AppError, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import {
   SimulationWorkspaceProjection,
@@ -17,6 +20,8 @@ export interface GetSimulationWorkspaceQuery {
 
 export type GetSimulationWorkspaceOutput = SimulationWorkspaceProjection;
 
+// Whether the result holds comes from a read port in domain terms; this
+// handler reads what the screen shows and shapes the output.
 @Injectable()
 export class GetSimulationWorkspaceQueryHandler
   implements
@@ -25,17 +30,19 @@ export class GetSimulationWorkspaceQueryHandler
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: Clock,
+    private readonly validities: SimulationResultValidityReader,
   ) {}
 
   async execute({
     ownerId,
     simulationId,
   }: GetSimulationWorkspaceQuery): Promise<
-    Result<
-      GetSimulationWorkspaceOutput,
-      SimulationNotFoundError | SimulationWorkspaceQueryError
-    >
+    Result<GetSimulationWorkspaceOutput, AppError>
   > {
+    const validities = await this.validities.findOwned(ownerId, [simulationId]);
+    if (validities.isErr()) return validities;
+    const validity = validities.value.get(simulationId);
+    if (!validity) return Result.err(new SimulationNotFoundError(simulationId));
     const result = await Result.fromPromise(
       async () => {
         const record = await this.prisma.client.simulation.findFirst({
@@ -43,12 +50,13 @@ export class GetSimulationWorkspaceQueryHandler
           select: simulationWorkspaceSelect,
         });
         return record
-          ? toSimulationWorkspace(record, this.clock.today())
+          ? toSimulationWorkspace(record, validity, this.clock.today())
           : null;
       },
       (cause) => new SimulationWorkspaceQueryError(cause),
     );
     if (result.isErr()) return result;
+    // Null when deleted after its validity was read.
     return result.value
       ? Result.ok(result.value)
       : Result.err(new SimulationNotFoundError(simulationId));

@@ -70,7 +70,8 @@ this file in the same change that ships or changes a built behavior.
   fingerprint of what it was calculated from (the simulation, offer, and curve
   revisions and the methodology version). Reads flag it "Desatualizado" when
   the current fingerprint differs, including a deleted offer or
-  curve; saving queues a calculation from the current premises. The workspace
+  curve: the workspace and the list read `SimulationResultValidity` through
+  `SimulationResultValidityReader` and answer its `isSettled`; saving queues a calculation from the current premises. The workspace
   polls every 3 seconds and shows the status and its cause ("Calculando",
   "Atualizado", "Requer ação" with the reason, "Falha técnica" with "Tentar
   novamente") over the last result, the summary, the tax explanation dialog,

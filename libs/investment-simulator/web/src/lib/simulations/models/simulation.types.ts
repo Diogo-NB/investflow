@@ -44,10 +44,12 @@ export interface SimulationListItem {
   readonly issuerName: string | null;
   readonly remunerationTerms: RemunerationTerms;
   readonly calculationStatus: CalculationStatus;
+  // Calculated from the current premises with nothing queued, so the result
+  // shown is final.
+  readonly isSettled: boolean;
   // The last successful calculation; null until the first one.
   readonly result: {
     readonly calculatedAt: string;
-    readonly outdated: boolean;
     readonly netBalance: string;
     readonly netAnnualReturn: string;
   } | null;
@@ -148,9 +150,6 @@ export interface InvestmentTerm {
 
 export interface SimulationResult {
   readonly calculatedAt: string;
-  // The simulation, its offer or curve, or the rules of its calculation
-  // changed since.
-  readonly outdated: boolean;
   readonly principal: string;
   // The period calculated, which later edits may have changed.
   readonly term: InvestmentTerm;
@@ -184,6 +183,10 @@ export interface SimulationWorkspace {
     readonly lastIntervalEnd: string;
   } | null;
   readonly calculation: SimulationCalculation;
+  // Calculated from the current premises with nothing queued, so the result
+  // shown is final. The premises are the simulation, its offer or curve, and
+  // the rules of its calculation.
+  readonly isSettled: boolean;
   // From the current dates on today's UTC date, in any status; null without
   // an offer or when maturity precedes the investment date.
   readonly remainingTerm: RemainingTerm | null;
@@ -204,9 +207,6 @@ export interface ComparisonStanding {
 }
 
 export interface ComparedSimulation extends SimulationWorkspace {
-  // Calculated from the current premises with nothing queued, so the result
-  // shown is final.
-  readonly isSettled: boolean;
   // Ranked from the last successful result, current or not; null without one.
   readonly standing: ComparisonStanding | null;
 }

@@ -34,6 +34,7 @@ import { Prisma } from '@prisma/client';
 import Decimal from 'decimal.js';
 import { PrismaOfferRepository } from '../../../offers/persistence/prisma-offer.repository';
 import { PrismaSimulationRepository } from '../../../simulations/persistence/prisma-simulation.repository';
+import { PrismaSimulationResultValidityReader } from '../../../simulations/persistence/prisma-simulation-result-validity-reader';
 import { ListSimulationsQueryHandler } from '../../../simulations/queries/list-simulations.query-handler';
 import { GetInvestmentPlanQueryHandler } from '../../queries/get-investment-plan.query-handler';
 import { ListInvestmentPlansQueryHandler } from '../../queries/list-investment-plans.query-handler';
@@ -500,7 +501,10 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
     );
     const plan = await savedPlan('Membros', [a.id, b.id]);
     await deleted(b);
-    const list = new ListSimulationsQueryHandler(prisma);
+    const list = new ListSimulationsQueryHandler(
+      prisma,
+      new PrismaSimulationResultValidityReader(prisma),
+    );
     const members = async () =>
       (
         await list.execute({

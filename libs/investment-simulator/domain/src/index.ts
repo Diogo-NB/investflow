@@ -29,6 +29,7 @@ export * from './lib/simulations/simulation.aggregate';
 export * from './lib/simulations/simulation.error';
 export * from './lib/simulations/investment-inputs.vo';
 export * from './lib/simulations/simulation-result.vo';
+export * from './lib/simulations/simulation-result-validity.vo';
 export * from './lib/simulations/remaining-term.vo';
 export * from './lib/simulation-comparisons/compared-simulation.vo';
 export * from './lib/simulation-comparisons/simulation-comparison.vo';

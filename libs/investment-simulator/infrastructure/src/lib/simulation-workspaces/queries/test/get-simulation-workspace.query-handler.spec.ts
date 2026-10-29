@@ -1,9 +1,12 @@
+import { SimulationResultValidityReader } from '@investflow/investment-simulator-application';
 import {
+  ESimulationCalculationStatus,
   ETitleType,
   SimulationResult,
+  SimulationResultValidity,
 } from '@investflow/investment-simulator-domain';
 import { Clock } from '@investflow/shared-application';
-import { CalendarDate, EAppErrorCode } from '@investflow/shared-domain';
+import { CalendarDate, EAppErrorCode, Result } from '@investflow/shared-domain';
 import { PrismaService } from '@investflow/shared-infrastructure';
 import { Prisma } from '@prisma/client';
 import { GetSimulationWorkspaceQueryHandler } from '../get-simulation-workspace.query-handler';
@@ -12,18 +15,21 @@ jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
 const date = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
-// The fingerprint of the workspace's premises unless overridden.
-function recordedFrom({ titleType = ETitleType.CDB } = {}) {
-  return SimulationResult.inputFingerprintFor({
-    simulationRevision: 2,
-    offer: { titleType, termsRevision: 3 },
+const fingerprint = (simulationRevision: number) =>
+  SimulationResult.inputFingerprintFor({
+    simulationRevision,
+    offer: { titleType: ETitleType.CDB, termsRevision: 3 },
     curveValuesRevision: 4,
-  }).toString();
-}
+  });
+
+const settled = SimulationResultValidity.create({
+  calculationStatus: ESimulationCalculationStatus.CALCULATED,
+  currentInputFingerprint: fingerprint(2),
+  resultInputFingerprint: fingerprint(2),
+});
 
 function result(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    inputFingerprint: recordedFrom(),
     calculatedAt: new Date('2026-10-10T12:00:00.000Z'),
     investmentDate: date('2026-01-02'),
     maturityDate: date('2026-03-02'),
@@ -50,13 +56,28 @@ function result(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function setup(record: unknown, today = '2026-02-27') {
+// The validity is null when the reader leaves the simulation out.
+function setup(
+  record: unknown,
+  {
+    today = '2026-02-27',
+    validity = settled as SimulationResultValidity | null,
+  } = {},
+) {
   const findFirst = jest.fn().mockResolvedValue(record);
   const prisma = {
     client: { simulation: { findFirst } },
   } as unknown as PrismaService;
   const clock = { today: () => CalendarDate.of(today) } as Clock;
-  const handler = new GetSimulationWorkspaceQueryHandler(prisma, clock);
+  const validities: SimulationResultValidityReader = {
+    findOwned: async (_, ids) =>
+      Result.ok(new Map(validity ? ids.map((id) => [id, validity]) : [])),
+  };
+  const handler = new GetSimulationWorkspaceQueryHandler(
+    prisma,
+    clock,
+    validities,
+  );
   return (simulationId = 'simulation-id') =>
     handler.execute({ ownerId: 'owner-id', simulationId });
 }
@@ -67,12 +88,11 @@ function workspace(
     offer?: Partial<Record<string, unknown>>;
     curve?: Partial<Record<string, unknown>>;
     calculation?: Partial<Record<string, unknown>>;
-    revision?: number;
   } = {},
 ) {
   return {
     id: 'simulation-id',
-    revision: overrides.revision ?? 2,
+    revision: 2,
     principal: new Prisma.Decimal('1000.50'),
     investmentDate: date('2026-01-02'),
     curveId: 'curve-id',
@@ -87,14 +107,12 @@ function workspace(
       rateValue: new Prisma.Decimal('1.10'),
       ownerId: 'owner-id',
       revision: 3,
-      termsRevision: 3,
       deletedAt: null,
       ...overrides.offer,
     },
     curve: {
       id: 'curve-id',
       name: 'CDI base',
-      valuesRevision: 4,
       deletedAt: null,
       intervals: [{ endDate: date('2026-02-02') }],
       ...overrides.curve,
@@ -175,9 +193,9 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
       cause: { kind: 'SIMULATION_EDITED' },
       reason: null,
     });
+    expect(output.value.isSettled).toBe(true);
     expect(output.value.result).toEqual({
       calculatedAt: '2026-10-10T12:00:00.000Z',
-      outdated: false,
       principal: '1000.5',
       term: {
         investmentDate: '2026-01-02',
@@ -243,7 +261,7 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     async (today, expected) => {
       const output = await setup(
         workspace({ result: null, calculation: { status: 'PENDING' } }),
-        today,
+        { today },
       )();
 
       expect(output.value.remainingTerm).toEqual(expected);
@@ -258,32 +276,17 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     expect(output.value.remainingTerm).toBeNull();
   });
 
-  it.each([
-    ['the simulation changed', workspace({ revision: 3 })],
-    ['the offer terms changed', workspace({ offer: { termsRevision: 4 } })],
-    [
-      'the offer was deleted',
-      workspace({ offer: { termsRevision: 4, deletedAt: new Date() } }),
-    ],
-    ['the curve values changed', workspace({ curve: { valuesRevision: 5 } })],
-    [
-      'the methodology changed',
-      workspace({
-        result: result({
-          inputFingerprint: recordedFrom({ titleType: ETitleType.LCI }),
-        }),
+  it('takes whether the result is settled from its validity', async () => {
+    const output = await setup(workspace(), {
+      validity: SimulationResultValidity.create({
+        calculationStatus: ESimulationCalculationStatus.CALCULATED,
+        currentInputFingerprint: fingerprint(3),
+        resultInputFingerprint: fingerprint(2),
       }),
-    ],
-  ])('flags the result as outdated when %s', async (_, record) => {
-    const output = await setup(record)();
+    })();
 
-    expect(output.value.result?.outdated).toBe(true);
-  });
-
-  it('keeps the result current when only the offer details changed', async () => {
-    const output = await setup(workspace({ offer: { revision: 9 } }))();
-
-    expect(output.value.result?.outdated).toBe(false);
+    expect(output.value.isSettled).toBe(false);
+    expect(output.value.result).not.toBeNull();
   });
 
   it('reports deleted premises and a missing result', async () => {
@@ -316,21 +319,18 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
     );
   });
 
-  it('explains an LCI income tax exemption against its own methodology', async () => {
+  it('explains an LCI income tax exemption', async () => {
     const output = await setup(
       workspace({
         offer: { titleType: 'LCI' },
         result: result({
-          inputFingerprint: recordedFrom({ titleType: ETitleType.LCI }),
           incomeTaxRate: null,
           incomeTax: new Prisma.Decimal('0'),
         }),
       }),
     )();
 
-    const summary = output.value.result;
-    expect(summary?.outdated).toBe(false);
-    expect(summary?.taxes.incomeTax).toMatchObject({
+    expect(output.value.result?.taxes.incomeTax).toMatchObject({
       rate: null,
       amount: '0',
       formula: 'Isento: LCI e LCA de pessoa física',
@@ -338,6 +338,12 @@ describe('GetSimulationWorkspaceQueryHandler', () => {
   });
 
   it('reports a missing simulation', async () => {
+    const result = await setup(workspace(), { validity: null })('gone');
+
+    expect(result.error.code).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);
+  });
+
+  it('reports a simulation deleted after its validity was read', async () => {
     const result = await setup(null)('gone');
 
     expect(result.error.code).toBe(EAppErrorCode.SIMULATION_NOT_FOUND);

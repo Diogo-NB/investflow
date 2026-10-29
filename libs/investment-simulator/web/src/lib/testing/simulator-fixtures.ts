@@ -109,7 +109,6 @@ export function simulationResult(
 ): SimulationResult {
   return {
     calculatedAt: '2026-10-10T12:00:00.000Z',
-    outdated: false,
     principal: '10000',
     term: {
       investmentDate: '2026-01-02',
@@ -188,6 +187,7 @@ export const workspace: SimulationWorkspace = {
     cause: { kind: 'SIMULATION_EDITED' },
     reason: null,
   },
+  isSettled: true,
   remainingTerm: null,
   result: simulationResult(),
 };

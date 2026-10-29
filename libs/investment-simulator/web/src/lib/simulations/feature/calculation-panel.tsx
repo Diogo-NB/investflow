@@ -84,21 +84,21 @@ function summaryRows({
 }
 
 function StaleNotice({
-  result,
   calculation,
+  isSettled,
   unsavedEdits,
 }: {
-  readonly result: SimulationResult;
   readonly calculation: SimulationCalculation;
+  readonly isSettled: boolean;
   readonly unsavedEdits: boolean;
 }) {
   const reason = unsavedEdits
     ? 'Há alterações que ainda não foram salvas.'
-    : calculation.status !== 'CALCULATED'
-      ? 'Este resultado é anterior às últimas alterações.'
-      : result.outdated
-        ? 'A simulação, a oferta, a curva ou as regras de cálculo mudaram desde este cálculo. Salve e calcule para ver o resultado atual.'
-        : null;
+    : isSettled
+      ? null
+      : calculation.status !== 'CALCULATED'
+        ? 'Este resultado é anterior às últimas alterações.'
+        : 'A simulação, a oferta, a curva ou as regras de cálculo mudaram desde este cálculo. Salve e calcule para ver o resultado atual.';
   if (!reason) return null;
   return (
     <p className="m-0 flex items-start gap-2 rounded-control border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning">
@@ -227,8 +227,8 @@ function CalculationStatusNotice({
         </StatusCard>
       );
     case 'CALCULATED':
-      // An outdated result is explained next to its figures.
-      if (!result || result.outdated) return null;
+      // A stale result is explained next to its figures.
+      if (!saved.isSettled || !result) return null;
       return (
         <StatusCard
           key="CALCULATED"
@@ -249,6 +249,7 @@ function CalculationResult({
   result,
   remunerationKind,
   calculation,
+  isSettled,
   curve,
   unsavedEdits,
   taxRules,
@@ -258,6 +259,7 @@ function CalculationResult({
   readonly curve: SimulationWorkspace['curve'];
   readonly remunerationKind: RemunerationKind;
   readonly calculation: SimulationCalculation;
+  readonly isSettled: boolean;
   readonly unsavedEdits: boolean;
   readonly taxRules: TaxRules;
 }) {
@@ -279,8 +281,8 @@ function CalculationResult({
           Resultado no vencimento
         </h2>
         <StaleNotice
-          result={result}
           calculation={calculation}
+          isSettled={isSettled}
           unsavedEdits={unsavedEdits}
         />
         <div className={figures}>
@@ -423,6 +425,7 @@ export function CalculationPanel({
           result={result}
           remunerationKind={workspace.offer.remunerationTerms.kind}
           calculation={workspace.calculation}
+          isSettled={workspace.isSettled}
           curve={workspace.curve}
           unsavedEdits={unsavedEdits}
           taxRules={taxRules}

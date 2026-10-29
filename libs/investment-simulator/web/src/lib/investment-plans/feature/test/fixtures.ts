@@ -69,7 +69,8 @@ export function simulation(id: string): SimulationListItem {
     titleType: 'CDB',
     issuerName: null,
     remunerationTerms: { kind: 'PREFIXED', rate: '0.12' },
-    calculationStatus: 'CALCULATED',
+    calculationStatus: 'PENDING',
+    isSettled: false,
     result: null,
   };
 }

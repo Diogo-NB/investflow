@@ -26,9 +26,9 @@ const item = {
   issuerName: 'Banco Local',
   remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
   calculationStatus: 'CALCULATED',
+  isSettled: true,
   result: {
     calculatedAt: '2026-10-10T12:00:00.000Z',
-    outdated: false,
     netBalance: '10168.47',
     netAnnualReturn: '0.1112814663816',
   },

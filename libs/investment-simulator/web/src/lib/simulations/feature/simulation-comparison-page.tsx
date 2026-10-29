@@ -188,10 +188,7 @@ function SimulationStatus({
   if (simulation.isSettled) return null;
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <CalculationStatusTag
-        status={simulation.calculation.status}
-        outdated={simulation.result?.outdated ?? false}
-      />
+      <CalculationStatusTag status={simulation.calculation.status} />
       {simulation.result && (
         <span className="text-sm text-muted">Resultado anterior</span>
       )}

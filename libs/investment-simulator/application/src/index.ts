@@ -23,6 +23,7 @@ export * from './lib/offers/delete/delete-offer.command';
 export * from './lib/offers/delete/delete-offer.use-case';
 export * from './lib/simulations/simulation-not-found.error';
 export * from './lib/simulations/simulation.repository';
+export * from './lib/simulations/simulation-result-validity-reader.port';
 export * from './lib/simulations/shared/simulation-command-input.type';
 export * from './lib/simulations/shared/simulation-premises.service';
 export * from './lib/simulations/create/create-simulation.command';

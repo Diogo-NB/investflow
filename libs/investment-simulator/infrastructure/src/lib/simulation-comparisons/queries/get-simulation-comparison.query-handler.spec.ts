@@ -200,7 +200,6 @@ describe('GetSimulationComparisonQueryHandler', () => {
       false,
       true,
     ]);
-    expect(comparison.simulations[0].result?.outdated).toBe(true);
     expect(comparison.simulations[0].standing).toMatchObject({
       position: 1,
       isLeader: true,
@@ -225,7 +224,6 @@ describe('GetSimulationComparisonQueryHandler', () => {
     expect(output.value.isSettled).toBe(false);
     expect(output.value.simulations[0]).toMatchObject({
       isSettled: false,
-      result: { outdated: false },
       standing: { position: 1 },
     });
   });

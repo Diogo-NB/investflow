@@ -91,7 +91,9 @@ Decided 2026-10-28. A stored value derived from other state records one
 it was computed from, as a canonical string such as
 `v1|simulation:4|offerTerms:2|curveValues:19|methodology:"cdb-252-v1"`. It is
 current exactly when the recorded fingerprint equals the one built from the
-current versions. One factory on the owner builds it,
+current versions; for a simulation's result, `SimulationResultValidity`
+compares them, and the result is settled when it is current and its
+calculation `CALCULATED`. One factory on the owner builds it,
 `SimulationResult.inputFingerprintFor()` for simulations, from the
 simulation revision, the offer's `termsRevision`, the curve's
 `valuesRevision`, and the title type's methodology version (`null` for a
@@ -230,7 +232,8 @@ state is kept; there is no transition history.
   version change requeues nothing: its results show "Desatualizado" until
   the simulation is saved again.
 - **Reads** return the last successful result together with the status, its
-  cause, and whether it is outdated, so the screen can show
+  cause, and whether it is settled (`SimulationResultValidity`), so the
+  screen can show
   "Calculando" or "Requer ação" over the previous values. The details screen
   polls the same endpoint about every 3 seconds whatever the status; the
   monthly balances refetch only when the result's `calculatedAt` changes. A

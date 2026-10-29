@@ -6,6 +6,7 @@ import {
 } from '@investflow/shared-domain';
 import Decimal from 'decimal.js';
 import { ESimulationCalculationStatus } from '../simulations/simulation-calculation.vo';
+import { SimulationResultValidity } from '../simulations/simulation-result-validity.vo';
 
 // What a simulation's last successful result returns at maturity, as far as
 // comparing it goes, and what it was calculated from.
@@ -50,22 +51,20 @@ export class ComparedSimulation extends ValueObject<ComparedSimulation> {
     return this.props.lastResult;
   }
 
-  // False without a result.
-  get isResultCurrent(): boolean {
-    return (
-      this.props.lastResult?.inputFingerprint.equals(
-        this.props.currentInputFingerprint,
-      ) ?? false
-    );
+  get validity(): SimulationResultValidity {
+    return SimulationResultValidity.create({
+      calculationStatus: this.props.calculationStatus,
+      currentInputFingerprint: this.props.currentInputFingerprint,
+      resultInputFingerprint: this.props.lastResult?.inputFingerprint ?? null,
+    });
   }
 
-  // Its result is final: calculated from the current premises with nothing
-  // queued. A retry can queue a calculation for a result that is current.
+  get isResultCurrent(): boolean {
+    return this.validity.isResultCurrent;
+  }
+
   get isSettled(): boolean {
-    return (
-      this.props.calculationStatus ===
-        ESimulationCalculationStatus.CALCULATED && this.isResultCurrent
-    );
+    return this.validity.isSettled;
   }
 
   equals(other: ComparedSimulation): boolean {

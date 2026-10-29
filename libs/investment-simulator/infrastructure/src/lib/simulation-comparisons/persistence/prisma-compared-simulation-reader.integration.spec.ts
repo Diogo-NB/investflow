@@ -262,7 +262,7 @@ describe('Compared simulations PostgreSQL read', () => {
         {
           simulation: { id: stale.id },
           isSettled: false,
-          result: { outdated: true },
+          result: { calculatedAt: '2026-10-02T12:00:00.000Z' },
           standing: { position: 1, isLeader: true, netAnnualReturnGap: '0' },
         },
       ],

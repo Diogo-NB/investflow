@@ -40,48 +40,16 @@ item when it ships.
 - **Done when** the screens say a simulation is being recalculated because
   its offer or curve changed, and say when that recalculation failed.
 
-## Result currency decided in query projections (deferred 2026-10-28)
-
-- **Today:** whether a result is current is decided only by comparing input
-  fingerprints built by `SimulationResult.inputFingerprintFor()` (see "Input
-  fingerprint" in [recalculation.md](./recalculation.md)). But the workspace
-  projection (`simulation-workspace-projection.ts`, also used by the
-  comparison for what it shows) and `ListSimulationsQueryHandler` still
-  select the current revisions from rows to build that fingerprint, and the
-  workspace editor derives "up to date" from the status and `outdated`
-  (`simulation-editor.tsx`). The comparison and investment plans get the
-  same facts through their read ports (`ComparedSimulation`,
-  `InvestmentPlanMember`).
-- **Why deferred:** found while moving the simulation comparison behind a
-  read port; the workspace and the list are other screens. The input
-  fingerprint (2026-10-28) moved the rule into the domain but left these two
-  reads as they were.
-- **Revisit with:** "Domain Concepts on a Screen Read" in
-  [queries.md](./queries.md), as the plans and the comparison already do:
-  - a read port in domain terms for the workspace and one for the list,
-    returning per simulation its calculation status, current input
-    fingerprint, and result's fingerprint as a domain object; the list's
-    port returns a page, since the list is paged, sorted by net return, and
-    filtered by status, unlike the plan and comparison readers, which look
-    up ids (the open design question);
-  - a read use case that derives `outdated` and `isSettled` from it;
-  - query handlers that stop selecting revisions and calling
-    `SimulationResult.inputFingerprintFor()`, and only serialize;
-  - `isSettled` in the workspace output, read by `simulation-editor.tsx`
-    instead of its own condition.
-
-  No schema, event, or messaging change, and nothing the user sees changes.
-- **Done when** no query handler or screen decides whether a result is
-  current or settled.
-
 ## Composed screen reads without one snapshot (deferred 2026-10-28)
 
-- **Today:** the investment plan details and the simulation comparison run
-  their read use cases and their own screen read as separate statements
-  outside a transaction (`@SkipTransaction()`), so a calculation committed
-  between them can rank or total a result other than the one shown. The
+- **Today:** the investment plan details, the simulation comparison, the
+  simulation workspace, and the simulation list run their domain read (a read
+  use case or `SimulationResultValidityReader`) and their own screen read as
+  separate statements outside a transaction (`@SkipTransaction()`), so a
+  calculation committed between them can rank or total a result other than
+  the one shown, or show a status that disagrees with `isSettled`. The
   comparison polls only while a shown status is `PENDING`, so it can stay
-  inconsistent until the next load.
+  inconsistent until the next load; the workspace polls every 3 seconds.
 - **Why deferred:** the window is one round trip, and closing it needs a
   read-only `REPEATABLE READ` mode for the unit of work, a change of its own.
 - **Revisit when** users report a verdict or total that disagrees with the

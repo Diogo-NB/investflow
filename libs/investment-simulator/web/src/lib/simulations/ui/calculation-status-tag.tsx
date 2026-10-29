@@ -9,13 +9,11 @@ import { calculationStatusLabel } from '../utils/calculation-status';
 export const TAG_BASE =
   'inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-sm font-medium';
 
-// Nothing when the result is current.
+// For an unsettled simulation only: a calculated one then has a stale result.
 export function CalculationStatusTag({
   status,
-  outdated,
 }: {
   readonly status: CalculationStatus;
-  readonly outdated: boolean;
 }) {
   const label = calculationStatusLabel(status);
   switch (status) {
@@ -47,13 +45,13 @@ export function CalculationStatusTag({
         </span>
       );
     case 'CALCULATED':
-      return outdated ? (
+      return (
         <span
           className={`${TAG_BASE} border-warning/40 bg-warning-soft text-warning`}
         >
           <AlertTriangleIcon className="size-4 shrink-0" />
           Desatualizado
         </span>
-      ) : null;
+      );
   }
 }

@@ -38,9 +38,6 @@ export interface ComparisonStandingOutput {
 
 export interface ComparedSimulationOutput
   extends SimulationWorkspaceProjection {
-  // Calculated from the current premises with nothing queued, so the result
-  // shown is final.
-  readonly isSettled: boolean;
   // Ranked by the last successful result's net annual return, current or not;
   // null without a result.
   readonly standing: ComparisonStandingOutput | null;
@@ -126,8 +123,7 @@ export class GetSimulationComparisonQueryHandler
   ): ComparedSimulationOutput {
     const standing = comparison.standingOf(simulation.id);
     return {
-      ...toSimulationWorkspace(record, today),
-      isSettled: simulation.isSettled,
+      ...toSimulationWorkspace(record, simulation.validity, today),
       standing: standing && {
         position: standing.position,
         isLeader: standing.isLeader,
