@@ -16,7 +16,6 @@ const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_CURVE_UNAVAILABLE: 'curveId',
   CURVE_NOT_FOUND: 'curveId',
   OFFER_NOT_FOUND: 'offerId',
-  INVALID_OFFER: 'offerName',
   INVESTMENT_PRINCIPAL_INVALID: 'principal',
 };
 
@@ -25,6 +24,7 @@ const TERM_FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_PERIOD_INVALID: 'maturityDate',
   INVESTMENT_TERM_TOO_SHORT: 'maturityDate',
   INVESTMENT_REMUNERATION_UNSUPPORTED: 'remunerationKind',
+  INVALID_RATE: 'rate',
 };
 
 function problemField(

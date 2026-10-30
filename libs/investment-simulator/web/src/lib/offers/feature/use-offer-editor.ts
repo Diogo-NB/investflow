@@ -32,7 +32,6 @@ export interface OfferSaveProblem {
 
 // The API explains the failure; the form only needs to know where to point.
 const FIELD_BY_CODE: Readonly<Record<string, OfferField>> = {
-  INVALID_OFFER: 'name',
   INVALID_RATE: 'rate',
 };
 

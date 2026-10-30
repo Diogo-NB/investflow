@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
+import { offerTermsLabel } from '../../offers/models/offer-terms';
 import { EmptyState } from '../../ui/empty-state';
 import {
   ArrowRightIcon,
@@ -211,7 +212,8 @@ function CurveSimulations({
                     {formatMoney(item.principal)}
                   </span>
                   <span className="text-sm text-muted">
-                    {item.offerName} · {formatIsoDate(item.investmentDate)} a{' '}
+                    {offerTermsLabel(item)} ·{' '}
+                    {formatIsoDate(item.investmentDate)} a{' '}
                     {formatIsoDate(item.maturityDate)}
                   </span>
                 </Link>

@@ -5,6 +5,7 @@ import {
   offerEdit,
   offerFormSchema,
   offerValues,
+  toOfferInput,
 } from './offer-form';
 
 const offer: OfferSummary = {
@@ -48,14 +49,11 @@ describe('offerEdit', () => {
 });
 
 describe('offerFormSchema', () => {
-  it('requires a name', () => {
-    const result = offerFormSchema.safeParse({
-      ...offerValues(offer),
-      name: '  ',
-    });
+  it('accepts an offer without a name, sent as null', () => {
+    const values = { ...offerValues(offer), name: '  ' };
 
-    expect(result.success).toBe(false);
-    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['name']]);
+    expect(offerFormSchema.safeParse(values).success).toBe(true);
+    expect(toOfferInput(values).name).toBeNull();
   });
 
   it('rejects a maturity outside the years the page accepts', () => {

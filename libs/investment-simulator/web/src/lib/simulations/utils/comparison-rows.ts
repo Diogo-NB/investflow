@@ -6,8 +6,9 @@ import {
   formatReturnPercent,
 } from '../../decimals/format-decimal';
 import {
+  issuerAndNameLabel,
+  offerTermsLabel,
   REDEMPTION_LABELS,
-  remunerationLabel,
 } from '../../offers/models/offer-terms';
 import type {
   ComparedSimulation,
@@ -51,18 +52,8 @@ export const NET_ANNUAL_RETURN_ROW: ComparisonRow = {
 export const COMPARISON_ROW_GROUPS: readonly ComparisonRowGroup[] = [
   {
     title: 'Premissas',
+    // Each column's heading already names the offer by its terms and issuer.
     rows: [
-      {
-        label: 'Título',
-        value: ({ offer }) =>
-          offer.issuerName
-            ? `${offer.titleType} · ${offer.issuerName}`
-            : offer.titleType,
-      },
-      {
-        label: 'Remuneração',
-        value: ({ offer }) => remunerationLabel(offer.remunerationTerms),
-      },
       {
         label: 'Curva',
         value: ({ curve }) =>
@@ -200,6 +191,49 @@ export function rankingMark(
       ? null
       : `${formatMoney(standing.netBalanceGap)} a menos`,
   };
+}
+
+export interface ComparisonLabel {
+  // The shortest description no other compared simulation shares.
+  readonly name: string;
+  // The investment, when only it tells two simulations of one offer apart.
+  readonly investment: string | null;
+}
+
+/**
+ * Names each simulation by its offer's terms, adding the issuer and name, and
+ * then the investment, only while another compared simulation shares them.
+ */
+export function comparisonLabels(
+  simulations: readonly ComparedSimulation[],
+): ReadonlyMap<string, ComparisonLabel> {
+  const parts = simulations.map(({ offer, simulation }) => [
+    offerTermsLabel(offer),
+    issuerAndNameLabel(offer),
+    `${formatMoney(simulation.investment.principal)} de ${formatIsoDate(simulation.investment.investmentDate)}`,
+  ]);
+  const prefix = (own: string[], length: number) =>
+    own.slice(0, length).join(' · ');
+  return new Map(
+    simulations.map(({ simulation }, index) => {
+      const own = parts[index];
+      const length =
+        [1, 2].find((candidate) =>
+          parts.every(
+            (other, otherIndex) =>
+              otherIndex === index ||
+              prefix(other, candidate) !== prefix(own, candidate),
+          ),
+        ) ?? 3;
+      return [
+        simulation.id,
+        {
+          name: prefix(own, length),
+          investment: length === 3 ? own[2] : null,
+        },
+      ];
+    }),
+  );
 }
 
 /** By position, leaders first; simulations without a result last. */

@@ -1,3 +1,4 @@
+import { formatMoney } from '../../../decimals/format-decimal';
 import {
   simulationResult,
   workspace,
@@ -8,6 +9,7 @@ import type {
   SimulationComparison,
 } from '../../models/simulation.types';
 import {
+  comparisonLabels,
   COMPARISON_ROW_GROUPS,
   onlyDifferences,
   rankedOrder,
@@ -134,5 +136,51 @@ describe('rankedOrder', () => {
       'third',
       'unranked',
     ]);
+  });
+});
+
+describe('comparisonLabels', () => {
+  const withIssuer = (id: string, issuerName: string) => {
+    const simulation = compared(id);
+    return { ...simulation, offer: { ...simulation.offer, issuerName } };
+  };
+  const withRate = (id: string, rate: string) => {
+    const simulation = compared(id);
+    return {
+      ...simulation,
+      offer: {
+        ...simulation.offer,
+        remunerationTerms: { kind: 'CDI_PERCENTAGE' as const, rate },
+      },
+    };
+  };
+
+  it('names each simulation by its terms while they differ', () => {
+    const labels = comparisonLabels([
+      withRate('a', '1.05'),
+      withRate('b', '1.1'),
+    ]);
+
+    expect(labels.get('a')).toEqual({
+      name: 'CDB 105% do CDI',
+      investment: null,
+    });
+    expect(labels.get('b')?.name).toBe('CDB 110% do CDI');
+  });
+
+  it('adds the issuer when the terms repeat, and the investment when both do', () => {
+    const labels = comparisonLabels([
+      withIssuer('a', 'Banco A'),
+      withIssuer('b', 'Banco B'),
+      compared('c', {}, '10000'),
+      compared('d', {}, '5000'),
+    ]);
+
+    expect(labels.get('a')?.name).toBe('CDB 105% do CDI · Banco A · Reserva');
+    const investment = `${formatMoney('10000')} de 02/01/2026`;
+    expect(labels.get('c')).toEqual({
+      name: `CDB 105% do CDI · Banco Local · Reserva · ${investment}`,
+      investment,
+    });
   });
 });

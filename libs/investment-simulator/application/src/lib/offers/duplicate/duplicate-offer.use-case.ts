@@ -28,8 +28,7 @@ export class DuplicateOfferUseCase
     }
 
     const copy = source.value.duplicateFor(command.actorId, this.clock.now());
-    if (copy.isErr()) return copy;
-    const saved = await this.offerRepository.save(copy.value);
-    return saved.map(() => ({ offerId: copy.value.id }));
+    const saved = await this.offerRepository.save(copy);
+    return saved.map(() => ({ offerId: copy.id }));
   }
 }

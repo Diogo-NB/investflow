@@ -95,20 +95,4 @@ describe('EditOfferUseCase', () => {
     expect(offer.name).toBe('CDB 110% do CDI');
     expect(offerRepository.save).not.toHaveBeenCalled();
   });
-
-  it('saves nothing for a blank name', async () => {
-    const { useCase, given, offerRepository } = setup();
-    const offer = given(USER);
-
-    const result = await useCase.execute(
-      EditOfferCommand.fromRequest(
-        USER,
-        { offerId: offer.id },
-        { revision: 1, name: ' ' },
-      ),
-    );
-
-    expect(result.error.code).toBe(EAppErrorCode.INVALID_OFFER);
-    expect(offerRepository.save).not.toHaveBeenCalled();
-  });
 });

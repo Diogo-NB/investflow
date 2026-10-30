@@ -170,7 +170,7 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
         ),
       },
       at('2026-10-01'),
-    ).value;
+    );
     expect((await offers.save(offer)).isOk()).toBe(true);
     return offer;
   }

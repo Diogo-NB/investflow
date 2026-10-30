@@ -79,6 +79,7 @@ export const offerTermFields = {
 };
 
 export interface OfferFormValues {
+  // Blank when the offer has no name.
   name: string;
   titleType: TitleType;
   // Blank when the offer has no issuer.
@@ -92,10 +93,7 @@ export interface OfferFormValues {
 export type OfferField = keyof OfferFormValues;
 
 export const offerFormSchema = z.object({
-  name: z
-    .string()
-    .refine((value) => value.trim() !== '', 'Informe o nome da oferta.')
-    .refine((value) => value.length <= 100, 'Use até 100 caracteres.'),
+  name: z.string().max(100, 'Use até 100 caracteres.'),
   ...offerTermFields,
 });
 
@@ -113,7 +111,7 @@ export function blankOfferValues(): OfferFormValues {
 
 export function offerValues(offer: OfferSummary): OfferFormValues {
   return {
-    name: offer.name,
+    name: offer.name ?? '',
     titleType: offer.titleType,
     issuerName: offer.issuerName ?? '',
     remunerationKind: offer.remunerationTerms.kind,
@@ -127,7 +125,7 @@ export function offerValues(offer: OfferSummary): OfferFormValues {
 export function toOfferInput(values: OfferFormValues): OfferTermsInput {
   return {
     titleType: values.titleType,
-    name: values.name.trim(),
+    name: values.name.trim() || null,
     issuerName: values.issuerName.trim() || null,
     maturityDate: values.maturityDate,
     redemptionTerms: { kind: values.redemptionKind },

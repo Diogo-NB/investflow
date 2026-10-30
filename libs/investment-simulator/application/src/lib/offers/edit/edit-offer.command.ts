@@ -14,7 +14,7 @@ export class EditOfferCommand {
     readonly actorId: string | null,
     readonly offerId: string,
     readonly revision: number,
-    readonly name?: string,
+    readonly name?: string | null,
     readonly issuerName?: string | null,
     readonly maturityDate?: CalendarDate,
     readonly redemptionTerms?: RedemptionTerms,

@@ -23,10 +23,14 @@ export class EditOfferRequest implements EditOfferCommandInput {
   @IsEmpty({ message: 'titleType cannot be changed' })
   titleType?: unknown;
 
+  // Null clears the name; omitting it keeps the current one.
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  name?: string;
+  name?: string | null;
 
   // Null clears the issuer; omitting it keeps the current one.
   @Transform(({ value }: { value: unknown }) =>

@@ -175,9 +175,9 @@ describe('useOfferEditor', () => {
     expect(setup.status === 'ready' && setup.loadGeneration).toBe(1);
   });
 
-  it('points a rejected name at its field', async () => {
+  it('points a rejected rate at its field', async () => {
     const api = fakeApi({
-      [`POST ${API}/offers`]: apiFailure(400, 'INVALID_OFFER'),
+      [`POST ${API}/offers`]: apiFailure(400, 'INVALID_RATE'),
     });
     const { result } = render(api, undefined, '/ofertas/nova');
     const onProblem = vi.fn();
@@ -186,7 +186,7 @@ describe('useOfferEditor', () => {
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toMatchObject({
-      field: 'name',
+      field: 'rate',
       conflict: false,
     });
   });

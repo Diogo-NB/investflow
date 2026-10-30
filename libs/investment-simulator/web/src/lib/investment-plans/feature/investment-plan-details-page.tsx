@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
+import { offerTermsLabel } from '../../offers/models/offer-terms';
 import type { SimulationListItem } from '../../simulations/models/simulation.types';
 import { SimulationSortField } from '../../simulations/feature/simulation-list-filters';
 import {
@@ -65,7 +66,7 @@ function RemoveMemberButton({
     <button
       type="button"
       title="Remover do plano"
-      aria-label={`${removing ? 'Removendo' : 'Remover'} ${item.offerName} do plano`}
+      aria-label={`${removing ? 'Removendo' : 'Remover'} ${offerTermsLabel(item)} do plano`}
       className={`${quietButton} min-w-11 px-0 text-muted hover:text-error`}
       disabled={removingId !== null}
       onClick={() => details.removeMember.run(item.id)}
@@ -182,7 +183,8 @@ function Members({
       />
       {failed && (
         <p role="alert" className="m-0 text-sm text-error">
-          Não foi possível remover {failed.offerName} do plano. Tente novamente.
+          Não foi possível remover {offerTermsLabel(failed)} do plano. Tente
+          novamente.
         </p>
       )}
       <div

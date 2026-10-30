@@ -25,6 +25,7 @@ import {
 } from '../../ui/styles';
 import { useUnsavedChangesGuard } from '../../ui/use-unsaved-changes-guard';
 import {
+  offerTermsLabel,
   RATE_UNITS,
   REDEMPTION_LABELS,
   REMUNERATION_LABELS,
@@ -128,20 +129,6 @@ function OfferEditorForm({
         onSubmit={(event) => void submit(event)}
       >
         <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
-          <FormField label="Nome da oferta" error={errors.name?.message}>
-            {(control) => (
-              <div className={fieldBox}>
-                <input
-                  {...control}
-                  {...form.register('name')}
-                  type="text"
-                  maxLength={100}
-                  placeholder="CDB 110% do CDI"
-                  className={bareInput}
-                />
-              </div>
-            )}
-          </FormField>
           {baseline ? (
             <div className="grid gap-1.5">
               <span className="text-sm font-medium">Título</span>
@@ -188,6 +175,20 @@ function OfferEditorForm({
                   type="text"
                   maxLength={100}
                   placeholder="Sem emissor"
+                  className={bareInput}
+                />
+              </div>
+            )}
+          </FormField>
+          <FormField label="Apelido (opcional)" error={errors.name?.message}>
+            {(control) => (
+              <div className={fieldBox}>
+                <input
+                  {...control}
+                  {...form.register('name')}
+                  type="text"
+                  maxLength={100}
+                  placeholder="Reserva de emergência"
                   className={bareInput}
                 />
               </div>
@@ -383,7 +384,7 @@ export function OfferEditorPage() {
       {setup.status === 'read-only' && (
         <div className="grid justify-items-start gap-4">
           <h1 id="offer-editor-title" className="m-0 text-xl font-semibold">
-            {setup.offer.name}
+            {offerTermsLabel(setup.offer)}
           </h1>
           <p className="m-0 max-w-prose text-muted">
             Ofertas do sistema não podem ser alteradas. Duplique para ter uma
@@ -424,7 +425,9 @@ export function OfferEditorPage() {
                   : 'A oferta fica em Minhas e pode ser usada nas suas simulações.'
               }
             >
-              {setup.offer ? `Editar ${setup.offer.name}` : 'Nova oferta'}
+              {setup.offer
+                ? `Editar ${offerTermsLabel(setup.offer)}`
+                : 'Nova oferta'}
             </PageTitle>
           </header>
           <OfferEditorForm

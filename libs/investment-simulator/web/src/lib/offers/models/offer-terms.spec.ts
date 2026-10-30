@@ -1,4 +1,8 @@
-import { remunerationLabel } from './offer-terms';
+import {
+  issuerAndNameLabel,
+  offerTermsLabel,
+  remunerationLabel,
+} from './offer-terms';
 
 it('labels each remuneration with its own unit', () => {
   expect(remunerationLabel({ kind: 'CDI_PERCENTAGE', rate: '1.1' })).toBe(
@@ -12,5 +16,23 @@ it('labels each remuneration with its own unit', () => {
   );
   expect(remunerationLabel({ kind: 'IPCA_PLUS', rate: '0.06' })).toBe(
     'IPCA + 6% a.a.',
+  );
+});
+
+it('labels an offer by its title type and remuneration', () => {
+  expect(
+    offerTermsLabel({
+      titleType: 'LCI',
+      remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '0.95' },
+    }),
+  ).toBe('LCI 95% do CDI');
+});
+
+it('joins the issuer and the optional name', () => {
+  expect(issuerAndNameLabel({ issuerName: 'Banco', name: 'Reserva' })).toBe(
+    'Banco · Reserva',
+  );
+  expect(issuerAndNameLabel({ issuerName: null, name: null })).toBe(
+    'Sem emissor',
   );
 });

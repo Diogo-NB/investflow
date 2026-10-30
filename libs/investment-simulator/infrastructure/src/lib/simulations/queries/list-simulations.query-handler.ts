@@ -32,7 +32,7 @@ export interface ListSimulationsQuery {
 // Terms come from the offer the simulation uses.
 export interface SimulationListItem {
   readonly id: string;
-  readonly offerName: string;
+  readonly offerName: string | null;
   readonly principal: string;
   readonly investmentDate: string;
   readonly maturityDate: string;
@@ -46,6 +46,8 @@ export interface SimulationListItem {
       | 'SELIC_PERCENTAGE';
     readonly rate: string;
   };
+  // Null for fixed rates; kept after deletion so the row can say so.
+  readonly curve: { readonly name: string; readonly deleted: boolean } | null;
   readonly calculationStatus: 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
   // Calculated from the current premises with nothing queued, so the result
   // shown is final.
@@ -75,6 +77,7 @@ const simulationSelect = {
       rateValue: true,
     },
   },
+  curve: { select: { name: true, deletedAt: true } },
   calculation: { select: { status: true } },
   result: {
     select: {
@@ -226,7 +229,7 @@ export class ListSimulationsQueryHandler
     record: SimulationRecord,
     validity: SimulationResultValidity,
   ): SimulationListItem {
-    const { offer, result, calculation } = record;
+    const { offer, curve, result, calculation } = record;
     if (!calculation) {
       throw new Error(`Simulation ${record.id} without a calculation row`);
     }
@@ -246,6 +249,7 @@ export class ListSimulationsQueryHandler
         kind: offer.remunerationType,
         rate: offer.rateValue.toFixed(),
       },
+      curve: curve && { name: curve.name, deleted: curve.deletedAt !== null },
       calculationStatus: calculation.status,
       isSettled: validity.isSettled,
       result: result

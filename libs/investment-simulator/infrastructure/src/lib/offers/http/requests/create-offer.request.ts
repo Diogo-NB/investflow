@@ -19,9 +19,13 @@ export class CreateOfferRequest implements CreateOfferCommandInput {
   @IsEnum(ETitleType)
   titleType!: ETitleType;
 
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  name!: string;
+  name?: string | null;
 
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() || null : value,

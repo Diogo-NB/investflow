@@ -85,7 +85,7 @@ describe('Offer PostgreSQL persistence', () => {
         ),
       },
       AT,
-    ).value;
+    );
     offerIds.push(offer.id);
     const saved = await inUnitOfWork(
       unitOfWork,

@@ -2,7 +2,10 @@ import { Dialog } from '@base-ui/react/dialog';
 import { useRef } from 'react';
 import { formatIsoDate } from '../../dates/calendar-date';
 import { formatMoney } from '../../decimals/format-decimal';
-import { remunerationLabel } from '../../offers/models/offer-terms';
+import {
+  issuerAndNameLabel,
+  offerTermsLabel,
+} from '../../offers/models/offer-terms';
 import { SimulationListFilterBar } from '../../simulations/feature/simulation-list-filters';
 import type { SimulationListItem } from '../../simulations/models/simulation.types';
 import {
@@ -41,13 +44,13 @@ function PickerRow({
         />
         <span className="grid min-w-0 gap-0.5">
           <span className="font-medium wrap-break-word">
-            {item.offerName}
+            {offerTermsLabel(item)}
             {member && (
               <span className="font-normal text-muted"> · já no plano</span>
             )}
           </span>
           <span className="text-sm text-muted">
-            {item.titleType} {remunerationLabel(item.remunerationTerms)} ·{' '}
+            {issuerAndNameLabel({ ...item, name: item.offerName })} ·{' '}
             {formatMoney(item.principal)} ·{' '}
             <span className="whitespace-nowrap tabular-nums">
               {formatIsoDate(item.investmentDate)} a{' '}

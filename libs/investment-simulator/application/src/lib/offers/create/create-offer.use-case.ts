@@ -33,9 +33,7 @@ export class CreateOfferUseCase
       },
       this.clock.now(),
     );
-    if (offer.isErr()) return offer;
-
-    const saved = await this.offerRepository.save(offer.value);
-    return saved.map(() => ({ offerId: offer.value.id }));
+    const saved = await this.offerRepository.save(offer);
+    return saved.map(() => ({ offerId: offer.id }));
   }
 }

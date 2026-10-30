@@ -1,7 +1,8 @@
 import { formatIsoDate } from '../../dates/calendar-date';
 import type { SelectGroup, SelectOption } from '../../ui/select-field';
 import {
-  remunerationLabel,
+  issuerAndNameLabel,
+  offerTermsLabel,
   UNSUPPORTED_LABELS,
   type UnsupportedReason,
 } from '../models/offer-terms';
@@ -19,16 +20,10 @@ type SelectableOffer = OfferSummary & {
 function offerOption(offer: SelectableOffer): SelectOption {
   return {
     value: offer.id,
-    label: offer.name,
+    label: offerTermsLabel(offer),
     detail: offer.unsupportedReason
       ? UNSUPPORTED_LABELS[offer.unsupportedReason]
-      : [
-          offer.issuerName,
-          remunerationLabel(offer.remunerationTerms),
-          `vence em ${formatIsoDate(offer.maturityDate)}`,
-        ]
-          .filter(Boolean)
-          .join(' · '),
+      : `${issuerAndNameLabel(offer)} · vence em ${formatIsoDate(offer.maturityDate)}`,
     disabled: Boolean(offer.unsupportedReason),
   };
 }

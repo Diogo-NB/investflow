@@ -35,7 +35,8 @@ model Offer {
   id               String                     @id @db.Uuid
   ownerId          String?                    @map("owner_id")
   titleType        InvestmentTitleType        @map("title_type")
-  name             String
+  // The user's own label; the terms already identify an offer.
+  name             String?
   issuerName       String?                    @map("issuer_name")
   maturityDate     DateTime                   @map("maturity_date") @db.Date
   redemptionType   InvestmentRedemptionType   @map("redemption_type")

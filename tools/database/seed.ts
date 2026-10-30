@@ -44,7 +44,7 @@ class SeedModule {}
 
 // System offers and curves go through the use cases with the system actor, so
 // they obey the domain rules and raise their events. Existing ones, matched by
-// name, are left untouched.
+// the terms that identify an offer or by a curve's name, are left untouched.
 async function seedSystemContent(): Promise<{
   offers: number;
   curves: number;
@@ -69,7 +69,10 @@ async function seedSystemContent(): Promise<{
         where: {
           ownerId: null,
           titleType: offer.titleType,
-          name: offer.name,
+          issuerName: offer.issuerName,
+          maturityDate: new Date(offer.maturityDate),
+          remunerationType: offer.remunerationTerms.kind,
+          rateValue: offer.remunerationTerms.rate,
           deletedAt: null,
         },
       });

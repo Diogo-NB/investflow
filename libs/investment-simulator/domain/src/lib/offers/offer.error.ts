@@ -1,15 +1,8 @@
 import {
-  AppErrorMetadata,
   ConflictError,
   DomainError,
   EAppErrorCode,
 } from '@investflow/shared-domain';
-
-export class InvalidOfferError extends DomainError {
-  constructor(reason: string, metadata?: AppErrorMetadata) {
-    super(reason, { code: EAppErrorCode.INVALID_OFFER, metadata });
-  }
-}
 
 export class OfferRevisionConflictError extends ConflictError {
   constructor(id: string, expectedRevision: number) {

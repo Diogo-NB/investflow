@@ -28,7 +28,7 @@ export class EditOfferUseCase
     const current = offer.assertRevision(command.revision);
     if (current.isErr()) return current;
 
-    const edited = offer.edit(
+    offer.edit(
       {
         name: command.name,
         issuerName: command.issuerName,
@@ -38,7 +38,6 @@ export class EditOfferUseCase
       },
       this.clock.now(),
     );
-    if (edited.isErr()) return edited;
     return this.offerRepository.save(offer);
   }
 }

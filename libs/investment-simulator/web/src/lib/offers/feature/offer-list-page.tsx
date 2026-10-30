@@ -16,8 +16,9 @@ import {
   surface,
 } from '../../ui/styles';
 import {
+  issuerAndNameLabel,
+  offerTermsLabel,
   REDEMPTION_LABELS,
-  remunerationLabel,
   type TitleType,
 } from '../models/offer-terms';
 import type { ContentOrigin, OfferSummary } from '../models/offer.types';
@@ -60,16 +61,15 @@ function OfferRow({
           <OfferIcon className="mt-0.5 size-5 shrink-0 text-muted transition-colors duration-150 group-hover:text-accent" />
           <span className="grid gap-1">
             <span className="font-medium text-accent group-hover:underline">
-              {offer.name}
+              {offerTermsLabel(offer)}
             </span>
             <span className="text-sm text-muted">
-              {offer.issuerName ?? 'Sem emissor'}
+              {issuerAndNameLabel(offer)}
             </span>
           </span>
         </span>
         <span className="pl-8 text-sm text-muted sm:pl-0 sm:text-right">
-          {remunerationLabel(offer.remunerationTerms)} · vence em{' '}
-          {formatIsoDate(offer.maturityDate)} · liquidez{' '}
+          vence em {formatIsoDate(offer.maturityDate)} · liquidez{' '}
           {REDEMPTION_LABELS[offer.redemptionTerms.kind].toLowerCase()}
         </span>
       </Link>
@@ -133,7 +133,7 @@ function OfferFilters({
         }}
       >
         <div className="flex-1">
-          <FormField label="Buscar por nome ou emissor">
+          <FormField label="Buscar por apelido ou emissor">
             {(control) => (
               <div className={fieldBox}>
                 <SearchIcon className="ml-3 size-5 shrink-0 text-muted" />

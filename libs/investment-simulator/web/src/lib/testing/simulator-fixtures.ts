@@ -47,7 +47,7 @@ export const remunerations: RemunerationOption[] = [
 export const selicOffer: OfferOption = {
   id: 'offer',
   titleType: 'CDB',
-  name: 'CDB 100% da SELIC',
+  name: null,
   origin: 'SYSTEM',
   revision: 1,
   issuerName: 'Outro',
@@ -60,7 +60,7 @@ export const selicOffer: OfferOption = {
 export const cdiOffer: OfferOption = {
   id: 'cdi-offer',
   titleType: 'CDB',
-  name: 'CDB 105% do CDI',
+  name: 'Reserva',
   origin: 'OWN',
   revision: 2,
   issuerName: 'Banco Local',

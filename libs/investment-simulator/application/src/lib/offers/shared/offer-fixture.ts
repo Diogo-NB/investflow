@@ -57,7 +57,7 @@ export function offerFixture(spy: Spy) {
         ),
       },
       NOW,
-    ).value.markPersisted();
+    ).markPersisted();
     offers.set(offer.id, offer);
     return offer;
   }

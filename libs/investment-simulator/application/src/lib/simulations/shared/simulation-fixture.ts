@@ -36,7 +36,7 @@ export function catalogOffer(ownerId: string | null = null) {
       remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.12')),
     },
     UtcInstant.ofIso('2026-01-01T00:00:00Z'),
-  ).value;
+  );
 }
 
 export function cdiOffer() {
@@ -54,7 +54,7 @@ export function cdiOffer() {
       ),
     },
     UtcInstant.ofIso('2026-01-01T00:00:00Z'),
-  ).value;
+  );
 }
 
 // A later start leaves the fixture simulation's investment date uncovered.

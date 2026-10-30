@@ -70,11 +70,14 @@ simulações afetadas.
 
 ### Ofertas
 
-Uma oferta tem título (CDB, LCI ou LCA), nome, emissor opcional, remuneração e
-taxa, data de vencimento e liquidez. O título não muda depois da criação, pois
-determina a metodologia e a tributação. Ofertas parecidas, como "CDB 110% do
-CDI" e "CDB 120% do CDI" do mesmo emissor, são ofertas distintas, cada uma
-independente e editável por seu dono.
+Uma oferta tem título (CDB, LCI ou LCA), emissor opcional, remuneração e taxa,
+data de vencimento, liquidez e um apelido opcional. O título não muda depois
+da criação, pois determina a metodologia e a tributação. Os termos identificam
+a oferta: a interface a apresenta pelo título e pela remuneração ("CDB 110% do
+CDI"), seguidos do emissor e do apelido, que é só um rótulo do usuário ("Reserva
+de emergência"). Ofertas parecidas, como "CDB 110% do CDI" e "CDB 120% do CDI"
+do mesmo emissor, são ofertas distintas, cada uma independente e editável por
+seu dono.
 
 - Criar, consultar, editar e excluir ofertas privadas.
 - "Duplicar" uma oferta, inclusive do sistema, cria uma oferta privada do

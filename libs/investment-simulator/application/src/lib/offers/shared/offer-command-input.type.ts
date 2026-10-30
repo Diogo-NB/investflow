@@ -14,7 +14,7 @@ export interface RemunerationTermsCommandInput {
 
 export interface CreateOfferCommandInput {
   readonly titleType: ETitleType;
-  readonly name: string;
+  readonly name?: string | null;
   readonly issuerName?: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: RedemptionTermsCommandInput;
@@ -23,7 +23,7 @@ export interface CreateOfferCommandInput {
 
 export interface EditOfferCommandInput {
   readonly revision: number;
-  readonly name?: string;
+  readonly name?: string | null;
   readonly issuerName?: string | null;
   readonly maturityDate?: string;
   readonly redemptionTerms?: RedemptionTermsCommandInput;

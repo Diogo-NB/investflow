@@ -119,7 +119,7 @@ describe('PrismaOfferRepository', () => {
         ),
       },
       AT,
-    ).value;
+    );
 
     expect((await test.repository.save(offer)).isOk()).toBe(true);
 

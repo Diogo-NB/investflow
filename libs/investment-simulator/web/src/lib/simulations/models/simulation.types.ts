@@ -35,13 +35,15 @@ export interface SimulationCalculation {
 // Terms come from the offer the simulation uses.
 export interface SimulationListItem {
   readonly id: string;
-  readonly offerName: string;
+  readonly offerName: string | null;
   readonly principal: string;
   readonly investmentDate: string;
   readonly maturityDate: string;
   readonly titleType: TitleType;
   readonly issuerName: string | null;
   readonly remunerationTerms: RemunerationTerms;
+  // Null for fixed rates.
+  readonly curve: { readonly name: string; readonly deleted: boolean } | null;
   readonly calculationStatus: CalculationStatus;
   // Calculated from the current premises with nothing queued, so the result
   // shown is final.

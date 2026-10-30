@@ -93,7 +93,7 @@ export function useSimulationForm({
         remunerations,
       ),
       offerMode: 'new',
-      offerName: `${offer.name} (cópia)`,
+      offerName: offer.name ? `${offer.name} (cópia)` : '',
     });
   }
 

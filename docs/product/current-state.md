@@ -35,9 +35,13 @@ this file in the same change that ships or changes a built behavior.
   user's simulations that use it. A simulation missing curve values links to
   its curve.
 - **Offers:** independent, revisioned `Offer` aggregates on the same model as
-  curves: title type (fixed), name, optional issuer, remuneration and rate,
-  maturity, and liquidity, with an owner (`null` is the system). Variants from
-  one issuer are separate offers, and screens group them by title type and
+  curves: title type (fixed), optional issuer, remuneration and rate,
+  maturity, liquidity, and an optional name, with an owner (`null` is the
+  system). The terms identify an offer, so screens lead with the title type
+  and remuneration ("CDB 110% do CDI") and add the issuer and name; system
+  offers have no name, and lists order offers by title type, origin,
+  remuneration kind, rate (highest first), and maturity. Variants from one
+  issuer are separate offers, and screens group them by title type and
   origin; no grouping is stored. The API under `investment-simulator/offers`
   lists (paginated, `q` matching name or issuer, `titleType`, `origin`),
   reads, creates, edits (revision check, `409` on mismatch), duplicates, and

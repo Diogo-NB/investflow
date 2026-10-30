@@ -90,13 +90,6 @@ export function simulationFormSchema(
           message: 'Escolha uma oferta.',
         });
       }
-      if (values.offerMode === 'new' && !values.offerName.trim()) {
-        context.addIssue({
-          code: 'custom',
-          path: ['offerName'],
-          message: 'Informe o nome da oferta.',
-        });
-      }
       if (
         remunerationOption(remunerations, values.remunerationKind)?.index &&
         !values.curveId

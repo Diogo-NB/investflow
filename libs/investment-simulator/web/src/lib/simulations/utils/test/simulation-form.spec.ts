@@ -103,10 +103,9 @@ describe('simulation form', () => {
     ).toBeNull();
   });
 
-  it('requires an offer, or a name for typed terms', () => {
-    expect(errors({ ...valid, offerName: ' ' })).toEqual({
-      offerName: 'Informe o nome da oferta.',
-    });
+  it('requires an offer, but no name for typed terms', () => {
+    expect(errors({ ...valid, offerName: ' ' })).toEqual({});
+    expect(toTypedOfferInput({ ...valid, offerName: ' ' }).name).toBeNull();
     expect(errors({ ...valid, offerMode: 'existing', offerName: '' })).toEqual({
       offerId: 'Escolha uma oferta.',
     });

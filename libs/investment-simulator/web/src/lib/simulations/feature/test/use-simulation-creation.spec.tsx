@@ -241,7 +241,7 @@ describe('useSimulationCreation', () => {
     expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'offerId' });
     expect(added).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Oferta LCI digitada salva em Ofertas',
+        title: 'Oferta LCI 105% do CDI salva em Ofertas',
         data: { link: { to: '/ofertas/typed-offer', label: 'Ver oferta' } },
       }),
     );
@@ -252,7 +252,7 @@ describe('useSimulationCreation', () => {
   it('saves no simulation when the typed offer is rejected', async () => {
     const api = fakeApi({
       ...optionsRoute,
-      [`POST ${API}/offers`]: apiFailure(422, 'INVALID_OFFER'),
+      [`POST ${API}/offers`]: apiFailure(400, 'INVALID_RATE'),
     });
     const onProblem = vi.fn();
     const onOfferSaved = vi.fn();
@@ -267,9 +267,9 @@ describe('useSimulationCreation', () => {
     );
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
-    expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'offerName' });
+    expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'rate' });
     expect(onOfferSaved).not.toHaveBeenCalled();
-    expect(result.current.hook.create.problem?.field).toBe('offerName');
+    expect(result.current.hook.create.problem?.field).toBe('rate');
     expect(api.calls()).not.toContain(`POST ${API}/simulations`);
   });
 

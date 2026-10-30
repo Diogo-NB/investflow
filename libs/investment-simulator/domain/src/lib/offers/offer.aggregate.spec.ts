@@ -5,7 +5,6 @@ import {
   UtcInstant,
 } from '@investflow/shared-domain';
 import { CreateOfferProps, Offer } from './offer.aggregate';
-import { InvalidOfferError } from './offer.error';
 import {
   OfferCreated,
   OfferDeleted,
@@ -58,13 +57,14 @@ function restore(offer: Offer): Offer {
 
 describe('Offer', () => {
   it('creates distinct identities at revision 1, normalizes text and raises a creation event', () => {
-    const first = create().value;
-    const second = create({ issuerName: '  ' }).value;
+    const first = create();
+    const second = create({ name: '  ', issuerName: '  ' });
 
     expect(first.id).not.toBe(second.id);
     expect(first.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(first.name).toBe('CDB 110% do CDI');
     expect(first.issuerName).toBe('Banco Local');
+    expect(second.name).toBeNull();
     expect(second.issuerName).toBeNull();
     expect(first.revision).toBe(1);
     expect(first.termsRevision).toBe(1);
@@ -84,15 +84,8 @@ describe('Offer', () => {
     });
   });
 
-  it('rejects a blank name', () => {
-    const result = create({ name: '   ' });
-
-    expect(result.error).toBeInstanceOf(InvalidOfferError);
-    expect(result.error.code).toBe(EAppErrorCode.INVALID_OFFER);
-  });
-
   it('reconstitutes persisted state without raising events', () => {
-    const original = create().value;
+    const original = create();
     const offer = restore(original);
 
     expect(offer.id).toBe(original.id);
@@ -102,8 +95,8 @@ describe('Offer', () => {
   });
 
   it('decides visibility and ownership, with null as the system', () => {
-    const own = create().value;
-    const system = create({ ownerId: null }).value;
+    const own = create();
+    const system = create({ ownerId: null });
 
     expect(own.isVisibleTo('user-1')).toBe(true);
     expect(own.isVisibleTo('user-2')).toBe(false);
@@ -115,8 +108,8 @@ describe('Offer', () => {
   });
 
   it("duplicates into the actor's private copy with the same terms", () => {
-    const source = create({ ownerId: null }).value;
-    const copy = source.duplicateFor('user-2', LATER).value;
+    const source = create({ ownerId: null });
+    const copy = source.duplicateFor('user-2', LATER);
 
     expect(copy.id).not.toBe(source.id);
     expect(copy.ownerId).toBe('user-2');
@@ -130,8 +123,14 @@ describe('Offer', () => {
     expect(copy.getDomainEvents()).toEqual([expect.any(OfferCreated)]);
   });
 
+  it('duplicates an offer without a name into a copy without one', () => {
+    const source = create({ name: null });
+
+    expect(source.duplicateFor('user-2', LATER).name).toBeNull();
+  });
+
   it('accepts the current revision and reports a conflict otherwise', () => {
-    const offer = create().value;
+    const offer = create();
 
     expect(offer.assertRevision(1).isOk()).toBe(true);
     const conflict = offer.assertRevision(2).error;
@@ -140,10 +139,10 @@ describe('Offer', () => {
   });
 
   it('edits supplied fields, increments both revisions once and raises both change events', () => {
-    const offer = restore(create().value);
+    const offer = restore(create());
     const remuneration = RemunerationTerms.create('PREFIXED', Rate.of('0.12'));
 
-    const result = offer.edit(
+    offer.edit(
       {
         name: 'Prefixado',
         issuerName: null,
@@ -154,7 +153,6 @@ describe('Offer', () => {
       LATER,
     );
 
-    expect(result.isOk()).toBe(true);
     expect(offer.revision).toBe(2);
     expect(offer.termsRevision).toBe(2);
     expect(offer.name).toBe('Prefixado');
@@ -174,10 +172,11 @@ describe('Offer', () => {
 
   it.each([
     { name: 'Renomeada' },
+    { name: null },
     { issuerName: 'Outro banco' },
     { redemptionTerms: RedemptionTerms.create('AT_MATURITY') },
   ])('keeps the terms revision for a details-only edit of %o', (edit) => {
-    const offer = restore(create().value);
+    const offer = restore(create());
 
     offer.edit(edit, LATER);
 
@@ -195,7 +194,7 @@ describe('Offer', () => {
       ),
     },
   ])('raises the terms revision for a terms-only edit of %o', (edit) => {
-    const offer = restore(create().value);
+    const offer = restore(create());
 
     offer.edit(edit, LATER);
 
@@ -219,27 +218,26 @@ describe('Offer', () => {
   ])(
     'keeps the revision and raises nothing for an empty or identical edit',
     (edit) => {
-      const offer = restore(create().value);
+      const offer = restore(create());
 
-      expect(offer.edit(edit, LATER).isOk()).toBe(true);
+      offer.edit(edit, LATER);
+
       expect(offer.revision).toBe(1);
       expect(offer.getDomainEvents()).toEqual([]);
     },
   );
 
-  it('rejects an invalid edit without changing anything', () => {
-    const offer = restore(create().value);
+  it('clears the name when edited to blank', () => {
+    const offer = restore(create());
 
-    const result = offer.edit({ name: ' ' }, LATER);
+    offer.edit({ name: ' ' }, LATER);
 
-    expect(result.error).toBeInstanceOf(InvalidOfferError);
-    expect(offer.name).toBe('CDB 110% do CDI');
-    expect(offer.revision).toBe(1);
-    expect(offer.getDomainEvents()).toEqual([]);
+    expect(offer.name).toBeNull();
+    expect(offer.getDomainEvents()).toEqual([expect.any(OfferDetailsChanged)]);
   });
 
   it('gives all changes before a save one revision, and a new one after it', () => {
-    const fresh = create().value;
+    const fresh = create();
     fresh.edit({ name: 'Renomeada' }, AT);
     expect(fresh.revision).toBe(1);
 
@@ -253,7 +251,7 @@ describe('Offer', () => {
   });
 
   it('gives all terms changes before a save one terms revision, and a new one after it', () => {
-    const offer = restore(create().value);
+    const offer = restore(create());
     offer.edit({ maturityDate: CalendarDate.of('2031-01-02') }, AT);
     offer.edit({ maturityDate: CalendarDate.of('2032-01-02') }, AT);
     expect(offer.termsRevision).toBe(2);
@@ -265,7 +263,7 @@ describe('Offer', () => {
   });
 
   it('deletes once, incrementing the revision', () => {
-    const offer = restore(create().value);
+    const offer = restore(create());
 
     expect(offer.delete(AT)).toBe(offer);
     offer.delete(LATER);

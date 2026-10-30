@@ -7,7 +7,10 @@ import {
   useSimulationInvestmentPlans,
   type SimulationInvestmentPlansState,
 } from '../../investment-plans/feature/use-simulation-investment-plans';
-import { remunerationLabel } from '../../offers/models/offer-terms';
+import {
+  issuerAndNameLabel,
+  offerTermsLabel,
+} from '../../offers/models/offer-terms';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import {
   CompareIcon,
@@ -71,17 +74,19 @@ function SavedSimulationHeading({
       icon={SimulationIcon}
       subtitle={
         <>
-          {formatMoney(simulation.investment.principal)} de{' '}
-          {formatIsoDate(simulation.investment.investmentDate)} a{' '}
-          {formatIsoDate(offer.maturityDate)} ·{' '}
-          {offer.deleted ? 'Oferta excluída' : ORIGIN_LABELS[offer.origin]}
+          <span className="block">
+            {issuerAndNameLabel(offer)} ·{' '}
+            {offer.deleted ? 'Oferta excluída' : ORIGIN_LABELS[offer.origin]}
+          </span>
+          <span className="block">
+            {formatMoney(simulation.investment.principal)} de{' '}
+            {formatIsoDate(simulation.investment.investmentDate)} a{' '}
+            {formatIsoDate(offer.maturityDate)}
+          </span>
         </>
       }
     >
-      {[
-        offer.name,
-        `${offer.titleType} ${remunerationLabel(offer.remunerationTerms)}`,
-      ].join(' · ')}
+      {offerTermsLabel(offer)}
     </PageTitle>
   );
 }

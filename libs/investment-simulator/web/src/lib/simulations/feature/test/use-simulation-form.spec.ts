@@ -87,7 +87,7 @@ describe('useSimulationForm', () => {
     expect(result.current.values).toMatchObject({
       offerMode: 'new',
       offerId: 'cdi-offer',
-      offerName: 'CDB 105% do CDI (cópia)',
+      offerName: 'Reserva (cópia)',
       rate: '105',
       maturityDate: '2026-03-02',
     });

@@ -5,7 +5,10 @@ import {
   formatMoney,
   formatReturnPercent,
 } from '../../decimals/format-decimal';
-import { remunerationLabel } from '../../offers/models/offer-terms';
+import {
+  issuerAndNameLabel,
+  offerTermsLabel,
+} from '../../offers/models/offer-terms';
 import { CompareIcon } from '../../ui/icons';
 import { primaryButton, quietButton } from '../../ui/styles';
 import { CalculationStatusTag } from '../ui/calculation-status-tag';
@@ -43,6 +46,21 @@ function NetAnnualReturn({ item }: { readonly item: SimulationListItem }) {
   );
 }
 
+function curveLabel(curve: NonNullable<SimulationListItem['curve']>): string {
+  return curve.deleted ? 'Curva excluída' : curve.name;
+}
+
+function Curve({ item }: { readonly item: SimulationListItem }) {
+  return item.curve ? (
+    <>{curveLabel(item.curve)}</>
+  ) : (
+    <span className="text-muted">
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">Sem curva</span>
+    </span>
+  );
+}
+
 export interface Selection {
   readonly selected: readonly string[];
   readonly canSelectMore: boolean;
@@ -67,7 +85,7 @@ function SelectBox({
         disabled={!checked && !selection.canSelectMore}
         onChange={() => selection.onToggle(item.id)}
       />
-      <span className="sr-only">Comparar {item.offerName}</span>
+      <span className="sr-only">Comparar {offerTermsLabel(item)}</span>
     </label>
   );
 }
@@ -108,7 +126,7 @@ export function SimulationTable({
             Oferta
           </th>
           <th scope="col" className="px-4 py-3 font-medium">
-            Remuneração
+            Curva
           </th>
           <th scope="col" className="px-4 py-3 text-right font-medium">
             Valor aplicado
@@ -147,16 +165,16 @@ export function SimulationTable({
                     to={{ pathname: `/simulacoes/${item.id}`, search }}
                     className="font-medium text-accent underline-offset-4 outline-none group-hover:underline after:absolute after:inset-0 after:rounded-control focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
                   >
-                    {item.offerName}
+                    {offerTermsLabel(item)}
                   </Link>
                   <span className="block text-sm text-muted">
-                    {item.issuerName ?? 'Sem emissor'}
+                    {issuerAndNameLabel({ ...item, name: item.offerName })}
                   </span>
                 </span>
               </span>
             </td>
             <td className="px-4 py-3">
-              {item.titleType} {remunerationLabel(item.remunerationTerms)}
+              <Curve item={item} />
             </td>
             <td className="px-4 py-3 text-right tabular-nums">
               {formatMoney(item.principal)}
@@ -209,10 +227,10 @@ export function SimulationRows({
           >
             <span>
               <span className="block font-medium text-accent">
-                {item.offerName}
+                {offerTermsLabel(item)}
               </span>
               <span className="block text-sm text-muted">
-                {item.issuerName ?? 'Sem emissor'}
+                {issuerAndNameLabel({ ...item, name: item.offerName })}
               </span>
             </span>
             <NetResult item={item} />
@@ -226,7 +244,7 @@ export function SimulationRows({
                   ·{' '}
                 </>
               )}
-              {item.titleType} {remunerationLabel(item.remunerationTerms)} ·{' '}
+              {item.curve && <>{curveLabel(item.curve)} · </>}
               {formatMoney(item.principal)} ·{' '}
               <span className="whitespace-nowrap tabular-nums">
                 {formatIsoDate(item.investmentDate)} a{' '}

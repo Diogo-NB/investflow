@@ -6,7 +6,7 @@ import {
   Revision,
   UtcInstant,
 } from '@investflow/shared-domain';
-import { InvalidOfferError, OfferRevisionConflictError } from './offer.error';
+import { OfferRevisionConflictError } from './offer.error';
 import {
   OfferCreated,
   OfferDeleted,
@@ -18,7 +18,8 @@ import type { RemunerationTerms } from './terms/remuneration/remuneration-terms.
 import { ETitleType } from './title-type.enum';
 
 export interface OfferContent {
-  readonly name: string;
+  // The user's own label; the terms already identify the offer.
+  readonly name: string | null;
   readonly issuerName: string | null;
   readonly maturityDate: CalendarDate;
   readonly redemptionTerms: RedemptionTerms;
@@ -30,7 +31,7 @@ interface OfferProps {
   // Fixes the methodology and taxation.
   readonly titleType: ETitleType;
   readonly ownerId: string | null;
-  name: string;
+  name: string | null;
   issuerName: string | null;
   maturityDate: CalendarDate;
   redemptionTerms: RedemptionTerms;
@@ -42,11 +43,10 @@ export type CreateOfferProps = Pick<
   OfferProps,
   | 'titleType'
   | 'ownerId'
-  | 'name'
   | 'maturityDate'
   | 'redemptionTerms'
   | 'remunerationTerms'
-> & { readonly issuerName?: string | null };
+> & { readonly name?: string | null; readonly issuerName?: string | null };
 
 export type ReconstituteOfferProps = OfferProps & {
   readonly id: string;
@@ -68,20 +68,14 @@ export class Offer extends AggregateRoot {
     super(id, revision);
   }
 
-  static create(
-    props: CreateOfferProps,
-    occurredAt: UtcInstant,
-  ): Result<Offer, InvalidOfferError> {
+  static create(props: CreateOfferProps, occurredAt: UtcInstant): Offer {
     const content = Offer.normalize({
-      name: props.name,
+      name: props.name ?? null,
       issuerName: props.issuerName ?? null,
       maturityDate: props.maturityDate,
       redemptionTerms: props.redemptionTerms,
       remunerationTerms: props.remunerationTerms,
     });
-    const invalid = Offer.validate(content);
-    if (invalid) return Result.err(invalid);
-
     const offer = new Offer(
       generateUuid(),
       {
@@ -93,7 +87,7 @@ export class Offer extends AggregateRoot {
       Revision.initial(),
       Revision.initial(),
     );
-    return Result.ok(offer.apply(new OfferCreated(offer.id, occurredAt)));
+    return offer.apply(new OfferCreated(offer.id, occurredAt));
   }
 
   static reconstitute(props: ReconstituteOfferProps): Offer {
@@ -118,7 +112,7 @@ export class Offer extends AggregateRoot {
     return this.props.ownerId;
   }
 
-  get name(): string {
+  get name(): string | null {
     return this.props.name;
   }
 
@@ -157,15 +151,12 @@ export class Offer extends AggregateRoot {
   }
 
   // A private copy for the actor, including of a system offer.
-  duplicateFor(
-    ownerId: string | null,
-    occurredAt: UtcInstant,
-  ): Result<Offer, InvalidOfferError> {
+  duplicateFor(ownerId: string | null, occurredAt: UtcInstant): Offer {
     return Offer.create(
       {
         titleType: this.props.titleType,
         ownerId,
-        name: `${this.props.name} (cópia)`,
+        name: this.props.name && `${this.props.name} (cópia)`,
         issuerName: this.props.issuerName,
         maturityDate: this.props.maturityDate,
         redemptionTerms: this.props.redemptionTerms,
@@ -175,24 +166,18 @@ export class Offer extends AggregateRoot {
     );
   }
 
-  edit(
-    edit: OfferEdit,
-    occurredAt: UtcInstant,
-  ): Result<this, InvalidOfferError> {
+  edit(edit: OfferEdit, occurredAt: UtcInstant): this {
     const content = Offer.normalize({
-      name: edit.name ?? this.props.name,
+      name: edit.name === undefined ? this.props.name : edit.name,
       issuerName:
         edit.issuerName === undefined ? this.props.issuerName : edit.issuerName,
       maturityDate: edit.maturityDate ?? this.props.maturityDate,
       redemptionTerms: edit.redemptionTerms ?? this.props.redemptionTerms,
       remunerationTerms: edit.remunerationTerms ?? this.props.remunerationTerms,
     });
-    const invalid = Offer.validate(content);
-    if (invalid) return Result.err(invalid);
-
     const termsChanged = !this.hasTerms(content);
     const detailsChanged = !this.hasDetails(content);
-    if (!termsChanged && !detailsChanged) return Result.ok(this);
+    if (!termsChanged && !detailsChanged) return this;
 
     this.props.name = content.name;
     this.props.issuerName = content.issuerName;
@@ -206,7 +191,7 @@ export class Offer extends AggregateRoot {
     }
     if (detailsChanged)
       this.apply(new OfferDetailsChanged(this.id, occurredAt));
-    return Result.ok(this);
+    return this;
   }
 
   delete(at: UtcInstant): this {
@@ -240,14 +225,8 @@ export class Offer extends AggregateRoot {
   private static normalize(content: OfferContent): OfferContent {
     return {
       ...content,
-      name: content.name.trim(),
+      name: content.name?.trim() || null,
       issuerName: content.issuerName?.trim() || null,
     };
-  }
-
-  private static validate({ name }: OfferContent): InvalidOfferError | null {
-    return name.length
-      ? null
-      : new InvalidOfferError('Informe o nome da oferta.');
   }
 }

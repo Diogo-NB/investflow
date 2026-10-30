@@ -9,7 +9,7 @@ export type OfferOrigin = 'SYSTEM' | 'OWN';
 export interface OfferSummary {
   readonly id: string;
   readonly titleType: 'CDB' | 'LCI' | 'LCA';
-  readonly name: string;
+  readonly name: string | null;
   readonly issuerName: string | null;
   readonly maturityDate: string;
   readonly redemptionTerms: { readonly kind: 'AT_MATURITY' | 'DAILY' };
@@ -43,11 +43,14 @@ export const offerSummarySelect = {
   revision: true,
 } satisfies Prisma.OfferSelect;
 
-// By title type, system offers first, then the user's, each by name.
+// By title type, system offers first, then the user's, each by the terms
+// that identify it: the best rate of a remuneration first, then maturity.
 export const offerSummaryOrder: Prisma.OfferOrderByWithRelationInput[] = [
   { titleType: 'asc' },
   { ownerId: { sort: 'asc', nulls: 'first' } },
-  { name: 'asc' },
+  { remunerationType: 'asc' },
+  { rateValue: 'desc' },
+  { maturityDate: 'asc' },
   { id: 'asc' },
 ];
 

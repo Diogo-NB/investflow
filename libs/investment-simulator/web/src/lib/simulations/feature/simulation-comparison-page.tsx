@@ -5,7 +5,11 @@ import {
   formatPercentagePoints,
   formatReturnPercent,
 } from '../../decimals/format-decimal';
-import { REDEMPTION_LABELS } from '../../offers/models/offer-terms';
+import {
+  issuerAndNameLabel,
+  offerTermsLabel,
+  REDEMPTION_LABELS,
+} from '../../offers/models/offer-terms';
 import { ListSkeleton } from '../../ui/list-skeleton';
 import { PageLabel } from '../../ui/page-label';
 import { PageTitle } from '../../ui/page-title';
@@ -24,8 +28,10 @@ import type {
 } from '../models/simulation.types';
 import { CalculationStatusTag, TAG_BASE } from '../ui/calculation-status-tag';
 import {
+  comparisonLabels,
   COMPARISON_ROW_GROUPS,
   NET_ANNUAL_RETURN_ROW,
+  type ComparisonLabel,
   onlyDifferences,
   rankedOrder,
   rankingMark,
@@ -36,8 +42,13 @@ import { useSimulationComparison } from './use-simulation-comparison';
 
 const LIST = '/simulacoes';
 
-const names = (simulations: readonly ComparedSimulation[]) => {
-  const all = simulations.map(({ offer }) => offer.name);
+const names = (
+  simulations: readonly ComparedSimulation[],
+  labels: ReadonlyMap<string, ComparisonLabel>,
+) => {
+  const all = simulations.map(
+    ({ simulation }) => labels.get(simulation.id)?.name ?? '',
+  );
   const last = all.pop();
   return all.length ? `${all.join(', ')} e ${last}` : (last ?? '');
 };
@@ -54,6 +65,9 @@ function Verdict({
   const others = ranked.filter(({ standing }) => !standing?.isLeader);
   const unranked = comparison.simulations.filter(({ standing }) => !standing);
   const leader = leaders[0];
+  const labels = comparisonLabels(comparison.simulations);
+  const name = ({ simulation }: ComparedSimulation) =>
+    labels.get(simulation.id)?.name;
 
   return (
     <section
@@ -69,10 +83,10 @@ function Verdict({
             <StarIcon className="mt-0.5 size-5 shrink-0" />
             <span>
               {ranked.length === 1
-                ? `Só ${leader.offer.name} tem resultado: `
+                ? `Só ${name(leader)} tem resultado: `
                 : leaders.length === 1
-                  ? `${leader.offer.name} rende mais: `
-                  : `${names(leaders)} empatam no maior rendimento: `}
+                  ? `${name(leader)} rende mais: `
+                  : `${names(leaders, labels)} empatam no maior rendimento: `}
               <span className="tabular-nums">
                 {formatReturnPercent(leader.result.net.rateOfReturn.annual)} ao
                 ano, líquido
@@ -81,13 +95,13 @@ function Verdict({
           </h2>
           {others.length > 0 && (
             <ul className="m-0 grid list-none gap-1 p-0">
-              {others.map(({ simulation, offer, standing }) =>
-                standing ? (
-                  <li key={simulation.id} className="tabular-nums">
-                    {formatPercentagePoints(standing.netAnnualReturnGap)} ao ano
-                    a mais que {offer.name}
-                    {standing.netBalanceGap !== null &&
-                      ` · ${formatMoney(standing.netBalanceGap)} a mais no vencimento`}
+              {others.map((other) =>
+                other.standing ? (
+                  <li key={other.simulation.id} className="tabular-nums">
+                    {formatPercentagePoints(other.standing.netAnnualReturnGap)}{' '}
+                    ao ano a mais que {name(other)}
+                    {other.standing.netBalanceGap !== null &&
+                      ` · ${formatMoney(other.standing.netBalanceGap)} a mais no vencimento`}
                   </li>
                 ) : null,
               )}
@@ -109,7 +123,7 @@ function Verdict({
       )}
       {unranked.length > 0 && (
         <p className="m-0 text-sm text-muted">
-          Sem resultado para comparar: {names(unranked)}.
+          Sem resultado para comparar: {names(unranked, labels)}.
         </p>
       )}
       {!comparison.isSettled && leader && (
@@ -146,33 +160,43 @@ function RankingMark({
 
 function SimulationLink({
   simulation,
+  label,
   search,
 }: {
   readonly simulation: ComparedSimulation;
+  readonly label: ComparisonLabel | undefined;
   readonly search: string;
 }) {
   return (
-    <Link
-      to={{ pathname: `${LIST}/${simulation.simulation.id}`, search }}
-      className="font-medium text-accent underline-offset-4 hover:underline"
-    >
-      {simulation.offer.name}
-    </Link>
+    <>
+      <Link
+        to={{ pathname: `${LIST}/${simulation.simulation.id}`, search }}
+        className="font-medium text-accent underline-offset-4 hover:underline"
+      >
+        {offerTermsLabel(simulation.offer)}
+      </Link>
+      <span className="block text-sm text-muted">
+        {issuerAndNameLabel(simulation.offer)}
+        {label?.investment && ` · ${label.investment}`}
+      </span>
+    </>
   );
 }
 
 function RemoveButton({
   simulation,
+  label,
   onRemove,
 }: {
   readonly simulation: ComparedSimulation;
+  readonly label: ComparisonLabel | undefined;
   readonly onRemove: (id: string) => void;
 }) {
   return (
     <button
       type="button"
       className={`${quietButton} min-w-11 px-0`}
-      aria-label={`Remover ${simulation.offer.name} da comparação`}
+      aria-label={`Remover ${label?.name} da comparação`}
       onClick={() => onRemove(simulation.simulation.id)}
     >
       <XIcon className="size-5" />
@@ -211,6 +235,7 @@ function ComparisonTable({
   onRemove,
 }: ComparisonViewProps) {
   const { simulations } = comparison;
+  const labels = comparisonLabels(simulations);
   return (
     <div className={`${surface} hidden overflow-x-auto lg:block`}>
       <table className="w-full border-collapse text-left">
@@ -232,9 +257,17 @@ function ComparisonTable({
                           {simulation.standing.position}º
                         </span>
                       )}
-                      <SimulationLink simulation={simulation} search={search} />
+                      <SimulationLink
+                        simulation={simulation}
+                        label={labels.get(simulation.simulation.id)}
+                        search={search}
+                      />
                     </span>
-                    <RemoveButton simulation={simulation} onRemove={onRemove} />
+                    <RemoveButton
+                      simulation={simulation}
+                      label={labels.get(simulation.simulation.id)}
+                      onRemove={onRemove}
+                    />
                   </span>
                   <SimulationStatus simulation={simulation} />
                 </span>
@@ -292,10 +325,12 @@ function ComparisonCards({
   search,
   onRemove,
 }: ComparisonViewProps) {
+  const labels = comparisonLabels(comparison.simulations);
   return (
     <ol className="m-0 grid list-none gap-4 p-0 lg:hidden">
       {rankedOrder(comparison.simulations).map((simulation) => {
         const { offer, result, standing } = simulation;
+        const label = labels.get(simulation.simulation.id);
         return (
           <li
             key={simulation.simulation.id}
@@ -308,12 +343,17 @@ function ComparisonCards({
                     {standing.position}º
                   </span>
                 )}
-                <SimulationLink simulation={simulation} search={search} />
-                <span className="block text-sm text-muted">
-                  {offer.titleType} · {offer.issuerName ?? 'Sem emissor'}
-                </span>
+                <SimulationLink
+                  simulation={simulation}
+                  label={label}
+                  search={search}
+                />
               </span>
-              <RemoveButton simulation={simulation} onRemove={onRemove} />
+              <RemoveButton
+                simulation={simulation}
+                label={label}
+                onRemove={onRemove}
+              />
             </div>
             <SimulationStatus simulation={simulation} />
             {result ? (

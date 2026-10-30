@@ -14,7 +14,7 @@ export class CreateOfferCommand {
     // Null is the system, used by seed and import processes.
     readonly actorId: string | null,
     readonly titleType: ETitleType,
-    readonly name: string,
+    readonly name: string | null,
     readonly issuerName: string | null,
     readonly maturityDate: CalendarDate,
     readonly redemptionTerms: RedemptionTerms,
@@ -28,7 +28,7 @@ export class CreateOfferCommand {
     return new CreateOfferCommand(
       actorId,
       request.titleType,
-      request.name,
+      request.name ?? null,
       request.issuerName ?? null,
       CalendarDate.of(request.maturityDate),
       RedemptionTerms.create(request.redemptionTerms.kind),

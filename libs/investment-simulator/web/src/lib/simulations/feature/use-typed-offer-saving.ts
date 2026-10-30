@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createOffer, offerKeys } from '../../offers/api/offer-api';
+import { offerTermsLabel } from '../../offers/models/offer-terms';
 import { useApiFetch, useToasts } from '../../routes/investment-simulator-deps';
 import { simulationKeys } from '../api/simulation-api';
 import {
@@ -59,7 +60,7 @@ export function useTypedOfferSaving() {
     reportKept: (typed: SimulationFormValues, chosen: SimulationFormValues) => {
       if (typed.offerMode === 'existing') return;
       toasts.add({
-        title: `Oferta ${typed.offerName.trim()} salva em Ofertas`,
+        title: `Oferta ${offerTermsLabel(toTypedOfferInput(typed))} salva em Ofertas`,
         data: {
           link: { to: `/ofertas/${chosen.offerId}`, label: 'Ver oferta' },
         },

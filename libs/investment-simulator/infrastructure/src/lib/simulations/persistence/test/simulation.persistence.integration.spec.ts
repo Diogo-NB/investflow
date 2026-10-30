@@ -182,7 +182,7 @@ describe('Simulation PostgreSQL persistence', () => {
         ),
       },
       at('2026-10-09'),
-    ).value;
+    );
     const created = Simulation.create(
       { ownerId, offerId: offer.id, investment: investmentOf(curve) },
       cause(),
@@ -411,7 +411,7 @@ describe('Simulation PostgreSQL persistence', () => {
         remunerationTerms: offer.remunerationTerms,
       },
       at('2026-10-10'),
-    ).value;
+    );
     expect((await offers.save(shorter)).isOk()).toBe(true);
 
     loaded.edit(

@@ -63,6 +63,7 @@ export function simulation(id: string): SimulationListItem {
   return {
     id,
     offerName: `Oferta ${id}`,
+    curve: null,
     principal: '1000',
     investmentDate: '2026-01-02',
     maturityDate: '2027-01-04',

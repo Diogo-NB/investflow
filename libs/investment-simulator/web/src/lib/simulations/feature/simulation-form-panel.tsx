@@ -4,7 +4,6 @@ import {
   RATE_UNITS,
   REDEMPTION_LABELS,
   REMUNERATION_LABELS,
-  remunerationLabel,
   UNSUPPORTED_LABELS,
   type RemunerationKind,
   type TitleType,
@@ -200,21 +199,6 @@ function TermsFieldset({
           Nova oferta
         </span>
       </legend>
-      <FormField label="Nome da oferta" error={errors.offerName?.message}>
-        {(control) => (
-          <div className={fieldBox}>
-            <input
-              {...control}
-              {...form.register('offerName')}
-              type="text"
-              maxLength={100}
-              placeholder="CDB 110% do CDI"
-              disabled={pending}
-              className={bareInput}
-            />
-          </div>
-        )}
-      </FormField>
       <Controller
         control={form.control}
         name="titleType"
@@ -255,6 +239,21 @@ function TermsFieldset({
               type="text"
               maxLength={100}
               placeholder="Sem emissor"
+              disabled={pending}
+              className={bareInput}
+            />
+          </div>
+        )}
+      </FormField>
+      <FormField label="Apelido (opcional)" error={errors.offerName?.message}>
+        {(control) => (
+          <div className={fieldBox}>
+            <input
+              {...control}
+              {...form.register('offerName')}
+              type="text"
+              maxLength={100}
+              placeholder="Reserva de emergência"
               disabled={pending}
               className={bareInput}
             />
@@ -351,12 +350,10 @@ function TermsFieldset({
 }
 
 function TermsSummary({ terms }: { readonly terms: OfferTerms }) {
+  // The chosen option already shows the remuneration.
   const rows: [string, string][] = [
     ['Emissor', terms.issuerName ?? 'Sem emissor'],
-    [
-      'Remuneração',
-      `${terms.titleType} ${remunerationLabel(terms.remunerationTerms)}`,
-    ],
+    ...(terms.name ? [['Apelido', terms.name] as [string, string]] : []),
     ['Vencimento', formatIsoDate(terms.maturityDate)],
     ['Liquidez', REDEMPTION_LABELS[terms.redemptionTerms.kind]],
   ];

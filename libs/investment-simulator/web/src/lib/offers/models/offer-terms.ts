@@ -52,3 +52,20 @@ export function remunerationLabel({ kind, rate }: RemunerationTerms): string {
       return `IPCA + ${percent}% a.a.`;
   }
 }
+
+// The terms identify an offer, so they lead wherever one is shown.
+export function offerTermsLabel(offer: {
+  readonly titleType: TitleType;
+  readonly remunerationTerms: RemunerationTerms;
+}): string {
+  return `${offer.titleType} ${remunerationLabel(offer.remunerationTerms)}`;
+}
+
+export function issuerAndNameLabel(offer: {
+  readonly issuerName: string | null;
+  readonly name: string | null;
+}): string {
+  return [offer.issuerName ?? 'Sem emissor', offer.name]
+    .filter(Boolean)
+    .join(' · ');
+}

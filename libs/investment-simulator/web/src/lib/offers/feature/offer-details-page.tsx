@@ -22,6 +22,8 @@ import {
   surface,
 } from '../../ui/styles';
 import {
+  issuerAndNameLabel,
+  offerTermsLabel,
   REDEMPTION_LABELS,
   REMUNERATION_LABELS,
   remunerationLabel,
@@ -161,7 +163,7 @@ export function OfferDetailsPage() {
     <section aria-labelledby="offer-title" className="grid gap-6">
       <title>
         {state.status === 'ready'
-          ? `${state.offer.name} | InvestFlow`
+          ? `${offerTermsLabel(state.offer)} | InvestFlow`
           : 'Oferta | InvestFlow'}
       </title>
       <PageLabel icon={OfferIcon}>
@@ -211,9 +213,9 @@ export function OfferDetailsPage() {
             <PageTitle
               id="offer-title"
               icon={OfferIcon}
-              subtitle={`${state.offer.titleType} ${remunerationLabel(state.offer.remunerationTerms)}`}
+              subtitle={issuerAndNameLabel(state.offer)}
             >
-              {state.offer.name}
+              {offerTermsLabel(state.offer)}
             </PageTitle>
             <div className="flex flex-wrap gap-2">
               {state.offer.origin === 'OWN' && (

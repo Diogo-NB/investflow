@@ -1,5 +1,5 @@
 import { ETitleType } from '@investflow/investment-simulator-domain';
-import { EAppErrorCode, Result } from '@investflow/shared-domain';
+import { Result } from '@investflow/shared-domain';
 import { CreateOfferCommandInput } from '../../shared/offer-command-input.type';
 import { offerFixture, USER } from '../../shared/offer-fixture';
 import { CreateOfferCommand } from '../create-offer.command';
@@ -54,12 +54,11 @@ describe('CreateOfferUseCase', () => {
     },
   );
 
-  it('saves nothing for a blank name', async () => {
-    const { useCase, offerRepository } = setup();
+  it('saves an offer without a name', async () => {
+    const { useCase, offers } = setup();
 
-    const result = await useCase.execute(command({ name: ' ' }));
+    const result = await useCase.execute(command({ name: undefined }));
 
-    expect(result.error.code).toBe(EAppErrorCode.INVALID_OFFER);
-    expect(offerRepository.save).not.toHaveBeenCalled();
+    expect(offers.get(result.value.offerId)?.name).toBeNull();
   });
 });
