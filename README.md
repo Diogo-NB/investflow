@@ -1,204 +1,279 @@
+<div align="center">
+
 # InvestFlow
 
-NestJS and React Nx workspace for an investment-related, event-driven DDD
-application. The API and client-rendered web application are independent
-deployable hosts. The investment simulator is the first active backend bounded
-context. The authenticated web app includes a welcome page and the simulation,
-offer, and curve screens in a lazy-loaded context-owned browser library.
+**Simulador de renda fixa brasileira construído como exemplo de Event-Driven
+Architecture e DDD em escala de produção.**
 
-## Product Documentation
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![NestJS 11](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Nx](https://img.shields.io/badge/monorepo-Nx-143055?logo=nx&logoColor=white)](https://nx.dev/)
+[![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 
-- [Investment simulator PRD](docs/product/investment-simulator-prd.md)
-- [Index value curves: business context and decisions](docs/product/index-value-curves.md)
+[Funcionalidades](#funcionalidades) ·
+[Arquitetura](#arquitetura) ·
+[Como executar](#como-executar) ·
+[Documentação](#documentação)
 
-## Prerequisites
+<img src="docs/images/readme/simulacao.png" alt="Tela de uma simulação: premissas à esquerda e, à direita, o valor líquido no vencimento e a rentabilidade">
 
-- Node.js 22.x LTS
-- pnpm 10
-- Docker
+</div>
 
-## First-Time Setup
+## Sobre
 
-```sh
-cp .env.example .env
-nvm install
-nvm use
-corepack enable
+O InvestFlow responde à pergunta de quem vai investir em renda fixa: **quanto
+recebo líquido no vencimento e quão bom isso é?** O usuário escolhe uma oferta
+(CDB, LCI ou LCA, prefixada ou atrelada ao CDI ou à SELIC), informa o valor e a
+data da aplicação, escolhe uma curva com a trajetória do índice e recebe o
+resultado dia útil a dia útil, com IOF, imposto de renda e rentabilidade
+líquida.
+
+O que torna o problema interessante é que **as premissas mudam**. Ofertas e
+curvas são editáveis, e cada mudança precisa recalcular, de forma assíncrona e
+confiável, todas as simulações que dependem dela, sem perder nenhuma e sem
+deixar um cálculo antigo sobrescrever um novo. Uma curva do sistema pode
+alimentar milhares de simulações de muitos usuários.
+
+O projeto existe para mostrar Event-Driven Architecture e Domain-Driven Design
+resolvendo esse tipo de problema como em produção: cada decisão é julgada pelo
+comportamento em escala, e não pelo volume de dados de hoje, usa padrões
+conhecidos e registra seus custos.
+
+> [!NOTE]
+> Simulador educacional: não executa transações financeiras nem recomenda
+> investimentos.
+
+## Sumário
+
+- [Funcionalidades](#funcionalidades)
+- [Arquitetura](#arquitetura)
+- [Tecnologias](#tecnologias)
+- [Como executar](#como-executar)
+- [Comandos](#comandos)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Qualidade](#qualidade)
+- [Documentação](#documentação)
+- [Desenvolvimento com agentes de IA](#desenvolvimento-com-agentes-de-ia)
+- [Licença](#licença)
+
+## Funcionalidades
+
+### Simulações
+
+Valor líquido no vencimento, rentabilidade ao ano, ao mês e no período, IOF e
+IR com a faixa aplicada explicada, prazo restante e a evolução do saldo mês a
+mês. O resultado mostra sempre a situação do cálculo ("Calculando",
+"Atualizado", "Requer ação", "Falha técnica") e se atualiza sozinho quando uma
+premissa muda. A lista filtra, busca e ordena pela rentabilidade líquida.
+
+![Lista de simulações ordenada pela maior rentabilidade líquida, com filtros](docs/images/readme/simulacoes.png)
+
+### Comparação
+
+De 2 a 6 simulações lado a lado, classificadas pela rentabilidade líquida ao
+ano, a medida justa entre prazos diferentes e entre títulos com e sem imposto
+de renda. Quando valor e prazo coincidem, a diferença também aparece em reais.
+
+![Comparação de três simulações com o veredito e a tabela de premissas](docs/images/readme/comparacao.png)
+
+### Planos de investimento
+
+Reúnem as simulações que seriam investidas juntas e somam aplicado, tributos e
+montante líquido, com o calendário de vencimentos e a divisão entre liquidez
+diária e no vencimento.
+
+![Plano de investimento com resumo, vencimentos por mês e liquidez](docs/images/readme/plano.png)
+
+### Ofertas e curvas
+
+Ofertas e curvas do sistema são públicas e somente leitura; o usuário cria as
+suas ou duplica as do sistema. Uma curva é editada em uma tabela de intervalos
+que se mantém contígua, e o último valor vale em diante, sempre identificado no
+gráfico.
+
+![Curva de CDI em degraus, com o último valor mantido tracejado](docs/images/readme/curva.png)
+
+As regras de negócio completas estão no
+[PRD](docs/product/investment-simulator-prd.md) e na
+[especificação das curvas](docs/product/index-value-curves.md).
+
+## Arquitetura
+
+Um **monólito modular** em NestJS: cada bounded context vive em
+`libs/<contexto>/` dividido em projetos Nx `domain`, `application` e
+`infrastructure` (mais `web`, para as telas), e o lint impede que o domínio
+dependa de framework ou que um contexto importe o interior de outro. Os apps
+em `apps/` são só raízes de composição, o que permite levar um contexto para
+outro host (um serviço ou uma Lambda) sem mover seu código.
+
+### O fluxo de um recálculo
+
+```mermaid
+flowchart TD
+    U([Usuário edita<br/>uma curva]) --> API[API NestJS]
+    API -->|uma transação| DB[(PostgreSQL<br/>curva + outbox)]
+    DB -->|após o commit| R[Outbox relay]
+    DB -.->|fallback| P[Poller]
+    R --> EB{{EventBridge}}
+    P --> EB
+    EB -->|regra por evento| Q1[[SQS FIFO<br/>recálculos]]
+    Q1 --> C1[Fan-out:<br/>um pedido por simulação]
+    C1 -->|outbox| EB
+    EB --> Q2[[SQS FIFO<br/>cálculos]]
+    Q2 --> C2[Cálculo da simulação]
+    C2 --> RES[(Resultado atual)]
+    Q2 -.->|5 tentativas| DLQ[[DLQ]] -.-> F[Falha técnica<br/>registrada]
+```
+
+### Decisões e seus custos
+
+| Problema                                               | Solução                                                                                                                              | Custo aceito                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Gravar a mudança e o evento sem perder nenhum dos dois | **Transactional outbox**: o evento é gravado na mesma transação da mudança                                                           | Uma tabela a mais e um processo para publicá-la          |
+| Latência da publicação                                 | O relay publica logo após o commit; o poller só recupera o que ficou para trás                                                       | Dois caminhos de publicação para manter                  |
+| Duas mudanças da mesma simulação ao mesmo tempo        | **SQS FIFO agrupado por agregado**: mensagens da mesma simulação nunca são processadas em paralelo                                   | A vazão por agregado é sequencial                        |
+| Entregas repetidas                                     | **Consumidores idempotentes**, deduplicados pelo ID do evento                                                                        | Um registro por evento processado                        |
+| Um cálculo antigo sobrescrever um novo                 | Cada resultado guarda a **impressão digital das entradas** (revisões da simulação, da oferta, dos valores da curva e da metodologia) | A gravação é condicional e descarta resultados obsoletos |
+| Uma curva usada por milhares de simulações             | **Fan-out** em lote: um pedido de cálculo por simulação, gravado em blocos na outbox                                                 | Picos de eventos, limitados pela cota de publicação      |
+| Telas que precisam de fatos de negócio                 | **Consultas orientadas a tela** (Backend for Frontend) que calculam no servidor o que a tela mostra                                  | Uma consulta por tela em vez de endpoints genéricos      |
+
+Medido com `pnpm bench:outbox` contra um broker que responde em 30 ms: com o
+poller de 1 segundo que o relay substituiu, os eventos esperavam em média 5 s a
+40 eventos por segundo e até 116 s em um fan-out de 3.000 eventos; com o relay,
+esperam menos de 1 ms nessa carga e até 1,1 s no fan-out.
+
+O desenho completo, com os limites e as alternativas descartadas, está em
+[Mensageria](docs/architecture/messaging.md),
+[Recálculo](docs/architecture/recalculation.md) e no
+[fluxo de eventos](docs/architecture/event-flow.md).
+
+## Tecnologias
+
+| Camada     | Tecnologias                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| Backend    | NestJS 11, Prisma 7, PostgreSQL 17, decimal.js                                                       |
+| Mensageria | Amazon EventBridge e SQS FIFO, emulados localmente pelo [Floci](https://github.com/floci-io/floci)   |
+| Frontend   | React 19, React Router (Data mode), TanStack Query, React Hook Form, Base UI, Tailwind CSS, Recharts |
+| Identidade | Keycloak 26 (Authorization Code + PKCE)                                                              |
+| Monorepo   | Nx, pnpm, ESLint com fronteiras entre projetos, Prettier                                             |
+| Testes     | Jest (backend), Vitest (frontend), testes de integração contra PostgreSQL e Floci                    |
+
+## Como executar
+
+**Pré-requisitos:** Node.js 22 LTS, pnpm 10 e Docker.
+
+```bash
+git clone git@github.com:Diogo-NB/investflow.git
+cd investflow
+nvm use               # Node.js da versão em .nvmrc
+corepack enable       # disponibiliza o pnpm
 pnpm install
-pnpm db:setup
+cp .env.example .env  # valores de desenvolvimento local
+pnpm db:setup         # sobe PostgreSQL, Keycloak e Floci, migra e popula
+pnpm start            # API e web
 ```
 
-The repository pins Node through `.nvmrc` and pnpm through `packageManager`.
-Load NVM before running Node, pnpm, or Nx commands.
+| Serviço           | Endereço                                   |
+| ----------------- | ------------------------------------------ |
+| Aplicativo web    | http://localhost:4200                      |
+| API               | http://localhost:3000/api                  |
+| Keycloak (admin)  | http://localhost:8080 (`admin` / `admin`)  |
+| PostgreSQL        | `localhost:5432` (`postgres` / `postgres`) |
+| Floci (AWS local) | http://localhost:4566                      |
 
-## Development
+Entre no aplicativo com o usuário de desenvolvimento **`investflow-dev`**,
+senha **`investflow-dev`**. A carga inicial cria as ofertas e curvas do
+sistema; as simulações e os planos são seus.
 
-```sh
-pnpm start
-pnpm check
+> [!TIP]
+> `pnpm db:setup` apaga os dados locais do PostgreSQL e do Keycloak. Para
+> apenas ligar e desligar os contêineres mantendo os dados, use `pnpm db:up` e
+> `pnpm db:down`.
+
+## Comandos
+
+| Comando                  | O que faz                                                                                                |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `pnpm start`             | Sobe os contêineres e serve API e web (`start:api` e `start:web` para um só)                             |
+| `pnpm test`              | Testes unitários de todos os projetos                                                                    |
+| `pnpm check`             | Lint, testes, verificação de tipos e build de todos os projetos; roda em qualquer lugar, inclusive na CI |
+| `pnpm check:integration` | `pnpm check` e os testes de integração contra o banco e o Floci (requer `pnpm db:up`)                    |
+| `pnpm db:migrate`        | Cria e aplica uma migração do Prisma depois de mudar o schema                                            |
+| `pnpm db:seed`           | Carrega as ofertas e curvas do sistema que ainda não existem                                             |
+| `pnpm bench:outbox`      | Mede quanto tempo os eventos esperam para ser publicados (com a API parada)                              |
+
+## Estrutura do repositório
+
+```text
+apps/
+├── api/                       # host NestJS: composição, sem regra de negócio
+└── web/                       # SPA React: autenticação e estrutura do app
+libs/
+├── investment-simulator/      # bounded context do simulador
+│   ├── domain/                # agregados, objetos de valor, eventos; sem framework
+│   ├── application/           # casos de uso e portas
+│   ├── infrastructure/        # HTTP, Prisma, consumidores, consultas de tela
+│   └── web/                   # telas de simulações, planos, ofertas e curvas
+└── shared/                    # blocos comuns: datas, taxas, mensageria, persistência
+infra/
+├── keycloak/                  # realm de desenvolvimento
+└── floci/                     # barramento e filas locais
+tools/
+├── database/                  # carga inicial
+└── benchmarks/                # benchmark da outbox
+docs/                          # produto (pt-BR), arquitetura e estado da implementação
 ```
 
-`pnpm start` starts PostgreSQL, Keycloak, and Floci, then serves the API and web
-applications in parallel. Use `pnpm start:api` or `pnpm start:web` when only
-one application is needed, and `pnpm db:down` to stop the infrastructure
-containers.
+O código de cada contexto é organizado por funcionalidade (`offers`,
+`curves`, `simulations`, `investment-plans`) em todas as camadas, nunca por
+tipo técnico. Detalhes em
+[Estrutura do projeto](docs/architecture/project-structure.md).
 
-The web application runs at `http://localhost:4200` and proxies relative
-`/api` requests to the API at `http://localhost:3000` during development.
-Production hosting must route `/api` to the NestJS deployment and serve the SPA
-entrypoint for browser routes, including `/simulacoes`, `/ofertas`, `/curvas`,
-and their detail and editor routes.
+## Qualidade
 
-Opening the web application redirects to the local Keycloak login. For local
-development only, use username `investflow-dev` and initial password
-`investflow-dev`; complete Keycloak's required profile fields and replace that
-password on first login. The imported realm and these credentials must never be used in
-production. Successful login opens the Portuguese welcome page with your identity
-and a logout action. Authentication initialization failures show a retry action.
-The existing realm supports these screens; no database reset is needed.
+- **Fronteiras verificadas pelo lint:** o domínio só depende de domínio, a
+  aplicação só de domínio e aplicação, e nenhum contexto importa o interior de
+  outro.
+- **Testes por camada:** regras de negócio testadas sem framework; repositórios,
+  consultas e consumidores testados contra PostgreSQL e Floci reais em
+  `pnpm check:integration`.
+- **Dinheiro com precisão decimal:** nenhum cálculo usa ponto flutuante nem
+  arredonda etapas intermediárias; só a exibição é arredondada.
+- **Datas sem fuso:** datas civis e instantes são tipos distintos no domínio, e
+  o calendário de dias úteis é uma regra do servidor.
+- **Acessibilidade:** telas verificadas com teclado, zoom de 200%, movimento
+  reduzido, larguras de 320 a 1440px e axe (WCAG A/AA).
 
-The web app uses two committed, typed environment files: one for local
-development and one for production. Update the production file with the
-deployed Keycloak public URL before releasing, then build with the production
-configuration:
+## Documentação
 
-```sh
-pnpm nx build web --configuration=production
-```
+O [índice da documentação](docs/README.md) diz o que cada arquivo cobre e
+quando lê-lo.
 
-The production URL is currently a placeholder. Set the real URL before deploying.
-Configuration is compiled into the browser bundle and must not contain secrets.
-The SPA uses Authorization Code Flow with PKCE S256, keeps tokens in memory, and
-sends bearer tokens only to `/api` and `/api/...` relative requests. Login returns
-to the requested route and query string, so direct links and reloads keep
-their context. Active
-sessions refresh on token expiry. At expiry, 30 minutes of inactivity triggers
-logout; this is not a separate wall-clock timer. Logout returns to the app origin
-and immediate-login behavior applies again. Production Keycloak provisioning is
-separate and must configure its own users plus the SPA URLs. `WEB_APP_ORIGIN`
-parameterizes the redirect, web-origin, and post-logout URLs in the local realm
-import.
+- **Produto (pt-BR):** [PRD](docs/product/investment-simulator-prd.md),
+  [curvas](docs/product/index-value-curves.md) e o comportamento de cada
+  [tela](docs/product/screens/).
+- **Arquitetura:** [mensageria](docs/architecture/messaging.md),
+  [recálculo](docs/architecture/recalculation.md),
+  [fluxo de eventos](docs/architecture/event-flow.md),
+  [consultas](docs/architecture/queries.md) e
+  [frontend](docs/architecture/frontend-patterns.md).
+- **Implementação:** o que [já está construído](docs/implementation/current-state.md)
+  e o que [está planejado](docs/implementation/planned/), como a importação
+  das taxas do Banco Central.
+- **Design visual:** [DESIGN.md](DESIGN.md).
 
-Integration specs (`*.integration.spec.ts`) run against PostgreSQL and Floci,
-so `pnpm check` leaves them out. With the local stack up (`pnpm db:up`),
-`pnpm check:integration` runs `pnpm check`, migrates the test database in
-`INTEGRATION_TEST_DATABASE_URL`, and runs them; it fails when they cannot run.
+## Desenvolvimento com agentes de IA
 
-The API exposes a public database health check at
-`http://localhost:3000/api/health-check`. All other routes are authenticated by
-the shared Keycloak JWT guard unless marked with `@Public()`.
+O repositório é preparado para trabalhar com agentes de código. O
+[AGENTS.md](AGENTS.md) reúne as invariantes de arquitetura, as convenções e o
+que precisa rodar antes de uma mudança ser considerada pronta, e
+[`.agents/skills/`](.agents/skills/) tem uma skill por camada (domínio,
+infraestrutura NestJS, eventos, React), por tipo de trabalho (planejamento,
+testes locais) e para o benchmark. No Claude Code, um hook bloqueia a edição
+de um arquivo até que a skill da sua camada seja carregada.
 
-## Infrastructure
+## Licença
 
-| Script             | What it does                                                         |
-| ------------------ | -------------------------------------------------------------------- |
-| `pnpm db:up`       | Start PostgreSQL, Keycloak, and Floci with existing state            |
-| `pnpm db:down`     | Stop and remove the containers while preserving state                |
-| `pnpm db:setup`    | Recreate databases, import realm, migrate, generate client, and seed |
-| `pnpm start`       | Start local infrastructure, API, and web applications                |
-| `pnpm db:generate` | Regenerate the Prisma client                                         |
-| `pnpm db:migrate`  | Create/apply migrations after schema changes                         |
-| `pnpm db:seed`     | Generate the Prisma client and add missing local fixtures            |
-
-`pnpm db:setup` is destructive: it deletes all local PostgreSQL and Keycloak
-state before rebuilding the development environment. It applies committed
-migrations with `migrate deploy`; use `pnpm db:migrate` to author migrations.
-
-### Local Seed Data
-
-`pnpm db:setup` seeds read-only system content: six offers from the fictional
-issuer **Banco Local**, all maturing on **2028-12-29** (the last business day
-of 2028), and three curves.
-
-| Offer             | Redemption  | Remuneration                          |
-| ----------------- | ----------- | ------------------------------------- |
-| CDB 110% do CDI   | Daily       | 110% of CDI                           |
-| CDB 100% da SELIC | Daily       | 100% of SELIC                         |
-| LCI prefixada 12% | At maturity | Fixed 12% a year                      |
-| LCI 95% do CDI    | At maturity | 95% of CDI                            |
-| LCA 93% do CDI    | At maturity | 93% of CDI                            |
-| LCA IPCA + 6%     | At maturity | IPCA + 6% a year (not calculable yet) |
-
-The **CDI Local**, **SELIC Local**, and **IPCA Local** curves each cover
-**2024-01-01 through 2028-12-31**, inclusive, with one constant interval.
-CDI and effective SELIC use **13.65% annually**, on a 252-day basis, as reported
-by [ANBIMA on 2026-10-05](https://www.anbima.com.br/informacoes/indicadores/).
-IPCA uses the latest published trailing annual rate available on that date:
-**4.22% for August 2026**, published on 2026-09-11
-([Ministry of Finance release](https://www.gov.br/fazenda/pt-br/central-de-conteudo/publicacoes/conjuntura-economica/inflacao/defeso-eleitoral-2026/informativo-ipca-ago2026.html/view)).
-Its constant monthly equivalent is `(1.0422)^(1/12) - 1`, stored as
-`0.003450427692416233215455407623` and repeated for every month in the range.
-These are hardcoded local fixtures; seeding makes no market-data requests and
-does not update rates based on the current date.
-
-Run `pnpm db:seed` to add missing fixtures without resetting the databases.
-The seed creates system content through the same use cases as the API, so it
-obeys the domain rules and writes its events. It matches existing offers by
-title type and name and curves by index and name, and leaves those untouched.
-It seeds no simulations. Keycloak users remain managed by the realm import.
-The runner lives under `tools/database`, with fixtures grouped by context.
-
-Domain events reach consumers through EventBridge and SQS, emulated locally by
-Floci on port 4566. Events are published to the `investflow` bus with their
-`context` as the source; each consumer has its own queue and dead-letter queue,
-provisioned by `infra/floci/init/provision.sh` when the container starts. See
-[`docs/architecture/messaging.md`](docs/architecture/messaging.md).
-
-## Architecture Conventions
-
-Deployable processes live under `apps/`, while each business capability lives
-under `libs/<context>/` and is split into domain, application, and
-infrastructure projects. `apps/api` currently imports every active context and
-deploys them together as a modular monolith. Future service or Lambda apps can
-compose one context and only the adapters needed by that runtime without moving
-the business code.
-
-Only domain projects must remain framework-free. Application and
-infrastructure projects may use NestJS, but process bootstrap, lifecycle, and
-EC2/Lambda-specific setup belong to the app that hosts them.
-
-Project structure, runtime composition, and file suffixes are documented in
-[`docs/architecture/project-structure.md`](docs/architecture/project-structure.md);
-[`docs/README.md`](docs/README.md) lists every doc, and the coding rules per
-layer are the skills in `.agents/skills/`.
-
-## Frontend
-
-The web app is a React 19 + Vite 8 SPA (`apps/web`) using React Router (Data
-mode), Tailwind v4, `keycloak-js`, and Vitest, with locally hosted IBM Plex
-Sans and its included Open Font License. Server state uses TanStack Query,
-forms React Hook Form with Zod, and interaction primitives Base UI.
-
-- [Frontend architecture, stack versions, and status](docs/architecture/frontend-patterns.md)
-- [Visual rules and tokens](DESIGN.md)
-- [Repository React skill](.agents/skills/investflow-react/SKILL.md)
-
-```sh
-pnpm nx run web:lint
-pnpm test:web
-pnpm nx build web --configuration=development
-pnpm build:web
-```
-
-Unit tests exercise Keycloak startup, the session refresh and inactivity policy,
-identity, logout, and routing without asserting rendered markup. Verify login,
-logout, startup failure and retry, keyboard focus, and responsive layouts in a
-browser. No permanent browser E2E project is included.
-
-### Screens
-
-The investment simulator's screens live in
-`libs/investment-simulator/web`:
-
-- **`/simulacoes`:** a list filtered by offer, curve, title type,
-  remuneration, and status, and sortable by net annual return.
-- **Simulation page:** the offer and investment beside the calculation status,
-  the remaining term, and the result: net value, rates of return, taxes, and
-  the balance evolution.
-- **`/ofertas` and `/curvas`:** list, show, create, edit, duplicate, and
-  delete private offers and curves. System content is read-only.
-
-Their behavior is recorded in
-[`docs/product/screens/`](docs/product/screens/),
-and the API they call in the
-[infrastructure README](libs/investment-simulator/infrastructure/README.md#http-api).
+Distribuído sob a [licença MIT](LICENSE).
