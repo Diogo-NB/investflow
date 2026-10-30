@@ -5,7 +5,7 @@
 > in [Current State](../current-state.md).
 
 Decided 2026-10-17 (see "Curvas do BCB" in the
-[curve specification](../index-value-curves.md)). The system keeps CDI and
+[curve specification](../../product/index-value-curves.md)). The system keeps CDI and
 effective SELIC curves from the Banco Central (BCB) with the last published
 rate kept onwards. In production the BCB curves are the only system curves;
 the seeded system curves exist only in the development environment.

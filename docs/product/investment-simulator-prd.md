@@ -7,8 +7,8 @@ O contexto de negócio e as regras das curvas estão detalhados em
 [Curvas de Valores dos Índices](./index-value-curves.md).
 
 Este documento descreve o produto pretendido, não o que já está implementado.
-O estado atual da implementação está em [Current State](./current-state.md),
-e as próximas entregas, em [planned/](./planned/).
+O estado atual da implementação está em [Current State](../implementation/current-state.md),
+e as próximas entregas, em [planned/](../implementation/planned/).
 
 ## Visão
 
@@ -28,7 +28,7 @@ atualizarem quando as premissas mudam.
 
 ## Usuário e Acesso
 
-- Usuário pessoa física autenticado via Keycloak.
+- Usuário pessoa física autenticado.
 - Contas são provisionadas previamente por administradores.
 - Autocadastro não faz parte do MVP.
 - Cada usuário acessa somente seus próprios planos e simulações.
@@ -235,8 +235,8 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   demanda, explica o cálculo de forma breve: a regra de cada tributo, a conta
   com os valores do cálculo e as tabelas de IOF e IR com a faixa aplicada
   destacada.
-- Cada título tem sua própria versão da metodologia (`cdb-252-v1`,
-  `lci-252-v1`, `lca-252-v1`), interna e nunca exibida, que muda sempre que fórmulas, convenções,
+- Cada título tem sua própria versão da metodologia, interna e nunca
+  exibida, que muda sempre que fórmulas, convenções,
   tributação, o calendário ou a definição da rentabilidade alterarem os
   valores calculados daquele título.
 - Resultados de simulações excluídas deixam de ser consultáveis.
@@ -272,9 +272,9 @@ PDF/CSV ficam fora do escopo.
 ### Convenções
 
 - Capitalização usa 252 dias úteis por ano.
-- Cálculos monetários usam a precisão padrão do `decimal.js` e não aplicam
+- Cálculos monetários usam aritmética decimal com 20 dígitos significativos e não aplicam
   arredondamento de negócio em etapas intermediárias nem no resultado final.
-- Valores persistidos e retornados preservam a precisão calculada. O frontend
+- Valores guardados e informados preservam a precisão calculada. A interface
   arredonda somente a representação exibida, de acordo com o formato escolhido,
   sem alterar o valor subjacente.
 - Instantes exatos usam UTC. A interface os apresenta no fuso
@@ -331,7 +331,7 @@ PDF/CSV ficam fora do escopo.
 Decisão de 2026-10-14: a interface web aceita datas (aplicação, vencimento de
 oferta, intervalos de curva) entre 1º de janeiro de AA − 100 e 31 de dezembro
 de AA + 100, sendo AA o ano corrente, porque seus calendários e verificações
-de data não alcançam todos os anos. É um limite da interface: a API aceita
+de data não alcançam todos os anos. É um limite da interface: o sistema aceita
 qualquer data. A interface carrega o calendário de dias úteis exatamente
 desses anos.
 
@@ -561,30 +561,22 @@ quando:
 - Recalcular de forma assíncrona e confiável: toda alteração aceita leva ao
   recálculo das simulações afetadas, mesmo após falhas temporárias.
 - Gerar um evento a cada criação, edição ou exclusão de ofertas e curvas.
-- Autenticar por token.
+- Exigir autenticação em todo acesso.
 - Interface em português, responsiva e acessível.
 - Permitir futura internacionalização.
 
 ## Fora do Escopo do MVP
 
-- transações financeiras reais;
 - autocadastro;
-- reprodução de resultados passados e histórico de cálculos;
-- registro e consulta de auditoria das alterações;
 - saldo hoje: o valor de uma simulação antes do vencimento;
-- comparações salvas;
 - títulos híbridos por IPCA;
 - resgate antecipado e o que acontece com o investimento após o vencimento;
 - edição de ofertas e curvas do sistema por usuários;
 - indicar qual plano de investimento é melhor ou comparar planos entre si;
-- gráficos além da evolução do saldo;
 - exportação PDF/CSV;
 - aportes recorrentes e reinvestimento automático;
 - rentabilidade real ajustada pela inflação;
-- análise de risco ou rating de emissores;
-- alertas sobre limite do FGC;
-- outros títulos além de CDB, LCI e LCA;
-- multi-moeda.
+- outros títulos além de CDB, LCI e LCA.
 
 ## Evolução Futura
 
@@ -604,12 +596,4 @@ quando:
 - Comparar rendimento líquido entre diferentes tipos de título.
 - Exibir rentabilidade real descontada pelo IPCA.
 - Simular aportes regulares, reinvestimentos e taxas variáveis.
-- Adicionar outros gráficos, relatórios e exportações.
-- Adicionar análise de risco, rating, FGC e suporte multi-moeda.
-
-## Regras Futuras Relevantes
-
-- FGC cobre determinados títulos em até R$ 250.000 por CPF e instituição.
-- LCI/LCA são cobertas pelo FGC.
-- Tesouro Direto não é coberto pelo FGC.
-- Debêntures e CRI/CRA não são cobertos pelo FGC.
+- Adicionar relatórios e exportações.

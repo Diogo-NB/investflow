@@ -1,86 +1,78 @@
-# Curve Behavior
+# Telas de Curvas
 
-Recorded 2026-10-11 and implemented under `/curvas`. A curve has an
-index (which fixes the value convention), a name, an optional description,
-intervals with values, an owner, and a revision. Alternatives of one index are
-separate curves; screens group them by index and origin, and nothing about the
-grouping is stored. Visibility and ownership follow [Offer Behavior](./offers.md).
+Telas em `/curvas`. Uma curva tem índice (que fixa a convenção dos valores),
+nome, descrição opcional, intervalos com valores e dono. Alternativas de um
+índice são curvas distintas; as telas as agrupam por índice e origem, mas
+nenhum agrupamento é guardado. Visibilidade e propriedade seguem as
+[Telas de Ofertas](./offers.md), e as regras estão na
+[especificação das curvas](../index-value-curves.md).
 
-- Routes under `/curvas`: list, curve details, create, and editor. Each loads
-  lazily. Confirmation dialogs load on demand.
-- The list shows the curves visible to the user grouped by index, then by
-  origin ("Do sistema", "Minhas"), sorted by name, with each curve's coverage
-  (first and last dates; a curve has no gaps) and that its last value holds
-  onwards ("01/01/2024 a 31/12/2028, mantida em diante"). The `index` URL parameter
-  filters it and carries through to detail and editor links and back; an
-  unknown value is dropped through navigation. The list is not paginated.
-  "Nova curva" from a filtered list starts with that index.
-- Details show the index, convention, coverage, origin, and description, a
-  step line chart of the values over time above the intervals table (each step
-  runs until the next interval starts; after the last end the last value is
-  dashed for a sixth of the span before it, at least 31 days, and its
-  readout reads "após dd/mm/aaaa (taxa mantida)"; a zero
-  line appears when a value is negative, and the hovered interval's exact value
-  and dates show in a strip above the plot, never over the axis, for mouse and
-  keyboard alike), and "Simulações com esta curva" with the same reads,
-  states, and "Ver todas (N)" link (`/simulacoes?curveId=<id>`) as offers.
-  Own curves offer "Editar", "Duplicar" and "Excluir". A system curve shows a
-  "Curva do sistema: somente leitura" notice and offers only "Duplicar", as
-  its primary action. "Duplicar" creates a private copy named "<nome>
-  (cópia)" with the same index and content.
-- The editor edits the name, description, and intervals; the index is chosen
-  only on creation, where it starts unselected (or with the list's `index`
-  filter) and the rows appear once it is chosen. Creating also offers "Copiar
-  intervalos de": a base curve, filtered by the chosen index, whose choice
-  sets the index and replaces the rows. Intervals are an editable row table
-  (decision 2026-10-13): one row per interval with start, end, and value, all
-  inclusive. CDI and SELIC rows take dates, whose pickers offer only business
-  days within the row's limits: an end picker opens on its start's month and
-  offers nothing before the start (a one-day interval stays possible) or
-  from the next row's end on, and a start picker offers nothing up to the
-  previous row's start or after its own end (typed dates are not blocked;
-  changing a start checks a filled end at once), and an annual rate in percent, never
-  negative; IPCA rows take MM/AAAA months (first to last day) and a monthly
-  variation in percent above -100%, which may be negative. Switching between
-  daily and monthly indexes on creation clears the rows.
-- Rows stay contiguous as they are edited (pure row operations in
-  `curve-form.ts`, tested without React):
-  - Changing an end moves the next row's start to the following business day
-    (or month); changing a start moves the previous row's end to the business
-    day (or month) before it.
-  - Removing a row between two others makes the previous one run until the
-    next starts. Removing the first or last row shortens the curve, never
-    stretching a neighbor over the removed days.
-  - "Dividir em dois" splits a row at the month start nearest its middle (its
-    middle business day, or month, when it lies within one month); both
-    halves keep the value and the second one's value gets focus.
-  - "Adicionar intervalo" starts the new row right after the last one and
-    guesses its end as that month's last business day (or the same month),
-    focusing the value. A value field suggests the previous row's value as
-    its placeholder.
-  - Removing a row, switching between daily and monthly indexes with rows
-    filled, or copying a base curve over typed rows offers "Desfazer", right
-    under the rows, until the next edit or save. Removing moves focus to
-    "Desfazer"; undoing moves it to the restored row.
-  - After rows are added, split, removed, or restored, only the rules between
-    rows and the fields already in error are re-checked, so a new row's empty
-    fields stay quiet until the next save.
-  - Overlaps and missing business days (or months) are flagged on the later
-    row with the API's message and a one-click "Começar em <data>" fix. Typing
-    alone cannot open a gap, since rows follow each other; the message and fix
-    are for rows loaded with one, or a gap the API reports. A
-    typed weekend or holiday shows "Não é dia útil." without blocking. At
-    least one row is required. A live summary states the coverage (months for IPCA) and that the
-    last value holds onwards. On phones each row has
-    a visible "Intervalo N" heading and its actions show their names. Observed
-    and projected values are not distinguished yet (open question in the
-    curve specification).
-- The editor follows the offer editor's impact notice, revision conflict, and
-  save rules. Its notice appears only while the edit changes the intervals
-  and reads "As N simulações que usam esta curva serão recalculadas."
-  ("A simulação que usa esta curva será recalculada." for one); editing only
-  the name or description shows no notice. The PATCH sends only changed fields, comparing
-  intervals after the same conversion and ordering, so retyping a value
-  identically changes nothing.
-- Deleting a curve states how many of the user's simulations will require a
-  new choice ("Sem curva, escolha outra"). Its copies are not affected.
+- A lista mostra as curvas visíveis ao usuário agrupadas por índice e depois
+  por origem ("Do sistema", "Minhas"), ordenadas pelo nome, cada uma com sua
+  cobertura e o aviso de que o último valor vale em diante ("01/01/2024 a
+  31/12/2028, mantida em diante"). Ela filtra por índice, sem paginação; o
+  filtro fica no endereço da página e acompanha o usuário até uma curva e de
+  volta. "Nova curva" a partir de uma lista filtrada já começa com o índice.
+- Os detalhes mostram índice, convenção, cobertura, origem e descrição, um
+  gráfico em degraus dos valores ao longo do tempo e a tabela de intervalos.
+  - Cada degrau vai até o início do intervalo seguinte. Depois do último fim,
+    o último valor aparece tracejado por um sexto do período anterior (no
+    mínimo 31 dias), com a leitura "após dd/mm/aaaa (taxa mantida)".
+  - Uma linha do zero aparece quando há valor negativo. O valor e as datas do
+    intervalo sob o cursor, ou sob o foco do teclado, aparecem numa faixa acima
+    do gráfico, nunca sobre o eixo.
+  - "Simulações com esta curva" funciona como nas ofertas, com "Ver todas (N)"
+    levando à lista de simulações filtrada pela curva.
+  - Curvas próprias oferecem "Editar", "Duplicar" e "Excluir". Uma curva do
+    sistema mostra "Curva do sistema: somente leitura" e oferece somente
+    "Duplicar", como ação principal. "Duplicar" cria uma cópia privada chamada
+    "<nome> (cópia)", com o mesmo índice e conteúdo.
+- O editor altera nome, descrição e intervalos. O índice só é escolhido na
+  criação, onde começa vazio (ou com o índice da lista filtrada), e as linhas
+  aparecem depois da escolha. A criação também oferece "Copiar intervalos de":
+  uma curva base do índice escolhido, cuja escolha define o índice e substitui
+  as linhas. Trocar entre índice diário e mensal na criação limpa as linhas.
+- Os intervalos são uma tabela editável, com uma linha por intervalo: início,
+  fim e valor, todos inclusivos.
+  - CDI e SELIC usam datas e uma taxa anual em percentual, nunca negativa. Os
+    calendários oferecem só dias úteis dentro dos limites da linha: o do fim
+    abre no mês do início e não oferece nada antes do início (um intervalo de
+    um dia continua possível) nem a partir do fim da linha seguinte; o do
+    início não oferece nada até o início da linha anterior nem depois do seu
+    próprio fim. Datas digitadas não são bloqueadas, e mudar um início confere
+    na hora um fim já preenchido.
+  - IPCA usa meses (MM/AAAA, do primeiro ao último dia) e uma variação mensal
+    em percentual maior que −100%, que pode ser negativa.
+- As linhas permanecem contíguas durante a edição:
+  - Mudar um fim leva o início da linha seguinte ao próximo dia útil (ou mês);
+    mudar um início leva o fim da linha anterior ao dia útil (ou mês) anterior.
+  - Remover uma linha entre outras duas faz a anterior ir até o início da
+    seguinte. Remover a primeira ou a última encurta a curva, sem estender uma
+    vizinha sobre os dias removidos.
+  - "Dividir em dois" divide a linha no início de mês mais próximo do meio (ou
+    no dia útil, ou mês, do meio quando ela cabe num só mês); as duas metades
+    mantêm o valor, e o valor da segunda recebe o foco.
+  - "Adicionar intervalo" começa a nova linha logo depois da última e sugere
+    como fim o último dia útil daquele mês (ou o mesmo mês), com o foco no
+    valor. O campo de valor sugere o valor da linha anterior.
+  - Remover uma linha, trocar entre índice diário e mensal com linhas
+    preenchidas ou copiar uma curva base sobre linhas digitadas oferece
+    "Desfazer", logo abaixo das linhas, até a próxima edição ou o salvamento.
+    Remover leva o foco a "Desfazer"; desfazer o leva à linha restaurada.
+  - Os campos vazios de uma linha nova só são apontados no próximo salvamento.
+- Sobreposições e dias úteis (ou meses) faltando são apontados na linha
+  posterior, com a mensagem do sistema e a correção "Começar em <data>" em um
+  clique. Como as linhas se seguem, digitar sozinho não abre uma lacuna: a
+  mensagem serve para curvas carregadas com uma ou para uma lacuna apontada ao
+  salvar. Uma data de fim de semana ou feriado mostra "Não é dia útil." sem
+  bloquear. Pelo menos uma linha é obrigatória. Um resumo informa a cobertura
+  (em meses no IPCA) e que o último valor vale em diante. No celular, cada
+  linha tem o título "Intervalo N" e suas ações mostram o nome. Valores
+  observados e projetados ainda não se distinguem (pendência na especificação
+  das curvas).
+- O editor segue as regras de aviso e de salvamento do editor de ofertas. O
+  aviso aparece só enquanto a edição muda os intervalos: "As N simulações que
+  usam esta curva serão recalculadas." ("A simulação que usa esta curva será
+  recalculada." para uma). Editar só nome ou descrição não mostra o aviso.
+- Excluir uma curva informa quantas simulações do usuário precisarão de uma
+  nova escolha ("Sem curva, escolha outra"). Suas cópias não são afetadas.

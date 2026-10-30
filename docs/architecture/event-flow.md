@@ -10,7 +10,7 @@ the rules behind it, and the outbox's limits and timings, are in
 > simulation's own asynchronous calculation are built, on FIFO queues
 > grouped per aggregate, and so is recalculation after offer and curve
 > changes (walkthroughs 5 and 6); see
-> [Current State](../product/current-state.md).
+> [Current State](../implementation/current-state.md).
 
 ## In One Picture
 
@@ -309,7 +309,7 @@ consumer and leaves its simulations up to date. Fan-out never loads
 simulations and writes no calculation rows: until each result lands, the
 screen shows "Desatualizado", derived from the term revisions. It records
 all its requests in one transaction, a simplification covered by
-the planned [Fan-out at Scale](../product/planned/fan-out-at-scale.md).
+the planned [Fan-out at Scale](../implementation/planned/fan-out-at-scale.md).
 
 ### Walkthrough 6: An Offer or Curve Is Deleted
 

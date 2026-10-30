@@ -1,6 +1,6 @@
 ---
 name: investflow-planning
-description: Plan, discuss, and close out InvestFlow work. Use when asked to plan or design a feature or refactor, including a pending feature in docs/product/planned/, to discuss or decide an architecture, modeling, or UX question, to present options, or to record decisions and update the planned-feature, PRD, and architecture docs afterwards. Do not use for small mechanical edits, single bug fixes, or answering a factual question about the code.
+description: Plan, discuss, and close out InvestFlow work. Use when asked to plan or design a feature or refactor, including a pending feature in docs/implementation/planned/, to discuss or decide an architecture, modeling, or UX question, to present options, or to record decisions and update the planned-feature, PRD, and architecture docs afterwards. Do not use for small mechanical edits, single bug fixes, or answering a factual question about the code.
 ---
 
 # InvestFlow Planning
@@ -27,13 +27,13 @@ skill file with `cat` or `grep` does not count.
 Find what the work touches before reading, then read only that
 (`docs/README.md` says what each file owns):
 
-- The feature's file in `docs/product/planned/`, if it has one, and the
-  areas it touches in `docs/product/current-state.md`.
+- The feature's file in `docs/implementation/planned/`, if it has one, and the
+  areas it touches in `docs/implementation/current-state.md`.
 - The PRD or curve-specification sections for the business rules involved,
   and the screen file in `docs/product/screens/` for screen work.
 - The architecture file of each area touched (`recalculation.md`,
   `messaging.md`, `queries.md`, `frontend-patterns.md`) and every
-  `docs/product/planned/` file that names it.
+  `docs/implementation/planned/` file that names it.
 
 Recorded decisions are revisable, and so is a design handed over in the
 request, even one called agreed: review it as you would your own (see
@@ -164,17 +164,20 @@ the same change. The user should never have to ask whether the docs are up
 to date:
 
 - **Planned features**: a feature agreed but not built, or work consciously
-  postponed, gets its own file in `docs/product/planned/` with a pending
+  postponed, gets its own file in `docs/implementation/planned/` with a pending
   status line, its open decisions, scope, and done criteria; postponed work
   also says why and when to revisit it. Mark settled points, pauses (with the date), and
   what remains; delete the file once the feature ships. Name features for
   what they are, not with sequence numbers.
 - **Current State**: what the change built or changed, in
-  `docs/product/current-state.md`.
+  `docs/implementation/current-state.md`.
 - **Screens**: user-visible behavior of a screen, in its
   `docs/product/screens/` file.
 - **PRD**: whenever a business rule, requirement, or user-visible behavior
   changed, even if the change came from a technical discussion.
+- Everything under `docs/product/` is pt-BR product language (see "Product"
+  in `docs/README.md`): a revision check or a polling interval goes to the
+  architecture or implementation doc that owns it, not to a screen file.
 - **Architecture docs**: record decisions with their date in the file that
   owns the area (`docs/README.md`), the Event Catalog for any event change,
   and the matching one-line invariant in `AGENTS.md` when one exists.

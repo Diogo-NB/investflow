@@ -59,61 +59,58 @@ que eles possam ser trocados sem uma regra de negócio específica.
 
 ## Vocabulário
 
-| Conceito          | Significado no simulador                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------------ |
-| Índice            | Referencial econômico identificado, como CDI, SELIC efetiva ou IPCA.                       |
-| Curva             | Trajetória de valores de um único índice, com nome, descrição opcional, intervalos e dono. |
-| Convenção         | Significado dos valores: unidade, periodicidade e base de capitalização, quando aplicável. |
-| Intervalo         | Período declarado ao qual um valor se refere.                                              |
-| Competência       | Período econômico medido por um índice, como um mês de inflação.                           |
-| Cobertura         | Disponibilidade dos valores necessários para um cálculo específico.                        |
-| Revisão           | Número da curva incrementado a cada alteração salva.                                       |
-| Oferta            | Título, emissor, remuneração, taxa, vencimento e liquidez de um investimento.              |
-| Simulação         | Hipótese de investir um valor em uma data sob uma oferta e, se indexada, uma curva.        |
-| Resultado         | Cálculo atual da simulação, com as revisões das premissas que usou.                        |
-| Rendimento diário | Diferença entre o saldo bruto calculado e o saldo bruto anterior.                          |
+| Conceito            | Significado no simulador                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| Índice              | Referencial econômico identificado, como CDI, SELIC efetiva ou IPCA.                       |
+| Curva               | Trajetória de valores de um único índice, com nome, descrição opcional, intervalos e dono. |
+| Convenção           | Significado dos valores: unidade, periodicidade e base de capitalização, quando aplicável. |
+| Intervalo           | Período declarado ao qual um valor se refere.                                              |
+| Competência         | Período econômico medido por um índice, como um mês de inflação.                           |
+| Cobertura           | Disponibilidade dos valores necessários para um cálculo específico.                        |
+| Revisão             | Número da curva incrementado a cada alteração salva.                                       |
+| Revisão dos valores | Número da curva incrementado somente quando seus intervalos ou valores mudam.              |
+| Oferta              | Título, emissor, remuneração, taxa, vencimento e liquidez de um investimento.              |
+| Simulação           | Hipótese de investir um valor em uma data sob uma oferta e, se indexada, uma curva.        |
+| Resultado           | Cálculo atual da simulação, com as revisões das premissas que usou.                        |
+| Rendimento diário   | Diferença entre o saldo bruto calculado e o saldo bruto anterior.                          |
 
 Uma curva é uma trajetória de premissas do simulador. Não se presume que ela
 seja uma curva de juros a termo extraída de preços de mercado.
 
 ## Decisões Confirmadas
 
-| Decisão                      | Regra                                                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Representação por intervalos | Os valores possuem início e fim explícitos; depois do último fim, o último valor vale em diante.        |
-| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.         |
-| Convenção única              | Todos os valores de uma curva utilizam a convenção do seu índice.                                       |
-| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                        |
-| Curvas independentes         | Cada curva fixa seu índice e é editável por seu dono; não há grupo de curvas no modelo.                 |
-| Edição                       | Editar uma curva altera a própria curva, incrementa sua revisão e recalcula as simulações que a usam.   |
-| Visibilidade                 | Curvas de usuários são privadas; curvas do sistema são públicas e somente leitura para usuários.        |
-| Duplicação                   | Duplicar cria uma curva privada com o mesmo índice e o mesmo conteúdo, inclusive de curvas do sistema.  |
-| Exclusão                     | Excluir é definitivo para o usuário; simulações que usavam a curva passam a "Requer ação".              |
-| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                                |
-| Cadastro completo            | Sem dias úteis (ou meses, no IPCA) faltando entre o primeiro e o último intervalo (decisão 2026-10-13). |
-| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                                    |
-| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                        |
-| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.                   |
-| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                   |
-| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                |
-| Cadastro de intervalos       | Tabela editável com uma linha por intervalo (início, fim e valor), mantida contígua; no IPCA, meses.    |
-| Último valor mantido         | Depois do fim do último intervalo, seu valor vale em diante, sempre identificado (decisão 2026-10-28).  |
-| Curvas do BCB                | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante. |
-
-As regras exatas do CDI e do híbrido foram objeto de pesquisa de mercado
-solicitada durante a definição do produto. O CDI e a pesquisa sobre o IPCA estão
-detalhados adiante.
+| Decisão                      | Regra                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Representação por intervalos | Os valores possuem início e fim explícitos; depois do último fim, o último valor vale em diante.                    |
+| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.                     |
+| Convenção única              | Todos os valores de uma curva utilizam a convenção do seu índice.                                                   |
+| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                                    |
+| Curvas independentes         | Cada curva fixa seu índice e é editável por seu dono; não há grupo de curvas no modelo.                             |
+| Edição                       | Editar uma curva altera a própria curva; mudar intervalos ou valores recalcula as simulações que a usam.            |
+| Visibilidade                 | Curvas de usuários são privadas; curvas do sistema são públicas e somente leitura para usuários.                    |
+| Duplicação                   | Duplicar cria uma curva privada com o mesmo índice e o mesmo conteúdo, inclusive de curvas do sistema.              |
+| Exclusão                     | Excluir é definitivo para o usuário; simulações que usavam a curva passam a "Requer ação".                          |
+| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                                            |
+| Cadastro completo            | Sem dias úteis (ou meses, no IPCA) faltando entre o primeiro e o último intervalo (decisão 2026-10-13).             |
+| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                                                |
+| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                                    |
+| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.                               |
+| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                               |
+| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                            |
+| Cadastro de intervalos       | Tabela editável com uma linha por intervalo (início, fim e valor), mantida contígua; no IPCA, meses.                |
+| Último valor mantido         | Depois do fim do último intervalo, seu valor vale em diante, sempre identificado (decisão 2026-10-28).              |
+| Curvas do BCB                | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante (planejado). |
 
 ## Curva e Responsabilidades
 
 A curva possui identidade própria, independente de ofertas e simulações. Ela
 fixa o índice e, por ele, a convenção que interpreta todos os seus valores.
 
-| Fixo após a criação             | Editável pelo dono                        |
-| ------------------------------- | ----------------------------------------- |
-| Identidade.                     | Nome e descrição opcional.                |
-| Índice e, por ele, a convenção. | Intervalos e valores.                     |
-| Dono: um usuário ou o sistema.  | A revisão acompanha cada alteração salva. |
+| Fixo após a criação             | Editável pelo dono                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Identidade.                     | Nome e descrição opcional.                                                                      |
+| Índice e, por ele, a convenção. | Intervalos e valores.                                                                           |
+| Dono: um usuário ou o sistema.  | A revisão acompanha cada alteração salva; a revisão dos valores, só as de intervalos e valores. |
 
 O índice nunca muda; mudar o índice significa criar outra curva. Alternativas
 do mesmo índice, como base, otimista e pessimista, são curvas distintas. A
@@ -284,16 +281,19 @@ período investido não basta para verificar a cobertura de inflação.
 Editar uma curva altera a própria curva: o identificador permanece e a
 revisão é incrementada a cada alteração salva. Nome, descrição e intervalos são
 editáveis; dividir, substituir ou unir intervalos é uma edição como as demais.
+Somente mudanças de intervalos ou valores incrementam a revisão dos valores;
+renomear a curva ou mudar sua descrição não muda nenhum cálculo.
 
-- Cada resultado registra a revisão da curva que usou. Um resultado cuja
-  revisão difere da revisão atual está desatualizado e é recalculado.
+- Cada resultado registra a revisão dos valores da curva que usou. Um
+  resultado cuja revisão dos valores difere da atual está desatualizado e é
+  recalculado.
 - O recálculo é assíncrono. Entre a edição e o novo resultado, a simulação
   exibe o último resultado bem sucedido com seu estado (ver o PRD).
 - Uma edição que retira cobertura necessária leva as simulações afetadas a
   "Requer ação", com os períodos descobertos. Corrigir a curva ou escolher
   outra as devolve ao cálculo.
-- Antes de salvar, a interface informa quantas simulações do usuário serão
-  recalculadas. Quem quiser preservar a trajetória anterior duplica a curva
+- Antes de salvar uma mudança de intervalos ou valores, a interface informa
+  quantas simulações do usuário serão recalculadas. Quem quiser preservar a trajetória anterior duplica a curva
   antes de editá-la.
 - Cada alteração gera um evento que identifica a curva alterada. Curvas do
   sistema mantidas por processos de importação geram os mesmos eventos, e as
@@ -311,7 +311,7 @@ são afetadas.
 A curva excluída deixa de ser encontrada e não pode ser escolhida. As
 simulações que o usavam passam a "Requer ação" com o motivo "Sem curva,
 escolha outra" e mantêm o último resultado bem sucedido, identificado como
-anterior à exclusão, até que o usuário escolha outra curva. Restauração e
+desatualizado, até que o usuário escolha outra curva. Restauração e
 exclusão física não fazem parte desta etapa.
 
 ## Histórico e Projeções
@@ -326,11 +326,6 @@ sempre identificado. Nas curvas do BCB, a data do último valor
 publicado separa o histórico da taxa mantida (ver
 [Taxa Mantida e Curvas do BCB](#taxa-mantida-e-curvas-do-bcb)). O
 detalhamento de origem e de classificação por trecho permanece pendente.
-
-Uma simulação retrospectiva com dados hoje conhecidos não equivale a
-reproduzir somente as informações disponíveis ao investidor na época. Esse
-segundo comportamento exigiria conhecer quando cada dado foi publicado ou
-estava disponível; não está definido no escopo atual.
 
 ## Taxa Mantida e Curvas do BCB
 
@@ -359,6 +354,10 @@ Decisão de 2026-10-28, que substitui o intervalo sem fim de 2026-10-17.
 
 ### Curvas do BCB
 
+Esta seção e a seguinte descrevem a regra decidida; a importação ainda não
+existe (ver [BCB Rate Import](../implementation/planned/bcb-rate-import.md)). Hoje as curvas do
+sistema são as criadas pelo seed do ambiente de desenvolvimento.
+
 - O sistema mantém uma curva de CDI e uma de SELIC efetiva com os valores
   publicados pelo Banco Central do Brasil (BCB), na convenção desses índices (taxa anual
   efetiva, base 252).
@@ -372,7 +371,7 @@ Decisão de 2026-10-28, que substitui o intervalo sem fim de 2026-10-17.
   Dias consecutivos com o mesmo valor formam um único intervalo.
 - As simulações só devem ser recalculadas quando a taxa muda; no CDI, isso
   acontece em torno das reuniões do Copom. Como estender o fim sem recalcular
-  é uma decisão pendente (ver [BCB Rate Import](./planned/bcb-rate-import.md)).
+  é uma decisão pendente (ver [BCB Rate Import](../implementation/planned/bcb-rate-import.md)).
 - As telas da curva informam a origem dos valores, a data do último valor
   publicado e que a última taxa é mantida em diante.
 - Quem quiser outra premissa para o futuro duplica a curva e edita os
@@ -552,9 +551,7 @@ depois do fim é regra da curva, sempre identificada.
 - Substituição automática de um índice por outro.
 - Cálculo de títulos híbridos por IPCA.
 - Resgate, recebimento antecipado e reinvestimento.
-- Reprodução de resultados calculados com trajetórias anteriores.
-- Reprodução do conjunto de informações disponíveis em cada data histórica.
-- Definição completa do agregado de carteira.
+- Definição completa da carteira.
 
 A comparação de curvas otimista e pessimista motiva essa preparação, mas não
 exige implementar agora um fluxo específico de comparação de curvas.

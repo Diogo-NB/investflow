@@ -1,230 +1,221 @@
-# Simulation Workspace Behavior
+# Telas de Simulações
 
-Recorded 2026-10-11 for the redesigned model. Built so far: the offer choice,
-"Duplicar e ajustar", "Digitar termos", one current result marked
-"Desatualizado" when its premises changed, "Salvar e calcular" with the
-revision, and the calculation status with its polling, "Tentar novamente",
-the list's status tags, the list filters, the return rates, the remaining
-term, and the list's return column and sorting. Not built yet: editing an own
-offer in place from the workspace, with its impact notice. A
-simulation always uses an offer, plus a curve when its
-remuneration is indexed, and holds the principal and investment date. All of
-them are editable. Its single result is recalculated asynchronously whenever
-any of them changes.
+Uma simulação sempre usa uma oferta e, quando a remuneração é indexada, uma
+curva, e guarda o valor aplicado e a data da aplicação. Tudo isso é editável.
+Seu único resultado é recalculado de forma assíncrona sempre que algo muda. As
+regras estão no [PRD](../investment-simulator-prd.md).
 
-- `/simulacoes` lists the user's simulations, 20 per page (`page` URL
-  parameter, corrected by navigation when stale).
-  - A filter bar narrows the list with a submitted search by offer name or
-    issuer ("Buscar por oferta ou emissor") and Base UI Selects by offer,
-    curve, title type, remuneration kind, and calculation status, with
-    "Limpar filtros".
-    The offer and curve choices come from the options query the workspace
-    already caches; an offer or curve no longer listed shows as "Oferta
-    excluída" or "Curva excluída". There is no index filter: the remuneration
-    kind fixes the index. Offers that cannot be calculated yet stay
-    selectable, and "Calculada" notes that it includes outdated results.
-    The bar lays out by its own width, since the investment plan picker
-    reuses it: narrower than 36rem (below about 656px on this page) the
-    filters collapse behind "Filtros (N)", N counting the active ones,
-    including the search.
-  - A status line above the list states the total ("N simulações", or "N
-    simulações encontradas" when filtered) and "Atualizando simulações…"
-    while a newer page or filter loads, during which the previous rows stay
-    dimmed. Clearing the filters moves focus to it.
-  - "Ordenar por" offers "Mais recentes" (the default) and "Maior
-    rentabilidade líquida", which ranks by net annual return so the user can
-    find the best option among many; simulations without a successful result
-    come last, and an outdated one ranks by its last result, still tagged.
-    It is the `sort` URL parameter (`netAnnualReturn`, omitted for the
-    default), kept with the filters and reset to page 1 when changed. Sorting
-    is not filtering: when the filters collapse it stays visible beside "Filtros (N)",
-    outside the collapsed filters, and does not count toward N.
-  - The filters live in the URL under the API's names (`q`, `offerId`,
-    `curveId`, `titleType`, `remunerationKind`, `calculationStatus`); a
-    search is trimmed, up to 100 characters. Changing one
-    resets to page 1, and an invalid value is dropped by navigating with
-    `replace`. The list's parameters carry to a simulation's page and back
-    to the list, including after deleting it.
-  - A filtered list with no rows says "Nenhuma simulação corresponde aos
-    filtros." with "Limpar filtros", distinct from having no simulations. Each row shows the offer
-    (name and issuer, or "Sem emissor"), the remuneration, the curve
-    when indexed, the principal, the period, the net value of the last
-    successful result, its net annual return ("10,28% a.a.", or "—" without a
-    successful result), and a textual status tag unless the result is up to
-    date ("Calculando", "Requer ação", "Falha técnica"). Desktop
-    uses a table with fixed column widths, the period on two lines; below
-    1280px, labeled rows. The whole row or card opens the
-    simulation: one link per entry, stretched over the table row on desktop.
-  - Each row or card has a checkbox, "Comparar {oferta}", in place of the
-    offer icon and above the stretched link. The selection is the `comparar`
-    URL parameter (comma-separated ids, 2 to 6), kept across filters, sort,
-    and pages, carried to a simulation and back, and changed with `replace`.
-    At six, unticked boxes are disabled. While anything is selected, a bar
-    sticks to the bottom of the list with "N selecionadas", "Limpar", and
-    "Comparar", disabled below two with a hint; it sits in a live region
-    mounted before the first selection.
-- `/simulacoes/comparar?ids=…` compares 2 to 6 simulations, nothing stored.
-  - It reads one screen query and polls every 3 seconds only while a
-    simulation is calculating. A deleted or unknown id answers 404 and the
-    screen says one simulation was not found, linking back to the selection.
-    Fewer than two valid ids return to the list with them selected; malformed
-    ids are dropped with `replace`.
-  - A verdict on top answers which one yields the most: the leader by net
-    annual return (ties named together), the gap of each other one in p.p.,
-    and in R$ only when the server marks the amounts comparable (same
-    principal, investment date, and maturity). It says when only one has a
-    result, names those without one, and calls the comparison provisional
-    while any simulation is not up to date. Outdated results still rank,
-    tagged "Resultado anterior".
-  - Desktop shows a table, one column per simulation in the selection order
-    so columns stay put while results arrive, with a sticky label column and
-    row groups Premissas, Líquido, Tributos, and Bruto. Each column header
-    links to the simulation, shows its position and status, and has a remove
-    button. The ranked rows mark "Melhor" with text and an icon, and the gap
-    below the others. Below 1024px the same simulations are ranked cards with
-    the headline rate, net amount, IR, and liquidity, and a "Detalhes"
-    disclosure with every row. "Mostrar só diferenças" hides rows whose shown
-    values are all equal.
-  - "Adicionar" and the breadcrumb return to the list with the selection.
-    The workspace's "Comparar com…" opens the list with that simulation added
-    to the selection.
-- `/simulacoes/nova` and `/simulacoes/:id` show the inputs beside the results
-  (stacked below 1024px):
-  - "Oferta": chosen from the offers visible to the user (system and own)
-    grouped by title type and origin ("CDB · Do sistema", "CDB · Minhas"),
-    with the title type hinted with its income-tax treatment and minimum term
-    from the options query. "Duplicar e ajustar" opens the offer's terms as an
-    editable copy that becomes a private offer; "Digitar termos" creates a
-    private offer (title type, optional issuer, name, terms). Either is saved
-    as its own offer first when the simulation is saved; if the simulation is
-    then rejected, the form chooses the saved offer, a toast says it is in
-    Ofertas ("Ver oferta"), and other terms need another "Duplicar e
-    ajustar". The user's own chosen offer
-    can also be edited in place, with the offer editor's impact notice; a
-    system offer offers only "Duplicar e ajustar".
-    Changing the remuneration kind clears the rate and the curve. Liquidity
-    defaults to "No vencimento".
-  - "Investimento": principal, investment date, and the curve for indexed
-    kinds. The curve list is filtered by the offer's index and grouped by
-    origin ("Do sistema", "Minhas"), auto-selects a sole curve, and shows its
-    coverage with its last value held onwards; it warns instead when the
-    investment date precedes the curve ("A curva começa em 01/01/2024 e não
-    cobre a data da aplicação.").
-- The investment and maturity date pickers grey out weekends and holidays.
-  `BusinessDateField` (in the library's `business-calendar/` folder, for any
-  screen that needs business days) uses the shared business calendar (see
-  Business rules and the business calendar) and limits its calendar to the
-  accepted years; the browser holds no holiday rules. Typed dates are not blocked by the picker; the form rejects one outside
-  the accepted years, and the request a non-business day, on its field. The INVALID notice for missing curve values
-  links to the curve ("Ver curva <nome>").
-- "Salvar e calcular" sends the simulation (with its revision when editing) and
-  is disabled when nothing changed. A rejected simulation is not saved: the form
-  keeps its edits as unsaved changes and the reason appears on the responsible
-  field (principal, non-business day, minimum term, index, missing offer
-  or curve). A revision conflict says the simulation changed elsewhere and
-  offers to reload. An accepted new simulation opens its own page, already
-  waiting for its calculation.
-- Status: the results panel always shows the calculation status and its
-  cause in a live region ("Calculando · simulação alterada").
-  The simulation's page polls its details query about every 3 seconds
-  whatever the status, so finished calculations, edits from another tab, and
-  premise changes all appear without special cases; TanStack Query pauses it
-  while the tab is hidden and refetches on focus. A refetch updates the status
-  and result panels, never the form: the editor is keyed by the simulation and
-  each reload, not by revision, and saves with the revision it was loaded or
-  last saved at (`PATCH` answers the new one). A poll showing a newer revision
-  offers "Recarregar". The monthly balances
-  query includes the result's `calculatedAt` in its key, so it refetches once
-  per new result and never on an ordinary poll. Until the status is up to
-  date, the panel shows the last successful result marked as predating the
-  changes; a simulation that never succeeded shows only the status.
-  - "Requer ação" shows the reason with its recovery: choose another curve
-    or offer when one was deleted ("Sem curva, escolha outra", "Sem
-    oferta, escolha outra"), or fix the field. Missing coverage, which only
-    happens before a curve's first start, names the range the API reports
-    ("A curva não tem valores entre 02/01/2023 e 29/12/2023"); the domain groups consecutive missing
-    rate references into ranges and the browser only phrases them.
-  - "Falha técnica" explains that the automatic retries were exhausted and
-    offers "Tentar novamente", which queues the calculation again.
-- Remaining term: a saved simulation's results panel opens with its term
-  above the status, in any status, because it depends only on the saved dates:
-  "Vence em 14/10/2028 · faltam 1 ano, 11 meses e 28 dias", "Começa em
-  03/11/2026 · prazo de 2 anos" before the investment date, "Vence hoje", and
-  "Venceu em 14/10/2028" afterwards. The API returns the phase, the remaining
-  calendar days, and their split into years, months, and days (the PRD's
-  calendar-month rule), computed on today's UTC date; the browser only
-  phrases them, dropping zero parts.
-  An unsaved simulation shows no term.
-- Results: the net value at maturity with its net annual return beside it
-  ("10,28% ao ano, já descontados os tributos"), which answers the user's two
-  first questions: how much they get and how good that is. Then the
-  "Rentabilidade" block, then principal, gross balance, gross earnings, IOF,
-  income tax, total taxes and net value, with the dates, business days, the
-  curve's last end, for every simulation with a curve ("A curva tem valores
-  até 31/12/2028; depois, a taxa é mantida."), calculation instant in São Paulo time.
-  "Evolução do saldo" is a disclosure.
-- "Rentabilidade" is a small table with the rows "Ao ano", "Ao mês" and "No
-  período" and the columns "Líquida" (first) and "Bruta", with two decimal
-  places. When both are equal, as for LCI and LCA, it shows one column,
-  "Líquida e bruta", noting the income-tax exemption instead of repeating
-  numbers. "Como a rentabilidade é calculada" (with an info icon) opens a short
-  Base UI Dialog in plain words: net means after IOF and income tax; "ao ano"
-  spreads the period's return over 252 business days a year (naming the
-  business days used); for a prefixed offer, that is why the gross annual
-  return matches its rate, and for CDI or SELIC, the return follows the
-  curve's values times the contracted percentage; "ao mês" is the equivalent
-  constant monthly rate, not what each calendar month earned, which
-  "Evolução do saldo" shows; and every rate assumes the money stays invested
-  until maturity, since early redemption is not calculated yet. The rates
-  belong to the result: they are marked as predating changes with it and
-  hidden when there was never a successful result.
-- "Evolução do saldo" opens with an area chart of each month's closing gross
-  balance (compact BRL axis; the tooltip shows the exact closing balance and
-  accumulated earnings), then lists one row per month (business days, the
-  month's earnings, accumulated earnings and the closing gross balance). Each
-  month's button (`aria-expanded`) reveals that month's business days beneath
-  it.
-- Taxes: the IOF and income-tax rows name the applied rate ("IOF · isento pelo
-  prazo", "Imposto de renda · 22,5%", or "Imposto de renda · isento" for LCI
-  and LCA, whose dialog section explains the exemption without a bracket
-  table). "Como os tributos foram calculados" (with an info icon) opens a short
-  Base UI Dialog: the holding period, then for IOF and income tax one sentence
-  on the rule, the formula string the API writes from the result's recorded
-  values (shown as is), and the table with the applied row marked "seu caso"
-  (not by color alone). Rates and tables come from the API, which takes them
-  from the domain; the browser only finds the applied row by rate.
-- A saved simulation's header offers "Nova simulação" (a blank form at
-  `/simulacoes/nova`), "Duplicar" and "Excluir".
-- Plans: under the title, a "Planos" line links each plan the simulation
-  belongs to (`GET investment-plans?simulationId=&pageSize=100`, "e mais N"
-  past 100; "nenhum" without plans), with its own loading and retry.
-  "Adicionar ao plano" opens a Base UI Popover listing the owner's plans by
-  name, 20 per page, each with "Adicionar". Plans that already include the
-  simulation ("Já inclui esta simulação") and full ones ("Plano cheio: 50
-  simulações", from the list's `availableSimulationSlots`) are disabled with
-  the reason as text. One add at a time; the result, or the failure with the
-  plan's name and the API's message, is announced in the popover, which stays
-  open. This is the permanent way to add a simulation to a plan.
-- From a plan: `/simulacoes/nova?plano=<id>` (a plan's "Nova simulação")
-  reads the plan ahead. After the create succeeds and the new simulation's
-  page is open, a toast says "Simulação criada. Adicionar ao plano {nome}?"
-  with "Adicionar ao plano". The action adds it (safe to repeat) and turns
-  the toast into "Adicionada ao plano {nome}" with "Ver plano", or "Não foi
-  possível adicionar ao plano {nome}" with the API's message. A missing,
-  deleted, or full plan shows no toast, and nothing about the plan can
-  report the simulation as unsaved.
-- "Duplicar" opens `/simulacoes/nova?a-partir-de=:id` prefilled with the same
-  offer, curve and investment, for side-by-side comparison. "Excluir"
-  confirms in an AlertDialog and says the deletion is permanent and, when the
-  simulation is in plans, "Ela sai de N planos". Unsaved edits
-  are guarded by `useBlocker` and `beforeunload`.
-- Reads are screen-oriented (Backend for Frontend): the options query (title
-  types, remuneration kinds with their index, visible offers with their origin
-  and calculability, visible curves with their origin and
-  coverage), the workspace query (the simulation's references and
-  investment, its status with any reason, its remaining term, and the last
-  successful result with its return rates and the inputs it was computed
-  from), and the monthly balances of the current
-  result. The list has its own query. Writes create (optionally with a new
-  private offer), edit with the revision, delete, and retry a
-  failed calculation.
+## Lista
+
+`/simulacoes` lista as simulações do usuário, 20 por página.
+
+- Uma barra de filtros restringe a lista por busca no apelido ou emissor da
+  oferta ("Buscar por oferta ou emissor") e por oferta, curva, tipo de título, tipo
+  de remuneração e situação do cálculo, com "Limpar filtros".
+  - Uma oferta ou curva que não existe mais aparece como "Oferta excluída" ou
+    "Curva excluída". Não há filtro por índice: o tipo de remuneração já o
+    define. Ofertas que ainda não podem ser calculadas continuam selecionáveis,
+    e "Calculada" avisa que inclui resultados desatualizados.
+  - A barra se organiza pela própria largura, pois o diálogo de planos a reusa:
+    abaixo de 36rem (cerca de 656px nesta página), os filtros se recolhem em
+    "Filtros (N)", com N contando os filtros ativos, inclusive a busca.
+- Uma linha acima da lista informa o total ("N simulações", ou "N simulações
+  encontradas" quando filtrada) e "Atualizando simulações…" enquanto outra
+  página ou filtro carrega, com as linhas anteriores esmaecidas. Limpar os
+  filtros leva o foco a essa linha.
+- "Ordenar por" oferece "Mais recentes" (padrão) e "Maior rentabilidade
+  líquida", que ordena pela rentabilidade líquida anual para o usuário achar a
+  melhor opção entre muitas. Simulações sem resultado bem sucedido vêm por
+  último, e uma desatualizada é ordenada pelo último resultado, ainda marcada.
+  Mudar a ordem volta à primeira página. Ordenar não é filtrar: com os filtros
+  recolhidos, a ordem continua visível ao lado de "Filtros (N)" e não conta em
+  N.
+- Filtros, ordem, página e seleção ficam no endereço da página e acompanham o
+  usuário até uma simulação e de volta à lista, inclusive depois de excluí-la.
+  Mudar um filtro volta à primeira página.
+- Uma busca sem resultados diz "Nenhuma simulação corresponde aos filtros."
+  com "Limpar filtros", diferente de não haver simulações.
+- Cada linha mostra a oferta pelos termos ("CDB 110% do CDI"), com o emissor
+  ("Sem emissor") e o apelido abaixo, a curva quando indexada ("Curva
+  excluída" depois de excluída, "—" sem curva), o valor aplicado, o período,
+  o valor líquido do último resultado bem sucedido, sua rentabilidade líquida anual
+  ("10,28% a.a.", ou "—" sem resultado) e um marcador em texto quando o
+  resultado não está atualizado ("Calculando", "Requer ação", "Falha
+  técnica"). No desktop é uma tabela com colunas de largura fixa e o período
+  em duas linhas; abaixo de 1280px, linhas rotuladas. A linha inteira abre a
+  simulação.
+- Cada linha tem a caixa "Comparar {oferta}" no lugar do ícone da oferta. A
+  seleção, de 2 a 6 simulações, se mantém entre filtros, ordem e páginas. Com
+  seis, as demais caixas ficam desabilitadas. Enquanto houver seleção, uma
+  barra presa ao fim da lista mostra "N selecionadas", "Limpar" e "Comparar",
+  desabilitado abaixo de duas com uma dica; leitores de tela a anunciam.
+
+## Comparação
+
+`/simulacoes/comparar` compara de 2 a 6 simulações, sem guardar nada.
+
+- A tela se atualiza sozinha enquanto alguma simulação está sendo calculada.
+  Uma simulação excluída ou desconhecida mostra que uma simulação não foi
+  encontrada, com link de volta à seleção. Com menos de duas válidas, volta à
+  lista com elas selecionadas.
+- Um veredito no topo responde qual rende mais: a líder pela rentabilidade
+  líquida anual (empates nomeados juntos), a diferença de cada outra em p.p. e,
+  somente quando os valores são comparáveis (mesmo valor aplicado, data da
+  aplicação e vencimento), em R$. Ele diz quando só uma tem resultado, nomeia
+  as que não têm e chama a comparação de provisória enquanto alguma não está
+  atualizada. Resultados desatualizados continuam no ranking, marcados como
+  "Resultado anterior".
+- No desktop, uma tabela com uma coluna por simulação, na ordem da seleção,
+  para que as colunas não mudem de lugar enquanto os resultados chegam, com a
+  coluna de rótulos fixa e os grupos Premissas, Líquido, Tributos e Bruto. O
+  cabeçalho de cada coluna leva à simulação e mostra a posição, a oferta pelos
+  termos com o emissor e o apelido abaixo, a situação e um botão de remover.
+  O veredito nomeia cada simulação pelos termos e só acrescenta o emissor e o
+  apelido, e depois o valor aplicado e a data da aplicação, enquanto outra
+  simulação comparada tiver os mesmos; quando só esses distinguem duas
+  simulações da mesma oferta, o cabeçalho também os mostra. A melhor linha
+  classificada leva "Melhor", em texto e ícone, e a diferença aparece abaixo
+  das demais. Abaixo de 1024px, cartões
+  classificados com a rentabilidade, o montante líquido, o IR e a liquidez, e
+  "Detalhes" com todas as linhas. "Mostrar só diferenças" esconde as linhas
+  com todos os valores iguais.
+- "Adicionar" e o caminho de navegação voltam à lista com a seleção. "Comparar
+  com…" na simulação abre a lista com ela já selecionada.
+
+## Simulação
+
+`/simulacoes/nova` e `/simulacoes/:id` mostram as premissas ao lado dos
+resultados (empilhados abaixo de 1024px). O título de uma simulação salva é a
+oferta pelos termos ("CDB 112% do CDI"); abaixo vêm o emissor, o apelido, o
+valor aplicado, o período e a origem da oferta.
+
+- "Oferta": escolhida entre as ofertas visíveis ao usuário (do sistema e
+  próprias), agrupadas por tipo de título e origem ("CDB · Do sistema", "CDB ·
+  Minhas"), com o tipo de título acompanhado de seu tratamento de IR e prazo
+  mínimo.
+  - "Duplicar e ajustar" abre os termos da oferta como uma cópia editável que
+    vira uma oferta privada; "Digitar termos" cria uma oferta privada (tipo de
+    título, emissor e apelido opcionais e termos). Nos dois casos a oferta é salva
+    primeiro, quando a simulação é salva. Se a simulação for recusada depois,
+    o formulário escolhe a oferta salva, um aviso informa que ela está em
+    Ofertas ("Ver oferta"), e outros termos exigem um novo "Duplicar e
+    ajustar".
+  - A oferta própria escolhida também pode ser editada ali mesmo, com o aviso
+    do editor de ofertas; uma oferta do sistema oferece somente "Duplicar e
+    ajustar".
+  - Mudar o tipo de remuneração limpa a taxa e a curva. A liquidez começa em
+    "No vencimento".
+- "Investimento": valor aplicado, data da aplicação e a curva, nos tipos
+  indexados. As curvas são filtradas pelo índice da oferta e agrupadas por
+  origem ("Do sistema", "Minhas"); uma curva única é escolhida sozinha e
+  mostra sua cobertura com o último valor mantido em diante. Quando a data da
+  aplicação é anterior à curva, mostra um aviso ("A curva começa em 01/01/2024
+  e não cobre a data da aplicação.").
+- Os calendários da aplicação e do vencimento apagam fins de semana e
+  feriados. Datas digitadas não são bloqueadas pelo calendário: o formulário
+  recusa uma fora dos anos aceitos, e o sistema recusa um dia não útil no seu
+  campo.
+- "Salvar e calcular" fica desabilitado sem alterações. Uma simulação recusada
+  não é salva: o formulário mantém as edições como não salvas e o motivo
+  aparece no campo responsável (valor aplicado, dia não útil, prazo mínimo,
+  índice, oferta ou curva ausente). Se a simulação foi alterada em outro lugar,
+  salvar avisa e oferece recarregar. Uma simulação nova aceita abre sua
+  própria página, já aguardando o cálculo.
+
+### Situação do Cálculo
+
+- O painel de resultados sempre mostra a situação do cálculo e sua causa
+  ("Calculando · simulação alterada"), anunciada a leitores de tela. A página
+  se atualiza sozinha, então cálculos concluídos, edições feitas em outra aba
+  e mudanças nas premissas aparecem sem ação do usuário, sem nunca alterar o
+  formulário. Uma versão mais nova da simulação oferece "Recarregar".
+- Até a situação ficar atualizada, o painel mostra o último resultado bem
+  sucedido, marcado como anterior às mudanças; uma simulação que nunca teve
+  sucesso mostra só a situação.
+- "Requer ação" mostra o motivo e como resolver: escolher outra curva ou
+  oferta quando foi excluída ("Sem curva, escolha outra", "Sem oferta, escolha
+  outra") ou corrigir o campo. A falta de cobertura, que só acontece antes do
+  início de uma curva, nomeia os períodos sem valor ("A curva não tem valores
+  entre 02/01/2023 e 29/12/2023") e leva à curva ("Ver curva <nome>").
+- "Falha técnica" explica que as novas tentativas automáticas se esgotaram e
+  oferece "Tentar novamente", que pede o cálculo de novo.
+
+### Prazo Restante
+
+O painel de uma simulação salva começa pelo prazo, acima da situação e em
+qualquer situação, pois depende só das datas salvas: "Vence em 14/10/2028 ·
+faltam 1 ano, 11 meses e 28 dias", "Começa em 03/11/2026 · prazo de 2 anos"
+antes da aplicação, "Vence hoje" e "Venceu em 14/10/2028" depois. As partes
+zeradas são omitidas, e a divisão em anos, meses e dias segue a regra de meses
+civis do PRD. Uma simulação não salva não mostra prazo.
+
+### Resultados
+
+- O valor líquido no vencimento vem com a rentabilidade líquida anual ao lado
+  ("10,28% ao ano, já descontados os tributos"), respondendo às duas primeiras
+  perguntas do usuário: quanto recebe e quão bom isso é. Depois vêm o bloco
+  "Rentabilidade" e valor aplicado, saldo bruto, rendimento bruto, IOF, IR,
+  total de tributos e valor líquido, com as datas, os dias úteis, o último fim
+  da curva em toda simulação com curva ("A curva tem valores até 31/12/2028;
+  depois, a taxa é mantida.") e o instante do cálculo no horário de São Paulo.
+  "Evolução do saldo" fica recolhida.
+- "Rentabilidade" é uma pequena tabela com as linhas "Ao ano", "Ao mês" e "No
+  período" e as colunas "Líquida" (primeiro) e "Bruta", com duas casas
+  decimais. Quando as duas são iguais, como em LCI e LCA, mostra uma só coluna,
+  "Líquida e bruta", com a nota da isenção de IR em vez de repetir números.
+- "Como a rentabilidade é calculada" (com um ícone de informação) abre uma
+  explicação breve em palavras simples:
+  - líquida é depois de IOF e IR;
+  - "ao ano" distribui o rendimento do período em 252 dias úteis por ano,
+    nomeando os dias úteis usados; por isso, numa oferta prefixada, a
+    rentabilidade bruta anual coincide com a taxa, e no CDI ou na SELIC o
+    rendimento segue os valores da curva vezes o percentual contratado;
+  - "ao mês" é a taxa mensal constante equivalente, não o que cada mês civil
+    rendeu, que aparece em "Evolução do saldo";
+  - toda taxa supõe o dinheiro aplicado até o vencimento, pois o resgate
+    antecipado ainda não é calculado.
+
+  As taxas pertencem ao resultado: são marcadas como anteriores às mudanças
+  junto com ele e escondidas quando nunca houve resultado bem sucedido.
+
+- "Evolução do saldo" abre com um gráfico de área do saldo bruto no fim de cada
+  mês (eixo em reais abreviado; o destaque mostra o saldo exato e o rendimento
+  acumulado) e lista uma linha por mês (dias úteis, rendimento do mês,
+  rendimento acumulado e saldo bruto no fim do mês). O botão de cada mês mostra
+  ou esconde seus dias úteis logo abaixo.
+- Tributos: as linhas de IOF e IR nomeiam a alíquota aplicada ("IOF · isento
+  pelo prazo", "Imposto de renda · 22,5%" ou "Imposto de renda · isento" em
+  LCI e LCA, cuja explicação trata da isenção sem tabela de faixas). "Como os
+  tributos foram calculados" (com um ícone de informação) abre uma explicação
+  breve: o prazo da aplicação e, para IOF e IR, uma frase com a regra, a conta
+  com os valores do cálculo e a tabela com a faixa aplicada marcada como "seu
+  caso" (não só por cor).
+
+### Ações
+
+- O cabeçalho de uma simulação salva oferece "Nova simulação" (um formulário em
+  branco), "Duplicar" e "Excluir".
+- "Duplicar" abre uma nova simulação com a mesma oferta, curva e investimento,
+  para comparar lado a lado. "Excluir" pede confirmação, informa que a
+  exclusão é definitiva e, quando a simulação está em planos, que "Ela sai de N
+  planos". Alterações não salvas são confirmadas antes de sair.
+
+### Planos
+
+- Sob o título, a linha "Planos" leva a cada plano que contém a simulação ("e
+  mais N" depois de 100; "nenhum" sem planos), com seus próprios estados de
+  carregamento e nova tentativa.
+- "Adicionar ao plano" abre um painel com os planos do dono por nome, 20 por
+  página, cada um com "Adicionar". Planos que já contêm a simulação ("Já
+  inclui esta simulação") e planos cheios ("Plano cheio: 50 simulações") ficam
+  desabilitados com o motivo em texto. Uma adição por vez; o resultado, ou a
+  falha com o nome do plano e a mensagem do sistema, é anunciado no painel, que
+  continua aberto. Esse é o caminho permanente para adicionar uma simulação a
+  um plano.
+- Uma simulação criada a partir de "Nova simulação" de um plano, depois de
+  salva e com sua página aberta, mostra o aviso "Simulação criada. Adicionar ao
+  plano {nome}?" com "Adicionar ao plano". A ação a adiciona (repeti-la não
+  muda nada) e transforma o aviso em "Adicionada ao plano {nome}" com "Ver
+  plano", ou "Não foi possível adicionar ao plano {nome}" com a mensagem do
+  sistema. Um plano inexistente, excluído ou cheio não mostra aviso, e nada do
+  plano faz a simulação parecer não salva.

@@ -158,17 +158,16 @@ this file in the same change that ships or changes a built behavior.
   Concepts on a Screen Read" in
   [queries.md](../architecture/queries.md)). No events. The `/planos` screens list, create, edit, delete,
   and show plans with their members and totals
-  ([screens/investment-plans.md](./screens/investment-plans.md)). The
+  ([screens/investment-plans.md](../product/screens/investment-plans.md)). The
   simulation screens link to plans too: the workspace's "Planos" line names
   the simulation's plans and adds it to another one, its delete dialog says
   how many plans it leaves, and a simulation created from a plan's "Nova
   simulação" is offered to that plan in a toast
-  ([screens/simulations.md](./screens/simulations.md)).
+  ([screens/simulations.md](../product/screens/simulations.md)).
 
 ## Differs From the Target Model
 
 - The CDI and SELIC curves imported from the Banco Central are not built
   ([BCB Rate Import](./planned/bcb-rate-import.md)).
 - The simulation workspace cannot yet edit its own offer in place, with the
-  offer editor's impact notice (see [Simulation Workspace
-  Behavior](./screens/simulations.md)).
+  offer editor's impact notice (see [Telas de Simulações](../product/screens/simulations.md)).

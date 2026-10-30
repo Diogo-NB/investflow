@@ -11,9 +11,11 @@ the boundaries that make it safe to grow.
 ## Start
 
 - Read the behavior file of the screen you change in `docs/product/screens/`
-  (`simulations.md`, `offers.md`, `curves.md`, `app-shell.md`). Build from
-  that recorded behavior as idiomatic React; never transliterate an earlier
-  implementation's structure.
+  (`simulations.md`, `offers.md`, `curves.md`, `investment-plans.md`,
+  `app-shell.md`; pt-BR, what the user sees) and "Screen mechanics" in
+  `docs/architecture/frontend-patterns.md` (how the screens do it). Build
+  from that recorded behavior as idiomatic React; never transliterate an
+  earlier implementation's structure.
 - Read `docs/architecture/frontend-patterns.md` when adding a dependency
   ("Stack and versions"), a project or folder ("App and ownership"), a route
   or context export ("Composition contract"), or a business rule in a form

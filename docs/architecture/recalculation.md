@@ -212,7 +212,7 @@ state is kept; there is no transition history.
   aggregates loaded, no calculation rows written. The calculation worker
   then handles each request as usual. That transaction grows with the number
   of simulations, a deliberate simplification (see the planned
-  [Fan-out at Scale](../product/planned/fan-out-at-scale.md)). While a
+  [Fan-out at Scale](../implementation/planned/fan-out-at-scale.md)). While a
   recalculation is on its way the screen shows the
   derived "Desatualizado", not "Calculando", until its new result lands
   within seconds. Storing that a recalculation is queued, by fan-out writing

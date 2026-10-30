@@ -10,7 +10,7 @@ state, data, routing, forms, styling, accessibility, tests) are owned by
 
 Decision dated 2026-10-10: the frontend is a React 19 + Vite 8 SPA built with
 Nx. What is built, and the screen work still open, is in
-`docs/product/current-state.md`. Each change keeps `pnpm check` green, and
+`docs/implementation/current-state.md`. Each change keeps `pnpm check` green, and
 API additions are recorded with the feature that needs them. Build features
 from the recorded behavior in `docs/product/screens/` and design them as
 idiomatic React; don't transliterate earlier implementations or their
@@ -170,6 +170,78 @@ page (a new simulation offered to the plan it was started from).
   offers stays available on a screen. Errors that need input stay in the
   page, beside what caused them.
 
+## Screen mechanics
+
+The screen files in `docs/product/screens/` describe what the user sees, in
+pt-BR. How the screens do it lives here.
+
+- **Authentication:** nothing authenticated renders before Keycloak confirms a
+  session, through Authorization Code + PKCE S256. Login returns to the
+  requested path and query, without the fragment. When the access token
+  expires, users active in the last 30 minutes (pointer, touch, key, click,
+  or scroll) are refreshed silently; inactive users, and users whose refresh
+  fails, are logged out to the app origin. The identity shown is the first
+  non-blank string claim among `name`, `preferred_username`, and `email`,
+  and follows token refreshes. Only relative `/api` and `/api/...` requests
+  carry the bearer, refreshed first. Provider error details are never shown.
+- **Routes:** each page module loads through route `lazy`, and confirmation
+  dialogs load on demand. Each navigation moves focus to the main landmark
+  without scrolling.
+- **Lists in the URL:** list filters, sort, page, and selection are URL
+  parameters under the API's names (`q`, `offerId`, `curveId`, `titleType`,
+  `remunerationKind`, `calculationStatus`, `origin`, `index`, `sort`,
+  `page`, and `comparar` for the comparison selection), carried to detail and
+  editor links and back. An invalid value, a malformed page, or a page past
+  the last one is corrected by navigating with `replace`; the selection also
+  changes with `replace`. Obsolete reads are canceled. A search is trimmed,
+  up to 100 characters. The investment plan picker holds the same filter bar
+  in memory instead of the URL.
+- **Editors:** an editor initializes once from one snapshot. Create and edit
+  are separate requests; the edit (`PATCH`) sends the revision it was loaded
+  or last saved at and only the changed fields (curve intervals compared after
+  the same conversion and ordering, so retyping a value identically changes
+  nothing). A revision conflict (`409`) keeps the user's input until they
+  reload. A successful save clears the dirty baseline before redirecting to a
+  fresh detail read, and a failed read after a save is a read failure, not
+  permission to repeat the write. Unsaved edits are guarded by `useBlocker`
+  and `beforeunload`. The impact notice counts the user's simulations from
+  the total of the simulation list filtered by `offerId` or `curveId`, the
+  same read as the details' "Simulações com…" block (first page, 20 per
+  page).
+- **Decimals and dates:** pure helpers shift decimal strings to convert
+  percentages and fractions, rejecting zero, invalid input, and values outside
+  `Decimal(65,30)` storage. Calendar validation and `dd/mm/aaaa` display never
+  construct local-time instants. `BusinessDateField` (in the library's
+  `business-calendar/` folder) bounds its picker with the business calendar
+  (see below).
+- **Curve rows:** the contiguous-row operations are pure functions in
+  `curve-form.ts`, tested without React. After rows are added, split,
+  removed, or restored, only the rules between rows and the fields already in
+  error are re-checked.
+- **Simulation reads:** the workspace reads the options query (title types,
+  remuneration kinds with their index, visible offers with their origin and
+  calculability, visible curves with their origin and coverage), the
+  workspace query (references, investment, status with any reason, remaining
+  term, and the last successful result with its return rates and inputs), and
+  the monthly balances of the current result; the list and the comparison
+  have their own queries (see [Queries](./queries.md)). The list's offer and
+  curve filters reuse the options query.
+- **Polling:** a simulation's page polls its workspace query about every 3
+  seconds whatever the status; TanStack Query pauses it while the tab is
+  hidden and refetches on focus. A refetch updates the status and result
+  panels, never the form: the editor is keyed by the simulation and each
+  reload, not by revision. The monthly balances query includes the result's
+  `calculatedAt` in its key, so it refetches once per new result. The
+  comparison polls every 3 seconds only while a simulation is calculating;
+  the plan list, a plan, and its members poll while any member is
+  calculating. The plan's totals come from the plan read itself, so its
+  polling refreshes them.
+- **Server-computed facts:** the remaining term (phase, calendar days, and
+  their years, months, and days, on today's UTC date), missing coverage
+  ranges, tax rates, tables, and formula strings, return rates, plan statuses
+  and totals, and the comparison ranking come from the API; the browser only
+  phrases them (see [Queries](./queries.md)).
+
 ## Configuration
 
 Keep typed, committed environment modules for development and production. They
@@ -192,7 +264,9 @@ commands a frontend change runs before it is done are in "Done means" in
 `AGENTS.md`. In the browser, check local Keycloak login, reload, logout,
 failure/retry, keyboard focus, responsive reflow (320–1440px, 200% zoom),
 reduced motion, and axe A/AA. Add an E2E project only for a demonstrated
-critical product journey. The workspace includes none.
+critical product journey. The workspace includes none. Browser and API
+checks use dedicated test records; they don't reset local databases or change
+Keycloak accounts.
 
 The baseline excludes SSR and RSC, React Router Framework mode, service
 workers, micro-frontends, OpenAPI generation, a global state library, and a
