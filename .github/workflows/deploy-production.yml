@@ -1,0 +1,58 @@
+name: Deploy production
+
+# Called by release and rollback, which serialize on the production-deploy
+# concurrency group; this workflow must not declare it too, or it would wait
+# on its caller.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Image version to deploy (vX.Y.Z)
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      packages: write
+    env:
+      VERSION: ${{ inputs.version }}
+      IMAGE_PREFIX: ghcr.io/diogo-nb/investflow
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The compose file deploys :production, so moving the tag selects the
+      # version. Fails when the version was never built.
+      - name: Point :production at ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          for image in api web; do
+            docker buildx imagetools create \
+              --tag "$IMAGE_PREFIX-$image:production" \
+              "$IMAGE_PREFIX-$image:$VERSION"
+          done
+
+      # Dokploy queues the deploy and answers at once; its result is in
+      # Dokploy's deployment logs.
+      - name: Deploy through the Dokploy API
+        env:
+          DOKPLOY_URL: ${{ vars.DOKPLOY_URL }}
+          DOKPLOY_COMPOSE_ID: ${{ vars.DOKPLOY_COMPOSE_ID }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body -sS -X POST "$DOKPLOY_URL/api/compose.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d "{\"composeId\":\"$DOKPLOY_COMPOSE_ID\"}"

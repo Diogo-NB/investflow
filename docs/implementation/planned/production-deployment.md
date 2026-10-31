@@ -129,11 +129,19 @@ API without stripping the prefix (Nest serves under `/api`).
 
 - `release.yml`, on `v*` tags, in one non-cancelling `production-deploy`
   concurrency group: rejects tags other than `vX.Y.Z` and tags not on
-  `main`; runs `pnpm check` and the prune; builds and pushes both images
-  as `:vX.Y.Z`; then, in the `production` GitHub environment, points
-  `:production` at them and calls `compose.deploy`.
-- `rollback.yml`, manual with a version input: points `:production` at that
-  version and calls `compose.deploy`.
+  `main`; then one job runs `pnpm check` and the prune and builds and pushes
+  both images as `:vX.Y.Z` (one job, because artifact uploads drop the
+  pruned output's empty `workspace_modules`), and calls
+  `deploy-production.yml`.
+- `rollback.yml`, manual with a version input, in the same concurrency
+  group: calls `deploy-production.yml` with that version.
+- `deploy-production.yml`, reusable, in the `production` GitHub environment
+  (tags `v*` only; `DOKPLOY_URL` and `DOKPLOY_COMPOSE_ID` as variables,
+  `DOKPLOY_API_KEY` as a secret): points `:production` at the version and
+  calls `compose.deploy` once.
+- A fresh clone generates the Prisma client in the root `postinstall`, so CI
+  needs no setup step; checked 2026-10-31 that a clean install passes
+  `pnpm check` and the prune.
 
 **`infra/aws/`** (`infra-aws`, tags `scope:infra` and `platform:server`,
 importing no library; `aws-cdk-lib`, `constructs`, and `aws-cdk` as dev

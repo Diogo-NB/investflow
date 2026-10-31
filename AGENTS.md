@@ -101,7 +101,7 @@ installing a Node version, run `corepack enable`. Where Unix sockets are
 prohibited, prefix Nx commands with `NX_DAEMON=false`. Run tasks through
 `pnpm nx` rather than the underlying tools.
 
-- `pnpm install`: install workspace dependencies.
+- `pnpm install`: install workspace dependencies and generate the Prisma client, which the backend projects need to compile.
 - `pnpm db:up` / `db:down`: start or stop PostgreSQL, Keycloak, and Floci, keeping local data (Floci reprovisions its in-memory resources on start).
 - `pnpm db:setup`: delete local PostgreSQL and Keycloak state, recreate the services, migrate, import the realm, and seed.
 - `pnpm db:migrate`: create and apply a Prisma migration after a schema change.

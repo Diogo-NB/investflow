@@ -1,0 +1,42 @@
+name: Rollback
+
+# Deploys an earlier release's images. Migrations only move forward, so the
+# chosen version must work with the current schema.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Released version to deploy again (vX.Y.Z)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate the version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Validate the version
+        run: |
+          if [[ ! "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Versions look like v1.2.3, not $VERSION"
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy
+    needs: validate
+    permissions:
+      packages: write
+    uses: ./.github/workflows/deploy-production.yml
+    with:
+      version: ${{ inputs.version }}
+    secrets: inherit
