@@ -154,7 +154,8 @@ This replaces the earlier SNS topic per context.
   differ. It adds a standard `event-delivery-dlq` that keeps the events
   EventBridge fails to deliver to a queue, and the `investflow-api` IAM user,
   which may only publish to the bus and receive and delete messages on the
-  queues the API consumes.
+  queues the API consumes, and only from the VPS's public IP
+  (`aws:SourceIp`), so a leaked key is useless elsewhere.
 - **Local emulation.** Floci needs no account or auth token, unlike LocalStack
   since its 2026.03 release. `infra/floci/init/provision.sh` runs on every
   container start (Floci keeps state in memory) and creates the bus and each
@@ -164,10 +165,9 @@ This replaces the earlier SNS topic per context.
   evaluate dynamic target paths, so every message of a queue gets the literal
   group `$.detail.aggregateId`. Locally each queue is therefore a single
   group, processed strictly one message at a time: still correct, with no
-  parallelism. Dynamic paths on rule targets are documented by AWS but not yet
-  verified on real infrastructure; verify them in a homolog environment
-  before relying on parallel consumers. If the path were not evaluated, AWS
-  would behave like Floci: serial, never incorrect.
+  parallelism. On AWS the dynamic path is evaluated: verified on 2026-10-31
+  against the production queues, where a message's `MessageGroupId` was its
+  event's `aggregateId`, so different aggregates are consumed in parallel.
 - **Ports.** `MessageBroker` (publishing a batch, reporting the messages the
   broker rejected) and `EventDispatcher` (deduplication
   per consumer, transaction, and `@OnEvent` dispatch) are transport-neutral.

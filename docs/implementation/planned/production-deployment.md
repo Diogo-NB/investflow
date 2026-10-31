@@ -2,7 +2,7 @@
 
 > **Status: in progress.** Decisions settled 2026-10-30; delivery steps 1
 > (fixes) and 2 (images and compose) built 2026-10-31; step 3's stack is
-> deployed (2026-10-31); its access key and the group-path check remain. Delete this
+> deployed, with its access key and the group path verified (2026-10-31). Delete this
 > file once it ships, moving the decisions to a deployment architecture doc
 > and the setup steps to a runbook beside `infra/dokploy/compose.yaml`, with the
 > outcome in [Current State](../current-state.md).
@@ -151,7 +151,9 @@ dependencies; targets `synth`, `diff`, `deploy`, `test`, `typecheck`, `lint`).
 - The IAM user `investflow-api`: `events:PutEvents` on the bus;
   `sqs:ReceiveMessage` and `sqs:DeleteMessage` on the three consumed queues
   (`simulation-calculations`, its dead-letter queue, and
-  `simulation-recalculations`). Its access key is created by hand
+  `simulation-recalculations`), both only from the VPS's IP
+  (`aws:SourceIp`; checked 2026-10-31 that the VPS reaches AWS over IPv4
+  only). Its access key is created by hand
   (`aws iam create-access-key`) and stored only in Dokploy, so the secret
   never enters CloudFormation.
 - Queue URLs as outputs.

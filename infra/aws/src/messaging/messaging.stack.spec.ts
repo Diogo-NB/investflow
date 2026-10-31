@@ -105,7 +105,10 @@ describe('InvestflowMessagingStack', () => {
     });
   });
 
-  it('lets the API user publish to the bus and consume only its three queues', () => {
+  it('lets the API user, only from the VPS, publish to the bus and consume its three queues', () => {
+    const fromApiServer = {
+      IpAddress: { 'aws:SourceIp': '187.41.107.80/32' },
+    };
     const queueArn = (queueName: string) => ({
       'Fn::GetAtt': [
         logicalId(template, 'AWS::SQS::Queue', { QueueName: queueName }),
@@ -127,11 +130,13 @@ describe('InvestflowMessagingStack', () => {
       [
         {
           Action: 'events:PutEvents',
+          Condition: fromApiServer,
           Effect: 'Allow',
           Resource: { 'Fn::GetAtt': [busId, 'Arn'] },
         },
         {
           Action: ['sqs:DeleteMessage', 'sqs:ReceiveMessage'],
+          Condition: fromApiServer,
           Effect: 'Allow',
           Resource: [
             queueArn('simulation-calculations.fifo'),

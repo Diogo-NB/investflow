@@ -11,6 +11,10 @@ interface ConsumerQueue {
 }
 
 const DEAD_LETTER_RETENTION = Duration.days(14);
+// The VPS's public IPv4, the address of vps.diogo-nb.com.br. The API user's
+// key works only from it, so a leaked key is useless elsewhere; moving the
+// API to another server means changing this first.
+const API_SOURCE_IP = '187.41.107.80/32';
 
 // Production counterpart of infra/floci/init/provision.sh; its spec keeps the
 // consumer queues and their event patterns identical to that script's. Names
@@ -52,7 +56,14 @@ export class InvestflowMessagingStack extends Stack {
     // The API publishes to the bus and consumes three queues; no consumer reads
     // the recalculations dead-letter queue.
     const apiUser = new User(this, 'ApiUser', { userName: 'investflow-api' });
-    this.bus.grantPutEventsTo(apiUser);
+    const fromApiServer = { IpAddress: { 'aws:SourceIp': API_SOURCE_IP } };
+    apiUser.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['events:PutEvents'],
+        resources: [this.bus.eventBusArn],
+        conditions: fromApiServer,
+      }),
+    );
     apiUser.addToPrincipalPolicy(
       new PolicyStatement({
         actions: ['sqs:ReceiveMessage', 'sqs:DeleteMessage'],
@@ -61,6 +72,7 @@ export class InvestflowMessagingStack extends Stack {
           calculations.deadLetterQueue.queueArn,
           recalculations.queue.queueArn,
         ],
+        conditions: fromApiServer,
       }),
     );
 
