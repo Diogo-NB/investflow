@@ -13,6 +13,8 @@ export interface ListSimulationsQuery {
   readonly page: number;
   readonly pageSize: number;
   readonly offerId?: string;
+  // Leaves one simulation out, such as the one whose offer is being edited.
+  readonly excludingId?: string;
   readonly curveId?: string;
   // Part of the offer's name or issuer, ignoring case.
   readonly q?: string;
@@ -120,6 +122,7 @@ export class ListSimulationsQueryHandler
           AND: [
             { ownerId: query.ownerId, deletedAt: null },
             query.offerId ? { offerId: query.offerId } : {},
+            query.excludingId ? { id: { not: query.excludingId } } : {},
             query.curveId ? { curveId: query.curveId } : {},
             query.q
               ? {

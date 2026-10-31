@@ -53,6 +53,31 @@ describe('calculation status', () => {
     );
   });
 
+  it("names the index a curve must have once the offer's index changed", () => {
+    expect(
+      describeReason({
+        code: 'INVESTMENT_CURVE_INCOMPATIBLE',
+        metadata: { expectedIndex: 'SELIC', actualIndex: 'CDI' },
+      }),
+    ).toBe(
+      'A curva não é do SELIC, o índice da oferta. Escolha uma curva do SELIC e salve.',
+    );
+    expect(
+      describeReason({
+        code: 'INVESTMENT_CURVE_INCOMPATIBLE',
+        metadata: { expectedIndex: null, actualIndex: 'CDI' },
+      }),
+    ).toBe(
+      'A oferta é prefixada e não usa curva. Salve novamente para removê-la.',
+    );
+    expect(
+      describeReason({
+        code: 'INVESTMENT_CURVE_REQUIRED',
+        metadata: { index: 'CDI' },
+      }),
+    ).toBe('A oferta usa o CDI. Escolha uma curva do CDI e salve.');
+  });
+
   it('asks for another premise when one is gone', () => {
     expect(describeReason({ code: 'OFFER_NOT_FOUND', metadata: {} })).toBe(
       'Sem oferta, escolha outra.',

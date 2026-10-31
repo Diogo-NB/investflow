@@ -19,6 +19,7 @@ const OWNER = 'user-1';
 const OWNED = { ownerId: OWNER, deletedAt: null };
 const OFFER_ID = 'b51b8f16-2b90-4d24-a2f9-5923eb77c16c';
 const CURVE_ID = '3bdb3c5d-fb4d-4a52-82a3-8122493ffc7e';
+const SIMULATION_ID = '9a1f3e0c-5c2d-4d8e-9f7a-1b2c3d4e5f60';
 
 const fingerprint = (simulationRevision: number) =>
   SimulationResult.inputFingerprintFor({
@@ -94,6 +95,7 @@ describe('ListSimulationsQueryHandler', () => {
 
   it.each([
     [{ offerId: OFFER_ID }, { offerId: OFFER_ID }],
+    [{ excludingId: SIMULATION_ID }, { id: { not: SIMULATION_ID } }],
     [{ curveId: CURVE_ID }, { curveId: CURVE_ID }],
     [{ titleType: 'LCI' }, { offer: { titleType: 'LCI' } }],
     [

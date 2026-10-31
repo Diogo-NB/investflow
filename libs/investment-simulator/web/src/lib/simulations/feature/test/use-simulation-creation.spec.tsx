@@ -5,7 +5,11 @@ import {
   harness,
   withLocation,
 } from '../../../testing/simulator-harness';
-import { optionsRoute, workspace } from '../../../testing/simulator-fixtures';
+import {
+  cdiOffer,
+  optionsRoute,
+  workspace,
+} from '../../../testing/simulator-fixtures';
 import type { SimulationFormValues } from '../../utils/simulation-form';
 import { useSimulationCreation } from '../use-simulation-creation';
 
@@ -13,6 +17,7 @@ const API = '/api/investment-simulator';
 
 const values: SimulationFormValues = {
   offerMode: 'existing',
+  copiedOfferId: '',
   offerId: 'cdi-offer',
   offerName: '',
   principal: '10.000',
@@ -103,7 +108,10 @@ async function createFrom(rendered: Rendered, onProblem = vi.fn()) {
     expect(rendered.result.current.hook.setup.status).toBe('ready'),
   );
   act(() =>
-    rendered.result.current.hook.create.run(values, saveCallbacks(onProblem)),
+    rendered.result.current.hook.create.run(
+      { values: values, editedOffer: null },
+      saveCallbacks(onProblem),
+    ),
   );
   await waitFor(() =>
     expect(rendered.result.current.location.pathname).toBe('/simulacoes/sim'),
@@ -185,12 +193,12 @@ describe('useSimulationCreation', () => {
       [`POST ${API}/simulations`]: { simulationId: 'sim' },
     });
     const onOfferSaved = vi.fn();
-    const { result } = render(api);
+    const { result, added } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
     act(() =>
       result.current.hook.create.run(
-        typed,
+        { values: typed, editedOffer: null },
         saveCallbacks(vi.fn(), onOfferSaved),
       ),
     );
@@ -200,6 +208,12 @@ describe('useSimulationCreation', () => {
     );
     expect(onOfferSaved).toHaveBeenCalledWith('typed-offer');
     expect(api.bodies(`POST ${API}/offers`)).toEqual([typedOfferBody]);
+    // Announced on success too, since the offer appears in Ofertas.
+    expect(added).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Oferta LCI 105% do CDI criada em Minhas',
+      }),
+    );
     expect(api.bodies(`POST ${API}/simulations`)).toEqual([
       {
         offerId: 'typed-offer',
@@ -217,6 +231,43 @@ describe('useSimulationCreation', () => {
     expect(api.calls()).toContain(`GET ${API}/simulation-workspaces/sim`);
   });
 
+  it('saves the edited offer, then creates the simulation using it', async () => {
+    const api = fakeApi({
+      ...templateRoutes,
+      ...emptyList,
+      [`PATCH ${API}/offers/cdi-offer`]: undefined,
+      [`POST ${API}/simulations`]: { simulationId: 'sim' },
+    });
+    const { result } = render(api);
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() =>
+      result.current.hook.create.run(
+        {
+          values: {
+            ...values,
+            offerMode: 'editing',
+            offerName: 'Reserva',
+            rate: '110',
+          },
+          editedOffer: cdiOffer,
+        },
+        saveCallbacks(),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(result.current.location.pathname).toBe('/simulacoes/sim'),
+    );
+    expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
+      `PATCH ${API}/offers/cdi-offer`,
+      `POST ${API}/simulations`,
+    ]);
+    expect(api.bodies(`POST ${API}/simulations`)).toEqual([
+      expect.objectContaining({ offerId: 'cdi-offer' }),
+    ]);
+  });
+
   it('keeps the saved offer chosen when the simulation is then rejected', async () => {
     const api = fakeApi({
       ...optionsRoute,
@@ -230,7 +281,7 @@ describe('useSimulationCreation', () => {
 
     act(() =>
       result.current.hook.create.run(
-        typed,
+        { values: typed, editedOffer: null },
         saveCallbacks(onProblem, onOfferSaved),
       ),
     );
@@ -241,7 +292,7 @@ describe('useSimulationCreation', () => {
     expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'offerId' });
     expect(added).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Oferta LCI 105% do CDI salva em Ofertas',
+        title: 'Oferta LCI 105% do CDI criada em Minhas',
         data: { link: { to: '/ofertas/typed-offer', label: 'Ver oferta' } },
       }),
     );
@@ -261,7 +312,7 @@ describe('useSimulationCreation', () => {
 
     act(() =>
       result.current.hook.create.run(
-        typed,
+        { values: typed, editedOffer: null },
         saveCallbacks(onProblem, onOfferSaved),
       ),
     );
@@ -287,7 +338,12 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, saveCallbacks(onProblem)));
+    act(() =>
+      result.current.hook.create.run(
+        { values: values, editedOffer: null },
+        saveCallbacks(onProblem),
+      ),
+    );
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/simulacoes/sim'),
@@ -309,13 +365,18 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, saveCallbacks(onProblem)));
+    act(() =>
+      result.current.hook.create.run(
+        { values: values, editedOffer: null },
+        saveCallbacks(onProblem),
+      ),
+    );
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toEqual({
       message: 'Mensagem de INVESTMENT_DATE_NOT_BUSINESS_DAY.',
       field: 'investmentDate',
-      conflict: false,
+      conflict: null,
     });
     expect(result.current.hook.create.problem?.field).toBe('investmentDate');
     expect(result.current.location.pathname).toBe('/simulacoes/nova');
@@ -335,8 +396,18 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, saveCallbacks()));
-    act(() => result.current.hook.create.run(values, saveCallbacks()));
+    act(() =>
+      result.current.hook.create.run(
+        { values: values, editedOffer: null },
+        saveCallbacks(),
+      ),
+    );
+    act(() =>
+      result.current.hook.create.run(
+        { values: values, editedOffer: null },
+        saveCallbacks(),
+      ),
+    );
     await waitFor(() =>
       expect(api.calls()).toContain(`POST ${API}/simulations`),
     );

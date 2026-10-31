@@ -5,8 +5,8 @@ export interface SaveProblem {
   readonly message: string;
   // The input the user should change, when one is responsible.
   readonly field: SimulationField | null;
-  // The simulation changed elsewhere; reloading shows the saved version.
-  readonly conflict: boolean;
+  // What changed elsewhere; reloading it shows the saved version.
+  readonly conflict: 'simulation' | 'offer' | null;
 }
 
 // The API explains the failure; the form only needs to know where to point.
@@ -17,6 +17,13 @@ const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   CURVE_NOT_FOUND: 'curveId',
   OFFER_NOT_FOUND: 'offerId',
   INVESTMENT_PRINCIPAL_INVALID: 'principal',
+};
+
+const CONFLICT_BY_CODE: Readonly<
+  Record<string, NonNullable<SaveProblem['conflict']>>
+> = {
+  SIMULATION_REVISION_CONFLICT: 'simulation',
+  OFFER_REVISION_CONFLICT: 'offer',
 };
 
 // Failures caused by the offer's terms, which are fields only while typed.
@@ -31,8 +38,9 @@ function problemField(
   error: ApiError,
   offerMode: SimulationFormValues['offerMode'],
 ): SimulationField | null {
+  // Terms are fields while edited or typed; otherwise the chosen offer is.
   const termField = (field: SimulationField) =>
-    offerMode === 'new' ? field : 'offerId';
+    offerMode === 'existing' ? 'offerId' : field;
   if (error.code === 'INVESTMENT_DATE_NOT_BUSINESS_DAY') {
     return error.details['field'] === 'maturityDate'
       ? termField('maturityDate')
@@ -40,7 +48,10 @@ function problemField(
   }
   if (!error.code) return null;
   const term = TERM_FIELD_BY_CODE[error.code];
-  return term ? termField(term) : (FIELD_BY_CODE[error.code] ?? null);
+  if (term) return termField(term);
+  const field = FIELD_BY_CODE[error.code] ?? null;
+  // The offer picker is hidden while its offer is edited.
+  return field === 'offerId' && offerMode === 'editing' ? null : field;
 }
 
 export function describeSaveProblem(
@@ -52,13 +63,13 @@ export function describeSaveProblem(
       message:
         'Não foi possível concluir. Verifique sua conexão e tente novamente.',
       field: null,
-      conflict: false,
+      conflict: null,
     };
   }
   return {
     message:
       error.userMessage ?? 'Não foi possível concluir agora. Tente novamente.',
     field: problemField(error, offerMode),
-    conflict: error.code === 'SIMULATION_REVISION_CONFLICT',
+    conflict: CONFLICT_BY_CODE[error.code ?? ''] ?? null,
   };
 }

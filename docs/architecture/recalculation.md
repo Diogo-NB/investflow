@@ -13,9 +13,10 @@ independent `Curve` and `Offer` aggregates with owners, revisions, and events
 in the outbox. `Simulation` references an offer and an optional curve, has its
 own revision, and keeps one current `SimulationResult` recording the input
 fingerprint of what it was calculated from (see "Input fingerprint");
-"Digitar termos" and "Duplicar e ajustar" save a private offer with its own
-request before the simulation, so each request changes one aggregate
-(decided 2026-10-29). A simulation's own calculation is asynchronous: saving
+"Nova oferta" and "Duplicar e ajustar" save a private offer, and "Editar
+oferta" the chosen own offer, with its own request before the simulation, so
+each request changes one aggregate (decided 2026-10-29, extended to editing
+2026-10-31). A simulation's own calculation is asynchronous: saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
 calculates; a dead-letter consumer records `FAILED`. Offer and curve changes
 recalculate the simulations that use them (built 2026-10-26). The design

@@ -5,7 +5,11 @@ import {
   harness,
   withLocation,
 } from '../../../testing/simulator-harness';
-import { optionsRoute, workspace } from '../../../testing/simulator-fixtures';
+import {
+  cdiOffer,
+  optionsRoute,
+  workspace,
+} from '../../../testing/simulator-fixtures';
 import type { SimulationFormValues } from '../../utils/simulation-form';
 import { useSimulationWorkspace } from '../use-simulation-workspace';
 
@@ -13,6 +17,7 @@ const API = '/api/investment-simulator';
 
 const values: SimulationFormValues = {
   offerMode: 'existing',
+  copiedOfferId: '',
   offerId: 'cdi-offer',
   offerName: '',
   principal: '10.000',
@@ -32,6 +37,22 @@ const typed: SimulationFormValues = {
   offerName: ' LCI digitada ',
   titleType: 'LCI',
 };
+
+const request = (formValues: SimulationFormValues, revision: number) => ({
+  values: formValues,
+  editedOffer: null,
+  revision,
+  changesSimulation: true,
+});
+
+// The chosen own offer with its rate edited from 105 to 110.
+const editing = () => ({
+  ...request(
+    { ...values, offerMode: 'editing', offerName: 'Reserva', rate: '110' },
+    3,
+  ),
+  editedOffer: cdiOffer,
+});
 
 const callbacks = () => ({
   onSaved: vi.fn(),
@@ -86,7 +107,10 @@ describe('useSimulationWorkspace', () => {
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
     act(() =>
-      result.current.hook.edit.run(values, 2, { ...callbacks(), onSaved }),
+      result.current.hook.edit.run(request(values, 2), {
+        ...callbacks(),
+        onSaved,
+      }),
     );
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(values, 3));
@@ -119,7 +143,7 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(values, 3, saving));
+    act(() => result.current.hook.edit.run(request(values, 3), saving));
 
     await waitFor(() => expect(saving.onProblem).toHaveBeenCalled());
     expect(saving.onProblem.mock.calls[0][0]).toMatchObject({
@@ -138,7 +162,7 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(typed, 3, saving));
+    act(() => result.current.hook.edit.run(request(typed, 3), saving));
 
     await waitFor(() => expect(saving.onSaved).toHaveBeenCalled());
     expect(saving.onOfferSaved).toHaveBeenCalledWith('typed-offer');
@@ -174,7 +198,7 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(typed, 3, saving));
+    act(() => result.current.hook.edit.run(request(typed, 3), saving));
 
     await waitFor(() => expect(saving.onProblem).toHaveBeenCalled());
     expect(saving.onOfferSaved).toHaveBeenCalledWith('typed-offer');
@@ -183,6 +207,113 @@ describe('useSimulationWorkspace', () => {
     });
     expect(saving.onSaved).not.toHaveBeenCalled();
     expect(result.current.hook.edit.problem?.field).toBe('offerId');
+  });
+
+  it('saves only the offer when the edit changed nothing else', async () => {
+    const api = fakeApi({
+      ...savedRoutes,
+      [`PATCH ${API}/offers/cdi-offer`]: undefined,
+    });
+    const saving = callbacks();
+    const { result } = render(api, 'sim', '/simulacoes/sim');
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() =>
+      result.current.hook.edit.run(
+        { ...editing(), changesSimulation: false },
+        saving,
+      ),
+    );
+
+    await waitFor(() => expect(saving.onSaved).toHaveBeenCalled());
+    expect(api.bodies(`PATCH ${API}/offers/cdi-offer`)).toEqual([
+      {
+        revision: 2,
+        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+      },
+    ]);
+    expect(saving.onOfferSaved).toHaveBeenCalledWith('cdi-offer');
+    // The simulation keeps its revision: the offer's save recalculates it.
+    expect(saving.onSaved).toHaveBeenCalledWith(
+      expect.objectContaining({ offerMode: 'existing', rate: '110' }),
+      3,
+    );
+    expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
+      `PATCH ${API}/offers/cdi-offer`,
+    ]);
+  });
+
+  it('saves the edited offer before the simulation that changed with it', async () => {
+    const api = fakeApi({
+      ...savedRoutes,
+      [`PATCH ${API}/offers/cdi-offer`]: undefined,
+      [`PATCH ${API}/simulations/sim`]: { revision: 4 },
+    });
+    const saving = callbacks();
+    const { result } = render(api, 'sim', '/simulacoes/sim');
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() => result.current.hook.edit.run(editing(), saving));
+
+    await waitFor(() => expect(saving.onSaved).toHaveBeenCalled());
+    expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
+      `PATCH ${API}/offers/cdi-offer`,
+      `PATCH ${API}/simulations/sim`,
+    ]);
+    expect(api.bodies(`PATCH ${API}/simulations/sim`)).toEqual([
+      expect.objectContaining({ revision: 3, offerId: 'cdi-offer' }),
+    ]);
+  });
+
+  it('keeps the edited offer saved when the simulation is then rejected', async () => {
+    const api = fakeApi({
+      ...savedRoutes,
+      [`PATCH ${API}/offers/cdi-offer`]: undefined,
+      [`PATCH ${API}/simulations/sim`]: apiFailure(
+        422,
+        'INVESTMENT_PRINCIPAL_INVALID',
+      ),
+    });
+    const saving = callbacks();
+    const { result } = render(api, 'sim', '/simulacoes/sim');
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() => result.current.hook.edit.run(editing(), saving));
+
+    await waitFor(() => expect(saving.onProblem).toHaveBeenCalled());
+    expect(saving.onOfferSaved).toHaveBeenCalledWith('cdi-offer');
+    expect(saving.onProblem.mock.calls[0][0]).toMatchObject({
+      field: 'principal',
+    });
+    expect(saving.onSaved).not.toHaveBeenCalled();
+  });
+
+  it('reports an offer changed elsewhere and sends no simulation', async () => {
+    const api = fakeApi({
+      ...savedRoutes,
+      [`PATCH ${API}/offers/cdi-offer`]: apiFailure(
+        409,
+        'OFFER_REVISION_CONFLICT',
+      ),
+    });
+    const saving = callbacks();
+    const { result } = render(api, 'sim', '/simulacoes/sim');
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() => result.current.hook.edit.run(editing(), saving));
+
+    await waitFor(() =>
+      expect(result.current.hook.edit.problem).toMatchObject({
+        conflict: 'offer',
+        field: null,
+      }),
+    );
+    expect(saving.onOfferSaved).not.toHaveBeenCalled();
+    expect(api.calls()).not.toContain(`PATCH ${API}/simulations/sim`);
+
+    const offers = await act(() => result.current.hook.edit.reloadOffers());
+    expect(offers.map((offer) => offer.id)).toContain('cdi-offer');
+    await waitFor(() => expect(result.current.hook.edit.problem).toBeNull());
   });
 
   it('reports a revision conflict and reloads the saved version', async () => {
@@ -196,10 +327,10 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(values, 3, callbacks()));
+    act(() => result.current.hook.edit.run(request(values, 3), callbacks()));
     await waitFor(() =>
       expect(result.current.hook.edit.problem).toMatchObject({
-        conflict: true,
+        conflict: 'simulation',
         field: null,
       }),
     );
@@ -275,7 +406,10 @@ describe('useSimulationWorkspace', () => {
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
     act(() =>
-      result.current.hook.edit.run(values, 3, { ...callbacks(), onProblem }),
+      result.current.hook.edit.run(request(values, 3), {
+        ...callbacks(),
+        onProblem,
+      }),
     );
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
@@ -283,7 +417,7 @@ describe('useSimulationWorkspace', () => {
       message:
         'Não foi possível concluir. Verifique sua conexão e tente novamente.',
       field: null,
-      conflict: false,
+      conflict: null,
     });
   });
 
@@ -299,8 +433,8 @@ describe('useSimulationWorkspace', () => {
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(values, 3, callbacks()));
-    act(() => result.current.hook.edit.run(values, 3, callbacks()));
+    act(() => result.current.hook.edit.run(request(values, 3), callbacks()));
+    act(() => result.current.hook.edit.run(request(values, 3), callbacks()));
     await waitFor(() =>
       expect(api.calls()).toContain(`PATCH ${API}/simulations/sim`),
     );

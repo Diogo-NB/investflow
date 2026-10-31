@@ -11,6 +11,7 @@ import { useSimulationForm } from '../use-simulation-form';
 
 const initialValues: SimulationFormValues = {
   offerMode: 'existing',
+  copiedOfferId: '',
   offerId: 'cdi-offer',
   offerName: '',
   principal: '10.000',
@@ -87,6 +88,7 @@ describe('useSimulationForm', () => {
     expect(result.current.values).toMatchObject({
       offerMode: 'new',
       offerId: 'cdi-offer',
+      copiedOfferId: 'cdi-offer',
       offerName: 'Reserva (cópia)',
       rate: '105',
       maturityDate: '2026-03-02',
@@ -101,10 +103,10 @@ describe('useSimulationForm', () => {
     });
   });
 
-  it('types terms from blank, keeping the investment and a valid curve', () => {
+  it('starts a new offer from blank, keeping the investment and a valid curve', () => {
     const { result } = render();
 
-    act(() => result.current.typeTerms());
+    act(() => result.current.newOffer());
 
     expect(result.current.values).toMatchObject({
       offerMode: 'new',
@@ -117,6 +119,77 @@ describe('useSimulationForm', () => {
       principal: '10.000',
       curveId: 'cdi',
     });
+  });
+
+  it('edits the chosen own offer in place against the terms it started from', () => {
+    const { result } = render();
+    expect(result.current.form.formState.isDirty).toBe(false);
+
+    act(() => result.current.editOffer());
+    expect(result.current.values).toMatchObject({
+      offerMode: 'editing',
+      offerId: 'cdi-offer',
+      offerName: 'Reserva',
+      rate: '105',
+    });
+    expect(result.current.editedOffer).toBe(cdiOffer);
+    expect(result.current.recalculatesOtherSimulations).toBe(false);
+    expect(result.current.form.formState.isDirty).toBe(false);
+
+    // Only terms a calculation reads recalculate the other simulations.
+    act(() => result.current.form.setValue('offerName', 'Reserva nova'));
+    expect(result.current.recalculatesOtherSimulations).toBe(false);
+    act(() => result.current.form.setValue('rate', '110'));
+    expect(result.current.recalculatesOtherSimulations).toBe(true);
+    expect(result.current.changesIndex).toBe(false);
+
+    act(() => result.current.changeKind('SELIC_PERCENTAGE'));
+    expect(result.current.changesIndex).toBe(true);
+    expect(result.current.values.curveId).toBe('selic');
+  });
+
+  it('discards an offer edit, keeping the investment', () => {
+    const { result } = render();
+    expect(result.current.form.formState.isDirty).toBe(false);
+
+    act(() => result.current.editOffer());
+    act(() => result.current.form.setValue('rate', '110'));
+    act(() => result.current.form.setValue('principal', '20.000'));
+    act(() => result.current.discardOfferEdits());
+
+    expect(result.current.values).toMatchObject({
+      offerMode: 'existing',
+      offerName: '',
+      rate: '105',
+      principal: '20.000',
+    });
+    expect(result.current.editedOffer).toBeNull();
+  });
+
+  it('turns an offer edit into a copy with what was typed', () => {
+    const { result } = render();
+
+    act(() => result.current.editOffer());
+    act(() => result.current.form.setValue('rate', '110'));
+    act(() => result.current.saveAsNewOffer());
+
+    expect(result.current.values).toMatchObject({
+      offerMode: 'new',
+      copiedOfferId: 'cdi-offer',
+      offerName: 'Reserva',
+      rate: '110',
+    });
+    expect(result.current.editedOffer).toBeNull();
+  });
+
+  it('never edits a system offer', () => {
+    const { result } = render();
+
+    act(() => result.current.chooseOffer(selicOffer));
+    act(() => result.current.editOffer());
+
+    expect(result.current.values.offerMode).toBe('existing');
+    expect(result.current.editedOffer).toBeNull();
   });
 
   it('reports no chosen offer when the saved one is no longer listed', () => {
@@ -146,7 +219,7 @@ describe('useSimulationForm', () => {
       result.current.showProblem({
         field: 'curveId',
         message: 'Curva excluída.',
-        conflict: false,
+        conflict: null,
       }),
     );
     expect(result.current.form.formState.errors.curveId?.message).toBe(

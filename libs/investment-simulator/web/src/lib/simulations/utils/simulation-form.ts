@@ -10,22 +10,21 @@ import {
   decimalText,
   offerTermFields,
   requiredDate,
-  toOfferInput,
   validatedDecimal,
+  type OfferFormValues,
 } from '../../offers/utils/offer-form';
 import type {
   RedemptionKind,
   RemunerationKind,
   TitleType,
 } from '../../offers/models/offer-terms';
-import type { OfferTermsInput } from '../../offers/models/offer.types';
 import type {
   CurveOption,
-  Investment,
   OfferOption,
   RemunerationOption,
   SimulationInput,
   SimulationOptions,
+  SimulationWorkspace,
 } from '../models/simulation.types';
 
 /**
@@ -33,12 +32,14 @@ import type {
  * are ISO calendar strings (or the raw text while a typed date is invalid).
  */
 export interface SimulationFormValues {
-  // A visible offer, or terms typed for a new private offer, saved as its own
-  // offer before the simulation. The term fields mirror the chosen offer in
-  // "existing" mode.
-  offerMode: 'existing' | 'new';
+  // A chosen offer, the chosen own offer's terms being edited, or terms for a
+  // new private offer. Edited and new offers are saved before the simulation.
+  // The term fields mirror the chosen offer in "existing" mode.
+  offerMode: 'existing' | 'editing' | 'new';
   offerId: string;
-  // The new offer's name; unused for an existing offer.
+  // The offer "Duplicar e ajustar" copied; blank for "Nova oferta".
+  copiedOfferId: string;
+  // The edited or new offer's name; unused for a chosen offer.
   offerName: string;
   principal: string;
   investmentDate: string;
@@ -53,7 +54,10 @@ export interface SimulationFormValues {
   curveId: string;
 }
 
-export type SimulationField = Exclude<keyof SimulationFormValues, 'offerMode'>;
+export type SimulationField = Exclude<
+  keyof SimulationFormValues,
+  'offerMode' | 'copiedOfferId'
+>;
 
 /** The remuneration option of a kind; every kind is listed by the API. */
 export function remunerationOption(
@@ -68,8 +72,9 @@ export function simulationFormSchema(
 ) {
   return z
     .object({
-      offerMode: z.enum(['existing', 'new']),
+      offerMode: z.enum(['existing', 'editing', 'new']),
       offerId: z.string(),
+      copiedOfferId: z.string(),
       offerName: z.string().max(100, 'Use até 100 caracteres.'),
       principal: decimalText(
         'Informe o valor aplicado.',
@@ -83,7 +88,7 @@ export function simulationFormSchema(
       curveId: z.string(),
     })
     .superRefine((values, context) => {
-      if (values.offerMode === 'existing' && !values.offerId) {
+      if (values.offerMode !== 'new' && !values.offerId) {
         context.addIssue({
           code: 'custom',
           path: ['offerId'],
@@ -114,19 +119,31 @@ export function simulationFormSchema(
     });
 }
 
-/** The typed terms as the new private offer. */
-export function toTypedOfferInput(
-  values: SimulationFormValues,
-): OfferTermsInput {
-  return toOfferInput({ ...values, name: values.offerName });
+/** The edited or new offer's terms, as the offer editor holds them. */
+export function offerFormValues(values: SimulationFormValues): OfferFormValues {
+  return {
+    name: values.offerName,
+    titleType: values.titleType,
+    issuerName: values.issuerName,
+    remunerationKind: values.remunerationKind,
+    rate: values.rate,
+    maturityDate: values.maturityDate,
+    redemptionKind: values.redemptionKind,
+  };
 }
 
-/** The form once its typed terms were saved as the offer with this id. */
+/** The form once its edited or new terms were saved as the offer with this id. */
 export function savedOfferValues(
   values: SimulationFormValues,
   offerId: string,
 ): SimulationFormValues {
-  return { ...values, offerMode: 'existing', offerId, offerName: '' };
+  return {
+    ...values,
+    offerMode: 'existing',
+    offerId,
+    copiedOfferId: '',
+    offerName: '',
+  };
 }
 
 /** Converts validated values with a chosen offer into the create or edit payload. */
@@ -159,6 +176,7 @@ export function blankSimulationValues(
   return {
     offerMode: 'existing',
     offerId: '',
+    copiedOfferId: '',
     offerName: '',
     principal: '',
     investmentDate: today,
@@ -172,24 +190,40 @@ export function blankSimulationValues(
   };
 }
 
-/** A saved simulation's choices, also the starting point of a duplicate. */
+/**
+ * A saved simulation's choices, also the starting point of a duplicate. A
+ * saved curve the offer's index no longer takes (the offer moved to another
+ * index or became prefixed) gives way to that index's default, so saving fixes
+ * the simulation; a deleted one stays, so the form names it as missing.
+ */
 export function simulationValues(
-  offer: Omit<OfferOption, 'unsupportedReason'>,
-  investment: Investment,
+  { offer, simulation, curve }: SimulationWorkspace,
+  remunerations: readonly RemunerationOption[],
 ): SimulationFormValues {
+  const { investment } = simulation;
+  const kind = offer.remunerationTerms.kind;
+  const fitsOffer =
+    curve?.deleted === true ||
+    (remunerationOption(remunerations, kind)?.curves ?? []).some(
+      (option) => option.id === investment.curveId,
+    );
   return {
     offerMode: 'existing',
     offerId: offer.id,
+    copiedOfferId: '',
     offerName: '',
     principal: toBrazilianInput(investment.principal),
     investmentDate: investment.investmentDate,
     titleType: offer.titleType,
     issuerName: offer.issuerName ?? '',
-    remunerationKind: offer.remunerationTerms.kind,
+    remunerationKind: kind,
     rate: toBrazilianInput(shiftDecimal(offer.remunerationTerms.rate, 2)),
     maturityDate: offer.maturityDate,
     redemptionKind: offer.redemptionTerms.kind,
-    curveId: investment.curveId ?? '',
+    curveId:
+      fitsOffer && investment.curveId
+        ? investment.curveId
+        : defaultCurveId(kind, remunerations),
   };
 }
 

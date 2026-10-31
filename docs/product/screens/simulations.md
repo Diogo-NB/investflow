@@ -139,8 +139,10 @@ valor aplicado, o período e a origem da oferta.
   campo.
 - "Salvar e calcular" fica desabilitado sem alterações. O texto abaixo dele
   diz o que salvar faz: "Salvar altera a oferta e recalcula esta simulação."
-  ("…esta e outras N simulações.") ao editar a oferta e "Salvar cria a oferta
-  e calcula a simulação." numa nova oferta. Uma simulação recusada
+  ("…esta e outras N simulações."; "Salvar altera a oferta e cria a
+  simulação." numa simulação nova; "Salvar altera a oferta." quando só o
+  apelido, o emissor ou a liquidez mudam) ao editar a oferta e "Salvar cria a
+  oferta e calcula a simulação." numa nova oferta. Uma simulação recusada
   não é salva: o formulário mantém as edições como não salvas e o motivo
   aparece no campo responsável (valor aplicado, dia não útil, prazo mínimo,
   índice, oferta ou curva ausente). Se a simulação foi alterada em outro lugar,
@@ -162,6 +164,11 @@ valor aplicado, o período e a origem da oferta.
   outra") ou corrigir o campo. A falta de cobertura, que só acontece antes do
   início de uma curva, nomeia os períodos sem valor ("A curva não tem valores
   entre 02/01/2023 e 29/12/2023") e leva à curva ("Ver curva <nome>").
+  Depois que a oferta muda de índice, o motivo nomeia o índice novo ("A curva
+  não é do SELIC, o índice da oferta. Escolha uma curva do SELIC e salve.";
+  "A oferta é prefixada e não usa curva." numa oferta prefixada), e o
+  formulário já troca a curva salva pela do índice novo quando há só uma, de
+  modo que salvar resolve.
 - "Falha técnica" explica que as novas tentativas automáticas se esgotaram e
   oferece "Tentar novamente", que pede o cálculo de novo.
 
