@@ -160,7 +160,8 @@ dependencies; targets `synth`, `diff`, `deploy`, `test`, `typecheck`, `lint`).
 
 - GitHub: after the first release, make both packages public; the
   `production` environment with the Dokploy URL, compose ID, and API key.
-- AWS: deploy the stack; create the access key.
+- AWS: deploy the stack (the account is already CDK-bootstrapped in
+  `sa-east-1`); create the access key.
 - Dokploy: a compose service in the `investflow` project reading
   `infra/dokploy/compose.yaml` from `main`, autodeploy off; its environment; the two
   domain routes; a member limited to the project and its API key, checked to
