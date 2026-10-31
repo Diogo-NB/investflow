@@ -63,13 +63,16 @@ Stop every process you started before finishing, and only those.
 
 The API listens on `http://localhost:3000/api`, with routes under
 `/api/investment-simulator/...`. Get a token for the development user with
-the API client's password grant (values from `.env`):
+the API client's password grant (values from `.env`). The client secret is
+the local realm's, literally `**********`: Keycloak masks secrets on export,
+and the masked value became the secret on import. The API itself needs no
+secret.
 
 ```bash
 set -a; . ./.env; set +a
 TOKEN=$(curl -s -X POST "$KEYCLOAK_URL/realms/$KEYCLOAK_REALM/protocol/openid-connect/token" \
   -d grant_type=password -d client_id="$KEYCLOAK_CLIENT_ID" \
-  -d client_secret="$KEYCLOAK_CLIENT_SECRET" \
+  --data-urlencode 'client_secret=**********' \
   -d username=investflow-dev -d password=investflow-dev | jq -r .access_token)
 curl -s -H "Authorization: Bearer $TOKEN" localhost:3000/api/investment-simulator/simulations | jq
 ```

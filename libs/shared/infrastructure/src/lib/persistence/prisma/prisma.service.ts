@@ -12,6 +12,9 @@ import { TransactionalPrismaClient } from './prisma-client.type';
 import { UnitOfWorkContext } from '../unit-of-work.context';
 
 const TRANSACTION_TIMEOUT = 10_000;
+// Production shares one PostgreSQL instance's max_connections (100) across
+// projects. With the pg adapter, a connection_limit URL parameter is ignored.
+const DATABASE_POOL_SIZE = 10;
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnApplicationShutdown {
@@ -22,6 +25,7 @@ export class PrismaService implements OnModuleInit, OnApplicationShutdown {
   constructor(config: ConfigService) {
     this.pool = new Pool({
       connectionString: config.getOrThrow<string>('DATABASE_URL'),
+      max: DATABASE_POOL_SIZE,
     });
 
     const adapter = new PrismaPg(this.pool);
