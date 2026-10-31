@@ -12,9 +12,9 @@ EventBridge and SQS stay on AWS in `sa-east-1`, reached over HTTPS (see
 "Hosting is not tied to AWS" in [Messaging Transport](./messaging.md)).
 
 ```
-git tag vX.Y.Z ─▶ GitHub Actions ─▶ GHCR :vX.Y.Z ─▶ :production ─▶ Dokploy API
-                  (pnpm check,                                     │
-                   prune, images)                                  ▼
+PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX.Y.Z ─▶ :production ─▶ Dokploy API
+                    (Release Please)  (pnpm check,                                   │
+                                       prune, images)                                ▼
                               VPS: investflow-migrate ─▶ investflow-api ─▶ investflow-web
                                         │                   │      │
                                    PostgreSQL           EventBridge, SQS (AWS)
@@ -85,7 +85,27 @@ git tag vX.Y.Z ─▶ GitHub Actions ─▶ GHCR :vX.Y.Z ─▶ :production ─�
 
 ## Releases
 
-- **Trigger.** A `vX.Y.Z` tag on `main` runs `release.yml`: one job checks,
+- **Pull requests only** (2026-10-31). A ruleset on `main` requires a pull
+  request with a green **CI** check (`ci.yml`: `pnpm check` and the API
+  prune), linear history, and squash merges, and blocks force pushes and
+  deletion, with no bypass. It requires no approval: GitHub does not let
+  authors approve their own pull requests, and with one collaborator a
+  required approval would need a bypass that also skips CI. Require one
+  approval when a second collaborator joins.
+- **Release Please** (2026-10-31). Every push to `main` runs
+  `release-please.yml`, which keeps a release pull request with the next
+  version and `CHANGELOG.md`, computed from the Conventional Commit
+  messages on `main`; squash merges make the pull request title that
+  message. Merging the release pull request is the release approval: it
+  publishes the GitHub release `vX.Y.Z`, which creates the tag. Release
+  Please acts with a GitHub App's token because pull requests and releases
+  made with `GITHUB_TOKEN` start no workflows: the release pull request
+  would never get its required check and the release would never deploy. A
+  personal access token would work too, but expires and acts as its owner.
+  A ruleset on `v*` tags lets only that App create, move, or delete them,
+  so nothing deploys outside Release Please. Before 1.0 a breaking change
+  bumps the minor version.
+- **Trigger.** A published `vX.Y.Z` release on `main` runs `release.yml`: one job checks,
   prunes, and pushes both images as `:vX.Y.Z` (one job, because artifact
   uploads drop the pruned output's empty `workspace_modules`), then
   `deploy-production.yml` deploys. `rollback.yml` deploys an earlier

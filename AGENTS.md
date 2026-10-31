@@ -207,6 +207,8 @@ a check that did not run.
 ## Commit & Pull Request Guidelines
 
 Follow Conventional Commits (`feat: ...`, `fix: ...`), scoped and imperative.
+Pull requests are squash-merged, so the title is the commit Release Please
+reads for the version and changelog (`docs/architecture/deployment.md`).
 Pull requests explain behavior changes, name the affected contexts, include
 validation commands and request/response examples for API changes, and call
 out schema migrations or configuration changes.
