@@ -6,8 +6,15 @@ this file in the same change that ships or changes a built behavior.
 
 ## Built
 
-- **Messaging:** runs locally end to end on EventBridge and SQS FIFO queues
-  emulated by Floci. Events are recorded in the unit of work, written to the
+- **Production:** runs at `https://investflow.diogo-nb.com.br` since
+  `v0.1.0` (2026-10-31): the API, its migrations, and the web app as one
+  Dokploy compose service on the shared VPS, released by version tags
+  through GitHub Actions, with EventBridge and SQS on AWS provisioned by
+  CDK. How and why is in
+  [Production Deployment](../architecture/deployment.md); follow-ups are in
+  [Production Hardening](./planned/production-hardening.md).
+- **Messaging:** runs end to end on EventBridge and SQS FIFO queues, emulated
+  locally by Floci. Events are recorded in the unit of work, written to the
   outbox before commit, published right after commit by the relay, and
   retried by a poller that several instances can run; publishing pauses
   during broker outages. The API binds the simulation calculation,

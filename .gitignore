@@ -57,3 +57,6 @@ vitest.config.*.timestamp*
 
 # CDK synthesis output
 infra/aws/cdk.out
+
+# Python bytecode
+__pycache__/

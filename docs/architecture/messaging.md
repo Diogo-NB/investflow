@@ -154,8 +154,8 @@ This replaces the earlier SNS topic per context.
   differ. It adds a standard `event-delivery-dlq` that keeps the events
   EventBridge fails to deliver to a queue, and the `investflow-api` IAM user,
   which may only publish to the bus and receive and delete messages on the
-  queues the API consumes, and only from the VPS's public IP
-  (`aws:SourceIp`), so a leaked key is useless elsewhere.
+  queues the API consumes; how it authenticates is in
+  [Production Deployment](./deployment.md#aws).
 - **Local emulation.** Floci needs no account or auth token, unlike LocalStack
   since its 2026.03 release. `infra/floci/init/provision.sh` runs on every
   container start (Floci keeps state in memory) and creates the bus and each

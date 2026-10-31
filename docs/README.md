@@ -20,7 +20,7 @@ Product docs are in pt-BR and in product language: general terms such as DDD, ev
 What is built and what is pending, in English.
 
 - [current-state.md](implementation/current-state.md): what is built, per area, and where it differs from the target model. Read when: checking whether something exists before planning or building on it.
-- [planned/](implementation/planned/): one file per pending feature or postponed work, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](implementation/planned/bcb-rate-import.md), [fan-out-at-scale.md](implementation/planned/fan-out-at-scale.md), [api-mcp-server.md](implementation/planned/api-mcp-server.md), [production-deployment.md](implementation/planned/production-deployment.md). Read when: planning or starting that feature, or touching an area it names.
+- [planned/](implementation/planned/): one file per pending feature or postponed work, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](implementation/planned/bcb-rate-import.md), [fan-out-at-scale.md](implementation/planned/fan-out-at-scale.md), [api-mcp-server.md](implementation/planned/api-mcp-server.md), [production-hardening.md](implementation/planned/production-hardening.md). Read when: planning or starting that feature, or touching an area it names.
 
 ## Architecture
 
@@ -29,6 +29,7 @@ What is built and what is pending, in English.
 - [recalculation.md](architecture/recalculation.md): mutable offers and curves, revisions, asynchronous calculation and recalculation. Read when: changing offers, curves, simulations, or their calculation.
 - [messaging.md](architecture/messaging.md): outbox, relay, poller, EventBridge, SQS FIFO, consumers, hosts. Read when: changing how events are recorded, published, routed, or consumed.
 - [event-flow.md](architecture/event-flow.md): visual walkthrough of events and recalculation; the Event Catalog. Read when: adding or changing an event, or learning the flow.
+- [deployment.md](architecture/deployment.md): production on the shared VPS: the compose service, images, releases and rollbacks, AWS credentials. Read when: changing the Dockerfiles, `infra/dokploy`, `infra/aws`, or the release workflows. Procedures are in the [runbook](../infra/dokploy/README.md).
 - [frontend-patterns.md](architecture/frontend-patterns.md): frontend decisions, pinned stack, app structure, composition contract, configuration, browser verification, the business calendar. Read when: adding a dependency, project, route export, or form business rule, or before browser checks.
 
 [`DESIGN.md`](../DESIGN.md) at the root owns the visual design tokens.
