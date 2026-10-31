@@ -20,7 +20,7 @@ Product docs are in pt-BR and in product language: general terms such as DDD, ev
 What is built and what is pending, in English.
 
 - [current-state.md](implementation/current-state.md): what is built, per area, and where it differs from the target model. Read when: checking whether something exists before planning or building on it.
-- [planned/](implementation/planned/): one file per pending feature or postponed work, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](implementation/planned/bcb-rate-import.md), [fan-out-at-scale.md](implementation/planned/fan-out-at-scale.md), [api-mcp-server.md](implementation/planned/api-mcp-server.md). Read when: planning or starting that feature, or touching an area it names.
+- [planned/](implementation/planned/): one file per pending feature or postponed work, with its open decisions, scope, and done criteria; deleted once it ships. Today: [bcb-rate-import.md](implementation/planned/bcb-rate-import.md), [fan-out-at-scale.md](implementation/planned/fan-out-at-scale.md), [api-mcp-server.md](implementation/planned/api-mcp-server.md), [production-deployment.md](implementation/planned/production-deployment.md). Read when: planning or starting that feature, or touching an area it names.
 
 ## Architecture
 
