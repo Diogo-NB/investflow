@@ -30,6 +30,8 @@ export function describeCause({ cause }: SimulationCalculation): string {
       return 'nova tentativa solicitada';
     case 'METHODOLOGY_CHANGED':
       return 'a metodologia de cálculo mudou';
+    case 'PREMISES_CHANGED':
+      return 'oferta ou curva alterada';
   }
 }
 

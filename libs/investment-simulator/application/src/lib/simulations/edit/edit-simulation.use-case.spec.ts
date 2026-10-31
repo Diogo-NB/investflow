@@ -22,6 +22,7 @@ import {
   investmentRequest,
   ownedSimulation,
   OWNER_ID,
+  simulationScopedOffer,
 } from '../shared/simulation-fixture';
 import { SimulationPremisesService } from '../shared/simulation-premises.service';
 import { EditSimulationCommand } from './edit-simulation.command';
@@ -34,6 +35,7 @@ function setup() {
   const simulation = ownedSimulation(offer.id);
   const simulations = {
     findOwned: jest.fn().mockResolvedValue(Result.ok(simulation)),
+    findIdsByOffer: jest.fn().mockResolvedValue(Result.ok([])),
     save: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as jest.Mocked<SimulationRepository>;
   const offers = {
@@ -46,7 +48,7 @@ function setup() {
   const clock = { now: () => NOW } as unknown as Clock;
   const useCase = new EditSimulationUseCase(
     simulations,
-    new SimulationPremisesService(offers, curves),
+    new SimulationPremisesService(offers, curves, simulations),
     new SimulationCalculationService(new InvestmentCalculator()),
     clock,
   );
@@ -118,6 +120,29 @@ describe('EditSimulationUseCase', () => {
     expect(result.isOk()).toBe(true);
     expect(offers.findById).toHaveBeenCalledWith(other.id);
     expect(simulation.offerId).toBe(other.id);
+  });
+
+  it('keeps using its own terms, which only it uses', async () => {
+    const { offers, simulations, useCase } = setup();
+    const own = simulationScopedOffer();
+    offers.findById.mockResolvedValue(Result.ok(own));
+    simulations.findIdsByOffer.mockResolvedValue(Result.ok(['simulation-id']));
+
+    const result = await useCase.execute(command(own.id));
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  it("rejects another simulation's own terms as a missing offer", async () => {
+    const { offers, simulations, useCase } = setup();
+    const own = simulationScopedOffer();
+    offers.findById.mockResolvedValue(Result.ok(own));
+    simulations.findIdsByOffer.mockResolvedValue(Result.ok(['other-sim']));
+
+    const result = await useCase.execute(command(own.id));
+
+    expect(result.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
+    expect(simulations.save).not.toHaveBeenCalled();
   });
 
   it('reports a stale revision without saving', async () => {

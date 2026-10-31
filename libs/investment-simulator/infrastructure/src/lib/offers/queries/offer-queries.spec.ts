@@ -9,6 +9,7 @@ jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 const VIEWER = 'user-1';
 const VISIBLE = {
   deletedAt: null,
+  scope: 'CATALOG',
   OR: [{ ownerId: null }, { ownerId: VIEWER }],
 };
 

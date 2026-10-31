@@ -169,6 +169,7 @@ export function SimulationTable({
                   </Link>
                   <span className="block text-sm text-muted">
                     {issuerAndNameLabel({ ...item, name: item.offerName })}
+                    {item.offerScope === 'SIMULATION' && ' · Termos próprios'}
                   </span>
                 </span>
               </span>
@@ -231,6 +232,7 @@ export function SimulationRows({
               </span>
               <span className="block text-sm text-muted">
                 {issuerAndNameLabel({ ...item, name: item.offerName })}
+                {item.offerScope === 'SIMULATION' && ' · Termos próprios'}
               </span>
             </span>
             <NetResult item={item} />

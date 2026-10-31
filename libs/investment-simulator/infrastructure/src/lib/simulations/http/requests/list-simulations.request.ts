@@ -44,10 +44,6 @@ export class ListSimulationsRequest
 
   @IsOptional()
   @IsUUID()
-  excludingId?: string;
-
-  @IsOptional()
-  @IsUUID()
   curveId?: string;
 
   @Transform(({ value }: { value: unknown }) =>

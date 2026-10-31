@@ -1,7 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { changesOfferTerms } from '../../offers/utils/offer-form';
 import type { RemunerationKind } from '../../offers/models/offer-terms';
 import type {
   OfferOption,
@@ -9,36 +7,33 @@ import type {
 } from '../models/simulation.types';
 import type { SaveProblem } from '../utils/simulation-save-problem';
 import {
-  startsBeforeCurve,
+  changesOfferTerms,
   defaultCurveId,
-  offerFormValues,
   offerTermValues,
   remunerationOption,
   simulationFormSchema,
+  startsBeforeCurve,
   type SimulationFormValues,
 } from '../utils/simulation-form';
 
 const EDIT = { shouldDirty: true, shouldValidate: false } as const;
 
-const TERM_FIELDS = [
-  'titleType',
-  'issuerName',
-  'remunerationKind',
-  'rate',
-  'maturityDate',
-  'redemptionKind',
-] as const;
+type ChosenOffer = Omit<OfferOption, 'unsupportedReason'>;
 
 interface SimulationFormOptions {
   readonly initialValues: SimulationFormValues;
+  // The catalog offers the user can choose.
   readonly offers: readonly OfferOption[];
   readonly remunerations: readonly RemunerationOption[];
+  // The offer holding the saved simulation's own terms; null otherwise.
+  readonly ownTermsOffer?: ChosenOffer | null;
 }
 
 export function useSimulationForm({
   initialValues,
   offers,
   remunerations,
+  ownTermsOffer = null,
 }: SimulationFormOptions) {
   const form = useForm<SimulationFormValues>({
     resolver: zodResolver(simulationFormSchema(remunerations)),
@@ -56,11 +51,11 @@ export function useSimulationForm({
   );
   const curveOptions = remuneration?.curves ?? [];
   const curve = curveOptions.find((option) => option.id === values.curveId);
-  const offer = offers.find((option) => option.id === values.offerId);
-  // The offer as its edit started; edits are measured against it, never a
-  // later read.
-  const [editBaseline, setEditBaseline] = useState<OfferOption | null>(null);
-  const editedOffer = values.offerMode === 'editing' ? editBaseline : null;
+  const isOwnTerms =
+    ownTermsOffer !== null && values.offerId === ownTermsOffer.id;
+  const offer: ChosenOffer | undefined = isOwnTerms
+    ? (ownTermsOffer ?? undefined)
+    : offers.find((option) => option.id === values.offerId);
 
   function setValues(next: Partial<SimulationFormValues>) {
     for (const [field, value] of Object.entries(next)) {
@@ -78,104 +73,16 @@ export function useSimulationForm({
     });
   }
 
-  function chooseOffer(chosen: OfferOption) {
+  /** Follows the offer: its terms replace the typed ones; the investment stays. */
+  function chooseOffer(chosen: ChosenOffer) {
     setValues({
-      offerMode: 'existing',
       offerId: chosen.id,
-      copiedOfferId: '',
-      offerName: '',
       ...offerTermValues(
         chosen,
         { curveId: form.getValues('curveId') },
         remunerations,
       ),
     });
-  }
-
-  /** Copies the chosen offer's terms into a new private offer to adjust. */
-  function duplicateOffer() {
-    if (!offer) return;
-    setValues({
-      ...offerTermValues(
-        offer,
-        { curveId: form.getValues('curveId') },
-        remunerations,
-      ),
-      offerMode: 'new',
-      copiedOfferId: offer.id,
-      offerName: offer.name ? `${offer.name} (cópia)` : '',
-    });
-  }
-
-  function newOffer() {
-    const blank = initialTerms();
-    setValues({ ...blank, offerMode: 'new', copiedOfferId: '', offerName: '' });
-  }
-
-  /** Opens the chosen own offer's terms for editing in place. */
-  function editOffer(edited: OfferOption | undefined = offer) {
-    if (!edited || edited.origin !== 'OWN') return;
-    setEditBaseline(edited);
-    setValues({
-      ...offerTermValues(
-        edited,
-        { curveId: form.getValues('curveId') },
-        remunerations,
-      ),
-      offerId: edited.id,
-    });
-    // Opening the edit changes nothing yet, so it leaves nothing to save or
-    // discard.
-    form.setValue('offerMode', 'editing');
-    form.setValue('offerName', edited.name ?? '');
-    form.clearErrors([...TERM_FIELDS, 'offerName']);
-  }
-
-  /** The edited terms become a copy of the offer, which stays unchanged. */
-  function saveAsNewOffer() {
-    if (!editedOffer) return;
-    setValues({ offerMode: 'new', copiedOfferId: editedOffer.id });
-  }
-
-  /** Back to the offer's saved terms; the investment keeps its edits. */
-  function discardOfferEdits() {
-    if (editedOffer) chooseOffer(editedOffer);
-    form.clearErrors([...TERM_FIELDS, 'offerName']);
-  }
-
-  /** Chooses the offer the edited or typed terms were saved as; the terms stay. */
-  function chooseSavedOffer(offerId: string) {
-    setValues({
-      offerMode: 'existing',
-      offerId,
-      copiedOfferId: '',
-      offerName: '',
-    });
-  }
-
-  /** Back to the chosen offer, discarding the typed terms. */
-  function backToChosenOffer() {
-    if (offer) chooseOffer(offer);
-    else setValues({ offerMode: 'existing' });
-    form.clearErrors([...TERM_FIELDS, 'offerName']);
-  }
-
-  function initialTerms(): Partial<SimulationFormValues> {
-    const kind: RemunerationKind = 'CDI_PERCENTAGE';
-    const keepsCurve = (
-      remunerationOption(remunerations, kind)?.curves ?? []
-    ).some((option) => option.id === form.getValues('curveId'));
-    return {
-      titleType: 'CDB',
-      issuerName: '',
-      remunerationKind: kind,
-      rate: '',
-      maturityDate: '',
-      redemptionKind: 'AT_MATURITY',
-      curveId: keepsCurve
-        ? form.getValues('curveId')
-        : defaultCurveId(kind, remunerations),
-    };
   }
 
   function showProblem(problem: SaveProblem) {
@@ -187,27 +94,16 @@ export function useSimulationForm({
     );
   }
 
-  const editedRemuneration = editedOffer
-    ? remunerationOption(remunerations, editedOffer.remunerationTerms.kind)
-    : undefined;
-
   return {
     form,
     values,
-    // The visible offer chosen; undefined when none is, or it was deleted.
+    // The offer the terms came from: a catalog offer or the simulation's own;
+    // undefined for terms typed from scratch or a deleted offer.
     offer,
-    // The offer being edited, as its edit started; null in other modes.
-    editedOffer,
-    // Saving the edit changes what a calculation reads, so every simulation
-    // using the offer recalculates.
-    recalculatesOtherSimulations:
-      editedOffer !== null &&
-      changesOfferTerms(editedOffer, offerFormValues(values)),
-    // The edit moves the offer to another index (or none), which the other
-    // simulations' curves no longer match.
-    changesIndex:
-      editedOffer !== null &&
-      (editedRemuneration?.index ?? null) !== (remuneration?.index ?? null),
+    // The terms are the saved simulation's own, edited in place on save.
+    isOwnTerms,
+    // Saving would store terms that differ from the offer they came from.
+    termsChanged: changesOfferTerms(offer, values),
     index: remuneration?.index ?? null,
     curveOptions,
     curve,
@@ -215,13 +111,6 @@ export function useSimulationForm({
     startsBeforeCurve: startsBeforeCurve(values.investmentDate, curve),
     changeKind,
     chooseOffer,
-    duplicateOffer,
-    newOffer,
-    editOffer,
-    saveAsNewOffer,
-    discardOfferEdits,
-    backToChosenOffer,
-    chooseSavedOffer,
     showProblem,
   };
 }

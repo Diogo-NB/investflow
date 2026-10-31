@@ -13,8 +13,6 @@ export interface ListSimulationsQuery {
   readonly page: number;
   readonly pageSize: number;
   readonly offerId?: string;
-  // Leaves one simulation out, such as the one whose offer is being edited.
-  readonly excludingId?: string;
   readonly curveId?: string;
   // Part of the offer's name or issuer, ignoring case.
   readonly q?: string;
@@ -35,6 +33,8 @@ export interface ListSimulationsQuery {
 export interface SimulationListItem {
   readonly id: string;
   readonly offerName: string | null;
+  // SIMULATION when the terms are the simulation's own.
+  readonly offerScope: 'CATALOG' | 'SIMULATION';
   readonly principal: string;
   readonly investmentDate: string;
   readonly maturityDate: string;
@@ -72,6 +72,7 @@ const simulationSelect = {
   offer: {
     select: {
       name: true,
+      scope: true,
       titleType: true,
       issuerName: true,
       maturityDate: true,
@@ -122,7 +123,6 @@ export class ListSimulationsQueryHandler
           AND: [
             { ownerId: query.ownerId, deletedAt: null },
             query.offerId ? { offerId: query.offerId } : {},
-            query.excludingId ? { id: { not: query.excludingId } } : {},
             query.curveId ? { curveId: query.curveId } : {},
             query.q
               ? {
@@ -239,6 +239,7 @@ export class ListSimulationsQueryHandler
     return {
       id: record.id,
       offerName: offer.name,
+      offerScope: offer.scope,
       principal: record.principal.toFixed(),
       investmentDate: CalendarDate.fromUtcDate(
         record.investmentDate,

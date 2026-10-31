@@ -21,8 +21,6 @@ export interface SimulationListRequest extends SimulationListFilters {
   readonly page: number;
   // Only the plan's members.
   readonly investmentPlanId?: string;
-  // Leaves this simulation out.
-  readonly excludingId?: string;
   readonly pageSize?: number;
   readonly sort?: SimulationListSort;
 }

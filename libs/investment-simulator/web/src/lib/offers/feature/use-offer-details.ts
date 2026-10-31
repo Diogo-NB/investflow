@@ -37,7 +37,7 @@ export type OfferSimulationsState =
 /** The first page of the user's simulations that use an offer. */
 export function useOfferSimulations(
   offerId: string | undefined,
-  page: { readonly excludingId?: string; readonly pageSize?: number } = {},
+  page: { readonly pageSize?: number } = {},
 ) {
   const fetchFn = useApiFetch();
   const query = useQuery({

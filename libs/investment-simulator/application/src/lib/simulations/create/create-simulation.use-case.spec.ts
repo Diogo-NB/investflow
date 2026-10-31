@@ -24,6 +24,7 @@ import {
   cdiOffer,
   investmentRequest,
   OWNER_ID,
+  simulationScopedOffer,
 } from '../shared/simulation-fixture';
 import { SimulationPremisesService } from '../shared/simulation-premises.service';
 import { CreateSimulationCommand } from './create-simulation.command';
@@ -35,6 +36,7 @@ function setup() {
   const offer = catalogOffer();
   const simulations = {
     findOwned: jest.fn(),
+    findIdsByOffer: jest.fn().mockResolvedValue(Result.ok([])),
     save: jest.fn().mockResolvedValue(Result.ok(undefined)),
   } as unknown as jest.Mocked<SimulationRepository>;
   const offers = {
@@ -47,7 +49,7 @@ function setup() {
   const clock = { now: () => NOW } as unknown as Clock;
   const useCase = new CreateSimulationUseCase(
     simulations,
-    new SimulationPremisesService(offers, curves),
+    new SimulationPremisesService(offers, curves, simulations),
     new SimulationCalculationService(new InvestmentCalculator()),
     clock,
   );
@@ -97,6 +99,27 @@ describe('CreateSimulationUseCase', () => {
       simulation.getDomainEvents().map((event) => event.eventType),
     ).toEqual(['SimulationCreated']);
     expect(result.value).toEqual({ simulationId: simulation.id });
+  });
+
+  it('saves a simulation with own terms no other simulation uses', async () => {
+    const { offers, simulations, useCase } = setup();
+    offers.findById.mockResolvedValue(Result.ok(simulationScopedOffer()));
+
+    const result = await useCase.execute(command());
+
+    expect(result.isOk()).toBe(true);
+    expect(simulations.save).toHaveBeenCalled();
+  });
+
+  it("rejects another simulation's own terms as a missing offer", async () => {
+    const { offers, simulations, useCase } = setup();
+    offers.findById.mockResolvedValue(Result.ok(simulationScopedOffer()));
+    simulations.findIdsByOffer.mockResolvedValue(Result.ok(['other-sim']));
+
+    const result = await useCase.execute(command());
+
+    expect(result.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
+    expect(simulations.save).not.toHaveBeenCalled();
   });
 
   it('loads the curve of indexed remuneration', async () => {

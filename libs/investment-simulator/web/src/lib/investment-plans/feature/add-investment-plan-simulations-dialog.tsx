@@ -51,6 +51,7 @@ function PickerRow({
           </span>
           <span className="text-sm text-muted">
             {issuerAndNameLabel({ ...item, name: item.offerName })} ·{' '}
+            {item.offerScope === 'SIMULATION' && 'Termos próprios · '}
             {formatMoney(item.principal)} ·{' '}
             <span className="whitespace-nowrap tabular-nums">
               {formatIsoDate(item.investmentDate)} a{' '}

@@ -33,6 +33,7 @@ export class CreateSimulationUseCase
       command.ownerId,
       command.offerId,
       command.investment.curveId,
+      null,
     );
     if (premises.isErr()) return premises;
     const valid = this.calculation.validate(

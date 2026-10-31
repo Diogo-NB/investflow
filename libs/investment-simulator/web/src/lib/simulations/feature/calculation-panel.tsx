@@ -407,17 +407,16 @@ export function CalculationPanel({
               versão salva.
             </p>
           )}
-          {saved &&
-            (changedElsewhere || problem?.conflict === 'simulation') && (
-              <button
-                type="button"
-                className={`${secondaryButton} col-start-2 justify-self-start`}
-                onClick={saved.onReload}
-              >
-                <RefreshIcon className="size-5" />
-                Recarregar
-              </button>
-            )}
+          {saved && (changedElsewhere || problem?.conflict) && (
+            <button
+              type="button"
+              className={`${secondaryButton} col-start-2 justify-self-start`}
+              onClick={saved.onReload}
+            >
+              <RefreshIcon className="size-5" />
+              Recarregar
+            </button>
+          )}
         </div>
       )}
       {workspace && result ? (

@@ -41,6 +41,7 @@ export class EditSimulationUseCase
       command.ownerId,
       command.offerId,
       command.investment.curveId,
+      command.simulationId,
     );
     if (premises.isErr()) return premises;
     const valid = this.calculation.validate(

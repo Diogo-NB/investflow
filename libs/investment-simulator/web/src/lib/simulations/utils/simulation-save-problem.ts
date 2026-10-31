@@ -1,12 +1,13 @@
 import { ApiError } from '../../http/api-error';
-import type { SimulationField, SimulationFormValues } from './simulation-form';
+import type { SimulationField } from './simulation-form';
 
 export interface SaveProblem {
   readonly message: string;
   // The input the user should change, when one is responsible.
   readonly field: SimulationField | null;
-  // What changed elsewhere; reloading it shows the saved version.
-  readonly conflict: 'simulation' | 'offer' | null;
+  // The simulation or its own terms changed elsewhere; reloading shows the
+  // saved version.
+  readonly conflict: boolean;
 }
 
 // The API explains the failure; the form only needs to know where to point.
@@ -19,14 +20,12 @@ const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_PRINCIPAL_INVALID: 'principal',
 };
 
-const CONFLICT_BY_CODE: Readonly<
-  Record<string, NonNullable<SaveProblem['conflict']>>
-> = {
-  SIMULATION_REVISION_CONFLICT: 'simulation',
-  OFFER_REVISION_CONFLICT: 'offer',
-};
+const CONFLICT_CODES: ReadonlySet<string> = new Set([
+  'SIMULATION_REVISION_CONFLICT',
+  'OFFER_REVISION_CONFLICT',
+]);
 
-// Failures caused by the offer's terms, which are fields only while typed.
+// Failures caused by the terms, which the form always shows as fields.
 const TERM_FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_PERIOD_INVALID: 'maturityDate',
   INVESTMENT_TERM_TOO_SHORT: 'maturityDate',
@@ -34,42 +33,29 @@ const TERM_FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVALID_RATE: 'rate',
 };
 
-function problemField(
-  error: ApiError,
-  offerMode: SimulationFormValues['offerMode'],
-): SimulationField | null {
-  // Terms are fields while edited or typed; otherwise the chosen offer is.
-  const termField = (field: SimulationField) =>
-    offerMode === 'existing' ? 'offerId' : field;
+function problemField(error: ApiError): SimulationField | null {
   if (error.code === 'INVESTMENT_DATE_NOT_BUSINESS_DAY') {
     return error.details['field'] === 'maturityDate'
-      ? termField('maturityDate')
+      ? 'maturityDate'
       : 'investmentDate';
   }
   if (!error.code) return null;
-  const term = TERM_FIELD_BY_CODE[error.code];
-  if (term) return termField(term);
-  const field = FIELD_BY_CODE[error.code] ?? null;
-  // The offer picker is hidden while its offer is edited.
-  return field === 'offerId' && offerMode === 'editing' ? null : field;
+  return TERM_FIELD_BY_CODE[error.code] ?? FIELD_BY_CODE[error.code] ?? null;
 }
 
-export function describeSaveProblem(
-  error: unknown,
-  offerMode: SimulationFormValues['offerMode'],
-): SaveProblem {
+export function describeSaveProblem(error: unknown): SaveProblem {
   if (!(error instanceof ApiError)) {
     return {
       message:
         'Não foi possível concluir. Verifique sua conexão e tente novamente.',
       field: null,
-      conflict: null,
+      conflict: false,
     };
   }
   return {
     message:
       error.userMessage ?? 'Não foi possível concluir agora. Tente novamente.',
-    field: problemField(error, offerMode),
-    conflict: CONFLICT_BY_CODE[error.code ?? ''] ?? null,
+    field: problemField(error),
+    conflict: CONFLICT_CODES.has(error.code ?? ''),
   };
 }

@@ -45,13 +45,28 @@ model Offer {
   revision         Int
   // Raised only by changes a calculation reads; results record it.
   termsRevision    Int                        @map("terms_revision")
+  scope            OfferScope                 @default(CATALOG)
+  // The offer a simulation's own terms came from; only in the SIMULATION scope.
+  basedOnOfferId   String?                    @map("based_on_offer_id") @db.Uuid
   deletedAt        DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  basedOnOffer     Offer?                     @relation("OfferBase", fields: [basedOnOfferId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  offersBasedOnIt  Offer[]                    @relation("OfferBase")
   simulations      Simulation[]
 
   @@index([ownerId])
   @@map("offer")
+}
+
+// Where an offer can be used.
+enum OfferScope {
+  // Listed in Ofertas and offer pickers; any number of simulations.
+  CATALOG
+  // A simulation's own terms; listed nowhere, one simulation.
+  SIMULATION
+
+  @@map("offer_scope")
 }
 
 model Simulation {
@@ -119,6 +134,7 @@ enum SimulationCalculationCauseKind {
   SIMULATION_EDITED
   METHODOLOGY_CHANGED
   RETRY_REQUESTED
+  PREMISES_CHANGED
 
   @@map("simulation_calculation_cause_kind")
 }

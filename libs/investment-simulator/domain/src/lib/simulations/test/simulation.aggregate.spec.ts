@@ -170,6 +170,20 @@ describe('Simulation', () => {
     );
   });
 
+  it('records a changed offer or curve as the cause of an outcome nobody queued on the simulation', () => {
+    const simulation = create();
+    simulation.recordCalculation(calculated(simulation), LATER);
+
+    // The fan-out after an offer or curve change queues a calculation without
+    // marking the simulation pending.
+    simulation.recordCalculation(invalid(1), LATER);
+
+    expect(simulation.calculation.cause).toEqual({
+      kind: ESimulationCalculationCauseKind.PREMISES_CHANGED,
+      actorId: null,
+    });
+  });
+
   it('keeps the last result when an outcome is invalid', () => {
     const simulation = create();
     simulation.recordCalculation(calculated(simulation), LATER);

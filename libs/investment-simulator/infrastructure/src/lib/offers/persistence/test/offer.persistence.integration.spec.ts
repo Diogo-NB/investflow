@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import {
+  EOfferScope,
   ETitleType,
   Offer,
   RedemptionTerms,
@@ -17,6 +18,8 @@ import {
   TransactionalDomainEventRecorder,
   UnitOfWork,
 } from '@investflow/shared-infrastructure';
+import { GetOfferQueryHandler } from '../../queries/get-offer.query-handler';
+import { ListOffersQueryHandler } from '../../queries/list-offers.query-handler';
 import { PrismaOfferRepository } from '../prisma-offer.repository';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
@@ -61,6 +64,11 @@ describe('Offer PostgreSQL persistence', () => {
 
   afterAll(async () => {
     try {
+      // A base cannot be removed while an offer points at it.
+      await prisma.client.offer.updateMany({
+        where: { id: { in: offerIds } },
+        data: { basedOnOfferId: null },
+      });
       await prisma.client.offer.deleteMany({ where: { id: { in: offerIds } } });
       await prisma.client.outboxEvent.deleteMany({
         where: { aggregateId: { in: offerIds } },
@@ -162,5 +170,71 @@ describe('Offer PostgreSQL persistence', () => {
     expect((await offers.findById(offer.id)).error.code).toBe(
       EAppErrorCode.OFFER_NOT_FOUND,
     );
+  });
+
+  it("round trips a simulation's own terms with their base, then moves them to the catalog", async () => {
+    const base = await savedOffer();
+    const own = Offer.createSimulationScoped(
+      {
+        ownerId: 'user-id',
+        basedOnOfferId: base.id,
+        titleType: ETitleType.CDB,
+        maturityDate: CalendarDate.of('2030-05-20'),
+        redemptionTerms: RedemptionTerms.create('DAILY'),
+        remunerationTerms: RemunerationTerms.create(
+          'CDI_PERCENTAGE',
+          Rate.of('1.2'),
+        ),
+      },
+      AT,
+    );
+    offerIds.push(own.id);
+    const offers = inUnitOfWork(
+      unitOfWork,
+      new PrismaOfferRepository(prisma, events),
+    );
+    expect((await offers.save(own)).isOk()).toBe(true);
+
+    const loaded = (await offers.findById(own.id)).value;
+    expect(loaded.scope).toBe(EOfferScope.SIMULATION);
+    expect(loaded.basedOnOfferId).toBe(base.id);
+
+    expect((await offers.save(loaded.moveToCatalog(AT))).isOk()).toBe(true);
+    const moved = (await offers.findById(own.id)).value;
+    expect(moved.scope).toBe(EOfferScope.CATALOG);
+    expect(moved.basedOnOfferId).toBeNull();
+    expect(moved.revision).toBe(2);
+  });
+
+  it("keeps a simulation's own terms out of Ofertas", async () => {
+    const own = Offer.createSimulationScoped(
+      {
+        ownerId: 'scope-viewer',
+        basedOnOfferId: null,
+        titleType: ETitleType.LCA,
+        maturityDate: CalendarDate.of('2030-05-20'),
+        redemptionTerms: RedemptionTerms.create('DAILY'),
+        remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.1')),
+      },
+      AT,
+    );
+    offerIds.push(own.id);
+    await inUnitOfWork(
+      unitOfWork,
+      new PrismaOfferRepository(prisma, events),
+    ).save(own);
+
+    const listed = await new ListOffersQueryHandler(prisma).execute({
+      viewerId: 'scope-viewer',
+      page: 1,
+      pageSize: 100,
+      origin: 'OWN',
+    });
+    expect(listed.value.items.map((item) => item.id)).not.toContain(own.id);
+    const read = await new GetOfferQueryHandler(prisma).execute({
+      viewerId: 'scope-viewer',
+      offerId: own.id,
+    });
+    expect(read.error.code).toBe(EAppErrorCode.OFFER_NOT_FOUND);
   });
 });

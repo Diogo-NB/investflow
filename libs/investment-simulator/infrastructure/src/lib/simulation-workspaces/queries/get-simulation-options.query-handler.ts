@@ -24,7 +24,7 @@ import {
   offerSummaryOrder,
   offerSummarySelect,
   toOfferSummary,
-  visibleOfferWhere,
+  catalogOfferWhere,
 } from '../../offers/queries/offer-projection';
 import { SimulationWorkspaceQueryError } from './simulation-workspace-query.error';
 
@@ -123,7 +123,7 @@ export class GetSimulationOptionsQueryHandler
             orderBy: curveSummaryOrder,
           }),
           this.prisma.client.offer.findMany({
-            where: visibleOfferWhere(query.viewerId),
+            where: catalogOfferWhere(query.viewerId),
             select: offerSummarySelect,
             orderBy: offerSummaryOrder,
           }),

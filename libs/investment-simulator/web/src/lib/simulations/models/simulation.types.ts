@@ -10,13 +10,18 @@ import type {
   OfferSummary,
 } from '../../offers/models/offer.types';
 
+// CATALOG offers are listed in Ofertas; a SIMULATION offer holds one
+// simulation's own terms.
+export type OfferScope = 'CATALOG' | 'SIMULATION';
+
 export type CalculationStatus = 'PENDING' | 'CALCULATED' | 'INVALID' | 'FAILED';
 
 export type CalculationCauseKind =
   | 'CREATED'
   | 'SIMULATION_EDITED'
   | 'METHODOLOGY_CHANGED'
-  | 'RETRY_REQUESTED';
+  | 'RETRY_REQUESTED'
+  | 'PREMISES_CHANGED';
 
 export interface SimulationCalculation {
   readonly status: CalculationStatus;
@@ -36,6 +41,7 @@ export interface SimulationCalculation {
 export interface SimulationListItem {
   readonly id: string;
   readonly offerName: string | null;
+  readonly offerScope: OfferScope;
   readonly principal: string;
   readonly investmentDate: string;
   readonly maturityDate: string;
@@ -166,16 +172,25 @@ export interface Investment {
   readonly curveId: string | null;
 }
 
+export type WorkspaceOffer = Omit<OfferOption, 'unsupportedReason'> & {
+  readonly deleted: boolean;
+};
+
+export type SimulationOffer = WorkspaceOffer & {
+  readonly scope: OfferScope;
+  readonly basedOn: WorkspaceOffer | null;
+};
+
 export interface SimulationWorkspace {
   readonly simulation: {
     readonly id: string;
     readonly revision: number;
     readonly investment: Investment;
   };
-  // Also when deleted, so the screen can ask for another one.
-  readonly offer: Omit<OfferOption, 'unsupportedReason'> & {
-    readonly deleted: boolean;
-  };
+  // Also when deleted, so the screen can ask for another one. With the
+  // simulation's own terms, basedOn is the offer they came from (also when
+  // deleted), or null when they were typed from scratch.
+  readonly offer: SimulationOffer;
   readonly curve: {
     readonly id: string;
     readonly name: string;

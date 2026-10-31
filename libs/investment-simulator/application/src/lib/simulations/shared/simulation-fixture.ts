@@ -39,6 +39,21 @@ export function catalogOffer(ownerId: string | null = null) {
   );
 }
 
+// A simulation's own terms, based on a catalog offer.
+export function simulationScopedOffer() {
+  return Offer.createSimulationScoped(
+    {
+      ownerId: OWNER_ID,
+      basedOnOfferId: 'base-offer',
+      titleType: ETitleType.CDB,
+      maturityDate: CalendarDate.of('2030-01-02'),
+      redemptionTerms: RedemptionTerms.create('AT_MATURITY'),
+      remunerationTerms: RemunerationTerms.create('PREFIXED', Rate.of('0.13')),
+    },
+    UtcInstant.ofIso('2026-01-01T00:00:00Z'),
+  );
+}
+
 export function cdiOffer() {
   return Offer.create(
     {

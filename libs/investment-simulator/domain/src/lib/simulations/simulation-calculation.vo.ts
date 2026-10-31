@@ -20,6 +20,9 @@ export enum ESimulationCalculationCauseKind {
   SIMULATION_EDITED = 'SIMULATION_EDITED',
   METHODOLOGY_CHANGED = 'METHODOLOGY_CHANGED',
   RETRY_REQUESTED = 'RETRY_REQUESTED',
+  // The simulation's offer or curve changed; recorded with the outcome, since
+  // the fan-out queues the calculation without marking the simulation.
+  PREMISES_CHANGED = 'PREMISES_CHANGED',
 }
 
 export interface SimulationCalculationCause {
@@ -61,7 +64,9 @@ export interface SimulationCalculationProps {
 }
 
 // The current calculation state of a simulation. The cause is set when the
-// calculation is queued and kept on its outcome.
+// calculation is queued and kept on its outcome. A simulation's own create,
+// edit, or retry always marks it pending, so an outcome recorded while it is
+// not pending was queued by a change to its offer or curve.
 export class SimulationCalculation extends ValueObject<SimulationCalculation> {
   private constructor(private readonly props: SimulationCalculationProps) {
     super();
@@ -125,9 +130,16 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
     outcome: SimulationCalculationOutcome,
     at: UtcInstant,
   ): SimulationCalculation {
+    const cause: SimulationCalculationCause = this.isPending
+      ? this.props.cause
+      : {
+          kind: ESimulationCalculationCauseKind.PREMISES_CHANGED,
+          actorId: null,
+        };
     if (outcome.kind === 'CALCULATED') {
       return new SimulationCalculation({
         ...this.props,
+        cause,
         status: ESimulationCalculationStatus.CALCULATED,
         changedAt: at,
         simulationRevision: outcome.simulationRevision,
@@ -137,6 +149,7 @@ export class SimulationCalculation extends ValueObject<SimulationCalculation> {
     }
     return new SimulationCalculation({
       ...this.props,
+      cause,
       status: ESimulationCalculationStatus.INVALID,
       changedAt: at,
       simulationRevision: outcome.simulationRevision,

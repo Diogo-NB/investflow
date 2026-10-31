@@ -16,10 +16,8 @@ import { useSimulationWorkspace } from '../use-simulation-workspace';
 const API = '/api/investment-simulator';
 
 const values: SimulationFormValues = {
-  offerMode: 'existing',
-  copiedOfferId: '',
   offerId: 'cdi-offer',
-  offerName: '',
+  offerName: 'Reserva',
   principal: '10.000',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
@@ -31,33 +29,22 @@ const values: SimulationFormValues = {
   curveId: 'cdi',
 };
 
-const typed: SimulationFormValues = {
-  ...values,
-  offerMode: 'new',
-  offerName: ' LCI digitada ',
-  titleType: 'LCI',
-};
+// The offer's terms with the rate changed from 105% to 110%.
+const changed: SimulationFormValues = { ...values, rate: '110' };
 
+// The form's values following cdiOffer.
 const request = (formValues: SimulationFormValues, revision: number) => ({
   values: formValues,
-  editedOffer: null,
+  offer: cdiOffer,
+  isOwnTerms: false,
   revision,
-  changesSimulation: true,
 });
 
-// The chosen own offer with its rate edited from 105 to 110.
-const editing = () => ({
-  ...request(
-    { ...values, offerMode: 'editing', offerName: 'Reserva', rate: '110' },
-    3,
-  ),
-  editedOffer: cdiOffer,
-});
+const ownTerms = { ...cdiOffer, id: 'own-terms', revision: 1 };
 
 const callbacks = () => ({
   onSaved: vi.fn(),
   onProblem: vi.fn(),
-  onOfferSaved: vi.fn(),
 });
 
 const savedRoutes = {
@@ -85,7 +72,6 @@ describe('useSimulationWorkspace', () => {
     const setup = result.current.hook.setup;
     expect(setup.status === 'ready' && setup.workspace).toEqual(workspace);
     expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
-      offerMode: 'existing',
       offerId: 'cdi-offer',
       principal: '10000',
       rate: '105',
@@ -131,7 +117,7 @@ describe('useSimulationWorkspace', () => {
     expect(result.current.hook.edit.problem).toBeNull();
   });
 
-  it('points a term rejection at the offer field', async () => {
+  it('points a term rejection at the term field', async () => {
     const api = fakeApi({
       ...savedRoutes,
       [`PATCH ${API}/simulations/sim`]: apiFailure(
@@ -147,72 +133,54 @@ describe('useSimulationWorkspace', () => {
 
     await waitFor(() => expect(saving.onProblem).toHaveBeenCalled());
     expect(saving.onProblem.mock.calls[0][0]).toMatchObject({
-      field: 'offerId',
+      field: 'maturityDate',
     });
     expect(saving.onSaved).not.toHaveBeenCalled();
   });
 
-  it('saves typed terms as an offer, then the edit using it', async () => {
+  it('saves changed terms as own terms, then the edit using them', async () => {
     const api = fakeApi({
       ...savedRoutes,
-      [`POST ${API}/offers`]: { offerId: 'typed-offer' },
+      [`POST ${API}/offers/simulation-scoped`]: { offerId: 'own-terms' },
       [`PATCH ${API}/simulations/sim`]: { revision: 4 },
     });
     const saving = callbacks();
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(request(typed, 3), saving));
+    act(() => result.current.hook.edit.run(request(changed, 3), saving));
 
     await waitFor(() => expect(saving.onSaved).toHaveBeenCalled());
-    expect(saving.onOfferSaved).toHaveBeenCalledWith('typed-offer');
-    // The form restarts from the saved offer, so the next save reuses it.
-    expect(saving.onSaved).toHaveBeenCalledWith(
+    expect(api.bodies(`POST ${API}/offers/simulation-scoped`)).toEqual([
       {
-        ...typed,
-        offerMode: 'existing',
-        offerId: 'typed-offer',
-        offerName: '',
+        titleType: 'CDB',
+        name: 'Reserva',
+        issuerName: 'Banco Local',
+        maturityDate: '2026-03-02',
+        redemptionTerms: { kind: 'DAILY' },
+        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+        basedOnOfferId: 'cdi-offer',
       },
+    ]);
+    // The form restarts from the own terms, so the next save edits them.
+    expect(saving.onSaved).toHaveBeenCalledWith(
+      { ...changed, offerId: 'own-terms' },
       4,
     );
     expect(api.bodies(`PATCH ${API}/simulations/sim`)).toEqual([
-      expect.objectContaining({ revision: 3, offerId: 'typed-offer' }),
+      expect.objectContaining({ revision: 3, offerId: 'own-terms' }),
     ]);
     expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
-      `POST ${API}/offers`,
+      `POST ${API}/offers/simulation-scoped`,
       `PATCH ${API}/simulations/sim`,
     ]);
   });
 
-  it('keeps the saved offer chosen when the edit is then rejected', async () => {
+  it('edits its own terms in place before the simulation', async () => {
     const api = fakeApi({
       ...savedRoutes,
-      [`POST ${API}/offers`]: { offerId: 'typed-offer' },
-      [`PATCH ${API}/simulations/sim`]: apiFailure(
-        422,
-        'INVESTMENT_TERM_TOO_SHORT',
-      ),
-    });
-    const saving = callbacks();
-    const { result } = render(api, 'sim', '/simulacoes/sim');
-    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-
-    act(() => result.current.hook.edit.run(request(typed, 3), saving));
-
-    await waitFor(() => expect(saving.onProblem).toHaveBeenCalled());
-    expect(saving.onOfferSaved).toHaveBeenCalledWith('typed-offer');
-    expect(saving.onProblem.mock.calls[0][0]).toMatchObject({
-      field: 'offerId',
-    });
-    expect(saving.onSaved).not.toHaveBeenCalled();
-    expect(result.current.hook.edit.problem?.field).toBe('offerId');
-  });
-
-  it('saves only the offer when the edit changed nothing else', async () => {
-    const api = fakeApi({
-      ...savedRoutes,
-      [`PATCH ${API}/offers/cdi-offer`]: undefined,
+      [`PATCH ${API}/offers/own-terms`]: undefined,
+      [`PATCH ${API}/simulations/sim`]: { revision: 4 },
     });
     const saving = callbacks();
     const { result } = render(api, 'sim', '/simulacoes/sim');
@@ -220,100 +188,68 @@ describe('useSimulationWorkspace', () => {
 
     act(() =>
       result.current.hook.edit.run(
-        { ...editing(), changesSimulation: false },
+        {
+          values: { ...values, offerId: 'own-terms', rate: '120' },
+          offer: {
+            ...ownTerms,
+            remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+          },
+          isOwnTerms: true,
+          revision: 3,
+        },
         saving,
       ),
     );
 
     await waitFor(() => expect(saving.onSaved).toHaveBeenCalled());
-    expect(api.bodies(`PATCH ${API}/offers/cdi-offer`)).toEqual([
+    expect(api.bodies(`PATCH ${API}/offers/own-terms`)).toEqual([
       {
-        revision: 2,
-        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+        revision: 1,
+        remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.2' },
       },
     ]);
-    expect(saving.onOfferSaved).toHaveBeenCalledWith('cdi-offer');
-    // The simulation keeps its revision: the offer's save recalculates it.
-    expect(saving.onSaved).toHaveBeenCalledWith(
-      expect.objectContaining({ offerMode: 'existing', rate: '110' }),
-      3,
-    );
     expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
-      `PATCH ${API}/offers/cdi-offer`,
+      `PATCH ${API}/offers/own-terms`,
+      `PATCH ${API}/simulations/sim`,
     ]);
   });
 
-  it('saves the edited offer before the simulation that changed with it', async () => {
+  it('sends only the simulation while its terms follow the offer', async () => {
     const api = fakeApi({
       ...savedRoutes,
-      [`PATCH ${API}/offers/cdi-offer`]: undefined,
       [`PATCH ${API}/simulations/sim`]: { revision: 4 },
     });
     const saving = callbacks();
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(editing(), saving));
+    act(() =>
+      result.current.hook.edit.run(
+        request({ ...values, principal: '20.000' }, 3),
+        saving,
+      ),
+    );
 
     await waitFor(() => expect(saving.onSaved).toHaveBeenCalled());
     expect(api.calls().filter((call) => !call.startsWith('GET'))).toEqual([
-      `PATCH ${API}/offers/cdi-offer`,
       `PATCH ${API}/simulations/sim`,
     ]);
-    expect(api.bodies(`PATCH ${API}/simulations/sim`)).toEqual([
-      expect.objectContaining({ revision: 3, offerId: 'cdi-offer' }),
-    ]);
   });
 
-  it('keeps the edited offer saved when the simulation is then rejected', async () => {
+  it('saves no simulation when its own terms are rejected', async () => {
     const api = fakeApi({
       ...savedRoutes,
-      [`PATCH ${API}/offers/cdi-offer`]: undefined,
-      [`PATCH ${API}/simulations/sim`]: apiFailure(
-        422,
-        'INVESTMENT_PRINCIPAL_INVALID',
-      ),
+      [`POST ${API}/offers/simulation-scoped`]: apiFailure(400, 'INVALID_RATE'),
     });
     const saving = callbacks();
     const { result } = render(api, 'sim', '/simulacoes/sim');
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.edit.run(editing(), saving));
+    act(() => result.current.hook.edit.run(request(changed, 3), saving));
 
     await waitFor(() => expect(saving.onProblem).toHaveBeenCalled());
-    expect(saving.onOfferSaved).toHaveBeenCalledWith('cdi-offer');
-    expect(saving.onProblem.mock.calls[0][0]).toMatchObject({
-      field: 'principal',
-    });
-    expect(saving.onSaved).not.toHaveBeenCalled();
-  });
-
-  it('reports an offer changed elsewhere and sends no simulation', async () => {
-    const api = fakeApi({
-      ...savedRoutes,
-      [`PATCH ${API}/offers/cdi-offer`]: apiFailure(
-        409,
-        'OFFER_REVISION_CONFLICT',
-      ),
-    });
-    const saving = callbacks();
-    const { result } = render(api, 'sim', '/simulacoes/sim');
-    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
-
-    act(() => result.current.hook.edit.run(editing(), saving));
-
-    await waitFor(() =>
-      expect(result.current.hook.edit.problem).toMatchObject({
-        conflict: 'offer',
-        field: null,
-      }),
-    );
-    expect(saving.onOfferSaved).not.toHaveBeenCalled();
+    expect(saving.onProblem.mock.calls[0][0]).toMatchObject({ field: 'rate' });
     expect(api.calls()).not.toContain(`PATCH ${API}/simulations/sim`);
-
-    const offers = await act(() => result.current.hook.edit.reloadOffers());
-    expect(offers.map((offer) => offer.id)).toContain('cdi-offer');
-    await waitFor(() => expect(result.current.hook.edit.problem).toBeNull());
   });
 
   it('reports a revision conflict and reloads the saved version', async () => {
@@ -330,7 +266,7 @@ describe('useSimulationWorkspace', () => {
     act(() => result.current.hook.edit.run(request(values, 3), callbacks()));
     await waitFor(() =>
       expect(result.current.hook.edit.problem).toMatchObject({
-        conflict: 'simulation',
+        conflict: true,
         field: null,
       }),
     );
@@ -417,7 +353,7 @@ describe('useSimulationWorkspace', () => {
       message:
         'Não foi possível concluir. Verifique sua conexão e tente novamente.',
       field: null,
-      conflict: null,
+      conflict: false,
     });
   });
 

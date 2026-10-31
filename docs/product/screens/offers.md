@@ -34,6 +34,8 @@ nenhum agrupamento é guardado. As regras estão no
   recalculada." para uma). Editar só apelido, emissor ou liquidez, ou uma
   oferta que nenhuma simulação usa, não mostra o aviso. "Duplicar" mantém o
   apelido com "(cópia)"; uma oferta sem apelido gera uma cópia sem apelido.
+- Termos próprios de uma simulação não aparecem em Ofertas; "Salvar como
+  oferta", na simulação, os traz para Minhas.
 - Uma oferta do sistema não tem editor. Se a oferta foi alterada em outro
   lugar enquanto o usuário editava, salvar avisa e mantém o que ele digitou
   até que recarregue.

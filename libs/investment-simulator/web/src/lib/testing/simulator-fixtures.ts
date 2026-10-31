@@ -174,6 +174,8 @@ export const workspace: SimulationWorkspace = {
     redemptionTerms: cdiOffer.redemptionTerms,
     remunerationTerms: cdiOffer.remunerationTerms,
     deleted: false,
+    scope: 'CATALOG',
+    basedOn: null,
   },
   curve: {
     id: 'cdi',
@@ -190,6 +192,20 @@ export const workspace: SimulationWorkspace = {
   isSettled: true,
   remainingTerm: null,
   result: simulationResult(),
+};
+
+// The same simulation with its own terms (110% instead of 105%), based on
+// cdiOffer.
+export const ownTermsWorkspace: SimulationWorkspace = {
+  ...workspace,
+  offer: {
+    ...workspace.offer,
+    id: 'own-terms',
+    revision: 1,
+    remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.1' },
+    scope: 'SIMULATION',
+    basedOn: { ...workspace.offer, deleted: false },
+  },
 };
 
 export const optionsRoute = {

@@ -10,10 +10,8 @@ import type { SimulationFormValues } from '../../utils/simulation-form';
 import { useSimulationForm } from '../use-simulation-form';
 
 const initialValues: SimulationFormValues = {
-  offerMode: 'existing',
-  copiedOfferId: '',
   offerId: 'cdi-offer',
-  offerName: '',
+  offerName: 'Reserva',
   principal: '10.000',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
@@ -69,8 +67,8 @@ describe('useSimulationForm', () => {
 
     expect(result.current.offer).toBe(selicOffer);
     expect(result.current.values).toMatchObject({
-      offerMode: 'existing',
       offerId: 'offer',
+      offerName: '',
       principal: '10.000',
       issuerName: 'Outro',
       remunerationKind: 'SELIC_PERCENTAGE',
@@ -81,115 +79,43 @@ describe('useSimulationForm', () => {
     });
   });
 
-  it('duplicates the chosen offer into editable terms and goes back to it', () => {
+  it('compares the terms with the offer they came from', () => {
     const { result } = render();
-
-    act(() => result.current.duplicateOffer());
-    expect(result.current.values).toMatchObject({
-      offerMode: 'new',
-      offerId: 'cdi-offer',
-      copiedOfferId: 'cdi-offer',
-      offerName: 'Reserva (cópia)',
-      rate: '105',
-      maturityDate: '2026-03-02',
-    });
+    expect(result.current.termsChanged).toBe(false);
+    expect(result.current.isOwnTerms).toBe(false);
 
     act(() => result.current.form.setValue('rate', '110'));
-    act(() => result.current.backToChosenOffer());
-    expect(result.current.values).toMatchObject({
-      offerMode: 'existing',
-      offerId: 'cdi-offer',
-      rate: '105',
-    });
-  });
+    expect(result.current.termsChanged).toBe(true);
 
-  it('starts a new offer from blank, keeping the investment and a valid curve', () => {
-    const { result } = render();
-
-    act(() => result.current.newOffer());
-
-    expect(result.current.values).toMatchObject({
-      offerMode: 'new',
-      offerName: '',
-      titleType: 'CDB',
-      issuerName: '',
-      remunerationKind: 'CDI_PERCENTAGE',
-      rate: '',
-      maturityDate: '',
-      principal: '10.000',
-      curveId: 'cdi',
-    });
-  });
-
-  it('edits the chosen own offer in place against the terms it started from', () => {
-    const { result } = render();
-    expect(result.current.form.formState.isDirty).toBe(false);
-
-    act(() => result.current.editOffer());
-    expect(result.current.values).toMatchObject({
-      offerMode: 'editing',
-      offerId: 'cdi-offer',
-      offerName: 'Reserva',
-      rate: '105',
-    });
-    expect(result.current.editedOffer).toBe(cdiOffer);
-    expect(result.current.recalculatesOtherSimulations).toBe(false);
-    expect(result.current.form.formState.isDirty).toBe(false);
-
-    // Only terms a calculation reads recalculate the other simulations.
-    act(() => result.current.form.setValue('offerName', 'Reserva nova'));
-    expect(result.current.recalculatesOtherSimulations).toBe(false);
-    act(() => result.current.form.setValue('rate', '110'));
-    expect(result.current.recalculatesOtherSimulations).toBe(true);
-    expect(result.current.changesIndex).toBe(false);
-
-    act(() => result.current.changeKind('SELIC_PERCENTAGE'));
-    expect(result.current.changesIndex).toBe(true);
-    expect(result.current.values.curveId).toBe('selic');
-  });
-
-  it('discards an offer edit, keeping the investment', () => {
-    const { result } = render();
-    expect(result.current.form.formState.isDirty).toBe(false);
-
-    act(() => result.current.editOffer());
-    act(() => result.current.form.setValue('rate', '110'));
+    // Only the investment changed: the terms still follow the offer.
+    act(() => result.current.form.setValue('rate', '105'));
     act(() => result.current.form.setValue('principal', '20.000'));
-    act(() => result.current.discardOfferEdits());
-
-    expect(result.current.values).toMatchObject({
-      offerMode: 'existing',
-      offerName: '',
-      rate: '105',
-      principal: '20.000',
-    });
-    expect(result.current.editedOffer).toBeNull();
+    expect(result.current.termsChanged).toBe(false);
   });
 
-  it('turns an offer edit into a copy with what was typed', () => {
-    const { result } = render();
-
-    act(() => result.current.editOffer());
-    act(() => result.current.form.setValue('rate', '110'));
-    act(() => result.current.saveAsNewOffer());
-
-    expect(result.current.values).toMatchObject({
-      offerMode: 'new',
-      copiedOfferId: 'cdi-offer',
-      offerName: 'Reserva',
-      rate: '110',
+  it('treats terms typed without an offer as changed', () => {
+    const { result } = render({
+      initialValues: { ...initialValues, offerId: '' },
     });
-    expect(result.current.editedOffer).toBeNull();
+
+    expect(result.current.offer).toBeUndefined();
+    expect(result.current.termsChanged).toBe(true);
   });
 
-  it('never edits a system offer', () => {
-    const { result } = render();
+  it("recognizes the simulation's own terms until another offer is chosen", () => {
+    const own = { ...cdiOffer, id: 'own-terms', origin: 'OWN' as const };
+    const { result } = render({
+      initialValues: { ...initialValues, offerId: 'own-terms' },
+      ownTermsOffer: own,
+    });
+
+    expect(result.current.isOwnTerms).toBe(true);
+    expect(result.current.offer).toBe(own);
+    expect(result.current.termsChanged).toBe(false);
 
     act(() => result.current.chooseOffer(selicOffer));
-    act(() => result.current.editOffer());
-
-    expect(result.current.values.offerMode).toBe('existing');
-    expect(result.current.editedOffer).toBeNull();
+    expect(result.current.isOwnTerms).toBe(false);
+    expect(result.current.offer).toBe(selicOffer);
   });
 
   it('reports no chosen offer when the saved one is no longer listed', () => {
@@ -219,7 +145,7 @@ describe('useSimulationForm', () => {
       result.current.showProblem({
         field: 'curveId',
         message: 'Curva excluída.',
-        conflict: null,
+        conflict: false,
       }),
     );
     expect(result.current.form.formState.errors.curveId?.message).toBe(

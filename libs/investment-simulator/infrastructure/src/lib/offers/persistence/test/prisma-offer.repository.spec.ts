@@ -21,6 +21,7 @@ import {
   InvestmentTitleType,
   Offer as OfferRecord,
   Prisma,
+  OfferScope,
 } from '@prisma/client';
 import { PrismaOfferRepository } from '../prisma-offer.repository';
 
@@ -61,6 +62,8 @@ function record(): OfferRecord {
     rateValue: new Prisma.Decimal('0.123456789012345678901234567891'),
     revision: 3,
     termsRevision: 2,
+    scope: OfferScope.CATALOG,
+    basedOnOfferId: null,
     deletedAt: null,
     createdAt: new Date('2026-10-01T12:00:00Z'),
     updatedAt: new Date('2026-10-01T12:00:00Z'),

@@ -62,5 +62,28 @@ export function offerFixture(spy: Spy) {
     return offer;
   }
 
-  return { offers, offerRepository, clock, given };
+  // Stores a simulation's own terms without recording the save.
+  function givenSimulationScoped(
+    ownerId: string,
+    basedOnOfferId: string | null,
+  ): Offer {
+    const offer = Offer.createSimulationScoped(
+      {
+        ownerId,
+        basedOnOfferId,
+        titleType: ETitleType.CDB,
+        maturityDate: CalendarDate.of('2028-12-29'),
+        redemptionTerms: RedemptionTerms.create('DAILY'),
+        remunerationTerms: RemunerationTerms.create(
+          'CDI_PERCENTAGE',
+          Rate.of('1.15'),
+        ),
+      },
+      NOW,
+    ).markPersisted();
+    offers.set(offer.id, offer);
+    return offer;
+  }
+
+  return { offers, offerRepository, clock, given, givenSimulationScoped };
 }

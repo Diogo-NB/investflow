@@ -119,10 +119,12 @@ describe('GetSimulationOptionsQueryHandler', () => {
 
     const { offers } = (await handler.execute({ viewerId: VIEWER })).value;
 
+    // A simulation's own terms are never offered for another simulation.
     expect(client.offer.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           deletedAt: null,
+          scope: 'CATALOG',
           OR: [{ ownerId: null }, { ownerId: VIEWER }],
         },
       }),

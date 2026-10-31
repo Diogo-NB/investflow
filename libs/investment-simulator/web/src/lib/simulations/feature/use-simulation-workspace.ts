@@ -24,23 +24,20 @@ import {
   type SaveProblem,
 } from '../utils/simulation-save-problem';
 import {
-  useSimulationOfferSaving,
-  type SimulationOfferSave,
+  useSimulationTermsSaving,
   type SimulationSaveCallbacks,
-} from './use-simulation-offer-saving';
+  type SimulationTermsSave,
+} from './use-simulation-terms-saving';
 
 export interface EditCallbacks extends SimulationSaveCallbacks {
-  // values are the ones saved, with a chosen offer; revision is the one the
-  // next edit must send.
+  // values are the ones saved, with the offer the simulation now uses;
+  // revision is the one the next edit must send.
   onSaved(values: SimulationFormValues, revision: number): void;
 }
 
-export interface SimulationEdit extends SimulationOfferSave {
+export interface SimulationEdit extends SimulationTermsSave {
   // The revision the form started from.
   readonly revision: number;
-  // The simulation's own choices differ from the saved ones; when only the
-  // offer changed, the offer's own save recalculates the simulation.
-  readonly changesSimulation: boolean;
 }
 
 export function useSimulationWorkspace(simulationId: string) {
@@ -48,7 +45,7 @@ export function useSimulationWorkspace(simulationId: string) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const offerSaving = useSimulationOfferSaving();
+  const termsSaving = useSimulationTermsSaving();
 
   const options = useQuery(simulationOptionsQuery(fetchFn));
   // Polled whatever the calculation status; TanStack Query pauses the
@@ -124,14 +121,9 @@ export function useSimulationWorkspace(simulationId: string) {
     if (saving.current) return;
     saving.current = true;
     edit.reset();
-    // The offer goes first: the simulation's checks read its saved terms.
-    const chosen = await offerSaving.save(request, callbacks);
+    // The terms go first: the simulation's checks read them.
+    const chosen = await termsSaving.save(request, callbacks);
     if (!chosen) {
-      saving.current = false;
-      return;
-    }
-    if (!request.changesSimulation && request.values.offerMode === 'editing') {
-      callbacks.onSaved(chosen, request.revision);
       saving.current = false;
       return;
     }
@@ -140,7 +132,7 @@ export function useSimulationWorkspace(simulationId: string) {
       {
         onSuccess: (saved) => callbacks.onSaved(chosen, saved.revision),
         onError: (error) => {
-          callbacks.onProblem(describeSaveProblem(error, chosen.offerMode));
+          callbacks.onProblem(describeSaveProblem(error));
         },
         onSettled: () => {
           saving.current = false;
@@ -150,10 +142,8 @@ export function useSimulationWorkspace(simulationId: string) {
   }
 
   const problem: SaveProblem | null =
-    offerSaving.problem ??
-    (!edit.isPending && edit.error
-      ? describeSaveProblem(edit.error, 'existing')
-      : null);
+    termsSaving.problem ??
+    (!edit.isPending && edit.error ? describeSaveProblem(edit.error) : null);
 
   const setup = (() => {
     if (options.isError || source.isError) {
@@ -185,12 +175,11 @@ export function useSimulationWorkspace(simulationId: string) {
     edit: {
       run: (request: SimulationEdit, callbacks: EditCallbacks) =>
         void run(request, callbacks),
-      pending: offerSaving.pending || edit.isPending,
+      pending: termsSaving.pending || edit.isPending,
       problem,
       // Loads the version saved elsewhere; the editor restarts from it.
-      reloadOffers: offerSaving.reloadOffers,
       reload: async () => {
-        offerSaving.reset();
+        termsSaving.reset();
         edit.reset();
         await source.refetch();
         setLoadGeneration((generation) => generation + 1);
