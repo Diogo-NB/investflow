@@ -176,5 +176,7 @@ this file in the same change that ships or changes a built behavior.
 
 - The CDI and SELIC curves imported from the Banco Central are not built
   ([BCB Rate Import](./planned/bcb-rate-import.md)).
-- The simulation workspace cannot yet edit its own offer in place, with the
-  offer editor's impact notice (see [Telas de Simulações](../product/screens/simulations.md)).
+- The simulation workspace cannot yet edit its own offer in place, still
+  labels "Nova oferta" as "Digitar termos", and announces a created offer
+  only when the simulation is rejected
+  ([Simulation Offer Editing](./planned/simulation-offer-editing.md)).

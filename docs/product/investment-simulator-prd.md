@@ -159,11 +159,13 @@ Uma simulação sempre usa uma oferta. Ela é composta por:
 - o valor inicial;
 - a data de aplicação.
 
-Todos esses itens são editáveis. Termos diferentes significam outra oferta:
-na tela da simulação, "Duplicar e ajustar" cria uma oferta privada a partir da
-oferta escolhida, e "Digitar termos" cria uma oferta privada com os termos
-digitados. A nova oferta é salva antes da simulação: se a simulação for
-rejeitada, a oferta continua salva em Ofertas e escolhida na simulação.
+Todos esses itens são editáveis. Termos diferentes significam outra oferta ou
+uma oferta alterada: na tela da simulação, "Editar oferta" altera a oferta
+própria escolhida, o que recalcula todas as simulações que a usam; "Duplicar
+e ajustar" cria uma oferta privada a partir da oferta escolhida; e "Nova
+oferta" cria uma oferta privada com os termos digitados. A oferta é salva
+antes da simulação: se a simulação for rejeitada, a oferta continua salva em
+Ofertas e escolhida na simulação.
 Ofertas do sistema não podem ser editadas, somente
 duplicadas.
 

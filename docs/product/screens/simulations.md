@@ -93,16 +93,38 @@ valor aplicado, o período e a origem da oferta.
   próprias), agrupadas por tipo de título e origem ("CDB · Do sistema", "CDB ·
   Minhas"), com o tipo de título acompanhado de seu tratamento de IR e prazo
   mínimo.
-  - "Duplicar e ajustar" abre os termos da oferta como uma cópia editável que
-    vira uma oferta privada; "Digitar termos" cria uma oferta privada (tipo de
-    título, emissor e apelido opcionais e termos). Nos dois casos a oferta é salva
-    primeiro, quando a simulação é salva. Se a simulação for recusada depois,
-    o formulário escolhe a oferta salva, um aviso informa que ela está em
-    Ofertas ("Ver oferta"), e outros termos exigem um novo "Duplicar e
-    ajustar".
-  - A oferta própria escolhida também pode ser editada ali mesmo, com o aviso
-    do editor de ofertas; uma oferta do sistema oferece somente "Duplicar e
-    ajustar".
+  - Abaixo da oferta escolhida ficam "Editar oferta" (só numa oferta
+    própria), "Duplicar e ajustar" e "Nova oferta". Cada modo abre ali
+    mesmo, com um cabeçalho que o nomeia e uma linha que diz o que acontece
+    ao salvar.
+  - "Editar oferta" ("Oferta · Editando") torna editáveis os termos da
+    oferta, com o tipo de título como informação fixa e sem a escolha de
+    oferta. As alterações valem para a oferta em todas as simulações que a
+    usam. Quando mudam o vencimento, a remuneração ou a taxa e outras
+    simulações usam a oferta, um aviso informa: "Outras N simulações que
+    usam esta oferta também serão recalculadas." ("Outra simulação que usa
+    esta oferta também será recalculada." para uma). Se o índice muda, o
+    aviso acrescenta que elas ficarão em "Requer ação" até que cada uma
+    seja salva com uma curva do novo índice, ou sem curva numa oferta
+    prefixada. "Salvar como nova oferta" transforma a edição numa cópia com
+    o que foi digitado; "Descartar alterações da oferta" volta aos termos
+    salvos e mantém o investimento.
+  - "Duplicar e ajustar" ("Nova oferta · cópia de CDB 110% do CDI") abre os
+    termos da oferta como uma cópia editável; "Nova oferta" abre termos em
+    branco (tipo de título, emissor e apelido opcionais e termos). Nos dois
+    casos a linha informa "Será criada em Ofertas › Minhas ao salvar.", e a
+    cópia acrescenta que a oferta original não muda. "Voltar à oferta
+    escolhida" descarta os termos ("Usar uma oferta existente" quando nenhuma
+    foi escolhida).
+  - Salvar grava a oferta primeiro e depois a simulação, que só é enviada
+    quando suas próprias entradas mudaram. Toda oferta criada é anunciada
+    ("Oferta CDB 115% do CDI criada em Minhas", com "Ver oferta"). Uma
+    oferta recusada não salva nada e mostra o motivo no campo. Se a
+    simulação for recusada depois, a oferta continua salva e escolhida, e o
+    investimento continua com as edições não salvas e o motivo no campo. Se
+    a oferta foi alterada em outro lugar durante a edição, a seção avisa e
+    oferece "Recarregar oferta", que troca só os termos e mantém o
+    investimento.
   - Mudar o tipo de remuneração limpa a taxa e a curva. A liquidez começa em
     "No vencimento".
 - "Investimento": valor aplicado, data da aplicação e a curva, nos tipos
@@ -115,7 +137,10 @@ valor aplicado, o período e a origem da oferta.
   feriados. Datas digitadas não são bloqueadas pelo calendário: o formulário
   recusa uma fora dos anos aceitos, e o sistema recusa um dia não útil no seu
   campo.
-- "Salvar e calcular" fica desabilitado sem alterações. Uma simulação recusada
+- "Salvar e calcular" fica desabilitado sem alterações. O texto abaixo dele
+  diz o que salvar faz: "Salvar altera a oferta e recalcula esta simulação."
+  ("…esta e outras N simulações.") ao editar a oferta e "Salvar cria a oferta
+  e calcula a simulação." numa nova oferta. Uma simulação recusada
   não é salva: o formulário mantém as edições como não salvas e o motivo
   aparece no campo responsável (valor aplicado, dia não útil, prazo mínimo,
   índice, oferta ou curva ausente). Se a simulação foi alterada em outro lugar,

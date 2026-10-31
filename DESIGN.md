@@ -113,10 +113,11 @@ on them stays the foreground color.
 - Empty states: the aggregate's icon on a 56px accent tile beside the copy and
   its actions. Loading lists show their status text above three placeholder
   rows (an icon tile and two bars) that pulse.
-- Actions carry an icon before their label: plus for creation, pencil for
-  "Editar", copy for "Duplicar", trash for "Excluir", search for "Buscar", x
-  for "Limpar filtros", chevrons for pagination, and an arrow for "Ver
-  todas". Pending actions swap their icon for the spinning refresh icon.
+- Actions carry an icon before their label: plus for creation ("Nova
+  oferta"), pencil for "Editar", copy for "Duplicar" and "Duplicar e
+  ajustar", trash for "Excluir", search for "Buscar", x for "Limpar filtros"
+  and discarding edits, refresh for "Recarregar", chevrons for pagination
+  and going back, and an arrow for "Ver todas". Pending actions swap their icon for the spinning refresh icon.
 - List: compact heading and primary creation action; issuer search/title filter
   above one white result surface. Desktop table uses horizontal separators and
   right-aligned tabular figures. Below 1024px, labeled offer rows replace it.
@@ -137,13 +138,20 @@ on them stays the foreground color.
   "Falha técnica", "Desatualizado") with an icon and text on its state
   container.
 - Simulation workspace: an inputs surface (about 26rem, sticky on desktop)
-  beside the results. "Termos do título" comes first, as a fieldset on a new
-  simulation and as a muted definition list on a saved one; "Investimento"
-  (principal, investment date, curve) follows below a rule, with "Calcular"
-  last. Results lead with the net value, then a definition list of amounts;
-  the balance evolution (month rows that expand to their business days on a
-  background-colored band) and the calculation history are native
-  disclosures. Rejections use the error token and also mark the responsible
+  beside the results. "Oferta" comes first: the chosen offer as a muted
+  definition list with its actions below it, or one of three modes edited in
+  place, each with a legend led by the offer icon that names it ("Oferta ·
+  Editando", "Nova oferta", "Nova oferta · cópia de …") and one consequence
+  line. The line uses the info icon and muted text, except while an edit
+  recalculates other simulations, when it is a warning-token notice with the
+  alert icon. The way out of a mode is a quiet action: chevron for "Voltar à
+  oferta escolhida", x for "Descartar alterações da oferta", never in the
+  error color, since only unsaved input is lost. "Investimento" (principal,
+  investment date, curve) follows below a rule, with "Salvar e calcular"
+  and a hint saying what saving does last. Results lead with the net value,
+  then a definition list of amounts; the balance evolution (month rows that
+  expand to their business days on a background-colored band) is a native
+  disclosure. Rejections use the error token and also mark the responsible
   field; staleness uses the warning token with text.
 - Tax explanation: a short scrollable Dialog (max 36rem) opened by a quiet
   text action with an inline SVG info icon under the result amounts. One
@@ -301,6 +309,11 @@ setup. That account was left unchanged, so the real authenticated return remains
 unverified until setup is completed.
 
 ## Changelog
+
+- 2026-10-31: the workspace's "Oferta" section gets named modes edited in
+  place, a consequence line per mode, and icons on its actions; the
+  workspace description drops the removed calculation history and the old
+  "Termos do título" and "Calcular" labels.
 
 - 2026-10-12: calculation status gets color, icons, and motion. Added warning
   and error containers, an inline SVG icon set, a spinning refresh icon for
