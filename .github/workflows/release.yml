@@ -1,8 +1,9 @@
 name: Release
 
+# Release Please publishes the GitHub release, which creates the tag.
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
 
 permissions: {}
 
