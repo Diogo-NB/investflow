@@ -1,8 +1,9 @@
 # Production Deployment
 
-> **Status: pending, not started.** Decisions settled 2026-10-30. Delete this
+> **Status: in progress.** Decisions settled 2026-10-30; delivery steps 1
+> (fixes) and 2 (images and compose) built 2026-10-31. Delete this
 > file once it ships, moving the decisions to a deployment architecture doc
-> and the setup steps to a runbook beside `deploy/compose.yaml`, with the
+> and the setup steps to a runbook beside `infra/dokploy/compose.yaml`, with the
 > outcome in [Current State](../current-state.md).
 
 InvestFlow runs on the shared personal VPS described in
@@ -33,9 +34,12 @@ user (see "Hosting is not tied to AWS" in
   PostgreSQL is reachable only inside `dokploy-network`, and reaching it from
   a runner would need a public port or an SSH key to the host. The API image
   therefore contains the Prisma CLI and `dotenv` (imported by
-  `prisma.config.ts`) at the lockfile's versions, which also generate the
-  Prisma client at image build time.
-- **Version selection.** Dokploy reads `deploy/compose.yaml` from `main`, so
+  `prisma.config.ts`), declared in `apps/api/package.json` so the pruned
+  lockfile pins them; the CLI also generates the Prisma client at image build
+  time. Its dependencies (Prisma Studio, PGlite, TypeScript, React) add about
+  200 MB to the image (865 MB in all), a cost on disk and on the first pull
+  only.
+- **Version selection.** Dokploy reads `infra/dokploy/compose.yaml` from `main`, so
   the file names a moving tag, `:production`, with `pull_policy: always`. A
   release pushes the immutable `:vX.Y.Z` images, then points `:production` at
   them once both exist. Rollback points `:production` at an older version and
@@ -85,25 +89,32 @@ user (see "Hosting is not tied to AWS" in
 
 - `apps/api/Dockerfile` on `node:22.22.1-bookworm-slim` (matching
   `.nvmrc`): installs the pruned `package.json`, `pnpm-lock.yaml`, and
-  `workspace_modules` with `--prod`, adds `prisma` and `dotenv` at versions
-  passed as build arguments from the root lockfile, generates the client,
-  copies `libs/shared/infrastructure/prisma/` and `dist/apps/api`, and runs
-  `node main.js` as the `node` user.
+  `workspace_modules` with `--prod` and the pnpm version of the root
+  `package.json`, generates the client, copies
+  `libs/shared/infrastructure/prisma/` and `dist/apps/api`, and runs
+  `node main.js` as the `node` user. It installs `openssl`, which Prisma
+  probes to pick its schema engine.
+- `apps/api/package.json`, the source of the pruned `package.json`, also
+  declares `prisma`, `dotenv`, and the modules the bundle requires but did
+  not list (`tslib`, `uuid`), and allows the install scripts of `prisma` and
+  `@prisma/engines` (pnpm 10 skips others), which download the schema
+  engine.
 - `apps/web/Dockerfile` on pinned `nginxinc/nginx-unprivileged` (port 8080),
   with an `nginx.conf` that falls back to `index.html`, caches `/assets/` as
-  immutable for a year, and serves `index.html` with `no-cache`.
+  immutable for a year, `/fonts/` (not fingerprinted) for a week, and
+  serves `index.html` with `no-cache`, all gzipped.
 - A `.dockerignore` allowlist: `dist/` and the Prisma folder.
 
-**`deploy/compose.yaml`.** Services `investflow-migrate`, `investflow-api`,
+**`infra/dokploy/compose.yaml`.** Services `investflow-migrate`, `investflow-api`,
 and `investflow-web`, all on the external `dokploy-network` (names are
 prefixed because the network is shared by every project), each with
 json-file logging capped at 10 MB × 3:
 
-| Service              | Memory limit | Heap   | Notes                                                                                                               |
-| -------------------- | ------------ | ------ | ------------------------------------------------------------------------------------------------------------------- |
-| `investflow-migrate` | 256 MB       | 128 MB | Node plus Prisma's schema engine; measure locally                                                                   |
-| `investflow-api`     | 384 MB       | 256 MB | Platform memory budget; health check on `/api/health-check`; `stop_grace_period: 30s` covers the 20 s SQS long poll |
-| `investflow-web`     | 32 MB        | —      | Platform memory budget; starts after the API is healthy                                                             |
+| Service              | Memory limit | Heap   | Notes                                                                                                                                            |
+| -------------------- | ------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `investflow-migrate` | 256 MB       | 128 MB | Node plus Prisma's schema engine; 117 MiB peak applying every migration                                                                          |
+| `investflow-api`     | 384 MB       | 256 MB | Platform memory budget, 153 MiB after a calculation; health check on `/api/health-check`; `stop_grace_period: 30s` covers the 20 s SQS long poll |
+| `investflow-web`     | 32 MB        | —      | Platform memory budget, 10 MiB; starts after the API is healthy                                                                                  |
 
 Configuration that is not secret is written in the file: `KEYCLOAK_URL`,
 `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `AWS_REGION=sa-east-1`,
@@ -151,7 +162,7 @@ dependencies; targets `synth`, `diff`, `deploy`, `test`, `typecheck`, `lint`).
   `production` environment with the Dokploy URL, compose ID, and API key.
 - AWS: deploy the stack; create the access key.
 - Dokploy: a compose service in the `investflow` project reading
-  `deploy/compose.yaml` from `main`, autodeploy off; its environment; the two
+  `infra/dokploy/compose.yaml` from `main`, autodeploy off; its environment; the two
   domain routes; a member limited to the project and its API key, checked to
   be unable to deploy other services.
 - personal-platform: point the InvestFlow "Deployment" line in
@@ -162,7 +173,7 @@ dependencies; targets `synth`, `diff`, `deploy`, `test`, `typecheck`, `lint`).
 
 1. **Fixes.** The four fixes above.
 2. **Images and compose.** Dockerfiles, `nginx.conf`, `.dockerignore`,
-   `deploy/compose.yaml`.
+   `infra/dokploy/compose.yaml`.
 3. **AWS stack.** Deployed and the access key created before the first
    release: the API fails to start without its queue URLs.
 4. **Workflows.** Then the manual setup and the first tag, `v0.1.0`.
@@ -187,7 +198,7 @@ dependencies; targets `synth`, `diff`, `deploy`, `test`, `typecheck`, `lint`).
 ## Docs at close-out
 
 - A deployment architecture doc with these decisions, and a runbook beside
-  `deploy/compose.yaml` (setup, key rotation, rollback, migration
+  `infra/dokploy/compose.yaml` (setup, key rotation, rollback, migration
   compatibility), both listed in `docs/README.md`.
 - [Messaging Transport](../../architecture/messaging.md): production
   provisioning and the verified group path.

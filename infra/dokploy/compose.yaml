@@ -1,0 +1,100 @@
+# Production stack, deployed by Dokploy from main. Images come from the
+# moving :production tag that a release points at its version. Dokploy holds
+# only DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and
+# AWS_ACCOUNT_ID; Traefik routes / to investflow-web and /api to
+# investflow-api. Service names carry the project because dokploy-network is
+# shared by every project on the host.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+services:
+  investflow-migrate:
+    image: ghcr.io/diogo-nb/investflow-api:production
+    pull_policy: always
+    restart: 'no'
+    command:
+      [
+        'node_modules/.bin/prisma',
+        'migrate',
+        'deploy',
+        '--config=prisma/prisma.config.ts',
+      ]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?}
+      NODE_OPTIONS: --max-old-space-size=128
+    networks: [dokploy-network]
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  investflow-api:
+    image: ghcr.io/diogo-nb/investflow-api:production
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      investflow-migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_OPTIONS: --max-old-space-size=256 --enable-source-maps
+      DATABASE_URL: ${DATABASE_URL:?}
+      KEYCLOAK_URL: https://auth.diogo-nb.com.br
+      KEYCLOAK_REALM: investflow
+      KEYCLOAK_CLIENT_ID: investflow-api
+      AWS_REGION: sa-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?}
+      EVENT_BUS_NAME: investflow
+      SIMULATION_CALCULATIONS_QUEUE_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-calculations.fifo
+      SIMULATION_CALCULATIONS_DLQ_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-calculations-dlq.fifo
+      SIMULATION_RECALCULATIONS_QUEUE_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-recalculations.fifo
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/api/health-check').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    # SQS long polls last up to 20 s; consumers and the outbox finish their
+    # work before the process exits.
+    stop_grace_period: 30s
+    networks: [dokploy-network]
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  investflow-web:
+    image: ghcr.io/diogo-nb/investflow-web:production
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      investflow-api:
+        condition: service_healthy
+    healthcheck:
+      # Alpine resolves localhost to ::1 first; nginx listens on IPv4.
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:8080/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [dokploy-network]
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
+networks:
+  dokploy-network:
+    external: true

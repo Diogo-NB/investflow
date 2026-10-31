@@ -1,0 +1,8 @@
+# Images package prebuilt output, so the context is an allowlist; nothing
+# else, such as .env, can reach an image.
+*
+!package.json
+!dist/apps/api/
+!dist/apps/web/
+!libs/shared/infrastructure/prisma/
+!apps/web/nginx.conf
