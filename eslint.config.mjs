@@ -65,6 +65,10 @@ export default [
               ],
             },
             {
+              sourceTag: 'scope:infra',
+              onlyDependOnLibsWithTags: [],
+            },
+            {
               sourceTag: 'layer:domain',
               onlyDependOnLibsWithTags: ['layer:domain'],
             },

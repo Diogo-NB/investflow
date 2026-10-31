@@ -1,7 +1,8 @@
 # Production Deployment
 
 > **Status: in progress.** Decisions settled 2026-10-30; delivery steps 1
-> (fixes) and 2 (images and compose) built 2026-10-31. Delete this
+> (fixes) and 2 (images and compose) built 2026-10-31; step 3's stack is
+> deployed (2026-10-31); its access key and the group-path check remain. Delete this
 > file once it ships, moving the decisions to a deployment architecture doc
 > and the setup steps to a runbook beside `infra/dokploy/compose.yaml`, with the
 > outcome in [Current State](../current-state.md).
@@ -96,9 +97,10 @@ user (see "Hosting is not tied to AWS" in
   probes to pick its schema engine.
 - `apps/api/package.json`, the source of the pruned `package.json`, also
   declares `prisma`, `dotenv`, and the modules the bundle requires but did
-  not list (`tslib`, `uuid`), and allows the install scripts of `prisma` and
-  `@prisma/engines` (pnpm 10 skips others), which download the schema
-  engine.
+  not list (`tslib`, `uuid`). The Dockerfile allows the install scripts of
+  `prisma` and `@prisma/engines` in a `pnpm-workspace.yaml` of its own (pnpm
+  10 skips others and reads the list only at a workspace root), which
+  download the schema engine.
 - `apps/web/Dockerfile` on pinned `nginxinc/nginx-unprivileged` (port 8080),
   with an `nginx.conf` that falls back to `index.html`, caches `/assets/` as
   immutable for a year, `/fonts/` (not fingerprinted) for a week, and

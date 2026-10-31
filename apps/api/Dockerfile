@@ -17,7 +17,10 @@ RUN corepack enable && \
   corepack prepare "$(node -p "require('/tmp/workspace-package.json').packageManager")" --activate
 COPY dist/apps/api/package.json dist/apps/api/pnpm-lock.yaml ./
 COPY dist/apps/api/workspace_modules ./workspace_modules
-RUN pnpm install --prod --frozen-lockfile
+# pnpm skips install scripts outside this list; @prisma/engines downloads the
+# schema engine in one.
+RUN printf 'onlyBuiltDependencies:\n  - "@prisma/engines"\n  - prisma\n' > pnpm-workspace.yaml && \
+  pnpm install --prod --frozen-lockfile
 COPY libs/shared/infrastructure/prisma ./prisma
 RUN pnpm exec prisma generate --config=prisma/prisma.config.ts
 

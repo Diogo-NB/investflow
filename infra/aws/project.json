@@ -1,0 +1,56 @@
+{
+  "name": "infra-aws",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "infra/aws/src",
+  "projectType": "application",
+  "tags": ["scope:infra", "platform:server"],
+  "targets": {
+    "synth": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_REGION pnpm exec cdk synth",
+        "cwd": "infra/aws",
+        "env": {
+          "SWC_NODE_PROJECT": "tsconfig.json"
+        }
+      },
+      "metadata": {
+        "description": "Drops the local Floci settings that Nx loads from .env, so CDK reaches AWS with the caller's profile."
+      }
+    },
+    "diff": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_REGION pnpm exec cdk diff",
+        "cwd": "infra/aws",
+        "env": {
+          "SWC_NODE_PROJECT": "tsconfig.json"
+        }
+      },
+      "metadata": {
+        "description": "Drops the local Floci settings that Nx loads from .env, so CDK reaches AWS with the caller's profile."
+      }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "env -u AWS_ENDPOINT_URL -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_REGION pnpm exec cdk deploy",
+        "cwd": "infra/aws",
+        "env": {
+          "SWC_NODE_PROJECT": "tsconfig.json"
+        }
+      },
+      "metadata": {
+        "description": "Drops the local Floci settings that Nx loads from .env, so CDK reaches AWS with the caller's profile."
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default"],
+      "options": {
+        "command": "tsc -p infra/aws/tsconfig.json --noEmit"
+      }
+    }
+  }
+}

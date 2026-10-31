@@ -21,6 +21,7 @@ ROUTES = [
             r'^libs/shared/infrastructure/src/lib/messaging/',
             r'(^|/)unit-of-work[^/]*$',
             r'^infra/floci/',
+            r'^infra/aws/',
         ],
     ),
     ('investflow-react', [r'^apps/web/', r'^libs/[^/]+/web/']),

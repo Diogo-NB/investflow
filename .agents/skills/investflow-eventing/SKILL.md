@@ -93,9 +93,13 @@ atomic event persistence and at-least-once delivery across bounded contexts.
   Throw only for failures a retry can fix.
 - Add a queue with a `consumer_queue <name> '<event pattern>'` line in
   `infra/floci/init/provision.sh` (it creates `<name>.fifo` and
-  `<name>-dlq.fifo`), add both URLs to `.env.example`, and bind the consumer
-  in the host with `SqsConsumersModule.register([{ consumer,
-queueUrlConfigKey }])`. A dead-letter consumer is bound the same way.
+  `<name>-dlq.fifo`) and the same name and pattern in a `consumerQueue` call
+  in `infra/aws/src/messaging/messaging.stack.ts`, whose spec fails when the
+  two differ. Add both URLs to `.env.example`, the consumed ones to
+  `infra/dokploy/compose.yaml` and to the API user's policy in the stack, and
+  bind the consumer in the host with `SqsConsumersModule.register([{
+consumer, queueUrlConfigKey }])`. A dead-letter consumer is bound the same
+  way.
 - Design for real AWS semantics. Floci enforces FIFO groups but not the
   dynamic group path, so locally every queue runs serially; do not work
   around it. When a behavior can only be confirmed on real AWS, say so and
@@ -119,7 +123,8 @@ never start background work.
 - Each payload field is read by a consumer and cannot be read from current
   state.
 - Each consumed event is in its queue's pattern in
-  `infra/floci/init/provision.sh` and has an `@OnEvent` method.
+  `infra/floci/init/provision.sh` and `messaging.stack.ts`, and has an
+  `@OnEvent` method.
 - Consumers are idempotent, read current state, and throw only for failures
   a retry can fix.
 

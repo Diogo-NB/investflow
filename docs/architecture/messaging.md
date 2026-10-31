@@ -148,6 +148,13 @@ This replaces the earlier SNS topic per context.
 - **Hosting is not tied to AWS.** EventBridge and SQS are public HTTPS APIs. A
   backend on a VPS needs outbound HTTPS to AWS and credentials: a scoped IAM
   user key in the environment, or IAM Roles Anywhere.
+- **Production provisioning.** `InvestflowMessagingStack` (AWS CDK, in
+  `infra/aws`) creates the bus and each consumer queue with the names,
+  patterns, and numbers of `provision.sh`; its spec fails when the two
+  differ. It adds a standard `event-delivery-dlq` that keeps the events
+  EventBridge fails to deliver to a queue, and the `investflow-api` IAM user,
+  which may only publish to the bus and receive and delete messages on the
+  queues the API consumes.
 - **Local emulation.** Floci needs no account or auth token, unlike LocalStack
   since its 2026.03 release. `infra/floci/init/provision.sh` runs on every
   container start (Floci keeps state in memory) and creates the bus and each
@@ -164,6 +171,6 @@ This replaces the earlier SNS topic per context.
 - **Ports.** `MessageBroker` (publishing a batch, reporting the messages the
   broker rejected) and `EventDispatcher` (deduplication
   per consumer, transaction, and `@OnEvent` dispatch) are transport-neutral.
-  Only `EventBridgeMessageBroker`, `SqsEventListener`, and the provisioning
-  script know the transport, so replacing it does not touch business code or
+  Only `EventBridgeMessageBroker`, `SqsEventListener`, the provisioning
+  script, and the stack know the transport, so replacing it does not touch business code or
   consumers.

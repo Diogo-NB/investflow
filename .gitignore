@@ -54,3 +54,6 @@ vite.config.*.timestamp*
 vitest.config.*.timestamp*
 # Playwright MCP session output (snapshots, console logs)
 .playwright-mcp/
+
+# CDK synthesis output
+infra/aws/cdk.out
