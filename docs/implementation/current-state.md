@@ -8,8 +8,8 @@ this file in the same change that ships or changes a built behavior.
 
 - **Production:** runs at `https://investflow.diogo-nb.com.br` since
   `v0.1.0` (2026-10-31): the API, its migrations, and the web app as one
-  Dokploy compose service on the shared VPS, released by version tags
-  through GitHub Actions, with EventBridge and SQS on AWS provisioned by
+  Dokploy compose service on the shared VPS, released through pull
+  requests and Release Please with GitHub Actions, with EventBridge and SQS on AWS provisioned by
   CDK. How and why is in
   [Production Deployment](../architecture/deployment.md); follow-ups are in
   [Production Hardening](./planned/production-hardening.md).

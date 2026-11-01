@@ -9,9 +9,10 @@ The deployment these build on is in
 
 ## Scope
 
-- **Checks on pull requests.** A workflow that runs `pnpm check` on every
-  pull request, so a broken `main` shows before a release tag. Revisit when
-  changes start arriving through pull requests.
+- **Integration tests on pull requests.** CI runs `pnpm check` only;
+  `pnpm check:integration` needs PostgreSQL and Floci as job services, and
+  Keycloak for the realm. Revisit when a regression reaches `main` that the
+  integration tests would have caught.
 - **Dead-letter alarms.** Alarms (CloudWatch, with a notification) when
   `simulation-calculations-dlq.fifo`, `simulation-recalculations-dlq.fifo`,
   or `event-delivery-dlq` receives a message; today they are only seen by
