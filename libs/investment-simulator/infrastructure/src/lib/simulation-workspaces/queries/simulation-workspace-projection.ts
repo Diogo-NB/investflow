@@ -77,7 +77,8 @@ export interface SimulationCalculationOutput {
       | 'CREATED'
       | 'SIMULATION_EDITED'
       | 'METHODOLOGY_CHANGED'
-      | 'RETRY_REQUESTED';
+      | 'RETRY_REQUESTED'
+      | 'PREMISES_CHANGED';
   };
   // Only for INVALID: the stable error code and its details, such as the
   // uncovered curve ranges.
@@ -93,8 +94,15 @@ export interface SimulationWorkspaceProjection {
     readonly revision: number;
     readonly investment: InvestmentOutput;
   };
-  // Also when deleted, so the screen can ask for another one.
-  readonly offer: OfferSummary & { readonly deleted: boolean };
+  // Also when deleted, so the screen can ask for another one. A
+  // simulation-scoped offer holds the simulation's own terms; basedOn is the
+  // offer they came from, also when deleted, and null for terms typed from
+  // scratch.
+  readonly offer: OfferSummary & {
+    readonly deleted: boolean;
+    readonly scope: 'CATALOG' | 'SIMULATION';
+    readonly basedOn: (OfferSummary & { readonly deleted: boolean }) | null;
+  };
   readonly curve: {
     readonly id: string;
     readonly name: string;
@@ -178,7 +186,12 @@ export const simulationWorkspaceSelect = {
   investmentDate: true,
   curveId: true,
   offer: {
-    select: { ...offerSummarySelect, deletedAt: true },
+    select: {
+      ...offerSummarySelect,
+      deletedAt: true,
+      scope: true,
+      basedOnOffer: { select: { ...offerSummarySelect, deletedAt: true } },
+    },
   },
   curve: {
     select: {
@@ -237,7 +250,15 @@ export function toSimulationWorkspace(
         curveId: record.curveId,
       },
     },
-    offer: { ...toOfferSummary(offer), deleted: offer.deletedAt !== null },
+    offer: {
+      ...toOfferSummary(offer),
+      deleted: offer.deletedAt !== null,
+      scope: offer.scope,
+      basedOn: offer.basedOnOffer && {
+        ...toOfferSummary(offer.basedOnOffer),
+        deleted: offer.basedOnOffer.deletedAt !== null,
+      },
+    },
     curve: curve
       ? {
           id: curve.id,

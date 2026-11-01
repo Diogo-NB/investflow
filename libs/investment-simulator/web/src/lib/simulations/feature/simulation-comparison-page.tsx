@@ -177,6 +177,7 @@ function SimulationLink({
       </Link>
       <span className="block text-sm text-muted">
         {issuerAndNameLabel(simulation.offer)}
+        {simulation.offer.scope === 'SIMULATION' && ' · Termos próprios'}
         {label?.investment && ` · ${label.investment}`}
       </span>
     </>

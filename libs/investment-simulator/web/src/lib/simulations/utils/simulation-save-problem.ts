@@ -1,11 +1,12 @@
 import { ApiError } from '../../http/api-error';
-import type { SimulationField, SimulationFormValues } from './simulation-form';
+import type { SimulationField } from './simulation-form';
 
 export interface SaveProblem {
   readonly message: string;
   // The input the user should change, when one is responsible.
   readonly field: SimulationField | null;
-  // The simulation changed elsewhere; reloading shows the saved version.
+  // The simulation or its own terms changed elsewhere; reloading shows the
+  // saved version.
   readonly conflict: boolean;
 }
 
@@ -19,7 +20,12 @@ const FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_PRINCIPAL_INVALID: 'principal',
 };
 
-// Failures caused by the offer's terms, which are fields only while typed.
+const CONFLICT_CODES: ReadonlySet<string> = new Set([
+  'SIMULATION_REVISION_CONFLICT',
+  'OFFER_REVISION_CONFLICT',
+]);
+
+// Failures caused by the terms, which the form always shows as fields.
 const TERM_FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVESTMENT_PERIOD_INVALID: 'maturityDate',
   INVESTMENT_TERM_TOO_SHORT: 'maturityDate',
@@ -27,26 +33,17 @@ const TERM_FIELD_BY_CODE: Readonly<Record<string, SimulationField>> = {
   INVALID_RATE: 'rate',
 };
 
-function problemField(
-  error: ApiError,
-  offerMode: SimulationFormValues['offerMode'],
-): SimulationField | null {
-  const termField = (field: SimulationField) =>
-    offerMode === 'new' ? field : 'offerId';
+function problemField(error: ApiError): SimulationField | null {
   if (error.code === 'INVESTMENT_DATE_NOT_BUSINESS_DAY') {
     return error.details['field'] === 'maturityDate'
-      ? termField('maturityDate')
+      ? 'maturityDate'
       : 'investmentDate';
   }
   if (!error.code) return null;
-  const term = TERM_FIELD_BY_CODE[error.code];
-  return term ? termField(term) : (FIELD_BY_CODE[error.code] ?? null);
+  return TERM_FIELD_BY_CODE[error.code] ?? FIELD_BY_CODE[error.code] ?? null;
 }
 
-export function describeSaveProblem(
-  error: unknown,
-  offerMode: SimulationFormValues['offerMode'],
-): SaveProblem {
+export function describeSaveProblem(error: unknown): SaveProblem {
   if (!(error instanceof ApiError)) {
     return {
       message:
@@ -58,7 +55,7 @@ export function describeSaveProblem(
   return {
     message:
       error.userMessage ?? 'Não foi possível concluir agora. Tente novamente.',
-    field: problemField(error, offerMode),
-    conflict: error.code === 'SIMULATION_REVISION_CONFLICT',
+    field: problemField(error),
+    conflict: CONFLICT_CODES.has(error.code ?? ''),
   };
 }

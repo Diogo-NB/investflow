@@ -1,21 +1,25 @@
 import {
   cdiCurve as cdi,
+  cdiOffer,
   options,
+  ownTermsWorkspace,
   remunerations,
   selicOffer,
   workspace,
 } from '../../../testing/simulator-fixtures';
 import type { RemunerationOption } from '../../models/simulation.types';
+import { toOfferInput } from '../../../offers/utils/offer-form';
 import {
   blankSimulationValues,
   startsBeforeCurve,
   defaultCurveId,
   offerTermValues,
-  savedOfferValues,
+  changesOfferTerms,
+  duplicateValues,
   simulationFormSchema,
   simulationValues,
   toSimulationInput,
-  toTypedOfferInput,
+  offerFormValues,
   type SimulationFormValues,
 } from '../simulation-form';
 
@@ -27,7 +31,6 @@ const offer = {
 };
 
 const valid: SimulationFormValues = {
-  offerMode: 'new',
   offerId: '',
   offerName: ' CDB digitado ',
   principal: '10.000,50',
@@ -41,6 +44,9 @@ const valid: SimulationFormValues = {
   curveId: 'cdi',
 };
 
+const typedOffer = (values: SimulationFormValues) =>
+  toOfferInput(offerFormValues(values));
+
 function errors(values: SimulationFormValues) {
   const result = simulationFormSchema(remunerations).safeParse(values);
   return result.success
@@ -53,7 +59,7 @@ function errors(values: SimulationFormValues) {
 describe('simulation form', () => {
   it('accepts typed terms and builds the new offer payload', () => {
     expect(errors(valid)).toEqual({});
-    expect(toTypedOfferInput(valid)).toEqual({
+    expect(typedOffer(valid)).toEqual({
       titleType: 'CDB',
       name: 'CDB digitado',
       issuerName: 'Banco Local',
@@ -63,30 +69,33 @@ describe('simulation form', () => {
     });
   });
 
-  it('chooses the saved offer and sends the simulation with its id', () => {
-    const saved = savedOfferValues(valid, 'typed-offer');
+  it('tells terms that differ from their offer, however they were typed', () => {
+    const offer = { ...cdiOffer };
+    const same = simulationValues(workspace, remunerations);
 
-    expect(saved).toEqual({
-      ...valid,
-      offerMode: 'existing',
-      offerId: 'typed-offer',
-      offerName: '',
-    });
-    expect(toSimulationInput(saved)).toEqual({
-      offerId: 'typed-offer',
-      investment: {
-        principal: '10000.5',
-        investmentDate: '2026-01-02',
-        curveId: 'cdi',
-      },
-    });
+    expect(changesOfferTerms(offer, same)).toBe(false);
+    expect(changesOfferTerms(offer, { ...same, rate: '105,0' })).toBe(false);
+    expect(changesOfferTerms(offer, { ...same, rate: '110' })).toBe(true);
+    // A rate not yet valid differs too.
+    expect(changesOfferTerms(offer, { ...same, rate: 'abc' })).toBe(true);
+    expect(changesOfferTerms(undefined, same)).toBe(true);
+  });
+
+  it('counts the title type as a term and never the apelido', () => {
+    const same = simulationValues(workspace, remunerations);
+
+    expect(changesOfferTerms(cdiOffer, { ...same, titleType: 'LCA' })).toBe(
+      true,
+    );
+    expect(changesOfferTerms(cdiOffer, { ...same, offerName: 'Outro' })).toBe(
+      false,
+    );
   });
 
   it('sends only the id of an existing offer and no curve for a fixed rate', () => {
     // The form clears the curve whenever the kind changes.
     const input = toSimulationInput({
       ...valid,
-      offerMode: 'existing',
       offerId: 'offer',
       remunerationKind: 'PREFIXED',
       rate: '12,5',
@@ -98,17 +107,12 @@ describe('simulation form', () => {
 
   it('sends typed terms without an issuer', () => {
     expect(errors({ ...valid, issuerName: '  ' })).toEqual({});
-    expect(
-      toTypedOfferInput({ ...valid, issuerName: '  ' }).issuerName,
-    ).toBeNull();
+    expect(typedOffer({ ...valid, issuerName: '  ' }).issuerName).toBeNull();
   });
 
-  it('requires an offer, but no name for typed terms', () => {
+  it('needs neither an offer nor a name for typed terms', () => {
     expect(errors({ ...valid, offerName: ' ' })).toEqual({});
-    expect(toTypedOfferInput({ ...valid, offerName: ' ' }).name).toBeNull();
-    expect(errors({ ...valid, offerMode: 'existing', offerName: '' })).toEqual({
-      offerId: 'Escolha uma oferta.',
-    });
+    expect(typedOffer({ ...valid, offerName: ' ' }).name).toBeNull();
   });
 
   it('explains every invalid input in Portuguese', () => {
@@ -138,7 +142,6 @@ describe('simulation form', () => {
 
   it('starts blank simulations with today, no offer and a sole curve', () => {
     expect(blankSimulationValues('2026-10-10', options)).toMatchObject({
-      offerMode: 'existing',
       offerId: '',
       investmentDate: '2026-10-10',
       titleType: 'CDB',
@@ -156,18 +159,74 @@ describe('simulation form', () => {
 
   it('edits saved simulations in the units the user typed', () => {
     expect(
-      simulationValues(workspace.offer, {
-        ...workspace.simulation.investment,
-        principal: '10000.5',
-      }),
+      simulationValues(
+        {
+          ...workspace,
+          simulation: {
+            ...workspace.simulation,
+            investment: {
+              ...workspace.simulation.investment,
+              principal: '10000.5',
+            },
+          },
+        },
+        remunerations,
+      ),
     ).toEqual({
       ...valid,
-      offerMode: 'existing',
       offerId: 'cdi-offer',
-      offerName: '',
+      offerName: 'Reserva',
       principal: '10000,5',
       rate: '105',
     });
+  });
+
+  it('duplicates own terms based on their offer, never sharing them', () => {
+    expect(duplicateValues(ownTermsWorkspace, remunerations)).toMatchObject({
+      offerId: 'cdi-offer',
+      rate: '110',
+    });
+    const deletedBase = {
+      ...ownTermsWorkspace,
+      offer: {
+        ...ownTermsWorkspace.offer,
+        basedOn: { ...workspace.offer, deleted: true },
+      },
+    };
+    expect(duplicateValues(deletedBase, remunerations).offerId).toBe('');
+  });
+
+  it("replaces a saved curve the offer's index no longer takes", () => {
+    const movedTo = (kind: 'PREFIXED' | 'SELIC_PERCENTAGE') =>
+      simulationValues(
+        {
+          ...workspace,
+          offer: {
+            ...workspace.offer,
+            remunerationTerms: { kind, rate: '1' },
+          },
+        },
+        remunerations,
+      ).curveId;
+    // The form hides the curve of a prefixed offer, so it must not send one.
+    expect(movedTo('PREFIXED')).toBe('');
+    // The only curve of the new index is chosen, so saving fixes it.
+    expect(movedTo('SELIC_PERCENTAGE')).toBe('selic');
+  });
+
+  it('keeps a deleted saved curve so the form names it as missing', () => {
+    const values = simulationValues(
+      {
+        ...workspace,
+        curve: { ...workspace.curve!, deleted: true },
+        simulation: {
+          ...workspace.simulation,
+          investment: { ...workspace.simulation.investment, curveId: 'gone' },
+        },
+      },
+      remunerations,
+    );
+    expect(values.curveId).toBe('gone');
   });
 
   it('fills terms from an offer', () => {

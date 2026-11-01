@@ -36,7 +36,7 @@ regras estão no [PRD](../investment-simulator-prd.md).
 - Uma busca sem resultados diz "Nenhuma simulação corresponde aos filtros."
   com "Limpar filtros", diferente de não haver simulações.
 - Cada linha mostra a oferta pelos termos ("CDB 110% do CDI"), com o emissor
-  ("Sem emissor") e o apelido abaixo, a curva quando indexada ("Curva
+  ("Sem emissor"), o apelido e "Termos próprios", quando for o caso, abaixo, a curva quando indexada ("Curva
   excluída" depois de excluída, "—" sem curva), o valor aplicado, o período,
   o valor líquido do último resultado bem sucedido, sua rentabilidade líquida anual
   ("10,28% a.a.", ou "—" sem resultado) e um marcador em texto quando o
@@ -89,20 +89,42 @@ resultados (empilhados abaixo de 1024px). O título de uma simulação salva é 
 oferta pelos termos ("CDB 112% do CDI"); abaixo vêm o emissor, o apelido, o
 valor aplicado, o período e a origem da oferta.
 
-- "Oferta": escolhida entre as ofertas visíveis ao usuário (do sistema e
-  próprias), agrupadas por tipo de título e origem ("CDB · Do sistema", "CDB ·
-  Minhas"), com o tipo de título acompanhado de seu tratamento de IR e prazo
-  mínimo.
-  - "Duplicar e ajustar" abre os termos da oferta como uma cópia editável que
-    vira uma oferta privada; "Digitar termos" cria uma oferta privada (tipo de
-    título, emissor e apelido opcionais e termos). Nos dois casos a oferta é salva
-    primeiro, quando a simulação é salva. Se a simulação for recusada depois,
-    o formulário escolhe a oferta salva, um aviso informa que ela está em
-    Ofertas ("Ver oferta"), e outros termos exigem um novo "Duplicar e
-    ajustar".
-  - A oferta própria escolhida também pode ser editada ali mesmo, com o aviso
-    do editor de ofertas; uma oferta do sistema oferece somente "Duplicar e
-    ajustar".
+- "Oferta": os termos da simulação (tipo de título, remuneração, taxa,
+  vencimento e liquidez) ficam sempre editáveis. Escolher uma oferta entre as
+  visíveis ao usuário (do sistema e próprias, agrupadas por tipo de título e
+  origem: "CDB · Do sistema", "CDB · Minhas") preenche os termos com os dela;
+  o tipo de título vem com seu tratamento de IR e prazo mínimo. "Escolha uma
+  oferta ou preencha os termos" também aceita termos digitados sem oferta.
+  - Emissor e apelido vêm da oferta e aparecem abaixo da escolha ("Banco X ·
+    Reserva"), sem edição: não são termos, então mudá-los nunca dá termos
+    próprios à simulação. Termos próprios mantêm os da oferta em que se
+    baseiam. Só termos digitados sem oferta pedem o emissor (opcional), e
+    nunca um apelido; para nomear termos, "Salvar como oferta" os leva a
+    Ofertas.
+  - Enquanto os termos são os da oferta, a simulação segue a oferta: mudanças
+    nela recalculam a simulação. Alterar um termo mostra "Ao salvar, esta
+    simulação passa a ter termos próprios. A oferta não muda." (ou "Ao salvar,
+    estes termos ficam só nesta simulação." sem oferta).
+  - Uma simulação salva com termos próprios mostra "Termos próprios" na
+    escolha de oferta e, abaixo, "Baseados em CDB 110% do CDI" ("(excluída)"
+    quando a oferta foi excluída); o tipo de título fica fixo. Termos próprios não aparecem em
+    Ofertas nem em outra simulação, e mudanças na oferta original não os
+    alcançam. Alterá-los mostra "Ao salvar, os termos desta simulação mudam.
+    Nenhuma oferta muda."
+  - Com termos próprios salvos, três ações ficam abaixo dos termos,
+    desabilitadas enquanto há alterações não salvas ("Salve as alterações
+    antes."):
+    - "Voltar à oferta" pede confirmação, descarta os termos próprios e volta
+      a seguir a oferta original; só aparece enquanto ela existe.
+    - "Aplicar à oferta" pede confirmação ("A oferta CDB 110% do CDI passa a
+      ter os termos desta simulação, que volta a segui-la. As 3 simulações
+      que usam esta oferta serão recalculadas."); só aparece quando a oferta
+      original é do usuário e do mesmo tipo de título.
+    - "Salvar como oferta" leva os termos para Ofertas › Minhas, e a
+      simulação passa a seguir a nova oferta ("Oferta CDB 115% do CDI salva
+      em Minhas", com "Ver oferta").
+  - Uma oferta excluída mostra "Oferta excluída. Escolha outra ou salve para
+    manter estes termos só nesta simulação."
   - Mudar o tipo de remuneração limpa a taxa e a curva. A liquidez começa em
     "No vencimento".
 - "Investimento": valor aplicado, data da aplicação e a curva, nos tipos
@@ -115,7 +137,11 @@ valor aplicado, o período e a origem da oferta.
   feriados. Datas digitadas não são bloqueadas pelo calendário: o formulário
   recusa uma fora dos anos aceitos, e o sistema recusa um dia não útil no seu
   campo.
-- "Salvar e calcular" fica desabilitado sem alterações. Uma simulação recusada
+- "Salvar e calcular" fica desabilitado sem alterações. O texto abaixo dele
+  diz o que salvar faz: "Salvar guarda estes termos só nesta simulação e
+  calcula o resultado." quando os termos passam a ser próprios e "Salvar
+  altera os termos desta simulação e recalcula o resultado." quando já são.
+  Uma simulação recusada
   não é salva: o formulário mantém as edições como não salvas e o motivo
   aparece no campo responsável (valor aplicado, dia não útil, prazo mínimo,
   índice, oferta ou curva ausente). Se a simulação foi alterada em outro lugar,
@@ -125,7 +151,9 @@ valor aplicado, o período e a origem da oferta.
 ### Situação do Cálculo
 
 - O painel de resultados sempre mostra a situação do cálculo e sua causa
-  ("Calculando · simulação alterada"), anunciada a leitores de tela. A página
+  ("Calculando · simulação alterada"; "oferta ou curva alterada" quando o
+  recálculo veio de uma mudança na oferta ou na curva), anunciada a leitores
+  de tela. A página
   se atualiza sozinha, então cálculos concluídos, edições feitas em outra aba
   e mudanças nas premissas aparecem sem ação do usuário, sem nunca alterar o
   formulário. Uma versão mais nova da simulação oferece "Recarregar".
@@ -137,6 +165,11 @@ valor aplicado, o período e a origem da oferta.
   outra") ou corrigir o campo. A falta de cobertura, que só acontece antes do
   início de uma curva, nomeia os períodos sem valor ("A curva não tem valores
   entre 02/01/2023 e 29/12/2023") e leva à curva ("Ver curva <nome>").
+  Depois que a oferta muda de índice, o motivo nomeia o índice novo ("A curva
+  não é do SELIC, o índice da oferta. Escolha uma curva do SELIC e salve.";
+  "A oferta é prefixada e não usa curva." numa oferta prefixada), e o
+  formulário já troca a curva salva pela do índice novo quando há só uma, de
+  modo que salvar resolve.
 - "Falha técnica" explica que as novas tentativas automáticas se esgotaram e
   oferece "Tentar novamente", que pede o cálculo de novo.
 
@@ -196,7 +229,8 @@ civis do PRD. Uma simulação não salva não mostra prazo.
 - O cabeçalho de uma simulação salva oferece "Nova simulação" (um formulário em
   branco), "Duplicar" e "Excluir".
 - "Duplicar" abre uma nova simulação com a mesma oferta, curva e investimento,
-  para comparar lado a lado. "Excluir" pede confirmação, informa que a
+  para comparar lado a lado. Termos próprios vêm como termos baseados na
+  mesma oferta, e salvar dá à nova simulação os seus. "Excluir" pede confirmação, informa que a
   exclusão é definitiva e, quando a simulação está em planos, que "Ela sai de N
   planos". Alterações não salvas são confirmadas antes de sair.
 

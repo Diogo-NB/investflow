@@ -11,8 +11,10 @@ import {
   OfferCreated,
   OfferDeleted,
   OfferDetailsChanged,
+  OfferMovedToCatalog,
   OfferTermsChanged,
 } from './offer.events';
+import { EOfferScope } from './offer-scope.enum';
 import type { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
 import type { RemunerationTerms } from './terms/remuneration/remuneration-terms.vo';
 import { ETitleType } from './title-type.enum';
@@ -36,6 +38,11 @@ interface OfferProps {
   maturityDate: CalendarDate;
   redemptionTerms: RedemptionTerms;
   remunerationTerms: RemunerationTerms;
+  // Where the offer can be used.
+  scope: EOfferScope;
+  // The offer a simulation's own terms came from; set only in the SIMULATION
+  // scope, and null for terms typed from scratch.
+  basedOnOfferId: string | null;
   deletedAt: UtcInstant | null;
 }
 
@@ -47,6 +54,12 @@ export type CreateOfferProps = Pick<
   | 'redemptionTerms'
   | 'remunerationTerms'
 > & { readonly name?: string | null; readonly issuerName?: string | null };
+
+export type CreateSimulationScopedOfferProps = CreateOfferProps & {
+  // Simulation-scoped offers always belong to a user.
+  readonly ownerId: string;
+  readonly basedOnOfferId: string | null;
+};
 
 export type ReconstituteOfferProps = OfferProps & {
   readonly id: string;
@@ -68,7 +81,30 @@ export class Offer extends AggregateRoot {
     super(id, revision);
   }
 
+  /** A catalog offer, listed in Ofertas. */
   static create(props: CreateOfferProps, occurredAt: UtcInstant): Offer {
+    return Offer.createIn(props, EOfferScope.CATALOG, null, occurredAt);
+  }
+
+  /** A simulation's own terms, used by that simulation only. */
+  static createSimulationScoped(
+    props: CreateSimulationScopedOfferProps,
+    occurredAt: UtcInstant,
+  ): Offer {
+    return Offer.createIn(
+      props,
+      EOfferScope.SIMULATION,
+      props.basedOnOfferId,
+      occurredAt,
+    );
+  }
+
+  private static createIn(
+    props: CreateOfferProps,
+    scope: EOfferScope,
+    basedOnOfferId: string | null,
+    occurredAt: UtcInstant,
+  ): Offer {
     const content = Offer.normalize({
       name: props.name ?? null,
       issuerName: props.issuerName ?? null,
@@ -82,6 +118,8 @@ export class Offer extends AggregateRoot {
         ...content,
         titleType: props.titleType,
         ownerId: props.ownerId,
+        scope,
+        basedOnOfferId,
         deletedAt: null,
       },
       Revision.initial(),
@@ -132,6 +170,14 @@ export class Offer extends AggregateRoot {
     return this.props.remunerationTerms;
   }
 
+  get scope(): EOfferScope {
+    return this.props.scope;
+  }
+
+  get basedOnOfferId(): string | null {
+    return this.props.basedOnOfferId;
+  }
+
   get deletedAt(): UtcInstant | null {
     return this.props.deletedAt;
   }
@@ -150,9 +196,12 @@ export class Offer extends AggregateRoot {
       : Result.err(new OfferRevisionConflictError(this.id, expected));
   }
 
-  // A private copy for the actor, including of a system offer.
+  // A private copy for the actor, including of a system offer. A
+  // simulation's own terms stay simulation-scoped with the same base, so a
+  // duplicated simulation gets its own copy.
   duplicateFor(ownerId: string | null, occurredAt: UtcInstant): Offer {
-    return Offer.create(
+    const scope = ownerId === null ? EOfferScope.CATALOG : this.props.scope;
+    return Offer.createIn(
       {
         titleType: this.props.titleType,
         ownerId,
@@ -162,8 +211,19 @@ export class Offer extends AggregateRoot {
         redemptionTerms: this.props.redemptionTerms,
         remunerationTerms: this.props.remunerationTerms,
       },
+      scope,
+      scope === EOfferScope.SIMULATION ? this.props.basedOnOfferId : null,
       occurredAt,
     );
+  }
+
+  /** Lists a simulation's own terms in Ofertas; the simulation keeps using them. */
+  moveToCatalog(occurredAt: UtcInstant): this {
+    if (this.props.scope === EOfferScope.CATALOG) return this;
+    this.props.scope = EOfferScope.CATALOG;
+    this.props.basedOnOfferId = null;
+    this.revisionTracker.increment();
+    return this.apply(new OfferMovedToCatalog(this.id, occurredAt));
   }
 
   edit(edit: OfferEdit, occurredAt: UtcInstant): this {

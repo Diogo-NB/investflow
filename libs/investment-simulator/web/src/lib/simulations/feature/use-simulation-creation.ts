@@ -17,7 +17,7 @@ import {
 } from '../api/simulation-api';
 import {
   blankSimulationValues,
-  simulationValues,
+  duplicateValues,
   toSimulationInput,
   type SimulationFormValues,
 } from '../utils/simulation-form';
@@ -26,9 +26,10 @@ import {
   type SaveProblem,
 } from '../utils/simulation-save-problem';
 import {
-  useTypedOfferSaving,
+  useSimulationTermsSaving,
   type SimulationSaveCallbacks,
-} from './use-typed-offer-saving';
+  type SimulationTermsSave,
+} from './use-simulation-terms-saving';
 
 export const TEMPLATE_PARAM = 'a-partir-de';
 // The plan the user started from; the new simulation is offered to it.
@@ -42,7 +43,7 @@ export function useSimulationCreation() {
   const templateId = searchParams.get(TEMPLATE_PARAM);
   const investmentPlanId = searchParams.get(INVESTMENT_PLAN_PARAM);
   const toasts = useToasts();
-  const typedOffer = useTypedOfferSaving();
+  const termsSaving = useSimulationTermsSaving();
 
   const options = useQuery(simulationOptionsQuery(fetchFn));
   const template = useQuery({
@@ -128,14 +129,15 @@ export function useSimulationCreation() {
   }
 
   async function run(
-    values: SimulationFormValues,
+    request: SimulationTermsSave,
     callbacks: SimulationSaveCallbacks,
   ) {
     if (creating.current) return;
     creating.current = true;
     create.reset();
     try {
-      const chosen = await typedOffer.choose(values, callbacks);
+      // The terms go first: the simulation's checks read them.
+      const chosen = await termsSaving.save(request, callbacks);
       if (!chosen) return;
       // Not mutate's callbacks: React Query drops them once the navigation
       // unmounts this page, and this promise settles after onSuccess.
@@ -146,8 +148,7 @@ export function useSimulationCreation() {
           }
         },
         (error: unknown) => {
-          typedOffer.reportKept(values, chosen);
-          callbacks.onProblem(describeSaveProblem(error, chosen.offerMode));
+          callbacks.onProblem(describeSaveProblem(error));
         },
       );
     } finally {
@@ -156,9 +157,9 @@ export function useSimulationCreation() {
   }
 
   const problem: SaveProblem | null =
-    typedOffer.problem ??
+    termsSaving.problem ??
     (!create.isPending && create.error
-      ? describeSaveProblem(create.error, 'existing')
+      ? describeSaveProblem(create.error)
       : null);
 
   const setup = (() => {
@@ -174,10 +175,7 @@ export function useSimulationCreation() {
     }
     const initialValues = template.data
       ? // A duplicate starts from the same offer, curve and investment.
-        simulationValues(
-          template.data.offer,
-          template.data.simulation.investment,
-        )
+        duplicateValues(template.data, options.data.remunerations)
       : blankSimulationValues(todayInSaoPaulo(), options.data);
     return {
       status: 'ready',
@@ -195,9 +193,9 @@ export function useSimulationCreation() {
       }
     },
     create: {
-      run: (values: SimulationFormValues, callbacks: SimulationSaveCallbacks) =>
-        void run(values, callbacks),
-      pending: typedOffer.pending || create.isPending,
+      run: (request: SimulationTermsSave, callbacks: SimulationSaveCallbacks) =>
+        void run(request, callbacks),
+      pending: termsSaving.pending || create.isPending,
       problem,
     },
   };

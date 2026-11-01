@@ -58,6 +58,33 @@ export function createOffer(fetchFn: FetchFn, input: OfferTermsInput) {
   });
 }
 
+/** A simulation's own terms, saved before the simulation that uses them. */
+export function createSimulationScopedOffer(
+  fetchFn: FetchFn,
+  input: OfferTermsInput & { readonly basedOnOfferId: string | null },
+) {
+  return requestJson<{ offerId: string }>(
+    fetchFn,
+    `${BASE}/simulation-scoped`,
+    {
+      method: 'POST',
+      ...jsonBody(input),
+    },
+  );
+}
+
+/** Lists a simulation's own terms in Ofertas. */
+export function moveOfferToCatalog(
+  fetchFn: FetchFn,
+  id: string,
+  revision: number,
+) {
+  return requestJson<void>(fetchFn, `${BASE}/${id}/move-to-catalog`, {
+    method: 'POST',
+    ...jsonBody({ revision }),
+  });
+}
+
 export function editOffer(fetchFn: FetchFn, id: string, edit: OfferEdit) {
   return requestJson<void>(fetchFn, `${BASE}/${id}`, {
     method: 'PATCH',

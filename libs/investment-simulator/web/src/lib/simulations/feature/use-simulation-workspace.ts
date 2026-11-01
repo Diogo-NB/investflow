@@ -24,14 +24,20 @@ import {
   type SaveProblem,
 } from '../utils/simulation-save-problem';
 import {
-  useTypedOfferSaving,
+  useSimulationTermsSaving,
   type SimulationSaveCallbacks,
-} from './use-typed-offer-saving';
+  type SimulationTermsSave,
+} from './use-simulation-terms-saving';
 
 export interface EditCallbacks extends SimulationSaveCallbacks {
-  // values are the ones saved, with a chosen offer; revision is the one the
-  // next edit must send.
+  // values are the ones saved, with the offer the simulation now uses;
+  // revision is the one the next edit must send.
   onSaved(values: SimulationFormValues, revision: number): void;
+}
+
+export interface SimulationEdit extends SimulationTermsSave {
+  // The revision the form started from.
+  readonly revision: number;
 }
 
 export function useSimulationWorkspace(simulationId: string) {
@@ -39,7 +45,7 @@ export function useSimulationWorkspace(simulationId: string) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const typedOffer = useTypedOfferSaving();
+  const termsSaving = useSimulationTermsSaving();
 
   const options = useQuery(simulationOptionsQuery(fetchFn));
   // Polled whatever the calculation status; TanStack Query pauses the
@@ -111,26 +117,22 @@ export function useSimulationWorkspace(simulationId: string) {
   const saving = useRef(false);
   const requesting = useRef(false);
 
-  async function run(
-    values: SimulationFormValues,
-    revision: number,
-    callbacks: EditCallbacks,
-  ) {
+  async function run(request: SimulationEdit, callbacks: EditCallbacks) {
     if (saving.current) return;
     saving.current = true;
     edit.reset();
-    const chosen = await typedOffer.choose(values, callbacks);
+    // The terms go first: the simulation's checks read them.
+    const chosen = await termsSaving.save(request, callbacks);
     if (!chosen) {
       saving.current = false;
       return;
     }
     edit.mutate(
-      { values: chosen, revision },
+      { values: chosen, revision: request.revision },
       {
         onSuccess: (saved) => callbacks.onSaved(chosen, saved.revision),
         onError: (error) => {
-          typedOffer.reportKept(values, chosen);
-          callbacks.onProblem(describeSaveProblem(error, chosen.offerMode));
+          callbacks.onProblem(describeSaveProblem(error));
         },
         onSettled: () => {
           saving.current = false;
@@ -140,10 +142,8 @@ export function useSimulationWorkspace(simulationId: string) {
   }
 
   const problem: SaveProblem | null =
-    typedOffer.problem ??
-    (!edit.isPending && edit.error
-      ? describeSaveProblem(edit.error, 'existing')
-      : null);
+    termsSaving.problem ??
+    (!edit.isPending && edit.error ? describeSaveProblem(edit.error) : null);
 
   const setup = (() => {
     if (options.isError || source.isError) {
@@ -160,10 +160,7 @@ export function useSimulationWorkspace(simulationId: string) {
       status: 'ready',
       loadGeneration,
       workspace: source.data,
-      initialValues: simulationValues(
-        source.data.offer,
-        source.data.simulation.investment,
-      ),
+      initialValues: simulationValues(source.data, options.data.remunerations),
       options: options.data,
     } as const;
   })();
@@ -176,16 +173,13 @@ export function useSimulationWorkspace(simulationId: string) {
       }
     },
     edit: {
-      run: (
-        values: SimulationFormValues,
-        revision: number,
-        callbacks: EditCallbacks,
-      ) => void run(values, revision, callbacks),
-      pending: typedOffer.pending || edit.isPending,
+      run: (request: SimulationEdit, callbacks: EditCallbacks) =>
+        void run(request, callbacks),
+      pending: termsSaving.pending || edit.isPending,
       problem,
       // Loads the version saved elsewhere; the editor restarts from it.
       reload: async () => {
-        typedOffer.reset();
+        termsSaving.reset();
         edit.reset();
         await source.refetch();
         setLoadGeneration((generation) => generation + 1);

@@ -36,3 +36,13 @@ export class OfferDeleted extends InvestmentSimulatorEvent {
     super(offerId, occurredAt);
   }
 }
+
+// A simulation's own terms became an offer listed in Ofertas.
+export class OfferMovedToCatalog extends InvestmentSimulatorEvent {
+  readonly eventType = 'OfferMovedToCatalog';
+  readonly aggregateType = 'Offer';
+
+  constructor(offerId: string, occurredAt: UtcInstant) {
+    super(offerId, occurredAt);
+  }
+}

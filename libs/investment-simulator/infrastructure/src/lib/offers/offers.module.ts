@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import {
   CreateOfferUseCase,
+  CreateSimulationScopedOfferUseCase,
   DeleteOfferUseCase,
   DuplicateOfferUseCase,
   EditOfferUseCase,
+  MoveOfferToCatalogUseCase,
   OfferRepository,
 } from '@investflow/investment-simulator-application';
 import { OfferController } from './http/offer.controller';
@@ -21,6 +23,8 @@ import { ListOffersQueryHandler } from './queries/list-offers.query-handler';
     EditOfferUseCase,
     DuplicateOfferUseCase,
     DeleteOfferUseCase,
+    CreateSimulationScopedOfferUseCase,
+    MoveOfferToCatalogUseCase,
     ListOffersQueryHandler,
     GetOfferQueryHandler,
   ],

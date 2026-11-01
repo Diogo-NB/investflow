@@ -153,19 +153,22 @@ contaria o mesmo dinheiro duas vezes.
 
 Uma simulação sempre usa uma oferta. Ela é composta por:
 
-- a oferta escolhida;
+- a oferta escolhida, ou termos próprios;
 - a curva, quando a remuneração é indexada; ela deve ser do mesmo índice da
   remuneração;
 - o valor inicial;
 - a data de aplicação.
 
-Todos esses itens são editáveis. Termos diferentes significam outra oferta:
-na tela da simulação, "Duplicar e ajustar" cria uma oferta privada a partir da
-oferta escolhida, e "Digitar termos" cria uma oferta privada com os termos
-digitados. A nova oferta é salva antes da simulação: se a simulação for
-rejeitada, a oferta continua salva em Ofertas e escolhida na simulação.
-Ofertas do sistema não podem ser editadas, somente
-duplicadas.
+Todos esses itens são editáveis. Enquanto usa os termos da oferta escolhida,
+a simulação segue a oferta e é recalculada quando ela muda. Alterar os termos
+na tela da simulação dá a ela **termos próprios**, baseados na oferta
+escolhida (ou digitados sem oferta): valem só para essa simulação, não
+aparecem em Ofertas nem podem ser usados por outra simulação, e mudanças na
+oferta original não os alcançam. A partir deles, o usuário pode voltar a
+seguir a oferta original, aplicar os termos a ela (quando a oferta é dele, o
+que recalcula as simulações que a usam) ou salvá-los como uma oferta em
+Ofertas, que a simulação passa a seguir. Ofertas do sistema não podem ser
+editadas, mas podem servir de base para termos próprios.
 
 Tipos de remuneração: prefixado ou pós-fixado por CDI ou SELIC efetiva. O
 híbrido por IPCA e o resgate antecipado ficam fora da primeira versão (ver
@@ -209,8 +212,8 @@ dias úteis até o vencimento, sem recebimentos antecipados. IOF e IR aparecem s
   | Requer ação   | Uma regra de negócio impede o cálculo; o motivo é exibido.                    | Usuário                                    |
   | Falha técnica | O cálculo falhou por erro do sistema depois das novas tentativas automáticas. | Sistema; usuário pode pedir nova tentativa |
 
-- Cada estado informa sua causa: a criação da simulação, sua edição ou o
-  pedido de nova tentativa. A causa acompanha o
+- Cada estado informa sua causa: a criação da simulação, sua edição, o
+  pedido de nova tentativa ou a mudança da sua oferta ou curva. A causa acompanha o
   resultado do cálculo: "Requer ação" exibe o motivo e também a alteração
   que levou a ele. Somente o estado atual é mantido; não há histórico de
   estados.

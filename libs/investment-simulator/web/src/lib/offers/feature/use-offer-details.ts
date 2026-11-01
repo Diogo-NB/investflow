@@ -35,10 +35,17 @@ export type OfferSimulationsState =
     };
 
 /** The first page of the user's simulations that use an offer. */
-export function useOfferSimulations(offerId: string | undefined) {
+export function useOfferSimulations(
+  offerId: string | undefined,
+  page: { readonly pageSize?: number } = {},
+) {
   const fetchFn = useApiFetch();
   const query = useQuery({
-    ...simulationListQuery(fetchFn, { offerId: offerId ?? '', page: 1 }),
+    ...simulationListQuery(fetchFn, {
+      offerId: offerId ?? '',
+      page: 1,
+      ...page,
+    }),
     enabled: offerId !== undefined,
   });
   const state: OfferSimulationsState = query.data

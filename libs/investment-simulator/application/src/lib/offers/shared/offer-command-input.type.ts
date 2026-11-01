@@ -21,6 +21,15 @@ export interface CreateOfferCommandInput {
   readonly remunerationTerms: RemunerationTermsCommandInput;
 }
 
+export interface CreateSimulationScopedOfferCommandInput
+  extends CreateOfferCommandInput {
+  readonly basedOnOfferId?: string | null;
+}
+
+export interface OfferRevisionCommandInput {
+  readonly revision: number;
+}
+
 export interface EditOfferCommandInput {
   readonly revision: number;
   readonly name?: string | null;

@@ -5,16 +5,20 @@ import {
   harness,
   withLocation,
 } from '../../../testing/simulator-harness';
-import { optionsRoute, workspace } from '../../../testing/simulator-fixtures';
+import {
+  cdiOffer,
+  optionsRoute,
+  ownTermsWorkspace,
+  workspace,
+} from '../../../testing/simulator-fixtures';
 import type { SimulationFormValues } from '../../utils/simulation-form';
 import { useSimulationCreation } from '../use-simulation-creation';
 
 const API = '/api/investment-simulator';
 
 const values: SimulationFormValues = {
-  offerMode: 'existing',
   offerId: 'cdi-offer',
-  offerName: '',
+  offerName: 'Reserva',
   principal: '10.000',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
@@ -26,17 +30,15 @@ const values: SimulationFormValues = {
   curveId: 'cdi',
 };
 
+// Terms typed without choosing an offer.
 const typed: SimulationFormValues = {
   ...values,
-  offerMode: 'new',
+  offerId: '',
   offerName: ' LCI digitada ',
   titleType: 'LCI',
 };
 
-const saveCallbacks = (onProblem = vi.fn(), onOfferSaved = vi.fn()) => ({
-  onOfferSaved,
-  onProblem,
-});
+const saveCallbacks = (onProblem = vi.fn()) => ({ onProblem });
 
 const typedOfferBody = {
   titleType: 'LCI',
@@ -45,6 +47,7 @@ const typedOfferBody = {
   maturityDate: '2026-03-02',
   redemptionTerms: { kind: 'DAILY' },
   remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.05' },
+  basedOnOfferId: null,
 };
 
 const templateRoutes = {
@@ -103,7 +106,10 @@ async function createFrom(rendered: Rendered, onProblem = vi.fn()) {
     expect(rendered.result.current.hook.setup.status).toBe('ready'),
   );
   act(() =>
-    rendered.result.current.hook.create.run(values, saveCallbacks(onProblem)),
+    rendered.result.current.hook.create.run(
+      { values, offer: cdiOffer, isOwnTerms: false },
+      saveCallbacks(onProblem),
+    ),
   );
   await waitFor(() =>
     expect(rendered.result.current.location.pathname).toBe('/simulacoes/sim'),
@@ -125,7 +131,6 @@ describe('useSimulationCreation', () => {
     const setup = result.current.hook.setup;
     expect(setup.status === 'ready' && setup.templateId).toBeNull();
     expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
-      offerMode: 'existing',
       offerId: '',
       curveId: 'cdi',
       investmentDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
@@ -142,10 +147,27 @@ describe('useSimulationCreation', () => {
     const setup = result.current.hook.setup;
     expect(setup.status === 'ready' && setup.templateId).toBe('sim');
     expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
-      offerMode: 'existing',
       offerId: 'cdi-offer',
       principal: '10000',
       curveId: 'cdi',
+    });
+  });
+
+  it("duplicates a simulation's own terms as terms based on the same offer", async () => {
+    const { result } = render(
+      fakeApi({
+        ...optionsRoute,
+        [`GET ${API}/simulation-workspaces/sim`]: ownTermsWorkspace,
+      }),
+      '/simulacoes/nova?a-partir-de=sim',
+    );
+
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+    const setup = result.current.hook.setup;
+    // Never the original's own offer: saving gives the duplicate its own.
+    expect(setup.status === 'ready' && setup.initialValues).toMatchObject({
+      offerId: 'cdi-offer',
+      rate: '110',
     });
   });
 
@@ -177,29 +199,31 @@ describe('useSimulationCreation', () => {
     );
   });
 
-  it('saves typed terms as an offer, then opens the simulation using it', async () => {
+  it('saves terms typed without an offer as own terms, then opens the simulation', async () => {
     const api = fakeApi({
       ...templateRoutes,
       ...emptyList,
-      [`POST ${API}/offers`]: { offerId: 'typed-offer' },
+      [`POST ${API}/offers/simulation-scoped`]: { offerId: 'typed-offer' },
       [`POST ${API}/simulations`]: { simulationId: 'sim' },
     });
-    const onOfferSaved = vi.fn();
-    const { result } = render(api);
+    const { result, added } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
     act(() =>
       result.current.hook.create.run(
-        typed,
-        saveCallbacks(vi.fn(), onOfferSaved),
+        { values: typed, offer: undefined, isOwnTerms: false },
+        saveCallbacks(),
       ),
     );
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/simulacoes/sim'),
     );
-    expect(onOfferSaved).toHaveBeenCalledWith('typed-offer');
-    expect(api.bodies(`POST ${API}/offers`)).toEqual([typedOfferBody]);
+    expect(api.bodies(`POST ${API}/offers/simulation-scoped`)).toEqual([
+      typedOfferBody,
+    ]);
+    // Own terms never reach Ofertas, so nothing announces them.
+    expect(added).not.toHaveBeenCalled();
     expect(api.bodies(`POST ${API}/simulations`)).toEqual([
       {
         offerId: 'typed-offer',
@@ -210,65 +234,83 @@ describe('useSimulationCreation', () => {
         },
       },
     ]);
-    // Read again so the form can choose the new offer.
-    expect(
-      api.calls().filter((call) => call === `GET ${API}/simulation-options`),
-    ).toHaveLength(2);
     expect(api.calls()).toContain(`GET ${API}/simulation-workspaces/sim`);
   });
 
-  it('keeps the saved offer chosen when the simulation is then rejected', async () => {
+  it('saves terms changed from the chosen offer as own terms based on it', async () => {
     const api = fakeApi({
-      ...optionsRoute,
-      [`POST ${API}/offers`]: { offerId: 'typed-offer' },
-      [`POST ${API}/simulations`]: apiFailure(422, 'INVESTMENT_TERM_TOO_SHORT'),
+      ...templateRoutes,
+      ...emptyList,
+      [`POST ${API}/offers/simulation-scoped`]: { offerId: 'own-terms' },
+      [`POST ${API}/simulations`]: { simulationId: 'sim' },
     });
-    const onProblem = vi.fn();
-    const onOfferSaved = vi.fn();
-    const { result, added } = render(api);
+    const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
     act(() =>
       result.current.hook.create.run(
-        typed,
-        saveCallbacks(onProblem, onOfferSaved),
+        {
+          values: { ...values, rate: '110' },
+          offer: cdiOffer,
+          isOwnTerms: false,
+        },
+        saveCallbacks(),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(result.current.location.pathname).toBe('/simulacoes/sim'),
+    );
+    expect(api.bodies(`POST ${API}/offers/simulation-scoped`)).toEqual([
+      expect.objectContaining({ basedOnOfferId: 'cdi-offer' }),
+    ]);
+    expect(api.bodies(`POST ${API}/simulations`)).toEqual([
+      expect.objectContaining({ offerId: 'own-terms' }),
+    ]);
+  });
+
+  it('reports a simulation rejected after its own terms were saved', async () => {
+    const api = fakeApi({
+      ...optionsRoute,
+      [`POST ${API}/offers/simulation-scoped`]: { offerId: 'typed-offer' },
+      [`POST ${API}/simulations`]: apiFailure(422, 'INVESTMENT_TERM_TOO_SHORT'),
+    });
+    const onProblem = vi.fn();
+    const { result } = render(api);
+    await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
+
+    act(() =>
+      result.current.hook.create.run(
+        { values: typed, offer: undefined, isOwnTerms: false },
+        saveCallbacks(onProblem),
       ),
     );
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
-    expect(onOfferSaved).toHaveBeenCalledWith('typed-offer');
-    // The terms belong to the saved offer now, not to editable fields.
-    expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'offerId' });
-    expect(added).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Oferta LCI 105% do CDI salva em Ofertas',
-        data: { link: { to: '/ofertas/typed-offer', label: 'Ver oferta' } },
-      }),
-    );
-    expect(result.current.hook.create.problem?.field).toBe('offerId');
+    // The terms stay editable fields, so the rejection points at one.
+    expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'maturityDate' });
+    expect(result.current.hook.create.problem?.field).toBe('maturityDate');
     expect(result.current.location.pathname).toBe('/simulacoes/nova');
   });
 
   it('saves no simulation when the typed offer is rejected', async () => {
     const api = fakeApi({
       ...optionsRoute,
-      [`POST ${API}/offers`]: apiFailure(400, 'INVALID_RATE'),
+      [`POST ${API}/offers/simulation-scoped`]: apiFailure(400, 'INVALID_RATE'),
     });
     const onProblem = vi.fn();
-    const onOfferSaved = vi.fn();
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
     act(() =>
       result.current.hook.create.run(
-        typed,
-        saveCallbacks(onProblem, onOfferSaved),
+        { values: typed, offer: undefined, isOwnTerms: false },
+        saveCallbacks(onProblem),
       ),
     );
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toMatchObject({ field: 'rate' });
-    expect(onOfferSaved).not.toHaveBeenCalled();
     expect(result.current.hook.create.problem?.field).toBe('rate');
     expect(api.calls()).not.toContain(`POST ${API}/simulations`);
   });
@@ -287,7 +329,12 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, saveCallbacks(onProblem)));
+    act(() =>
+      result.current.hook.create.run(
+        { values, offer: cdiOffer, isOwnTerms: false },
+        saveCallbacks(onProblem),
+      ),
+    );
 
     await waitFor(() =>
       expect(result.current.location.pathname).toBe('/simulacoes/sim'),
@@ -309,7 +356,12 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, saveCallbacks(onProblem)));
+    act(() =>
+      result.current.hook.create.run(
+        { values, offer: cdiOffer, isOwnTerms: false },
+        saveCallbacks(onProblem),
+      ),
+    );
 
     await waitFor(() => expect(onProblem).toHaveBeenCalled());
     expect(onProblem.mock.calls[0][0]).toEqual({
@@ -335,8 +387,18 @@ describe('useSimulationCreation', () => {
     const { result } = render(api);
     await waitFor(() => expect(result.current.hook.setup.status).toBe('ready'));
 
-    act(() => result.current.hook.create.run(values, saveCallbacks()));
-    act(() => result.current.hook.create.run(values, saveCallbacks()));
+    act(() =>
+      result.current.hook.create.run(
+        { values, offer: cdiOffer, isOwnTerms: false },
+        saveCallbacks(),
+      ),
+    );
+    act(() =>
+      result.current.hook.create.run(
+        { values, offer: cdiOffer, isOwnTerms: false },
+        saveCallbacks(),
+      ),
+    );
     await waitFor(() =>
       expect(api.calls()).toContain(`POST ${API}/simulations`),
     );

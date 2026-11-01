@@ -40,6 +40,7 @@ import {
 } from './use-simulation-creation';
 import { useSimulationForm } from './use-simulation-form';
 import type { useSimulationWorkspace } from './use-simulation-workspace';
+import { useSimulationTermsActions } from './use-simulation-terms-actions';
 import { useUnsavedChangesGuard } from '../../ui/use-unsaved-changes-guard';
 
 type SimulationForm = ReturnType<typeof useSimulationForm>;
@@ -76,7 +77,11 @@ function SavedSimulationHeading({
         <>
           <span className="block">
             {issuerAndNameLabel(offer)} ·{' '}
-            {offer.deleted ? 'Oferta excluída' : ORIGIN_LABELS[offer.origin]}
+            {offer.deleted
+              ? 'Oferta excluída'
+              : offer.scope === 'SIMULATION'
+                ? 'Termos próprios'
+                : ORIGIN_LABELS[offer.origin]}
           </span>
           <span className="block">
             {formatMoney(simulation.investment.principal)} de{' '}
@@ -101,6 +106,7 @@ interface SimulationEditorLayoutProps {
   readonly problem: SaveProblem | null;
   // Leaving is confirmed only while this holds.
   readonly guarding: boolean;
+  readonly termsActions?: ReturnType<typeof useSimulationTermsActions>;
   readonly onSave: () => void;
   readonly children?: ReactNode;
 }
@@ -114,6 +120,7 @@ function SimulationEditorLayout({
   pending,
   problem,
   guarding,
+  termsActions,
   onSave,
   children,
 }: SimulationEditorLayoutProps) {
@@ -145,6 +152,7 @@ function SimulationEditorLayout({
           saved={workspace}
           pending={pending}
           upToDate={upToDate}
+          termsActions={termsActions ?? null}
           onSave={onSave}
         />
         <CalculationPanel
@@ -190,10 +198,10 @@ export function NewSimulationEditor({
     remunerations: options.remunerations,
   });
   const submit = form.form.handleSubmit((values) =>
-    create.run(values, {
-      onOfferSaved: form.chooseSavedOffer,
-      onProblem: form.showProblem,
-    }),
+    create.run(
+      { values, offer: form.offer, isOwnTerms: false },
+      { onProblem: form.showProblem },
+    ),
   );
 
   return (
@@ -238,6 +246,8 @@ export function SavedSimulationEditor({
     initialValues,
     offers: options.offers,
     remunerations: options.remunerations,
+    ownTermsOffer:
+      workspace.offer.scope === 'SIMULATION' ? workspace.offer : null,
   });
   const [searchParams] = useSearchParams();
   const investmentPlans = useSimulationInvestmentPlans(simulation.id);
@@ -246,16 +256,31 @@ export function SavedSimulationEditor({
   const [baseRevision, setBaseRevision] = useState(simulation.revision);
   const changedElsewhere =
     !edit.pending && simulation.revision !== baseRevision;
+  const termsActions = useSimulationTermsActions({
+    workspace,
+    options,
+    revision: baseRevision,
+    onDone: edit.reload,
+  });
 
   const submit = form.form.handleSubmit((values) =>
-    edit.run(values, baseRevision, {
-      onSaved: (savedValues, revision) => {
-        form.form.reset(savedValues);
-        setBaseRevision(revision);
+    edit.run(
+      {
+        values,
+        offer: form.offer,
+        isOwnTerms: form.isOwnTerms,
+        revision: baseRevision,
       },
-      onOfferSaved: form.chooseSavedOffer,
-      onProblem: form.showProblem,
-    }),
+      {
+        // The workspace is read again first, so own terms saved now are
+        // already the simulation's offer.
+        onSaved: (savedValues, revision) => {
+          form.form.reset(savedValues);
+          setBaseRevision(revision);
+        },
+        onProblem: form.showProblem,
+      },
+    ),
   );
 
   return (
@@ -312,6 +337,7 @@ export function SavedSimulationEditor({
       pending={edit.pending}
       problem={edit.problem}
       guarding={form.form.formState.isDirty && !edit.pending && !remove.pending}
+      termsActions={termsActions}
       onSave={() => void submit()}
     >
       <ConfirmDialog

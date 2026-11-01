@@ -60,10 +60,16 @@ this file in the same change that ships or changes a built behavior.
 - **Simulations:** reference a visible offer and, for indexed remuneration, a
   curve of its index, plus the principal and investment date; all are
   editable and the simulation has its own revision (`PATCH` with the revision,
-  `409` on mismatch). "Digitar termos" and "Duplicar e ajustar" save the
-  terms as a new private offer first (`POST /offers`), then the simulation
-  with its `offerId`; a simulation rejected afterwards leaves that offer
-  saved and chosen in the form. "Duplicar" opens a new simulation with the same choices. CDB, LCI, and LCA
+  `409` on mismatch). The workspace's terms are always editable: terms that
+  differ from the chosen offer are saved first as the simulation's own
+  (`POST /offers/simulation-scoped`, a `SIMULATION`-scoped offer with its
+  base) and edited in place afterwards (`PATCH /offers/:id`), then the
+  simulation is saved. Own terms offer "Voltar à oferta", "Aplicar à oferta",
+  and "Salvar como oferta" (`POST /offers/:id/move-to-catalog`); Ofertas, the
+  offer pickers, and `GET /offers/:id` read the `CATALOG` scope only, and a
+  simulation-scoped offer is accepted for one simulation only. "Duplicar"
+  opens a new simulation with the same choices, own terms based on the same
+  offer. CDB, LCI, and LCA
   with prefixed, CDI, or effective SELIC remuneration on the 252 business-day
   convention, with IOF, income tax, and the LCI/LCA exemption.
 - **Asynchronous calculation:** saving validates every rule except curve
@@ -176,5 +182,3 @@ this file in the same change that ships or changes a built behavior.
 
 - The CDI and SELIC curves imported from the Banco Central are not built
   ([BCB Rate Import](./planned/bcb-rate-import.md)).
-- The simulation workspace cannot yet edit its own offer in place, with the
-  offer editor's impact notice (see [Telas de Simulações](../product/screens/simulations.md)).

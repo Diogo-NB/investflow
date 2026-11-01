@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { formatIsoDate } from '../../dates/calendar-date';
 import {
@@ -5,6 +6,8 @@ import {
   REDEMPTION_LABELS,
   REMUNERATION_LABELS,
   UNSUPPORTED_LABELS,
+  issuerAndNameLabel,
+  offerTermsLabel,
   type RemunerationKind,
   type TitleType,
 } from '../../offers/models/offer-terms';
@@ -12,39 +15,45 @@ import {
   offerSelectGroups,
   ORIGIN_LABELS,
 } from '../../offers/utils/offer-groups';
+import { useOfferSimulations } from '../../offers/feature/use-offer-details';
 import { BusinessDateField } from '../../business-calendar/business-date-field';
 import { DecimalInput } from '../../ui/decimal-input';
 import { FormField } from '../../ui/form-field';
 import { SelectField, type SelectOption } from '../../ui/select-field';
+import { ConfirmDialog } from '../../ui/confirm-dialog';
 import {
+  ArrowRightIcon,
   CheckCircleIcon,
+  ChevronLeftIcon,
   CurveIcon,
+  InfoIcon,
   OfferIcon,
+  PlusIcon,
   SpinningRefreshIcon,
+  SplitIcon,
 } from '../../ui/icons';
 import {
   bareInput,
   fieldBox,
   primaryButton,
-  quietButton,
   secondaryButton,
   surface,
 } from '../../ui/styles';
 import type {
   OfferOption,
+  SimulationOffer,
   SimulationOptions,
   SimulationWorkspace,
   TitleTypeOption,
 } from '../models/simulation.types';
 import type { useSimulationForm } from './use-simulation-form';
+import type { useSimulationTermsActions } from './use-simulation-terms-actions';
 
 type SimulationForm = ReturnType<typeof useSimulationForm>;
 
 const REDEMPTION_OPTIONS: SelectOption[] = (
   ['AT_MATURITY', 'DAILY'] as const
 ).map((kind) => ({ value: kind, label: REDEMPTION_LABELS[kind] }));
-
-type OfferTerms = Omit<OfferOption, 'unsupportedReason'>;
 
 const legendClass =
   'float-left mb-4 w-full p-0 text-sm font-semibold tracking-wide text-muted uppercase';
@@ -75,7 +84,7 @@ function OfferPicker({
   readonly savedOffer: SimulationWorkspace['offer'] | null;
   readonly pending: boolean;
 }) {
-  const { form, values } = simulation;
+  const { form, values, isOwnTerms, offer } = simulation;
   // A deleted offer is no longer listed but still names the saved choice.
   const deleted =
     savedOffer?.deleted === true && values.offerId === savedOffer.id;
@@ -86,22 +95,26 @@ function OfferPicker({
       render={({ field, fieldState }) => (
         <FormField
           label="Oferta"
+          // Issuer and apelido come with the offer; they are not terms.
+          hint={offer && issuerAndNameLabel(offer)}
           error={
             fieldState.error?.message ??
-            (deleted ? 'Sem oferta, escolha outra.' : undefined)
-          }
-          hint={
-            offers.length === 0
-              ? 'Não há ofertas disponíveis. Digite os termos.'
-              : undefined
+            (deleted
+              ? 'Oferta excluída. Escolha outra ou salve para manter estes termos só nesta simulação.'
+              : undefined)
           }
         >
           {(control) => (
             <SelectField
               {...control}
               ref={field.ref}
-              value={deleted ? '' : field.value}
-              placeholder="Escolha uma oferta"
+              // Own terms and terms typed from scratch are not a listed offer.
+              value={deleted || isOwnTerms ? '' : field.value}
+              placeholder={
+                isOwnTerms
+                  ? 'Termos próprios'
+                  : 'Escolha uma oferta ou preencha os termos'
+              }
               disabled={pending || offers.length === 0}
               groups={offerSelectGroups(offers)}
               onValueChange={(value) => {
@@ -117,18 +130,212 @@ function OfferPicker({
   );
 }
 
-function ChosenOffer({
+function TitleTypeField({
   simulation,
   options,
-  savedOffer,
   pending,
 }: {
   readonly simulation: SimulationForm;
   readonly options: SimulationOptions;
-  readonly savedOffer: SimulationWorkspace['offer'] | null;
   readonly pending: boolean;
 }) {
-  const { offer } = simulation;
+  const { form, isOwnTerms } = simulation;
+  return (
+    <Controller
+      control={form.control}
+      name="titleType"
+      render={({ field, fieldState }) => (
+        <FormField
+          label="Título"
+          hint={titleTypeHint(
+            options.titleTypes.find(
+              (option) => option.titleType === field.value,
+            ),
+          )}
+          error={fieldState.error?.message}
+        >
+          {(control) =>
+            // A title type never changes once the terms are saved, as on an
+            // offer.
+            isOwnTerms ? (
+              <p
+                id={control.id}
+                aria-describedby={control['aria-describedby']}
+                className="m-0 font-medium"
+              >
+                {field.value}
+              </p>
+            ) : (
+              <SelectField
+                {...control}
+                ref={field.ref}
+                value={field.value}
+                placeholder="Escolha"
+                disabled={pending}
+                options={options.titleTypes.map(({ titleType }) => ({
+                  value: titleType,
+                  label: titleType,
+                }))}
+                onValueChange={(value) => field.onChange(value as TitleType)}
+                onBlur={field.onBlur}
+              />
+            )
+          }
+        </FormField>
+      )}
+    />
+  );
+}
+
+// The picker already says "Termos próprios"; this names where they came from.
+function TermsBase({ base }: { readonly base: SimulationOffer['basedOn'] }) {
+  if (!base) return null;
+  return (
+    <p className="m-0 flex items-start gap-2 text-sm text-muted">
+      <SplitIcon className="mt-0.5 size-4 shrink-0" />
+      <span>
+        Baseados em {offerTermsLabel(base)}
+        {base.deleted && ' (excluída)'}
+      </span>
+    </p>
+  );
+}
+
+// What saving does to the terms, said before the user saves.
+function termsConsequence(simulation: SimulationForm): string | null {
+  if (!simulation.termsChanged) return null;
+  if (simulation.isOwnTerms) {
+    return 'Ao salvar, os termos desta simulação mudam. Nenhuma oferta muda.';
+  }
+  return simulation.offer
+    ? 'Ao salvar, esta simulação passa a ter termos próprios. A oferta não muda.'
+    : 'Ao salvar, estes termos ficam só nesta simulação.';
+}
+
+type TermsActions = ReturnType<typeof useSimulationTermsActions>;
+
+function TermsActionsBar({
+  actions,
+  dirty,
+}: {
+  readonly actions: TermsActions;
+  readonly dirty: boolean;
+}) {
+  const [confirming, setConfirming] = useState<'return' | 'apply' | null>(null);
+  const { base } = actions;
+  const users = useOfferSimulations(
+    confirming === 'apply' ? base?.id : undefined,
+    { pageSize: 1 },
+  ).state;
+  const disabled = dirty || actions.pending;
+  const close = () => {
+    setConfirming(null);
+    actions.returnToOffer.reset();
+    actions.applyToOffer.reset();
+  };
+  const applyNotice = (() => {
+    if (!base) return '';
+    const count =
+      users.status !== 'ready'
+        ? 'As simulações que usam esta oferta serão recalculadas.'
+        : users.total === 0
+          ? 'Nenhuma outra simulação usa esta oferta.'
+          : users.total === 1
+            ? 'A simulação que usa esta oferta será recalculada.'
+            : `As ${users.total} simulações que usam esta oferta serão recalculadas.`;
+    return `A oferta ${offerTermsLabel(base)} passa a ter os termos desta simulação, que volta a segui-la. ${count}`;
+  })();
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap gap-2">
+        {base && (
+          <button
+            type="button"
+            className={secondaryButton}
+            disabled={disabled}
+            onClick={() => setConfirming('return')}
+          >
+            <ChevronLeftIcon className="size-4 shrink-0" />
+            Voltar à oferta
+          </button>
+        )}
+        {base && actions.canApply && (
+          <button
+            type="button"
+            className={secondaryButton}
+            disabled={disabled}
+            onClick={() => setConfirming('apply')}
+          >
+            <ArrowRightIcon className="size-4 shrink-0" />
+            Aplicar à oferta
+          </button>
+        )}
+        <button
+          type="button"
+          className={secondaryButton}
+          disabled={disabled}
+          onClick={actions.moveToCatalog.run}
+        >
+          <PlusIcon className="size-4 shrink-0" />
+          Salvar como oferta
+        </button>
+      </div>
+      {dirty && (
+        <p className="m-0 text-sm text-muted">Salve as alterações antes.</p>
+      )}
+      {base && (
+        <>
+          <ConfirmDialog
+            open={confirming === 'return'}
+            onOpenChange={(open) => !open && close()}
+            title="Descartar os termos próprios?"
+            description={`Esta simulação volta a seguir a oferta ${offerTermsLabel(base)}, e os termos próprios são descartados.`}
+            cancelLabel="Manter termos próprios"
+            confirmLabel={actions.pending ? 'Voltando…' : 'Voltar à oferta'}
+            pending={actions.pending}
+            error={actions.returnToOffer.failed ?? undefined}
+            onConfirm={() => actions.returnToOffer.run(base)}
+          />
+          <ConfirmDialog
+            open={confirming === 'apply'}
+            onOpenChange={(open) => !open && close()}
+            title={`Aplicar estes termos à oferta ${offerTermsLabel(base)}?`}
+            description={applyNotice}
+            cancelLabel="Cancelar"
+            confirmLabel={actions.pending ? 'Aplicando…' : 'Aplicar à oferta'}
+            pending={actions.pending}
+            error={actions.applyToOffer.failed ?? undefined}
+            onConfirm={() => actions.applyToOffer.run(base)}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function OfferSection({
+  simulation,
+  options,
+  saved,
+  pending,
+  termsActions,
+}: {
+  readonly simulation: SimulationForm;
+  readonly options: SimulationOptions;
+  readonly saved: SimulationWorkspace | null;
+  readonly pending: boolean;
+  readonly termsActions: TermsActions | null;
+}) {
+  const consequence = termsConsequence(simulation);
+  // No offer is behind terms typed from scratch, so the issuer is typed too.
+  const issuerEditable =
+    !simulation.offer || (simulation.isOwnTerms && !saved?.offer.basedOn);
+  // Own terms as saved; a chosen offer replaces them until the next save.
+  const showsOwnTerms =
+    saved !== null &&
+    saved.offer.scope === 'SIMULATION' &&
+    simulation.isOwnTerms;
   return (
     <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
       <legend className={legendClass}>
@@ -140,44 +347,51 @@ function ChosenOffer({
       <OfferPicker
         simulation={simulation}
         offers={options.offers}
-        savedOffer={savedOffer}
+        savedOffer={saved?.offer ?? null}
         pending={pending}
       />
-      {offer && <TermsSummary terms={offer} />}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={secondaryButton}
-          disabled={pending || !offer}
-          onClick={simulation.duplicateOffer}
-        >
-          Duplicar e ajustar
-        </button>
-        <button
-          type="button"
-          className={secondaryButton}
-          disabled={pending}
-          onClick={simulation.typeTerms}
-        >
-          Digitar termos
-        </button>
+      {showsOwnTerms && saved && <TermsBase base={saved.offer.basedOn} />}
+      <TitleTypeField
+        simulation={simulation}
+        options={options}
+        pending={pending}
+      />
+      <OfferTermFields
+        simulation={simulation}
+        options={options}
+        pending={pending}
+        issuerEditable={issuerEditable}
+      />
+      <div aria-live="polite">
+        {consequence && (
+          <p className="m-0 flex items-start gap-2 text-sm text-muted">
+            <InfoIcon className="mt-0.5 size-4 shrink-0" />
+            <span>{consequence}</span>
+          </p>
+        )}
       </div>
-      <p className="m-0 text-sm text-muted">
-        Para usar outros termos, duplique a oferta ou digite novos; a nova
-        oferta fica em Minhas e é criada ao salvar.
-      </p>
+      {showsOwnTerms && saved && termsActions && (
+        <TermsActionsBar
+          actions={termsActions}
+          dirty={simulation.form.formState.isDirty}
+        />
+      )}
     </fieldset>
   );
 }
 
-function TermsFieldset({
+// The fields a calculation reads, plus the issuer where no offer is behind
+// the terms to give one.
+function OfferTermFields({
   simulation,
   options,
   pending,
+  issuerEditable,
 }: {
   readonly simulation: SimulationForm;
   readonly options: SimulationOptions;
   readonly pending: boolean;
+  readonly issuerEditable: boolean;
 }) {
   const { form, values } = simulation;
   const { errors } = form.formState;
@@ -192,74 +406,27 @@ function TermsFieldset({
   }));
 
   return (
-    <fieldset disabled={pending} className="m-0 grid gap-4 border-0 p-0">
-      <legend className={legendClass}>
-        <span className="flex items-center gap-2">
-          <OfferIcon className="size-4 shrink-0" />
-          Nova oferta
-        </span>
-      </legend>
-      <Controller
-        control={form.control}
-        name="titleType"
-        render={({ field, fieldState }) => (
-          <FormField
-            label="Título"
-            hint={titleTypeHint(
-              options.titleTypes.find(
-                (option) => option.titleType === field.value,
-              ),
-            )}
-            error={fieldState.error?.message}
-          >
-            {(control) => (
-              <SelectField
+    <>
+      {issuerEditable && (
+        <FormField
+          label="Emissor (opcional)"
+          error={errors.issuerName?.message}
+        >
+          {(control) => (
+            <div className={fieldBox}>
+              <input
                 {...control}
-                ref={field.ref}
-                value={field.value}
-                placeholder="Escolha"
+                {...form.register('issuerName')}
+                type="text"
+                maxLength={100}
+                placeholder="Sem emissor"
                 disabled={pending}
-                options={options.titleTypes.map(({ titleType }) => ({
-                  value: titleType,
-                  label: titleType,
-                }))}
-                onValueChange={(value) => field.onChange(value as TitleType)}
-                onBlur={field.onBlur}
+                className={bareInput}
               />
-            )}
-          </FormField>
-        )}
-      />
-      <FormField label="Emissor (opcional)" error={errors.issuerName?.message}>
-        {(control) => (
-          <div className={fieldBox}>
-            <input
-              {...control}
-              {...form.register('issuerName')}
-              type="text"
-              maxLength={100}
-              placeholder="Sem emissor"
-              disabled={pending}
-              className={bareInput}
-            />
-          </div>
-        )}
-      </FormField>
-      <FormField label="Apelido (opcional)" error={errors.offerName?.message}>
-        {(control) => (
-          <div className={fieldBox}>
-            <input
-              {...control}
-              {...form.register('offerName')}
-              type="text"
-              maxLength={100}
-              placeholder="Reserva de emergência"
-              disabled={pending}
-              className={bareInput}
-            />
-          </div>
-        )}
-      </FormField>
+            </div>
+          )}
+        </FormField>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <Controller
           control={form.control}
@@ -337,37 +504,7 @@ function TermsFieldset({
           )}
         />
       </div>
-      <button
-        type="button"
-        className={`${quietButton} justify-self-start px-0`}
-        disabled={pending}
-        onClick={simulation.backToChosenOffer}
-      >
-        Usar uma oferta existente
-      </button>
-    </fieldset>
-  );
-}
-
-function TermsSummary({ terms }: { readonly terms: OfferTerms }) {
-  // The chosen option already shows the remuneration.
-  const rows: [string, string][] = [
-    ['Emissor', terms.issuerName ?? 'Sem emissor'],
-    ...(terms.name ? [['Apelido', terms.name] as [string, string]] : []),
-    ['Vencimento', formatIsoDate(terms.maturityDate)],
-    ['Liquidez', REDEMPTION_LABELS[terms.redemptionTerms.kind]],
-  ];
-  return (
-    <section aria-label="Termos da oferta" className="grid gap-4">
-      <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-        {rows.map(([label, value]) => (
-          <div key={label} className="contents">
-            <dt className="text-muted">{label}</dt>
-            <dd className="m-0 font-medium">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
+    </>
   );
 }
 
@@ -481,6 +618,26 @@ function InvestmentFieldset({
   );
 }
 
+function SaveHint({
+  simulation,
+  saved,
+}: {
+  readonly simulation: SimulationForm;
+  readonly saved: SimulationWorkspace | null;
+}) {
+  const text = (() => {
+    if (simulation.termsChanged) {
+      return simulation.isOwnTerms
+        ? 'Salvar altera os termos desta simulação e recalcula o resultado.'
+        : 'Salvar guarda estes termos só nesta simulação e calcula o resultado.';
+    }
+    return saved
+      ? 'Salvar recalcula o resultado com a oferta e a curva atuais.'
+      : 'Salvar cria a simulação e calcula o resultado.';
+  })();
+  return <p className="m-0 text-sm text-muted">{text}</p>;
+}
+
 interface SimulationFormPanelProps {
   readonly simulation: SimulationForm;
   readonly options: SimulationOptions;
@@ -488,6 +645,8 @@ interface SimulationFormPanelProps {
   readonly saved: SimulationWorkspace | null;
   readonly pending: boolean;
   readonly upToDate: boolean;
+  // What a saved simulation with its own terms can do with them.
+  readonly termsActions: TermsActions | null;
   readonly onSave: () => void;
 }
 
@@ -497,6 +656,7 @@ export function SimulationFormPanel({
   saved,
   pending,
   upToDate,
+  termsActions,
   onSave,
 }: SimulationFormPanelProps) {
   return (
@@ -512,20 +672,13 @@ export function SimulationFormPanel({
       <h2 id="inputs-title" className="m-0 text-lg font-semibold">
         Entradas
       </h2>
-      {simulation.values.offerMode === 'new' ? (
-        <TermsFieldset
-          simulation={simulation}
-          options={options}
-          pending={pending}
-        />
-      ) : (
-        <ChosenOffer
-          simulation={simulation}
-          options={options}
-          savedOffer={saved?.offer ?? null}
-          pending={pending}
-        />
-      )}
+      <OfferSection
+        simulation={simulation}
+        options={options}
+        saved={saved}
+        pending={pending}
+        termsActions={termsActions}
+      />
       <InvestmentFieldset
         simulation={simulation}
         savedCurve={saved?.curve ?? null}
@@ -552,11 +705,7 @@ export function SimulationFormPanel({
             'Salvar e calcular'
           )}
         </button>
-        <p className="m-0 text-sm text-muted">
-          {saved
-            ? 'Salvar recalcula o resultado com a oferta e a curva atuais.'
-            : 'Salvar cria a simulação e calcula o resultado.'}
-        </p>
+        <SaveHint simulation={simulation} saved={saved} />
       </div>
     </form>
   );

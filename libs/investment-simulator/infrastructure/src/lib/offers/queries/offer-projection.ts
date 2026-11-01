@@ -25,9 +25,14 @@ export interface OfferSummary {
   readonly revision: number;
 }
 
-// A user sees system offers and their own.
-export function visibleOfferWhere(viewerId: string): Prisma.OfferWhereInput {
-  return { deletedAt: null, OR: [{ ownerId: null }, { ownerId: viewerId }] };
+// The offers a user can choose: system offers and their own, in the catalog.
+// A simulation's own terms are reached only through that simulation.
+export function catalogOfferWhere(viewerId: string): Prisma.OfferWhereInput {
+  return {
+    deletedAt: null,
+    scope: 'CATALOG',
+    OR: [{ ownerId: null }, { ownerId: viewerId }],
+  };
 }
 
 export const offerSummarySelect = {

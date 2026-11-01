@@ -5,10 +5,12 @@ import {
   UtcInstant,
 } from '@investflow/shared-domain';
 import { CreateOfferProps, Offer } from './offer.aggregate';
+import { EOfferScope } from './offer-scope.enum';
 import {
   OfferCreated,
   OfferDeleted,
   OfferDetailsChanged,
+  OfferMovedToCatalog,
   OfferTermsChanged,
 } from './offer.events';
 import { RedemptionTerms } from './terms/redemption/redemption-terms.vo';
@@ -51,6 +53,8 @@ function restore(offer: Offer): Offer {
     remunerationTerms: offer.remunerationTerms,
     revision: offer.revision,
     termsRevision: offer.termsRevision,
+    scope: offer.scope,
+    basedOnOfferId: offer.basedOnOfferId,
     deletedAt: offer.deletedAt,
   });
 }
@@ -275,5 +279,72 @@ describe('Offer', () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toBeInstanceOf(OfferDeleted);
     expect(events[0]).toMatchObject({ aggregateId: offer.id, occurredAt: AT });
+  });
+
+  describe('scope', () => {
+    const simulationScoped = (basedOnOfferId: string | null = 'base-offer') =>
+      Offer.createSimulationScoped(
+        { ...props(), ownerId: 'user-1', basedOnOfferId },
+        AT,
+      );
+
+    it('creates catalog offers without a base', () => {
+      const offer = create();
+
+      expect(offer.scope).toBe(EOfferScope.CATALOG);
+      expect(offer.basedOnOfferId).toBeNull();
+    });
+
+    it("creates a simulation's own terms with their base and a creation event", () => {
+      const offer = simulationScoped();
+
+      expect(offer.scope).toBe(EOfferScope.SIMULATION);
+      expect(offer.basedOnOfferId).toBe('base-offer');
+      expect(offer.getDomainEvents()).toEqual([expect.any(OfferCreated)]);
+      expect(simulationScoped(null).basedOnOfferId).toBeNull();
+    });
+
+    it('moves to the catalog once, clearing the base and raising an event', () => {
+      const offer = restore(simulationScoped());
+
+      expect(offer.moveToCatalog(LATER)).toBe(offer);
+      offer.moveToCatalog(LATER);
+
+      expect(offer.scope).toBe(EOfferScope.CATALOG);
+      expect(offer.basedOnOfferId).toBeNull();
+      expect(offer.revision).toBe(2);
+      // Moving changes no term a calculation reads.
+      expect(offer.termsRevision).toBe(1);
+      const events = offer.getDomainEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]).toBeInstanceOf(OfferMovedToCatalog);
+      expect(events[0]).toMatchObject({
+        aggregateId: offer.id,
+        occurredAt: LATER,
+      });
+    });
+
+    it('leaves a catalog offer unchanged when moved to the catalog', () => {
+      const offer = restore(create());
+
+      offer.moveToCatalog(LATER);
+
+      expect(offer.revision).toBe(1);
+      expect(offer.getDomainEvents()).toEqual([]);
+    });
+
+    it("duplicates a simulation's own terms as own terms with the same base", () => {
+      const copy = simulationScoped().duplicateFor('user-1', LATER);
+
+      expect(copy.scope).toBe(EOfferScope.SIMULATION);
+      expect(copy.basedOnOfferId).toBe('base-offer');
+    });
+
+    it('duplicates catalog offers into the catalog', () => {
+      const copy = create().duplicateFor('user-1', LATER);
+
+      expect(copy.scope).toBe(EOfferScope.CATALOG);
+      expect(copy.basedOnOfferId).toBeNull();
+    });
   });
 });

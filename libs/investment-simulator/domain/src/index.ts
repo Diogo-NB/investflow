@@ -10,6 +10,7 @@ export * from './lib/curves/curve.aggregate';
 export * from './lib/offers/offer.error';
 export * from './lib/offers/offer.events';
 export * from './lib/offers/offer.aggregate';
+export * from './lib/offers/offer-scope.enum';
 export * from './lib/calculations/investment-calculation.error';
 export * from './lib/calculations/investment-term.vo';
 export * from './lib/calculations/rate-of-return.vo';

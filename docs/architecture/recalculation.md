@@ -13,9 +13,10 @@ independent `Curve` and `Offer` aggregates with owners, revisions, and events
 in the outbox. `Simulation` references an offer and an optional curve, has its
 own revision, and keeps one current `SimulationResult` recording the input
 fingerprint of what it was calculated from (see "Input fingerprint");
-"Digitar termos" and "Duplicar e ajustar" save a private offer with its own
-request before the simulation, so each request changes one aggregate
-(decided 2026-10-29). A simulation's own calculation is asynchronous: saving
+terms a simulation changes become its own, a simulation-scoped offer saved
+with its own request before the simulation, so each request changes one
+aggregate (decided 2026-10-29; own terms 2026-10-31, see "Simulation-scoped
+offers"). A simulation's own calculation is asynchronous: saving
 validates, stores `PENDING`, and the `simulation-calculations` consumer
 calculates; a dead-letter consumer records `FAILED`. Offer and curve changes
 recalculate the simulations that use them (built 2026-10-26). The design
@@ -36,7 +37,23 @@ below was settled on 2026-10-12 and revised on 2026-10-26.
   offers by title type and origin, and no grouping is stored (decision
   2026-10-11). Editing an offer recalculates only the simulations that use
   it. Duplicating copies an offer's terms into a new private offer, with no
-  link back to its source.
+  link back to its source, in the same scope.
+- **Simulation-scoped offers (decided 2026-10-31).** A simulation's own terms
+  are an `Offer` in the `SIMULATION` scope (`EOfferScope`), so terms are still
+  modeled, validated, and calculated in one place and simulations still
+  reference offers instead of copying terms. The `CATALOG` scope is what
+  Ofertas and offer pickers list; a simulation-scoped offer is listed nowhere
+  (`GET /offers/:id` answers 404), has a user owner, and records the catalog
+  offer its terms came from (`basedOnOfferId`, null for terms typed from
+  scratch). At most one live simulation uses it: `SimulationPremisesService`
+  checks this on create and edit through `findIdsByOffer`; two concurrent
+  requests could both pass, but only through calls the screen never makes on
+  the caller's own offer, so no lock guards it. "Salvar como oferta" moves it
+  to the catalog (`OfferMovedToCatalog`), clearing the base; "Voltar à
+  oferta" and "Aplicar à oferta" point the simulation back at the base, the
+  second after editing it. A simulation-scoped offer that no simulation uses
+  any more is kept: it is invisible, and offers are soft deleted while
+  simulations reference them, so a cleanup would free nothing.
 - Ownership is the Keycloak `sub` (`AuthenticatedUser.userId`); `null` means
   system-owned. Users read their own content plus system content and change
   only their own. System content is written by seed and import processes
@@ -138,12 +155,15 @@ to `simulation_result`; nothing about it is stored on `simulation`.
 Every status also records `changedAt`, the simulation revision it was
 written for, the input fingerprint of its outcome (`CALCULATED` and
 `INVALID` only), and the cause of the last queuing: its kind
-(`CREATED`, `SIMULATION_EDITED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`)
-and the actor (`null` for system processes). There are no offer or curve
-causes: fan-out writes no calculation rows, so nothing would set them, and
-premise events carry no actor either. The cause is set when the simulation
-is queued and kept by the outcome, so after a premise change "Requer ação"
-shows the reason with the simulation's own last cause. Only the current
+(`CREATED`, `SIMULATION_EDITED`, `METHODOLOGY_CHANGED`, `RETRY_REQUESTED`,
+`PREMISES_CHANGED`) and the actor (`null` for system processes). The cause is
+set when the simulation is queued and kept by the outcome. Fan-out writes no
+calculation rows, so a premise change cannot set it when queuing; instead
+(decided 2026-10-31) an outcome recorded while the simulation is not pending
+gets `PREMISES_CHANGED`, since the simulation's own create, edit, and retry
+always mark it pending first. It does not tell an offer change from a curve
+change: that would need the fan-out to carry the cause, which the queued
+calculation event does not. Only the current
 state is kept; there is no transition history.
 
 - **Requests validate synchronously, then calculate asynchronously.** Creating

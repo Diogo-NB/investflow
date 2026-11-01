@@ -30,6 +30,8 @@ export function describeCause({ cause }: SimulationCalculation): string {
       return 'nova tentativa solicitada';
     case 'METHODOLOGY_CHANGED':
       return 'a metodologia de cálculo mudou';
+    case 'PREMISES_CHANGED':
+      return 'oferta ou curva alterada';
   }
 }
 
@@ -57,6 +59,18 @@ export function describeReason(
     case 'CURVE_NOT_FOUND':
     case 'INVESTMENT_CURVE_UNAVAILABLE':
       return 'Sem curva, escolha outra.';
+    case 'INVESTMENT_CURVE_REQUIRED': {
+      const index = reason.metadata['index'];
+      return typeof index === 'string'
+        ? `A oferta usa o ${index}. Escolha uma curva do ${index} e salve.`
+        : 'Escolha a curva do índice e salve.';
+    }
+    case 'INVESTMENT_CURVE_INCOMPATIBLE': {
+      const index = reason.metadata['expectedIndex'];
+      return typeof index === 'string'
+        ? `A curva não é do ${index}, o índice da oferta. Escolha uma curva do ${index} e salve.`
+        : 'A oferta é prefixada e não usa curva. Salve novamente para removê-la.';
+    }
     case 'INVESTMENT_CURVE_COVERAGE_MISSING': {
       const ranges = reason.metadata['missingRanges'];
       const missing = Array.isArray(ranges)

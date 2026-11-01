@@ -1,4 +1,5 @@
 import {
+  EOfferScope,
   Offer,
   RedemptionTerms,
   RemunerationTerms,
@@ -23,6 +24,8 @@ export class OfferMapper {
       ),
       revision: record.revision,
       termsRevision: record.termsRevision,
+      scope: record.scope as EOfferScope,
+      basedOnOfferId: record.basedOnOfferId,
       deletedAt: record.deletedAt
         ? UtcInstant.fromDate(record.deletedAt).value
         : null,
@@ -42,6 +45,8 @@ export class OfferMapper {
       rateValue: offer.remunerationTerms.contractRate.value.toString(),
       revision: offer.revision,
       termsRevision: offer.termsRevision,
+      scope: offer.scope,
+      basedOnOfferId: offer.basedOnOfferId,
       deletedAt: offer.deletedAt?.date ?? null,
     };
   }

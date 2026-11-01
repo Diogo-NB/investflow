@@ -8,7 +8,7 @@ import {
   OfferSummary,
   offerSummarySelect,
   toOfferSummary,
-  visibleOfferWhere,
+  catalogOfferWhere,
 } from './offer-projection';
 
 export interface GetOfferQuery {
@@ -30,7 +30,7 @@ export class GetOfferQueryHandler
     const result = await Result.fromPromise(
       async () => {
         const record = await this.prisma.client.offer.findFirst({
-          where: { id: query.offerId, ...visibleOfferWhere(query.viewerId) },
+          where: { id: query.offerId, ...catalogOfferWhere(query.viewerId) },
           select: offerSummarySelect,
         });
         return record ? toOfferSummary(record) : null;

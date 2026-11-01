@@ -33,6 +33,8 @@ export interface ListSimulationsQuery {
 export interface SimulationListItem {
   readonly id: string;
   readonly offerName: string | null;
+  // SIMULATION when the terms are the simulation's own.
+  readonly offerScope: 'CATALOG' | 'SIMULATION';
   readonly principal: string;
   readonly investmentDate: string;
   readonly maturityDate: string;
@@ -70,6 +72,7 @@ const simulationSelect = {
   offer: {
     select: {
       name: true,
+      scope: true,
       titleType: true,
       issuerName: true,
       maturityDate: true,
@@ -236,6 +239,7 @@ export class ListSimulationsQueryHandler
     return {
       id: record.id,
       offerName: offer.name,
+      offerScope: offer.scope,
       principal: record.principal.toFixed(),
       investmentDate: CalendarDate.fromUtcDate(
         record.investmentDate,

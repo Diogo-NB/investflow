@@ -10,9 +10,8 @@ import type { SimulationFormValues } from '../../utils/simulation-form';
 import { useSimulationForm } from '../use-simulation-form';
 
 const initialValues: SimulationFormValues = {
-  offerMode: 'existing',
   offerId: 'cdi-offer',
-  offerName: '',
+  offerName: 'Reserva',
   principal: '10.000',
   investmentDate: '2026-01-02',
   titleType: 'CDB',
@@ -68,8 +67,8 @@ describe('useSimulationForm', () => {
 
     expect(result.current.offer).toBe(selicOffer);
     expect(result.current.values).toMatchObject({
-      offerMode: 'existing',
       offerId: 'offer',
+      offerName: '',
       principal: '10.000',
       issuerName: 'Outro',
       remunerationKind: 'SELIC_PERCENTAGE',
@@ -80,43 +79,43 @@ describe('useSimulationForm', () => {
     });
   });
 
-  it('duplicates the chosen offer into editable terms and goes back to it', () => {
+  it('compares the terms with the offer they came from', () => {
     const { result } = render();
-
-    act(() => result.current.duplicateOffer());
-    expect(result.current.values).toMatchObject({
-      offerMode: 'new',
-      offerId: 'cdi-offer',
-      offerName: 'Reserva (cópia)',
-      rate: '105',
-      maturityDate: '2026-03-02',
-    });
+    expect(result.current.termsChanged).toBe(false);
+    expect(result.current.isOwnTerms).toBe(false);
 
     act(() => result.current.form.setValue('rate', '110'));
-    act(() => result.current.backToChosenOffer());
-    expect(result.current.values).toMatchObject({
-      offerMode: 'existing',
-      offerId: 'cdi-offer',
-      rate: '105',
-    });
+    expect(result.current.termsChanged).toBe(true);
+
+    // Only the investment changed: the terms still follow the offer.
+    act(() => result.current.form.setValue('rate', '105'));
+    act(() => result.current.form.setValue('principal', '20.000'));
+    expect(result.current.termsChanged).toBe(false);
   });
 
-  it('types terms from blank, keeping the investment and a valid curve', () => {
-    const { result } = render();
-
-    act(() => result.current.typeTerms());
-
-    expect(result.current.values).toMatchObject({
-      offerMode: 'new',
-      offerName: '',
-      titleType: 'CDB',
-      issuerName: '',
-      remunerationKind: 'CDI_PERCENTAGE',
-      rate: '',
-      maturityDate: '',
-      principal: '10.000',
-      curveId: 'cdi',
+  it('treats terms typed without an offer as changed', () => {
+    const { result } = render({
+      initialValues: { ...initialValues, offerId: '' },
     });
+
+    expect(result.current.offer).toBeUndefined();
+    expect(result.current.termsChanged).toBe(true);
+  });
+
+  it("recognizes the simulation's own terms until another offer is chosen", () => {
+    const own = { ...cdiOffer, id: 'own-terms', origin: 'OWN' as const };
+    const { result } = render({
+      initialValues: { ...initialValues, offerId: 'own-terms' },
+      ownTermsOffer: own,
+    });
+
+    expect(result.current.isOwnTerms).toBe(true);
+    expect(result.current.offer).toBe(own);
+    expect(result.current.termsChanged).toBe(false);
+
+    act(() => result.current.chooseOffer(selicOffer));
+    expect(result.current.isOwnTerms).toBe(false);
+    expect(result.current.offer).toBe(selicOffer);
   });
 
   it('reports no chosen offer when the saved one is no longer listed', () => {

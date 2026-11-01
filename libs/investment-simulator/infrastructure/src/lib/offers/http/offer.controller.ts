@@ -14,6 +14,9 @@ import {
   CreateOfferCommand,
   CreateOfferOutput,
   CreateOfferUseCase,
+  CreateSimulationScopedOfferCommand,
+  CreateSimulationScopedOfferOutput,
+  CreateSimulationScopedOfferUseCase,
   DeleteOfferCommand,
   DeleteOfferUseCase,
   DuplicateOfferCommand,
@@ -21,6 +24,8 @@ import {
   DuplicateOfferUseCase,
   EditOfferCommand,
   EditOfferUseCase,
+  MoveOfferToCatalogCommand,
+  MoveOfferToCatalogUseCase,
 } from '@investflow/investment-simulator-application';
 import { AppError, Result } from '@investflow/shared-domain';
 import {
@@ -31,9 +36,11 @@ import type { AuthenticatedUser } from '@investflow/shared-types';
 import { GetOfferQueryHandler } from '../queries/get-offer.query-handler';
 import { ListOffersQueryHandler } from '../queries/list-offers.query-handler';
 import { CreateOfferRequest } from './requests/create-offer.request';
+import { CreateSimulationScopedOfferRequest } from './requests/create-simulation-scoped-offer.request';
 import { EditOfferRequest } from './requests/edit-offer.request';
 import { ListOffersRequest } from './requests/list-offers.request';
 import { OfferIdRequest } from './requests/offer-id.request';
+import { OfferRevisionRequest } from './requests/offer-revision.request';
 
 @Controller('investment-simulator/offers')
 export class OfferController {
@@ -42,6 +49,8 @@ export class OfferController {
     private readonly editOffer: EditOfferUseCase,
     private readonly duplicateOffer: DuplicateOfferUseCase,
     private readonly deleteOffer: DeleteOfferUseCase,
+    private readonly createSimulationScopedOffer: CreateSimulationScopedOfferUseCase,
+    private readonly moveOfferToCatalog: MoveOfferToCatalogUseCase,
     private readonly listOffers: ListOffersQueryHandler,
     private readonly getOffer: GetOfferQueryHandler,
   ) {}
@@ -68,6 +77,33 @@ export class OfferController {
   ): Promise<Result<CreateOfferOutput, AppError>> {
     return this.createOffer.execute(
       CreateOfferCommand.fromRequest(user.userId, request),
+    );
+  }
+
+  // A simulation's own terms, saved before the simulation that uses them.
+  @Post('simulation-scoped')
+  createSimulationScoped(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: CreateSimulationScopedOfferRequest,
+  ): Promise<Result<CreateSimulationScopedOfferOutput, AppError>> {
+    return this.createSimulationScopedOffer.execute(
+      CreateSimulationScopedOfferCommand.fromRequest(user.userId, request),
+    );
+  }
+
+  @Post(':offerId/move-to-catalog')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  moveToCatalog(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: OfferIdRequest,
+    @Body() request: OfferRevisionRequest,
+  ): Promise<Result<void, AppError>> {
+    return this.moveOfferToCatalog.execute(
+      MoveOfferToCatalogCommand.fromRequest(
+        user.userId,
+        params.offerId,
+        request,
+      ),
     );
   }
 

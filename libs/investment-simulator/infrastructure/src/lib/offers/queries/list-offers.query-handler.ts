@@ -11,7 +11,7 @@ import {
   offerSummaryOrder,
   offerSummarySelect,
   toOfferSummary,
-  visibleOfferWhere,
+  catalogOfferWhere,
 } from './offer-projection';
 
 export interface ListOffersQuery {
@@ -39,7 +39,7 @@ export class ListOffersQueryHandler
       async () => {
         const where: Prisma.OfferWhereInput = {
           AND: [
-            visibleOfferWhere(query.viewerId),
+            catalogOfferWhere(query.viewerId),
             query.titleType ? { titleType: query.titleType } : {},
             query.origin
               ? { ownerId: query.origin === 'OWN' ? query.viewerId : null }
