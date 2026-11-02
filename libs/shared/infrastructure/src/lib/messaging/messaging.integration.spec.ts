@@ -101,6 +101,23 @@ async function eventually(assertion: () => Promise<void> | void) {
   }
 }
 
+const replacedEnvironment = new Map<string, string | undefined>();
+
+function useEnvironment(variables: Record<string, string>): void {
+  for (const [name, value] of Object.entries(variables)) {
+    replacedEnvironment.set(name, process.env[name]);
+    process.env[name] = value;
+  }
+}
+
+function restoreEnvironment(): void {
+  for (const [name, value] of replacedEnvironment) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+  replacedEnvironment.clear();
+}
+
 describe('Messaging through EventBridge and SQS', () => {
   const sqs = new SQSClient({ region });
   const eventBridge = new EventBridgeClient({ region });
@@ -143,20 +160,16 @@ describe('Messaging through EventBridge and SQS', () => {
       }),
     );
 
+    // Through process.env, where the modules' environment configs read it.
+    useEnvironment({
+      DATABASE_URL: connectionString,
+      AWS_REGION: region,
+      EVENT_BUS_NAME: eventBusName,
+      [queueUrlConfigKey]: queueUrl,
+    });
     const moduleRef = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          ignoreEnvFile: true,
-          load: [
-            () => ({
-              DATABASE_URL: connectionString,
-              AWS_REGION: region,
-              EVENT_BUS_NAME: eventBusName,
-              [queueUrlConfigKey]: queueUrl,
-            }),
-          ],
-        }),
+        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
         PrismaModule,
         ClockModule,
         OutboxModule,
@@ -172,6 +185,7 @@ describe('Messaging through EventBridge and SQS', () => {
   });
 
   afterAll(async () => {
+    restoreEnvironment();
     try {
       await prisma?.client.outboxEvent.deleteMany({ where: { context } });
       await prisma?.client.processedEvent.deleteMany({

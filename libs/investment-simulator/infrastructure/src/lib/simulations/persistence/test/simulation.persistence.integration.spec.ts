@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import {
   EEconomicIndex,
   ETitleType,
@@ -81,9 +80,7 @@ describe('Simulation PostgreSQL persistence', () => {
   const curveIds: string[] = [];
 
   beforeAll(async () => {
-    prisma = new PrismaService(
-      new ConfigService({ DATABASE_URL: connectionString }),
-    );
+    prisma = new PrismaService({ url: connectionString });
     unitOfWork = new UnitOfWork(prisma);
     await prisma.onModuleInit();
     offers = inUnitOfWork(

@@ -43,7 +43,10 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
 - **Configuration.** What is not secret is written in the compose file;
   Dokploy holds only `DATABASE_URL`, `AWS_ACCESS_KEY_ID`,
   `AWS_SECRET_ACCESS_KEY`, and `AWS_ACCOUNT_ID`, from which the file builds
-  the queue URLs.
+  the queue URLs. The API checks its variables when it starts and exits
+  naming the ones missing or invalid
+  ([Environment Configuration](./project-structure.md#environment-configuration)),
+  so a bad value stops the container instead of failing a later request.
 - **Memory.** Every container has a limit, and Node caps its heap below it:
 
   | Service              | Limit  | Heap   | Measured                              |

@@ -1,6 +1,9 @@
 import { Global, Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { awsConfig } from '../../aws/aws.config';
 import { ClockModule } from '../../clocks/clock.module';
 import { EventBridgeMessageBroker } from '../eventbridge/eventbridge-message-broker';
+import { eventBridgeConfig } from '../eventbridge/eventbridge.config';
 import { MessageBroker } from './message-broker.port';
 import { OutboxPollerService } from './outbox-poller.service';
 import { OutboxPublisher } from './outbox-publisher';
@@ -12,7 +15,11 @@ import { OutboxRetentionService } from './outbox-retention.service';
 // retention of published rows.
 @Global()
 @Module({
-  imports: [ClockModule],
+  imports: [
+    ClockModule,
+    ConfigModule.forFeature(awsConfig),
+    ConfigModule.forFeature(eventBridgeConfig),
+  ],
   providers: [
     OutboxPublisher,
     OutboxRelay,

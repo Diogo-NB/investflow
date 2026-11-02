@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { config } from 'dotenv';
 import {
   CreateCurveCommand,
   CreateCurveUseCase,
@@ -114,12 +113,6 @@ async function seedSystemContent(): Promise<{
 }
 
 async function main(): Promise<void> {
-  config();
-  const connectionString = process.env['DATABASE_URL'];
-  if (!connectionString?.trim()) {
-    throw new Error('DATABASE_URL is required to seed the local database');
-  }
-
   const created = await seedSystemContent();
   console.log(
     `Seeded ${created.offers} of ${offers.length} system offers and ${created.curves} of ${curves.length} system curves for 2024–2028.`,

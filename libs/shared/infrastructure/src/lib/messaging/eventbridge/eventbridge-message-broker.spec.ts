@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import {
   EventBridgeClient,
   PutEventsCommand,
@@ -13,11 +12,10 @@ const messages = ['event-1', 'event-2', 'event-3'].map((eventId) => ({
 }));
 
 function createBroker() {
-  const config = {
-    getOrThrow: (key: string) =>
-      ({ AWS_REGION: 'us-east-1', EVENT_BUS_NAME: 'investflow' })[key],
-  } as unknown as ConfigService;
-  return new EventBridgeMessageBroker(config);
+  return new EventBridgeMessageBroker(
+    { region: 'us-east-1' },
+    { eventBusName: 'investflow' },
+  );
 }
 
 describe('EventBridgeMessageBroker', () => {

@@ -1,0 +1,7 @@
+interface:
+  display_name: 'InvestFlow Environment Config'
+  short_description: 'Declare, inject, and debug environment variables'
+  default_prompt: 'Use $investflow-environment-config to declare, inject, or debug this environment variable through its capability config.'
+
+policy:
+  allow_implicit_invocation: true
