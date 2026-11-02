@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import { BuildSimulationComparisonUseCase } from '@investflow/investment-simulator-application';
 import {
   ESimulationCalculationCauseKind,
@@ -70,9 +69,7 @@ describe('Compared simulations PostgreSQL read', () => {
   const otherOwnerId = `owner-${generateUuid()}`;
 
   beforeAll(async () => {
-    prisma = new PrismaService(
-      new ConfigService({ DATABASE_URL: connectionString }),
-    );
+    prisma = new PrismaService({ url: connectionString });
     const unitOfWork = new UnitOfWork(prisma);
     await prisma.onModuleInit();
     offers = inUnitOfWork(

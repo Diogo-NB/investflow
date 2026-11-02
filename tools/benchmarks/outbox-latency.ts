@@ -1,9 +1,8 @@
 import 'reflect-metadata';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { config } from 'dotenv';
 import { Pool } from 'pg';
 import {
   DomainEvent,
@@ -12,7 +11,11 @@ import {
   UtcInstant,
 } from '@investflow/shared-domain';
 import {
+  AwsConfig,
+  awsConfig,
   ClockModule,
+  EventBridgeConfig,
+  eventBridgeConfig,
   MessageBroker,
   OutboxModule,
   PrismaModule,
@@ -104,9 +107,9 @@ async function createBenchmarkApp(
   })
     .overrideProvider(MessageBroker)
     .useFactory({
-      factory: (config: ConfigService) =>
-        TimedMessageBroker.create(options, config),
-      inject: [ConfigService],
+      factory: (aws: AwsConfig, eventBridge: EventBridgeConfig) =>
+        TimedMessageBroker.create(options, aws, eventBridge),
+      inject: [awsConfig.KEY, eventBridgeConfig.KEY],
     })
     .compile();
   app.useLogger(['error', 'warn']);
@@ -251,7 +254,6 @@ async function removeBenchmarkEvents(prisma: PrismaService): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  config();
   let options: BenchmarkOptions | undefined;
   try {
     options = parseBenchmarkOptions(process.argv.slice(2));
@@ -266,10 +268,6 @@ async function main(): Promise<void> {
     console.log(usage);
     return;
   }
-  if (!process.env['DATABASE_URL']?.trim()) {
-    throw new Error('DATABASE_URL is required to benchmark the outbox');
-  }
-
   const report = await runBenchmark(options);
   printReport(report);
   if (report.results.some((result) => !result.published)) {

@@ -45,6 +45,9 @@ screen reads.
   (`{ provide: OfferRepository, useClass: PrismaOfferRepository }`); never
   Symbol tokens. Interfaces stay for data shapes, since TypeScript erases
   them.
+- Providers get configuration as the typed object of their capability's
+  environment config, never through `ConfigService` or `process.env`; load
+  `investflow-environment-config` to add or change a variable.
 - Controllers and consumers inject use-case and query-handler classes
   directly. Handlers are plain classes with one `execute(input)` method: no
   command or query buses and no `@nestjs/cqrs`.

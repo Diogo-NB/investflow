@@ -1,27 +1,34 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   EventBridgeClient,
   PutEventsCommand,
 } from '@aws-sdk/client-eventbridge';
+import { awsConfig, type AwsConfig } from '../../aws/aws.config';
 import {
   MessageBroker,
   OutboxMessage,
   RejectedMessage,
 } from '../outbox/message-broker.port';
+import {
+  eventBridgeConfig,
+  type EventBridgeConfig,
+} from './eventbridge.config';
 
 @Injectable()
 export class EventBridgeMessageBroker extends MessageBroker {
   private readonly client: EventBridgeClient;
   private readonly eventBusName: string;
 
-  constructor(config: ConfigService) {
+  constructor(
+    @Inject(awsConfig.KEY) aws: AwsConfig,
+    @Inject(eventBridgeConfig.KEY) eventBridge: EventBridgeConfig,
+  ) {
     super();
     this.client = new EventBridgeClient({
-      region: config.getOrThrow<string>('AWS_REGION'),
+      region: aws.region,
       maxAttempts: 1,
     });
-    this.eventBusName = config.getOrThrow<string>('EVENT_BUS_NAME');
+    this.eventBusName = eventBridge.eventBusName;
   }
 
   async publish(

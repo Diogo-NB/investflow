@@ -30,6 +30,7 @@ loaded; nothing enforces it for planning.
 - `investflow-eventing`: `*.events.ts`, `*.event.ts`, `*.consumer.ts`, `libs/shared/infrastructure/src/lib/messaging/**`, `unit-of-work*`, `infra/floci/**`, `infra/aws/**`, or code that raises, records, or consumes an event (`apply(new`, `.record(`, `@OnEvent`).
 - `investflow-react`: `apps/web/**`, `libs/*/web/**`.
 - `investflow-outbox-benchmark`: `tools/benchmarks/**`.
+- `investflow-environment-config`: `*.config.ts` under `libs/*/infrastructure/src` or `apps/api/src`, `libs/shared/infrastructure/src/lib/config/**`, `.env.example`, `infra/dokploy/compose.yaml`, or code that reads the environment (`environmentConfig(`, `ConfigService`, `process.env`, `registerAs(`).
 
 Skills for kinds of work rather than files:
 
@@ -69,6 +70,9 @@ are revisable; check that their premises still hold.
   such as `offers` and `simulations`) and shared projects capability-first
   (`dates`, `rates`, `messaging`, `persistence`, `foundations`). Never
   global type buckets such as `value-objects`, `services`, or `validators`.
+- Nest code reads environment variables only through the `environmentConfig`
+  of the capability that owns them, checked when the host starts; never
+  `ConfigService.get` or `process.env` (`investflow-environment-config`).
 - Domain and application code use `CalendarDate`, `CalendarDateRange`, and
   `UtcInstant` from `@investflow/shared-domain` and get time from the `Clock`
   port. Native `Date` exists only at infrastructure boundaries, converted

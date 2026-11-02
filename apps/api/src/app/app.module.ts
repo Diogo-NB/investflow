@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { TerminusModule } from '@nestjs/terminus';
 import {
@@ -17,10 +18,12 @@ import {
 import { AppController } from './app.controller';
 import { AppHealth } from './app.health';
 import { HTTP_INTERCEPTOR_PROVIDERS } from './http-interceptors.providers';
+import { serverConfig } from './server.config';
 
 @Module({
   imports: [
     SharedInfrastructureModule,
+    ConfigModule.forFeature(serverConfig),
     OutboxModule,
     InvestmentSimulatorInfrastructureModule,
     SqsConsumersModule.register([

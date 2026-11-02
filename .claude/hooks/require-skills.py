@@ -26,11 +26,26 @@ ROUTES = [
     ),
     ('investflow-react', [r'^apps/web/', r'^libs/[^/]+/web/']),
     ('investflow-outbox-benchmark', [r'^tools/benchmarks/']),
+    (
+        'investflow-environment-config',
+        [
+            r'^(libs/[^/]+/infrastructure|apps/api)/src/.*\.config\.ts$',
+            r'^libs/shared/infrastructure/src/lib/config/',
+            r'^\.env\.example$',
+            r'^infra/dokploy/compose\.yaml$',
+        ],
+    ),
 ]
 
-# Code that raises, records, or consumes an event needs the eventing skill
-# wherever it lives, such as a new apply() in an aggregate.
-EVENT_CODE = re.compile(r'apply\(\s*new\s|\.record\(|@OnEvent\(')
+# Code that needs a skill wherever it lives: a new apply() in an aggregate
+# raises an event, and reading the environment goes through its config.
+CONTENT_ROUTES = [
+    ('investflow-eventing', re.compile(r'apply\(\s*new\s|\.record\(|@OnEvent\(')),
+    (
+        'investflow-environment-config',
+        re.compile(r'environmentConfig\(|ConfigService|process\.env|registerAs\('),
+    ),
+]
 
 # Only the files a shell command writes count; files it merely reads (cat,
 # grep, sed -n, a redirect into the scratchpad) must not be blocked.
@@ -131,8 +146,8 @@ def main():
         return
 
     required = set().union(*(required_for_path(p) for p in paths))
-    if EVENT_CODE.search(content) and any(p.endswith('.ts') for p in paths):
-        required.add('investflow-eventing')
+    if any(p.endswith('.ts') for p in paths):
+        required |= {skill for skill, code in CONTENT_ROUTES if code.search(content)}
     if not required:
         return
 

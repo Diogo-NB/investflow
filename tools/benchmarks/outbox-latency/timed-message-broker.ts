@@ -1,7 +1,8 @@
 import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { ConfigService } from '@nestjs/config';
 import {
+  AwsConfig,
+  EventBridgeConfig,
   EventBridgeMessageBroker,
   MessageBroker,
   OutboxMessage,
@@ -24,12 +25,13 @@ export class TimedMessageBroker extends MessageBroker {
 
   static create(
     options: BenchmarkOptions,
-    config: ConfigService,
+    aws: AwsConfig,
+    eventBridge: EventBridgeConfig,
   ): TimedMessageBroker {
     if (options.broker === 'floci') {
-      const eventBridge = new EventBridgeMessageBroker(config);
+      const broker = new EventBridgeMessageBroker(aws, eventBridge);
       return new TimedMessageBroker((messages, signal) =>
-        eventBridge.publish(messages, signal),
+        broker.publish(messages, signal),
       );
     }
 

@@ -1,15 +1,16 @@
 import {
+  Inject,
   Injectable,
   OnModuleInit,
   OnApplicationShutdown,
   Logger,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { TransactionalPrismaClient } from './prisma-client.type';
 import { UnitOfWorkContext } from '../unit-of-work.context';
+import { databaseConfig, type DatabaseConfig } from './database.config';
 
 const TRANSACTION_TIMEOUT = 10_000;
 // Production shares one PostgreSQL instance's max_connections (100) across
@@ -22,9 +23,9 @@ export class PrismaService implements OnModuleInit, OnApplicationShutdown {
   private readonly pool: Pool;
   private readonly _client: PrismaClient;
 
-  constructor(config: ConfigService) {
+  constructor(@Inject(databaseConfig.KEY) config: DatabaseConfig) {
     this.pool = new Pool({
-      connectionString: config.getOrThrow<string>('DATABASE_URL'),
+      connectionString: config.url,
       max: DATABASE_POOL_SIZE,
     });
 

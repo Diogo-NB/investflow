@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import {
   EOfferScope,
   ETitleType,
@@ -55,9 +54,7 @@ describe('Offer PostgreSQL persistence', () => {
   const offerIds: string[] = [];
 
   beforeAll(async () => {
-    prisma = new PrismaService(
-      new ConfigService({ DATABASE_URL: connectionString }),
-    );
+    prisma = new PrismaService({ url: connectionString });
     unitOfWork = new UnitOfWork(prisma);
     await prisma.onModuleInit();
   });

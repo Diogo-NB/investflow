@@ -13,6 +13,10 @@ this file in the same change that ships or changes a built behavior.
   CDK. How and why is in
   [Production Deployment](../architecture/deployment.md); follow-ups are in
   [Production Hardening](./planned/production-hardening.md).
+- **Configuration:** each backend capability declares its environment
+  variables in a zod schema, checked when the host starts; providers get
+  typed config objects. How it works is in
+  [Environment Configuration](../architecture/project-structure.md#environment-configuration).
 - **Messaging:** runs end to end on EventBridge and SQS FIFO queues, emulated
   locally by Floci. Events are recorded in the unit of work, written to the
   outbox before commit, published right after commit by the relay, and

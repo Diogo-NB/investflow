@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import {
   ESimulationCalculationCauseKind,
   ETitleType,
@@ -81,9 +80,7 @@ describe('InvestmentPlan PostgreSQL persistence', () => {
   const otherOwnerId = `owner-${generateUuid()}`;
 
   beforeAll(async () => {
-    prisma = new PrismaService(
-      new ConfigService({ DATABASE_URL: connectionString }),
-    );
+    prisma = new PrismaService({ url: connectionString });
     unitOfWork = new UnitOfWork(prisma);
     await prisma.onModuleInit();
     offers = inUnitOfWork(

@@ -80,6 +80,46 @@ import them unchanged. In particular, outbox publishing (the relay and its
 polling fallback) must be enabled only by a host whose invocation and
 lifecycle model supports it.
 
+## Environment Configuration
+
+Decided and built 2026-11-02: each backend capability declares the
+environment variables it reads in its own `*.config.ts`, beside the module
+that uses them, as a zod schema registered through `environmentConfig`
+(`libs/shared/infrastructure/src/lib/config`). Importing the module registers
+the config with `ConfigModule.forFeature`, so a host checks exactly the
+capabilities it imports when it starts and fails with the variables at
+fault; providers inject a typed object instead of reading strings. How to
+add, inject, and debug a variable is in the `investflow-environment-config`
+skill.
+
+| Config        | Variables                                                     | Owner                                    |
+| ------------- | ------------------------------------------------------------- | ---------------------------------------- |
+| `database`    | `DATABASE_URL`                                                | `persistence/prisma` (`PrismaModule`)    |
+| `keycloak`    | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`        | `authentication` (`AuthModule`)          |
+| `aws`         | `AWS_REGION`                                                  | `aws`, for EventBridge and SQS           |
+| `eventBridge` | `EVENT_BUS_NAME`                                              | `messaging/eventbridge` (`OutboxModule`) |
+| `sqsQueues`   | the queue URL variables named by the host's consumer bindings | `messaging/sqs` (`SqsConsumersModule`)   |
+| `server`      | `PORT` (default 3000)                                         | `apps/api`                               |
+
+AWS credentials and `AWS_ENDPOINT_URL` are left to the AWS SDK's provider
+chain, which also resolves profiles and IAM Roles Anywhere. The Prisma CLI
+config, the CDK app, and the webpack config are not Nest code and read
+`process.env` themselves.
+
+Rejected:
+
+- One schema for the whole environment, validated in
+  `ConfigModule.forRoot({ validate })`: every host would need every
+  variable (the seed Keycloak's, the benchmark the queue URLs'), or all
+  would be optional and nothing would be checked.
+- One schema assembled from per-capability parts that each host lists: it
+  checks the same as the chosen design but needs a second list of each
+  host's imports to keep in sync.
+- `class-validator` classes, as in Nest's documentation: three decorators
+  per variable, and checks across variables need custom validators.
+- `ConfigService.getOrThrow` strings, as before: no types, formats,
+  defaults, or single place stating what a host needs.
+
 ## Layer And Context Layout
 
 Bounded contexts live under `libs/<context>/` and are split into backend layer
@@ -271,6 +311,7 @@ Use kebab-case filenames with a role suffix.
 | Domain service         | `*.domain-service.ts`                                                           |
 | Application service    | `*.application-service.ts`                                                      |
 | Infrastructure service | `*.service.ts`                                                                  |
+| Environment config     | `*.config.ts`                                                                   |
 | Error                  | `*.error.ts`                                                                    |
 | Compile-time contract  | `*.contract.ts`                                                                 |
 | Type-only declaration  | `*.type.ts`                                                                     |
