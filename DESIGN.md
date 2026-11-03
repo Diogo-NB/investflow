@@ -23,16 +23,16 @@ The compact white header establishes the workspace on an off-white canvas.
 Identity and logout stay together; content is left-aligned on the same rail.
 One horizontal rule extends the small route label across available space.
 The signature is the lowercase green `if` brand square, aligned with the
-wordmark and the content rail. One navigation card per section (simulations,
-offers) follows the welcome copy, each led by its aggregate icon. No nested
-surfaces or gradients.
+wordmark and the content rail. The home follows the greeting with the
+primary actions, then the user's simulations and plans; offers and curves
+are secondary text links at the end. No nested surfaces or gradients.
 
 - Container: 72rem maximum, with 24px mobile and 40px larger-screen gutters.
 - Header: at least 80px; wraps naturally when wordmark and identity need room.
-- Main: 24px top spacing on mobile and 40px at the 640px breakpoint. The welcome
-  page adds 24px/40px internally to preserve its original generous spacing.
-- Welcome: 40px/56px between its route label and content, then 16px between
-  heading and supporting copy. Copy measure is at most 65ch.
+- Main: 24px top spacing on mobile and 40px at the 640px breakpoint.
+- Home: 24px between the route label, the greeting, and the actions, 8px
+  between heading and supporting copy, then 32px between blocks. Copy
+  measure is at most 65ch.
 - Responsive: mobile-first; no fixed viewport-dependent content heights.
 
 ## Typography
@@ -102,10 +102,12 @@ on them stays the foreground color.
 - Dropdowns use the Base UI Select for triggers and popups, with 8px
   horizontal trigger padding inside the field inset. Focus is shown by the
   outer field border, without an inner text outline.
-- Welcome entries: one bordered link card per section, side by side from
-  1024px. The aggregate icon on a 48px accent tile leads the heading, copy,
-  and a textual action with an arrow. On hover the border turns accent, the
-  tile fills with the accent, and the arrow moves 4px right.
+- Home blocks: a block that needs action is a warning container with its
+  action button; the best return is a bordered surface with the rate at
+  section-heading size; recent simulations and plans reuse their list rows
+  under a 20px heading led by the aggregate icon, with "Ver todas" or "Ver
+  todos" and an arrow on the right. Offers and curves are quiet links with
+  their icons.
 - Header navigation: each section link shows its aggregate icon beside the
   label; the current section sits on the accent container.
 - Page titles: the aggregate's icon on a 40px accent tile beside the heading
@@ -175,8 +177,7 @@ ripple effects, bounces, or page-entry transitions:
   opacity.
 - List results, empty states, an offer's terms, and the impact notice fade in
   the same way when they arrive; a list replays it for each new page or
-  filter, never on a background refetch. The welcome cards fade in 80 ms
-  apart.
+  filter, never on a background refetch.
 - Dialogs, select popups, and the calendar popover fade and scale in from 95%
   over 150 ms (Base UI's starting and ending styles); a select's caret turns
   while it is open.
@@ -206,8 +207,7 @@ A new aggregate (portfolios, for example) gets its own icon here before it
 ships. The other icons are state icons (refresh, check circle, alert
 triangle, x circle), action icons (plus, pencil, copy, trash, search, x,
 arrow, chevrons), and the info and calendar icons. The app receives the
-section icons through the context's `investmentSimulatorSections`; its welcome
-card arrow is a local copy of the arrow icon.
+section icons through the context's `investmentSimulatorSections`.
 
 ## Accessibility
 
@@ -306,6 +306,11 @@ setup. That account was left unchanged, so the real authenticated return remains
 unverified until setup is completed.
 
 ## Changelog
+
+- 2026-11-03: the home becomes a workspace: greeting, "Nova simulação" and
+  "Comparar simulações", the action-required notice, the best return, recent
+  simulations with comparison, plans, and secondary links to offers and
+  curves. Removes the section cards that repeated the header.
 
 - 2026-10-31: the workspace's "Oferta" section shows the terms as fields,
   with the own-terms line, a consequence line, and icons on its actions; the

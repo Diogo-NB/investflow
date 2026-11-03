@@ -39,6 +39,15 @@ export function useIdentity(): string {
   );
 }
 
+/** The signed-in user's given name, or null when the token has none. */
+export function useGivenName(): string | null {
+  const session = useAuthSession();
+  return useSyncExternalStore(
+    session.subscribe,
+    () => stringClaim(session.tokenClaims(), 'given_name') ?? null,
+  );
+}
+
 export function useLogout(): { status: LogoutStatus; logout: () => void } {
   const session = useAuthSession();
   const [status, setStatus] = useState<LogoutStatus>('idle');

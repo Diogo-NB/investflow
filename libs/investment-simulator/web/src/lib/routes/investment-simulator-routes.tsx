@@ -29,6 +29,28 @@ const curveEditor = () =>
     Component: module.CurveEditorPage,
   }));
 
+/** The context's part of the home page, rendered inside the app's welcome. */
+export function investmentSimulatorHomeRoute(
+  deps: InvestmentSimulatorDeps,
+): RouteObject {
+  return {
+    element: (
+      <InvestmentSimulatorDepsContext value={deps}>
+        <Outlet />
+      </InvestmentSimulatorDepsContext>
+    ),
+    children: [
+      {
+        index: true,
+        lazy: () =>
+          import('../home/feature/investment-simulator-home-page').then(
+            (module) => ({ Component: module.InvestmentSimulatorHomePage }),
+          ),
+      },
+    ],
+  };
+}
+
 export function investmentSimulatorRoutes(
   deps: InvestmentSimulatorDeps,
 ): RouteObject[] {

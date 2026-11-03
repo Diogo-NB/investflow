@@ -1,4 +1,5 @@
 import {
+  investmentSimulatorHomeRoute,
   investmentSimulatorRoutes,
   type InvestmentSimulatorDeps,
 } from '@investflow/investment-simulator-web';
@@ -26,7 +27,10 @@ export function createAppRoutes(deps: InvestmentSimulatorDeps): RouteObject[] {
           // Inside the shell so the header and logout stay available on failure.
           ErrorBoundary: RouteError,
           children: [
-            { index: true, Component: Welcome },
+            {
+              Component: Welcome,
+              children: [investmentSimulatorHomeRoute(deps)],
+            },
             ...investmentSimulatorRoutes(deps),
             { path: '*', element: <Navigate to="/" replace /> },
           ],

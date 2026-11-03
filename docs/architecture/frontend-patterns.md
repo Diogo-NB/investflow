@@ -68,8 +68,9 @@ policy the compiler is deferred. Revisit when that integration is stable.
 InvestFlow's frontend is a client-rendered authenticated SPA. Opening `/`
 requires Keycloak login and then shows a Portuguese welcome page, the
 authenticated identity, and logout. Unmatched browser routes redirect to `/`.
-The welcome page and the header link to each mounted context feature
-(`/simulacoes`, `/ofertas`, and `/curvas`). The bounded context owns its
+The header links to each mounted context feature (`/simulacoes`, `/planos`,
+`/ofertas`, and `/curvas`); below its greeting, the welcome page renders the
+context's home. The bounded context owns its
 business requests and presentation.
 
 ```text
@@ -137,9 +138,11 @@ The app passes its bearer-attaching `authorizedFetch` and its toast manager
 (see "Toasts"), and spreads the result into its shell routes. Right after login it also calls
 `prefetchInvestmentSimulator(queryClient, deps)`, which starts the reads every
 screen needs (the business calendar) without blocking the first render. The library also exports `investmentSimulatorSections`
-(path, label, description, action, and canonical icon of each screen), which
-the app's header and welcome page render, so the context owns how its
-sections are named and drawn. The factory returns top-level paths (`simulacoes`, later
+(path, label, and canonical icon of each screen), which the app's header
+renders, so the context owns how its sections are named and drawn, and
+`investmentSimulatorHomeRoute(deps)`, a pathless route with the context's
+lazy home as its index. The app nests it under its welcome page, which keeps
+the greeting and renders the home through an `Outlet`. The factory returns top-level paths (`simulacoes`, later
 `ofertas` and `curvas`), and each page module loads through route `lazy`. The library puts `deps` in its own internal
 context, which its API adapters read. Features never import Keycloak or app
 modules, and they use relative `/api` URLs.

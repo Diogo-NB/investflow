@@ -1,4 +1,7 @@
-export { investmentSimulatorRoutes } from './lib/routes/investment-simulator-routes';
+export {
+  investmentSimulatorHomeRoute,
+  investmentSimulatorRoutes,
+} from './lib/routes/investment-simulator-routes';
 export { prefetchInvestmentSimulator } from './lib/routes/investment-simulator-prefetch';
 export type { InvestmentSimulatorDeps } from './lib/routes/investment-simulator-deps';
 export {
