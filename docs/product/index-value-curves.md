@@ -355,8 +355,11 @@ Decisão de 2026-10-28, que substitui o intervalo sem fim de 2026-10-17.
 ### Curvas do BCB
 
 Esta seção e a seguinte descrevem a regra decidida; a importação ainda não
-existe (ver [BCB Rate Import](../implementation/planned/bcb-rate-import.md)). Hoje as curvas do
-sistema são as criadas pelo seed do ambiente de desenvolvimento.
+existe (ver [BCB Rate Import](../implementation/planned/bcb-rate-import.md)). Hoje, em produção, as
+curvas do sistema de CDI e SELIC efetiva têm os valores publicados pelo Banco
+Central de 02/01/2024 a 30/10/2026, carregados uma única vez, e não são
+atualizadas sozinhas; depois do último fim, a última taxa é mantida. No ambiente
+de desenvolvimento, as curvas do sistema são as criadas pelo seed.
 
 - O sistema mantém uma curva de CDI e uma de SELIC efetiva com os valores
   publicados pelo Banco Central do Brasil (BCB), na convenção desses índices (taxa anual
