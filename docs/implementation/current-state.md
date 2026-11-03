@@ -183,6 +183,13 @@ this file in the same change that ships or changes a built behavior.
   how many plans it leaves, and a simulation created from a plan's "Nova
   simulação" is offered to that plan in a toast
   ([screens/simulations.md](../product/screens/simulations.md)).
+- **Home:** `/` greets the user and shows the context's home: creation and
+  comparison actions, the count of simulations requiring action, the best
+  net annual return, the 5 most recent simulations with comparison
+  selection, and the first plans
+  ([screens/app-shell.md](../product/screens/app-shell.md)). It reads the
+  existing simulation and plan lists, four requests in all; a single
+  overview query is in [Home Overview Query](./planned/home-overview-query.md).
 
 ## Differs From the Target Model
 

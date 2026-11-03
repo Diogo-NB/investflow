@@ -13,8 +13,11 @@ function pageRoutes(): RouteObject[] {
 }
 
 describe('createAppRoutes', () => {
-  it('opens the welcome page at the root', () => {
-    expect(pageRoutes().find((route) => route.index)?.Component).toBe(Welcome);
+  it('opens the welcome page at the root, with the simulator home inside', () => {
+    const welcome = pageRoutes().find((route) => route.Component === Welcome);
+
+    expect(welcome?.path).toBeUndefined();
+    expect(welcome?.children?.[0]?.children?.[0]?.index).toBe(true);
   });
 
   it('mounts the investment simulator under /simulacoes, /planos, /ofertas, and /curvas', () => {

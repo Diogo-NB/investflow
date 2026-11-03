@@ -1,7 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import type { KeycloakTokenParsed } from 'keycloak-js';
 import type { ReactNode } from 'react';
-import { AuthSessionContext, useIdentity, useLogout } from '../auth-context';
+import {
+  AuthSessionContext,
+  useGivenName,
+  useIdentity,
+  useLogout,
+} from '../auth-context';
 import type { AuthSession } from '../session';
 
 function fakeSession(claims?: KeycloakTokenParsed) {
@@ -49,6 +54,21 @@ describe('useIdentity', () => {
     act(() => session.refreshClaims({ name: 'Ana Souza' }));
 
     expect(result.current).toBe('Ana Souza');
+  });
+});
+
+describe('useGivenName', () => {
+  it.each<[KeycloakTokenParsed | undefined, string | null]>([
+    [{ given_name: 'Ana', name: 'Ana Souza' }, 'Ana'],
+    [{ given_name: '  ', name: 'Ana Souza' }, null],
+    [{ name: 'Ana Souza' }, null],
+    [undefined, null],
+  ])('reads the given name of %o as %s', (claims, expected) => {
+    const { wrapper } = fakeSession(claims);
+
+    const { result } = renderHook(useGivenName, { wrapper });
+
+    expect(result.current).toBe(expected);
   });
 });
 

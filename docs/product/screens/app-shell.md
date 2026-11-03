@@ -20,7 +20,27 @@ autenticação estão em "Screen mechanics" em
 - A estrutura tem o atalho "Ir para o conteúdo", o link "InvestFlow, página
   inicial", "Sua conta" com a identificação e "Sair". Cada navegação leva o
   foco ao conteúdo principal sem rolar a página.
-- Início: título "Início | InvestFlow", o rótulo "Início", o título
-  "Bem-vindo ao InvestFlow." e o subtítulo "Um espaço para suas próximas
-  decisões de investimento.". Um erro inesperado mostra uma mensagem segura,
-  com a opção de recarregar, dentro da estrutura.
+- Início: título "Início | InvestFlow", o rótulo "Início", a saudação "Olá,
+  {primeiro nome}." ("Olá." sem primeiro nome) e o subtítulo "Simule, compare
+  e acompanhe seus investimentos.". Um erro inesperado mostra uma mensagem
+  segura, com a opção de recarregar, dentro da estrutura.
+- Abaixo da saudação, o Início reúne o que o usuário mais faz, cada bloco
+  carregado e, se falhar, tentado de novo por conta própria:
+  - "Nova simulação" e "Comparar simulações", que abre a lista.
+  - "N simulações requerem ação.", com "Revisar", que abre a lista filtrada
+    por "Requer ação"; oculto quando nenhuma requer.
+  - "Sua maior rentabilidade líquida": a rentabilidade, a oferta e o emissor
+    da primeira simulação em "Maior rentabilidade líquida", marcada quando o
+    resultado não está atualizado, com "Ver ranking", que abre a lista nessa
+    ordem; oculto enquanto nenhuma simulação tem resultado.
+  - "Simulações recentes": as 5 mais recentes, nas mesmas linhas da lista,
+    com as caixas "Comparar" e a barra de comparação. A seleção fica no
+    endereço, e "Ver todas" e "Comparar simulações" a levam para a lista.
+    Atualiza-se sozinho enquanto alguma está sendo calculada.
+  - "Planos": os 3 primeiros planos com seus marcadores e "Ver todos", ou
+    "Criar plano" quando não há nenhum.
+  - Links menores para "Gerenciar ofertas" e "Gerenciar curvas".
+- Sem nenhuma simulação, o Início mostra só a saudação, o guia "Comece em
+  três passos" (escolher a oferta, informar valor e data, ver o resultado e
+  comparar) com "Criar a primeira simulação", e os links de ofertas e
+  curvas.
