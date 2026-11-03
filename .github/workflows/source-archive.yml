@@ -1,0 +1,31 @@
+name: Source archive
+
+# Release Please publishes the GitHub release, which creates the tag.
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  source-archive:
+    name: Attach the source archive and its SHA-512
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Archive, hash and upload
+        run: |
+          set -euo pipefail
+          archive="investflow-${TAG}-source.zip"
+          git archive --format=zip --prefix="investflow-${TAG}/" -o "$archive" HEAD
+          sha512sum "$archive" > "$archive.sha512"
+          # No --clobber: replacing an archive whose hash was filed with the INPI would void the proof.
+          gh release upload "$TAG" "$archive" "$archive.sha512"

@@ -118,6 +118,16 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
   `deploy-production.yml` deploys. `rollback.yml` deploys an earlier
   version. Both share one non-cancelling concurrency group, so deploys never
   overlap. Actions are pinned to commit SHAs.
+- **Source archive** (2026-11-03). A published release also runs
+  `source-archive.yml`, which attaches `investflow-vX.Y.Z-source.zip`
+  (`git archive` of the tag) and its SHA-512 (`.sha512`, `sha512sum`
+  format) to the release. The hash is what a software registration with the
+  INPI files; the zip is the copy it proves, so it is published rather
+  than relying on GitHub's generated source archives, whose bytes are not
+  guaranteed stable. It is a separate workflow so it neither waits for nor
+  affects the deploy, and it never replaces an existing asset: a re-run
+  fails instead of changing an archive whose hash may already be filed.
+  Releases up to `v0.4.0` have no archive.
 - **Version selection.** Dokploy reads the compose file from `main`, so it
   names a moving tag, `:production`, pulled on every deploy. A deploy points
   `:production` at the version, then calls Dokploy. Setting an `IMAGE_TAG`
