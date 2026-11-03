@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/Diogo-NB/investflow/compare/v0.2.0...v0.3.0) (2026-11-03)
+
+
+### Features
+
+* back off the outbox poller when idle and wake it from the relay ([#9](https://github.com/Diogo-NB/investflow/issues/9)) ([8f80f79](https://github.com/Diogo-NB/investflow/commit/8f80f79cda074b0f7364ca4f3b3a8826b9165fcc))
+* give simulations their own terms as simulation-scoped offers ([#6](https://github.com/Diogo-NB/investflow/issues/6)) ([dd2b98b](https://github.com/Diogo-NB/investflow/commit/dd2b98b7e232a47926869f5663cdf19f8b04ba7c))
+* validate each capability's environment variables at startup ([#8](https://github.com/Diogo-NB/investflow/issues/8)) ([b0ac9f0](https://github.com/Diogo-NB/investflow/commit/b0ac9f09288a80e2ca378892445e092fa6fad33d))
+
 ## [0.2.0](https://github.com/Diogo-NB/investflow/compare/v0.1.0...v0.2.0) (2026-10-31)
 
 
