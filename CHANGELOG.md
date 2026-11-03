@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/Diogo-NB/investflow/compare/v0.3.0...v0.4.0) (2026-11-03)
+
+
+### Features
+
+* log the event flow at a configurable level ([#12](https://github.com/Diogo-NB/investflow/issues/12)) ([d1adee1](https://github.com/Diogo-NB/investflow/commit/d1adee10f680deb96f4b9513c8d939acacb91046))
+* turn the home into a simulation workspace ([#10](https://github.com/Diogo-NB/investflow/issues/10)) ([f30285f](https://github.com/Diogo-NB/investflow/commit/f30285fbf6a17f9e0f34353f3740b8b5f6ce9257))
+
 ## [0.3.0](https://github.com/Diogo-NB/investflow/compare/v0.2.0...v0.3.0) (2026-11-03)
 
 
