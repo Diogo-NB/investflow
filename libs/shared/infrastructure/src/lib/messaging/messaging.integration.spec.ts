@@ -30,7 +30,9 @@ import { UnitOfWork } from '../persistence/unit-of-work';
 import { EventDispatcher } from './consumers/event-dispatcher.service';
 import { OnEvent } from './consumers/on-event.decorator';
 import { MessageBroker, OutboxMessage } from './outbox/message-broker.port';
+import { outboxConfig, type OutboxConfig } from './outbox/outbox.config';
 import { OutboxModule } from './outbox/outbox.module';
+import { OutboxPollSchedule } from './outbox/outbox-poll-schedule';
 import { OutboxPollerService } from './outbox/outbox-poller.service';
 import { OutboxPublisher } from './outbox/outbox-publisher';
 import { OutboxRetentionService } from './outbox/outbox-retention.service';
@@ -274,14 +276,18 @@ describe('Messaging through EventBridge and SQS', () => {
         return [];
       },
     } as unknown as MessageBroker;
-    const pollers = [1, 2].map(
-      () =>
-        new OutboxPollerService(
-          prisma,
-          new OutboxPublisher(broker, clock),
-          clock,
-        ),
-    );
+    const pollers = [1, 2].map(() => {
+      const schedule = new OutboxPollSchedule(
+        clock,
+        app.get<OutboxConfig>(outboxConfig.KEY),
+      );
+      return new OutboxPollerService(
+        prisma,
+        new OutboxPublisher(broker, schedule, clock),
+        schedule,
+        clock,
+      );
+    });
     const row = (id: string, createdAt: Date) => ({
       id,
       aggregateType: 'TestAggregate',
@@ -324,7 +330,12 @@ describe('Messaging through EventBridge and SQS', () => {
   it('deletes rows published over 7 days ago across concurrent instances and keeps the rest', async () => {
     const clock = app.get(Clock, { strict: false });
     const instances = [1, 2].map(
-      () => new OutboxRetentionService(prisma, clock),
+      () =>
+        new OutboxRetentionService(
+          prisma,
+          clock,
+          app.get<OutboxConfig>(outboxConfig.KEY),
+        ),
     );
     const daysAgo = (days: number) =>
       new Date(Date.now() - days * 24 * 60 * 60_000);

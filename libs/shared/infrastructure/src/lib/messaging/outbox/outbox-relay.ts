@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Clock } from '@investflow/shared-application';
 import { UtcInstant } from '@investflow/shared-domain';
 import { PrismaService } from '../../persistence/prisma/prisma.service';
+import { OutboxPollSchedule } from './outbox-poll-schedule';
 import {
   OutboxEntry,
   OutboxPublisher,
@@ -15,7 +16,11 @@ const MAX_BUFFERED_ROWS = 5_000;
 // Rows the relay could not send this soon are left to the poller, whose grace
 // period must exceed this age plus a request's timeout.
 const MAX_BUFFERED_AGE_MS = 2_500;
-export const RELAY_HANDOVER_MS = MAX_BUFFERED_AGE_MS + PUBLISH_TIMEOUT_MS;
+const RELAY_HANDOVER_MS = MAX_BUFFERED_AGE_MS + PUBLISH_TIMEOUT_MS;
+// A fresh row belongs to the relay of the process that committed it until
+// the relay has sent or dropped it, plus a margin for marking it published.
+// Shorter, the poller would publish rows the relay is still sending.
+export const GRACE_PERIOD_MS = RELAY_HANDOVER_MS + 500;
 const SHUTDOWN_DEADLINE_MS = 5_000;
 
 interface BufferedEntry {
@@ -40,6 +45,7 @@ export class OutboxRelay implements OnModuleDestroy {
 
   constructor(
     private readonly publisher: OutboxPublisher,
+    private readonly pollSchedule: OutboxPollSchedule,
     private readonly prisma: PrismaService,
     private readonly clock: Clock,
   ) {}
@@ -47,16 +53,26 @@ export class OutboxRelay implements OnModuleDestroy {
   // Runs on the request's path after commit, so it only queues the rows;
   // serializing and publishing them wait for the next turn of the event loop.
   enqueue(rows: readonly OutboxRow[]): void {
-    if (this.closed || rows.length === 0 || this.publisher.isPaused()) return;
+    if (this.closed || rows.length === 0) return;
+    const now = this.clock.now();
+    // Not logged: while paused, every commit would warn.
+    if (this.publisher.isPaused()) {
+      this.wakePollerForRowsCommittedBy(now);
+      return;
+    }
 
     const accepted = rows.slice(0, MAX_BUFFERED_ROWS - this.bufferedRows);
     if (accepted.length < rows.length) {
-      this.leaveToPoller(rows.length - accepted.length, 'the relay is full');
+      this.leaveToPoller(
+        rows.length - accepted.length,
+        'the relay is full',
+        now,
+      );
     }
     if (accepted.length === 0) return;
 
     this.bufferedRows += accepted.length;
-    this.incoming.push({ rows: accepted, at: this.clock.now() });
+    this.incoming.push({ rows: accepted, at: now });
     if (this.pumpScheduled) return;
 
     this.pumpScheduled = true;
@@ -93,7 +109,11 @@ export class OutboxRelay implements OnModuleDestroy {
       this.send(batch.map((buffered) => buffered.entry));
     }
     if (this.buffered.length > 0 && this.publisher.isPaused()) {
-      this.leaveToPoller(this.buffered.length, 'publishing is paused');
+      this.leaveToPoller(
+        this.buffered.length,
+        'publishing is paused',
+        this.buffered[0].enqueuedAt,
+      );
       this.bufferedRows -= this.buffered.length;
       this.buffered = [];
     }
@@ -165,14 +185,27 @@ export class OutboxRelay implements OnModuleDestroy {
     const stale = fresh === -1 ? this.buffered.length : fresh;
     if (stale === 0) return;
 
-    this.buffered.splice(0, stale);
+    const [oldest] = this.buffered.splice(0, stale);
     this.bufferedRows -= stale;
-    this.leaveToPoller(stale, 'they waited too long');
+    this.leaveToPoller(stale, 'they waited too long', oldest.enqueuedAt);
   }
 
-  private leaveToPoller(count: number, reason: string): void {
+  private leaveToPoller(
+    count: number,
+    reason: string,
+    committedBy: UtcInstant,
+  ): void {
     this.logger.warn(
       `Left ${count} outbox event(s) to the poller because ${reason}`,
     );
+    this.wakePollerForRowsCommittedBy(committedBy);
+  }
+
+  // Rows are stamped just before commit and reach the relay just after, so
+  // this is never earlier than the grace period lets the poller claim them.
+  // Newer rows left with them follow within the minimum interval, because a
+  // claim resets the poller's wait.
+  private wakePollerForRowsCommittedBy(committedBy: UtcInstant): void {
+    this.pollSchedule.wakePollerAt(committedBy.addMs(GRACE_PERIOD_MS));
   }
 }

@@ -92,14 +92,15 @@ fault; providers inject a typed object instead of reading strings. How to
 add, inject, and debug a variable is in the `investflow-environment-config`
 skill.
 
-| Config        | Variables                                                     | Owner                                    |
-| ------------- | ------------------------------------------------------------- | ---------------------------------------- |
-| `database`    | `DATABASE_URL`                                                | `persistence/prisma` (`PrismaModule`)    |
-| `keycloak`    | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`        | `authentication` (`AuthModule`)          |
-| `aws`         | `AWS_REGION`                                                  | `aws`, for EventBridge and SQS           |
-| `eventBridge` | `EVENT_BUS_NAME`                                              | `messaging/eventbridge` (`OutboxModule`) |
-| `sqsQueues`   | the queue URL variables named by the host's consumer bindings | `messaging/sqs` (`SqsConsumersModule`)   |
-| `server`      | `PORT` (default 3000)                                         | `apps/api`                               |
+| Config        | Variables                                                                                                                            | Owner                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `database`    | `DATABASE_URL`                                                                                                                       | `persistence/prisma` (`PrismaModule`)    |
+| `keycloak`    | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`                                                                               | `authentication` (`AuthModule`)          |
+| `aws`         | `AWS_REGION`                                                                                                                         | `aws`, for EventBridge and SQS           |
+| `eventBridge` | `EVENT_BUS_NAME`                                                                                                                     | `messaging/eventbridge` (`OutboxModule`) |
+| `outbox`      | `OUTBOX_POLL_MIN_INTERVAL_SECONDS`, `OUTBOX_POLL_MAX_INTERVAL_SECONDS`, `OUTBOX_RETENTION_INTERVAL_SECONDS`, `OUTBOX_RETENTION_DAYS` | `messaging/outbox` (`OutboxModule`)      |
+| `sqsQueues`   | the queue URL variables named by the host's consumer bindings                                                                        | `messaging/sqs` (`SqsConsumersModule`)   |
+| `server`      | `PORT` (default 3000)                                                                                                                | `apps/api`                               |
 
 AWS credentials and `AWS_ENDPOINT_URL` are left to the AWS SDK's provider
 chain, which also resolves profiles and IAM Roles Anywhere. The Prisma CLI

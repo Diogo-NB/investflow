@@ -57,7 +57,7 @@ Three ideas carry the whole design:
 | After-commit hook  | A callback a unit of work runs once its transaction commits. Best effort: never run on rollback.             |
 | Outbox relay       | `OutboxRelay`. Publishes a committed unit of work's rows from memory, right after commit.                    |
 | Outbox publisher   | `OutboxPublisher`. Sends batches with a cap on calls in flight, marks rows, backs off failures, pauses.      |
-| Outbox poller      | `OutboxPollerService`. Fallback: claims failed rows when due and rows older than a grace period.             |
+| Outbox poller      | `OutboxPollerService`. Fallback: claims due failed rows and rows past a grace period; backs off when idle.   |
 | Bus                | The EventBridge bus `investflow`. Publishers send every event here and know nothing about consumers.         |
 | Rule               | An EventBridge rule that copies matching events (by `source` and `detail-type`) into one consumer's queue.   |
 | Queue              | One SQS FIFO queue per consumer, created by `consumer_queue` in `infra/floci/init/provision.sh`.             |

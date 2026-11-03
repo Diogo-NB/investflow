@@ -3,6 +3,7 @@ import { Clock } from '@investflow/shared-application';
 import { CalendarDate, UtcInstant } from '@investflow/shared-domain';
 import type { TransactionalPrismaClient } from '../../../persistence/prisma/prisma-client.type';
 import { MessageBroker, RejectedMessage } from '../message-broker.port';
+import type { OutboxPollSchedule } from '../outbox-poll-schedule';
 import { OutboxEntry, OutboxPublisher } from '../outbox-publisher';
 
 const startedAt = UtcInstant.ofIso('2026-01-02T03:04:05Z');
@@ -36,12 +37,15 @@ function createFixture() {
     >()
     .mockResolvedValue([]);
   const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+  const wakePollerAt = jest.fn<void, [UtcInstant]>();
   return {
     publisher: new OutboxPublisher(
       { publish } as unknown as MessageBroker,
+      { wakePollerAt } as unknown as OutboxPollSchedule,
       clock,
     ),
     publish,
+    wakePollerAt,
     updateMany,
     client: {
       outboxEvent: { updateMany },
@@ -156,8 +160,8 @@ describe('OutboxPublisher', () => {
     });
   });
 
-  it('backs failed rows off exponentially, grouped by attempt and reason', async () => {
-    const { publisher, client, updateMany } = createFixture();
+  it('backs failed rows off exponentially, grouped by attempt and reason, and wakes the poller for each retry', async () => {
+    const { publisher, client, updateMany, wakePollerAt } = createFixture();
 
     await publisher.recordFailures(client, [
       { entry: entry('event-1', 2), reason: 'payload rejected' },
@@ -181,6 +185,10 @@ describe('OutboxPublisher', () => {
         lastError: 'payload rejected',
       },
     });
+    expect(wakePollerAt.mock.calls).toEqual([
+      [startedAt.addMs(4_000)],
+      [startedAt.addMs(5 * 60_000)],
+    ]);
   });
 
   it('pauses after 3 consecutive failed requests and skips batches while paused', async () => {

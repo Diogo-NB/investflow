@@ -32,6 +32,11 @@ export {
 } from './lib/money/money.formatter';
 export { OutboxModule } from './lib/messaging/outbox/outbox.module';
 export {
+  outboxConfig,
+  type OutboxConfig,
+} from './lib/messaging/outbox/outbox.config';
+export { OutboxPollerService } from './lib/messaging/outbox/outbox-poller.service';
+export {
   MessageBroker,
   type OutboxMessage,
   type RejectedMessage,

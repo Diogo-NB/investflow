@@ -6,18 +6,13 @@ import {
 } from '@nestjs/common';
 import { Clock } from '@investflow/shared-application';
 import { PrismaService } from '../../persistence/prisma/prisma.service';
+import { OutboxPollSchedule } from './outbox-poll-schedule';
 import { OutboxPublisher } from './outbox-publisher';
-import { RELAY_HANDOVER_MS } from './outbox-relay';
+import { GRACE_PERIOD_MS } from './outbox-relay';
 
 // The claim holds its rows' locks while publishing, so a batch must publish
 // well within the transaction timeout: 100 rows are 10 requests.
 const CLAIM_BATCH_SIZE = 100;
-// Retries back off at least a second and stranded rows are already past the
-// grace period, so a faster loop would gain nothing.
-const POLL_INTERVAL_MS = 1_000;
-// A fresh row belongs to the relay of the process that committed it until
-// the relay has sent or dropped it, plus a margin for marking it published.
-const GRACE_PERIOD_MS = RELAY_HANDOVER_MS + 500;
 
 interface ClaimedRow {
   readonly id: string;
@@ -30,18 +25,19 @@ interface ClaimedRow {
 // Publishes what the relay did not: failed rows once due, and rows the relay
 // dropped or lost to a crash. Claims rows with SKIP LOCKED, so any number of
 // processes can poll the same outbox and each row is published by one.
+// When to poll is OutboxPollSchedule's decision.
 @Injectable()
 export class OutboxPollerService
   implements OnApplicationBootstrap, OnModuleDestroy
 {
   private readonly logger = new Logger(OutboxPollerService.name);
+  private readonly shutdown = new AbortController();
   private loop: Promise<void> | undefined;
-  private stopped = false;
-  private wake: (() => void) | undefined;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly publisher: OutboxPublisher,
+    private readonly pollSchedule: OutboxPollSchedule,
     private readonly clock: Clock,
   ) {}
 
@@ -50,8 +46,7 @@ export class OutboxPollerService
   }
 
   async onModuleDestroy(): Promise<void> {
-    this.stopped = true;
-    this.wake?.();
+    this.shutdown.abort();
     await this.loop;
   }
 
@@ -95,24 +90,26 @@ export class OutboxPollerService
   }
 
   private async run(): Promise<void> {
-    while (!this.stopped) {
-      const claimed = await this.drainOnce().catch((error: unknown) => {
+    const { signal } = this.shutdown;
+    while (!signal.aborted) {
+      if (this.publisher.isPaused()) {
+        await this.pollSchedule.waitAfterPausedPoll(signal);
+        continue;
+      }
+
+      const startedAt = this.clock.now();
+      const claimedRows = await this.drainOnce().catch((error: unknown) => {
         this.logger.error('Outbox poll failed', error);
         return 0;
       });
-      if (claimed < CLAIM_BATCH_SIZE) await this.sleep(POLL_INTERVAL_MS);
+      await this.pollSchedule.waitAfterPoll(
+        {
+          startedAt,
+          claimedRows,
+          isBatchFull: claimedRows === CLAIM_BATCH_SIZE,
+        },
+        signal,
+      );
     }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    if (this.stopped) return Promise.resolve();
-
-    return new Promise((resolve) => {
-      const timer = setTimeout(resolve, ms);
-      this.wake = () => {
-        clearTimeout(timer);
-        resolve();
-      };
-    });
   }
 }

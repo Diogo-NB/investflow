@@ -42,10 +42,65 @@ This replaces the earlier SNS topic per context.
   - `OutboxPollerService` claims due failed rows, and rows older than a grace
     period of 5 s, 100 at a time with `FOR UPDATE SKIP LOCKED`, publishes
     them, and marks them in the claiming transaction. Any number of processes
-    can poll one outbox, and each row is published by one. It polls every
-    second and again at once while batches come back full. The grace period
+    can poll one outbox, and each row is published by one. The grace period
     is derived from the relay's 2.5 s and the call timeout, so the poller
-    leaves a row alone while its relay can still publish it.
+    leaves a row alone while its relay can still publish it; a lower value
+    publishes events twice.
+  - **Poll interval.** Decided and built 2026-11-02: the poller backs off
+    while it finds nothing, and its process's relay and publisher wake it. It finds work
+    only when something went wrong (a failed row is due, the relay dropped
+    rows, or another process left rows), so emission volume does not predict
+    it: under heavy healthy traffic every poll comes back empty. The
+    1-second loop it replaces ran 86,400 claim transactions a day per
+    instance on a database shared with other projects, which can go days
+    without events.
+    - An empty poll doubles the wait, from `OUTBOX_POLL_MIN_INTERVAL_SECONDS`
+      (1) up to `OUTBOX_POLL_MAX_INTERVAL_SECONDS` (60): 1, 2, 4 … 32, 60 s,
+      the maximum reached about 2 minutes into a quiet period, about 1,440
+      polls a day. A poll that claims rows returns to the minimum, and a
+      full batch (100) polls again at once. While publishing is paused it
+      checks again after the minimum without querying, and keeps the
+      interval: a paused poll learned nothing.
+    - `OutboxPollSchedule` owns these rules, and the poller waits on it
+      after each poll. The relay and the publisher call
+      `wakePollerAt(time)` with what they already know: the relay, when it
+      leaves rows to the poller (buffer full, stale, or paused), with the
+      time they reached it plus the grace period; the publisher, when it
+      records failures from either path, with each group's retry time. A
+      wake-up brings the next poll forward, never within the minimum of the
+      last poll. Later wake-ups wait for later polls, kept at most one per
+      minimum interval (the latest of each, so none is served more than the
+      minimum late). A rolled-back claim leaves a wake-up that costs one
+      empty poll. Neither caller knows the poller, so the dependencies point
+      one way, to the schedule.
+    - Measured locally with the API idle for 10 minutes: 34 statements on
+      the database instead of 1,796 (3 per poll, plus one retention delete).
+      `pnpm bench:outbox` showed the relay's loads unchanged; rows past the
+      relay buffer of an 8,000-event fan-out published within 5.3 s
+      (Floci) and 6.8 s (simulated, bound by claiming 100 rows at a time),
+      as before; and a rejected event published 1.0–2.1 s after its
+      rejection: its 1 s backoff, plus up to the minimum interval when
+      retries spread between polls.
+    - Rows of another process (a crash, the seed, a host relying on another
+      host's poller) wait up to the maximum interval plus the grace period,
+      about 65 s, after a quiet period, then up to 6 s while the poller keeps
+      finding them. With one production instance, a crash is followed by a
+      restart whose first poll claims them after the grace period.
+    - Rejected: backoff alone, which delays retries and relay overflow by up
+      to the maximum interval; an interval derived from the local emission
+      rate, which tracks traffic rather than the poller's work; and
+      a listener the relay calls back on, which made the relay name its
+      consumer and split retry wake-ups between the relay and the poller. The
+      pattern is active/idle polling (as in Spring Integration's
+      `SimpleActiveIdleReceiveMessageAdvice`) with in-process wake-ups, which
+      reaches what `LISTEN/NOTIFY` aimed at without its commit lock, because
+      the relay runs in the same process.
+    - Only the intervals and retention are variables. The grace period,
+      batch and payload limits, relay buffer, claim size, retry and pause
+      backoff, statement sizes, and shutdown deadline stay constants beside
+      their reasons. The 8 concurrent broker calls depend on how many
+      instances share the `PutEvents` quota, so revisit them as a variable
+      when the API runs on more than one server.
   - An event is published twice only when its process stops between
     publishing and marking it, or its mark fails. Consumers deduplicate by
     event ID. SQS content-based deduplication does not catch these copies:
@@ -96,8 +151,8 @@ This replaces the earlier SNS topic per context.
   pause the relay and the poller together for 1 second. While the broker
   stays down, the first call after each pause fails and starts a pause twice
   as long, up to 60 seconds; a successful call resumes publishing.
-- **Retention.** Decided and built 2026-10-28: published rows are kept 7
-  days, long enough to check when an event went out or to resend it after an
+- **Retention.** Decided and built 2026-10-28: published rows are kept
+  `OUTBOX_RETENTION_DAYS` (7) days, long enough to check when an event went out or to resend it after an
   incident found days later, and then deleted. Nothing in the code reads
   them: consumers deduplicate in `processed_events`, keyed on the event ID.
   - Two partial indexes split the table, so each row is in one: unpublished
@@ -108,19 +163,24 @@ This replaces the earlier SNS topic per context.
     together, so the gain is size and cache, not speed. Prisma generates
     them through its `partialIndexes` preview feature.
   - `OutboxRetentionService` is a loop like the poller's, in every
-    publishing host: 5 minutes after the process starts, and 5 minutes after
-    each run ends, it deletes batches of 1,000 rows, the oldest first, with
+    publishing host: 5 minutes after the process starts, and
+    `OUTBOX_RETENTION_INTERVAL_SECONDS` (6 hours) after each run ends, it
+    deletes batches of 1,000 rows, the oldest first, with
     `FOR UPDATE SKIP LOCKED`, until a batch comes back short. Runs never
     overlap, and shutdown waits for the batch in progress. A batch is one
     short statement (about 8 ms locally), so it locks only its own rows, and
     concurrent instances delete disjoint rows. A 100 ms pause between batches
     spreads a large backlog, such as the first run on an old table, while one
     instance still deletes about 9,000 rows per second, over three times what
-    it can publish. Rows expire continuously, so the interval only sets how
-    many pile up between runs.
+    it can publish. Rows expire continuously, so the interval trades idle
+    statements against burst size. Since 2026-11-02 it is 6 hours instead of
+    5 minutes: 4 runs a day instead of 288, rows kept up to 7 days and 6
+    hours, and each run deletes 6 hours of rows, at 100 events per second
+    about 2.2 million rows over about 4 minutes.
   - Rejected: deleting rows as they are published, which keeps the table
     minimal but leaves nothing to debug or replay; a daily run, which keeps
-    rows up to 8 days and deletes a whole day of rows at once; a cron
+    rows up to 8 days and deletes a whole day of rows at once (now a setting
+    rather than a code change); a cron
     (`@nestjs/schedule`), which fires every instance at the same moment and
     needs its own overlap and shutdown handling for what one loop does; and
     dropping daily partitions, which needs hand-written migrations because

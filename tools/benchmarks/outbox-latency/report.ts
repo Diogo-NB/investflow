@@ -17,13 +17,41 @@ export interface LoadResult {
   readonly runMs: Summary;
   // COMMIT acknowledged → UnitOfWork.run() resolved, per transaction.
   readonly afterCommitUs: Summary;
+  // Polls between load start and the last event accepted.
+  readonly polls: number;
+  // Rows those polls claimed; 0 when the relay published everything.
+  readonly pollerClaims: number;
+  // Rejection → acceptance, per event the broker rejected first.
+  readonly retryWaitMaxMs: number | undefined;
+  readonly pollerTimeline: string;
   readonly published: boolean;
 }
 
 export interface Report {
   readonly brokerDescription: string;
+  readonly outboxDescription: string;
   readonly idleCheckoutsPerSecond: number;
+  readonly idlePollGapsS: readonly number[];
   readonly results: readonly LoadResult[];
+}
+
+// Each poll as its gap since the previous one in seconds, with ":<rows>" when
+// it claimed rows; repeats collapse to "1.0×18".
+export function describePollerTimeline(
+  polls: readonly { readonly gapMs: number; readonly claimed: number }[],
+): string {
+  const tokens = polls.map(
+    ({ gapMs, claimed }) =>
+      (gapMs / 1_000).toFixed(1) + (claimed > 0 ? `:${claimed}` : ''),
+  );
+  const collapsed: string[] = [];
+  for (let index = 0; index < tokens.length; ) {
+    let repeats = 1;
+    while (tokens[index + repeats] === tokens[index]) repeats++;
+    collapsed.push(repeats > 1 ? `${tokens[index]}×${repeats}` : tokens[index]);
+    index += repeats;
+  }
+  return collapsed.join(' ') || 'no polls';
 }
 
 export function summarize(values: readonly number[]): Summary {
@@ -73,6 +101,15 @@ const columns: readonly Column[] = [
     value: (result) => (result.drainMs / 1_000).toFixed(2),
   },
   { header: 'Publish calls', value: (result) => String(result.publishCalls) },
+  { header: 'Polls', value: (result) => String(result.polls) },
+  { header: 'Poller claims', value: (result) => String(result.pollerClaims) },
+  {
+    header: 'Retry wait max (ms)',
+    value: (result) =>
+      result.retryWaitMaxMs === undefined
+        ? '—'
+        : decimal(result.retryWaitMaxMs),
+  },
   { header: 'run() p50 (ms)', value: (result) => decimal(result.runMs.p50) },
   { header: 'run() p99 (ms)', value: (result) => decimal(result.runMs.p99) },
   {
@@ -87,8 +124,12 @@ const columns: readonly Column[] = [
 
 export function printReport(report: Report): void {
   console.log(`Broker: ${report.brokerDescription}`);
+  console.log(`Outbox: ${report.outboxDescription}`);
   console.log(
     `Idle: ${report.idleCheckoutsPerSecond.toFixed(1)} database calls/s (connection checkouts: one per query outside a transaction, one per transaction)`,
+  );
+  console.log(
+    `Idle poll gaps (s): ${report.idlePollGapsS.map((gap) => gap.toFixed(1)).join(' ') || 'none'}`,
   );
   console.log('Pickup: COMMIT acknowledged → first publish call of each event');
   console.log('Drain: load start → last event accepted by the broker\n');
@@ -112,5 +153,12 @@ export function printReport(report: Report): void {
         )
         .join('  '),
     );
+  }
+
+  console.log(
+    '\nPoller timeline (gap since the previous poll in s, :rows claimed):',
+  );
+  for (const result of report.results) {
+    console.log(`  ${result.description}: ${result.pollerTimeline}`);
   }
 }

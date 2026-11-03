@@ -17,7 +17,10 @@ import {
   EventBridgeConfig,
   eventBridgeConfig,
   MessageBroker,
+  OutboxConfig,
+  outboxConfig,
   OutboxModule,
+  OutboxPollerService,
   PrismaModule,
   PrismaService,
   UnitOfWork,
@@ -28,7 +31,9 @@ import {
   usage,
 } from './outbox-latency/benchmark-options';
 import { createLoad, Load } from './outbox-latency/loads';
+import { ObservedOutboxPoller } from './outbox-latency/observed-outbox-poller';
 import {
+  describePollerTimeline,
   LoadResult,
   printReport,
   Report,
@@ -43,8 +48,9 @@ import { TimedMessageBroker } from './outbox-latency/timed-message-broker';
 // No EventBridge rule matches this context, so nothing is delivered.
 const BENCHMARK_CONTEXT = 'benchmark';
 const PUBLISHED_CHECK_INTERVAL_MS = 10;
-// Skips the poll that starts with the app and puts the idle window half a
-// second off the poller's 1-second loop, so whole seconds hold whole polls.
+// Skips the poll that starts with the app and keeps the idle window's edges
+// half a second off the poller's whole-second gaps, so polls are not split
+// between the window and its surroundings.
 const IDLE_WARM_UP_MS = 500;
 
 interface CommittedTransaction {
@@ -92,8 +98,8 @@ function benchmarkEvent(): DomainEvent {
   };
 }
 
-// The testing module is the only way to swap the broker OutboxModule
-// provides without changing it for the benchmark.
+// The testing module is the only way to swap the broker and poller
+// OutboxModule provides without changing them for the benchmark.
 async function createBenchmarkApp(
   options: BenchmarkOptions,
 ): Promise<TestingModule> {
@@ -111,53 +117,104 @@ async function createBenchmarkApp(
         TimedMessageBroker.create(options, aws, eventBridge),
       inject: [awsConfig.KEY, eventBridgeConfig.KEY],
     })
+    .overrideProvider(OutboxPollerService)
+    .useClass(ObservedOutboxPoller)
     .compile();
   app.useLogger(['error', 'warn']);
   return app;
 }
 
+// A host without OutboxModule, like the seed: its commits reach the outbox
+// but no relay, so only the benchmark app's poller publishes them.
+async function createStrandedApp(): Promise<TestingModule> {
+  const app = await Test.createTestingModule({
+    imports: [
+      ConfigModule.forRoot({ isGlobal: true }),
+      ClockModule,
+      PrismaModule,
+    ],
+  }).compile();
+  app.useLogger(['error', 'warn']);
+  return app;
+}
+
+function describeOutbox(config: OutboxConfig): string {
+  const seconds = (ms: number) => `${ms / 1_000} s`;
+  return `polls every ${seconds(config.pollMinIntervalMs)}, doubling while empty up to ${seconds(config.pollMaxIntervalMs)}; retention every ${seconds(config.retentionIntervalMs)}, keeping ${config.retentionMs / 86_400_000} days`;
+}
+
 async function runBenchmark(options: BenchmarkOptions): Promise<Report> {
   const app = await createBenchmarkApp(options);
+  const strandedApp = options.loads.includes('stranded')
+    ? await createStrandedApp()
+    : undefined;
   const prisma = app.get(PrismaService);
   try {
     await removeBenchmarkEvents(prisma);
     await ensureOutboxIsDrained(prisma);
+    await strandedApp?.init();
     await app.init();
     await sleep(IDLE_WARM_UP_MS);
 
+    const poller = app.get<ObservedOutboxPoller>(OutboxPollerService);
+    const idleStartedAt = performance.now();
     const idleCheckoutsPerSecond = await measureIdleCheckouts(options.idleMs);
+    const idlePollGapsS = pollGaps(
+      poller,
+      idleStartedAt,
+      performance.now(),
+    ).map(({ gapMs }) => gapMs / 1_000);
     const broker = app.get<TimedMessageBroker>(MessageBroker, {
       strict: false,
     });
     const results: LoadResult[] = [];
     for (const name of options.loads) {
+      const load = createLoad(name, options);
+      const host = load.isStranded && strandedApp ? strandedApp : app;
       const writer = new TransactionWriter(
-        app.get(UnitOfWork),
-        app.get(DomainEventRecorder),
+        host.get(UnitOfWork),
+        host.get(DomainEventRecorder),
       );
-      results.push(
-        await measureLoad(createLoad(name, options), writer, broker, options),
-      );
+      results.push(await measureLoad(load, writer, broker, poller, options));
     }
 
     return {
       brokerDescription:
         options.broker === 'floci'
           ? 'Floci'
-          : `simulated, ${options.rttMs} ms ±30% per call`,
+          : `simulated, ${options.rttMs} ms ±30% per call${options.rejectRate > 0 ? `, rejects ${options.rejectRate * 100}% of first calls per message` : ''}`,
+      outboxDescription: describeOutbox(
+        app.get<OutboxConfig>(outboxConfig.KEY),
+      ),
       idleCheckoutsPerSecond,
+      idlePollGapsS,
       results,
     };
   } finally {
     await removeBenchmarkEvents(prisma);
     await app.close();
+    await strandedApp?.close();
   }
+}
+
+function pollGaps(
+  poller: ObservedOutboxPoller,
+  start: number,
+  end: number,
+): { gapMs: number; claimed: number }[] {
+  let previous = poller.pollBefore(start)?.at;
+  return poller.pollsBetween(start, end).map(({ at, claimed }) => {
+    const gapMs = previous === undefined ? 0 : at - previous;
+    previous = at;
+    return { gapMs, claimed };
+  });
 }
 
 async function measureLoad(
   load: Load,
   writer: TransactionWriter,
   broker: TimedMessageBroker,
+  poller: ObservedOutboxPoller,
   options: BenchmarkOptions,
 ): Promise<LoadResult> {
   broker.reset();
@@ -182,6 +239,12 @@ async function measureLoad(
   const lastAcceptedAt = Math.max(
     ...eventIds.map((eventId) => broker.acceptedAt(eventId) ?? Number.NaN),
   );
+  const polls = pollGaps(
+    poller,
+    startedAt,
+    published ? lastAcceptedAt : performance.now(),
+  );
+  const retryWaitsMs = broker.retryWaitsMs();
 
   return {
     description: load.description,
@@ -198,6 +261,11 @@ async function measureLoad(
         ({ committedAt, finishedAt }) => (finishedAt - committedAt) * 1_000,
       ),
     ),
+    polls: polls.length,
+    pollerClaims: polls.reduce((sum, { claimed }) => sum + claimed, 0),
+    retryWaitMaxMs:
+      retryWaitsMs.length > 0 ? Math.max(...retryWaitsMs) : undefined,
+    pollerTimeline: describePollerTimeline(polls),
     published,
   };
 }

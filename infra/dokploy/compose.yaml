@@ -53,6 +53,11 @@ services:
       SIMULATION_CALCULATIONS_QUEUE_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-calculations.fifo
       SIMULATION_CALCULATIONS_DLQ_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-calculations-dlq.fifo
       SIMULATION_RECALCULATIONS_QUEUE_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-recalculations.fifo
+      # Optional tuning set in Dokploy; empty keeps the API's default.
+      OUTBOX_POLL_MIN_INTERVAL_SECONDS: ${OUTBOX_POLL_MIN_INTERVAL_SECONDS:-}
+      OUTBOX_POLL_MAX_INTERVAL_SECONDS: ${OUTBOX_POLL_MAX_INTERVAL_SECONDS:-}
+      OUTBOX_RETENTION_INTERVAL_SECONDS: ${OUTBOX_RETENTION_INTERVAL_SECONDS:-}
+      OUTBOX_RETENTION_DAYS: ${OUTBOX_RETENTION_DAYS:-}
     healthcheck:
       test:
         [

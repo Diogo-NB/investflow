@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   Logger,
   OnApplicationBootstrap,
@@ -6,14 +7,14 @@ import {
 } from '@nestjs/common';
 import { Clock } from '@investflow/shared-application';
 import { PrismaService } from '../../persistence/prisma/prisma.service';
+import { outboxConfig, type OutboxConfig } from './outbox.config';
 
-const RETENTION_MS = 7 * 24 * 60 * 60_000;
 // Each batch is its own statement, so it locks only the rows it deletes and
 // its run time and WAL stay small however large the backlog is.
 const DELETE_BATCH_SIZE = 1_000;
-// Rows expire continuously; the interval only sets how many pile up between
-// runs, so a longer one would make each run a bigger burst.
-const DELETE_INTERVAL_MS = 5 * 60_000;
+// Starting a process does no cleanup work, but a process that restarts more
+// often than the interval still deletes.
+const FIRST_RUN_DELAY_MS = 5 * 60_000;
 // Spreads a large backlog, such as the first run on an old table, while
 // still deleting faster than an instance can publish.
 const PAUSE_BETWEEN_BATCHES_MS = 100;
@@ -29,11 +30,20 @@ export class OutboxRetentionService
   private loop: Promise<void> | undefined;
   private stopped = false;
   private wake: (() => void) | undefined;
+  private readonly retentionMs: number;
+  // Rows expire continuously, so the interval trades idle statements against
+  // burst size: each run deletes one interval's worth of expired rows, in
+  // batches, and rows stay up to the retention period plus one interval.
+  private readonly intervalMs: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: Clock,
-  ) {}
+    @Inject(outboxConfig.KEY) config: OutboxConfig,
+  ) {
+    this.retentionMs = config.retentionMs;
+    this.intervalMs = config.retentionIntervalMs;
+  }
 
   onApplicationBootstrap(): void {
     this.loop = this.run();
@@ -47,7 +57,7 @@ export class OutboxRetentionService
 
   // Returns how many rows it deleted.
   async deleteExpiredOnce(): Promise<number> {
-    const cutoff = this.clock.now().addMs(-RETENTION_MS);
+    const cutoff = this.clock.now().addMs(-this.retentionMs);
     return this.prisma.client.$executeRaw`
       DELETE FROM outbox_events
       WHERE id IN (
@@ -59,9 +69,8 @@ export class OutboxRetentionService
         FOR UPDATE SKIP LOCKED)`;
   }
 
-  // Waits an interval first, so starting a process does no cleanup work.
   private async run(): Promise<void> {
-    await this.sleep(DELETE_INTERVAL_MS);
+    await this.sleep(FIRST_RUN_DELAY_MS);
     while (!this.stopped) {
       const deleted = await this.deleteExpiredOnce().catch((error: unknown) => {
         this.logger.error('Outbox retention failed', error);
@@ -69,7 +78,7 @@ export class OutboxRetentionService
       });
       await this.sleep(
         deleted < DELETE_BATCH_SIZE
-          ? DELETE_INTERVAL_MS
+          ? this.intervalMs
           : PAUSE_BETWEEN_BATCHES_MS,
       );
     }
