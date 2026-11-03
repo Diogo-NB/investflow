@@ -21,7 +21,9 @@ this file in the same change that ships or changes a built behavior.
   locally by Floci. Events are recorded in the unit of work, written to the
   outbox before commit, published right after commit by the relay, and
   retried by a poller that several instances can run; publishing pauses
-  during broker outages. The API binds the simulation calculation,
+  during broker outages. On a quiet day the poller backs off to one claim a
+  minute and retention runs every 6 hours, both tunable through `OUTBOX_*`
+  variables. The API binds the simulation calculation,
   dead-letter, and recalculation consumers. `pnpm bench:outbox` measures
   publishing latency. How it works, with its limits and timings, is in
   [Messaging Transport](../architecture/messaging.md); every event is in the

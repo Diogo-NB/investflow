@@ -8,6 +8,7 @@ import {
   MessageBroker,
   OutboxMessage,
 } from './message-broker.port';
+import { OutboxPollSchedule } from './outbox-poll-schedule';
 
 // Shared by every publishing path of the process, so bursts stay within the
 // broker's request quota: throughput is about requests × batch size / RTT.
@@ -47,6 +48,7 @@ export class OutboxPublisher {
 
   constructor(
     private readonly messageBroker: MessageBroker,
+    private readonly pollSchedule: OutboxPollSchedule,
     private readonly clock: Clock,
   ) {}
 
@@ -124,6 +126,7 @@ export class OutboxPublisher {
       const { entry, reason } = group[0];
       const attempts = entry.attempts + 1;
       const delayMs = Math.min(1_000 * 2 ** (attempts - 1), MAX_RETRY_DELAY_MS);
+      const retryAt = this.clock.now().addMs(delayMs);
       this.logger.warn(
         `Failed to publish ${group.length} outbox event(s) (attempt ${attempts}), retrying in ${delayMs / 1_000}s: ${reason}`,
       );
@@ -133,10 +136,13 @@ export class OutboxPublisher {
         },
         data: {
           attempts,
-          nextAttemptAt: this.clock.now().addMs(delayMs).date,
+          nextAttemptAt: retryAt.date,
           lastError: reason.slice(0, MAX_LAST_ERROR_LENGTH),
         },
       });
+      // A rollback of the poller's claim leaves a wake-up that finds nothing,
+      // which costs one empty poll.
+      this.pollSchedule.wakePollerAt(retryAt);
     }
   }
 

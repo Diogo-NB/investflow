@@ -3,6 +3,7 @@ import { Clock } from '@investflow/shared-application';
 import { CalendarDate, UtcInstant } from '@investflow/shared-domain';
 import { PrismaService } from '../../../persistence/prisma/prisma.service';
 import { MessageBroker, RejectedMessage } from '../message-broker.port';
+import type { OutboxPollSchedule } from '../outbox-poll-schedule';
 import { OutboxPublisher } from '../outbox-publisher';
 import { OutboxRelay } from '../outbox-relay';
 import type { OutboxRow } from '../outbox-writer';
@@ -43,12 +44,16 @@ function createFixture() {
   const prisma = {
     client: { outboxEvent: { updateMany } },
   } as unknown as PrismaService;
+  const wakePollerAt = jest.fn<void, [UtcInstant]>();
+  const schedule = { wakePollerAt } as unknown as OutboxPollSchedule;
   const publisher = new OutboxPublisher(
     { publish } as unknown as MessageBroker,
+    schedule,
     clock,
   );
   return {
-    relay: new OutboxRelay(publisher, prisma, clock),
+    relay: new OutboxRelay(publisher, schedule, prisma, clock),
+    wakePollerAt,
     publisher,
     publish,
     updateMany,
@@ -84,7 +89,7 @@ describe('OutboxRelay', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('publishes committed rows on the next turn of the event loop and marks them', async () => {
-    const { relay, publish, updateMany } = createFixture();
+    const { relay, publish, updateMany, wakePollerAt } = createFixture();
 
     relay.enqueue(rows(2));
     expect(publish).not.toHaveBeenCalled();
@@ -101,6 +106,7 @@ describe('OutboxRelay', () => {
       expect.objectContaining({ eventId: 'event-1' }),
     ]);
     expect(markedIds(updateMany)).toEqual(['event-0', 'event-1']);
+    expect(wakePollerAt).not.toHaveBeenCalled();
   });
 
   it('batches the rows of commits that arrive together', async () => {
@@ -143,8 +149,8 @@ describe('OutboxRelay', () => {
     expect(markedIds(updateMany)).toHaveLength(30);
   });
 
-  it('records rejected rows for the poller to retry', async () => {
-    const { relay, publish, updateMany } = createFixture();
+  it('records rejected rows for the poller to retry when due', async () => {
+    const { relay, publish, updateMany, wakePollerAt } = createFixture();
     publish.mockResolvedValueOnce([
       { eventId: 'event-1', reason: 'too large' },
     ]);
@@ -157,10 +163,11 @@ describe('OutboxRelay', () => {
       where: { id: { in: ['event-1'] } },
       data: expect.objectContaining({ attempts: 1, lastError: 'too large' }),
     });
+    expect(wakePollerAt).toHaveBeenCalledWith(startedAt.addMs(1_000));
   });
 
-  it('leaves rows beyond its capacity to the poller', async () => {
-    const { relay, publish } = createFixture();
+  it('leaves rows beyond its capacity to the poller after the grace period', async () => {
+    const { relay, publish, wakePollerAt } = createFixture();
 
     relay.enqueue(rows(4_995, 'a'));
     relay.enqueue(rows(10, 'b'));
@@ -170,26 +177,42 @@ describe('OutboxRelay', () => {
     expect(published).toHaveLength(5_000);
     expect(published).toContain('b-4');
     expect(published).not.toContain('b-5');
+    expect(wakePollerAt).toHaveBeenCalledTimes(1);
+    expect(wakePollerAt).toHaveBeenCalledWith(startedAt.addMs(5_000));
   });
 
-  it('leaves rows that waited too long to the poller', async () => {
-    const { relay, publish, advance } = createFixture();
+  it('leaves rows that waited too long to the poller, claimable a grace period after they arrived', async () => {
+    const { relay, publish, advance, wakePollerAt } = createFixture();
 
     relay.enqueue(rows(2));
     advance(2_501);
     await settle();
 
     expect(publish).not.toHaveBeenCalled();
+    expect(wakePollerAt).toHaveBeenCalledWith(startedAt.addMs(5_000));
   });
 
-  it('ignores commits while publishing is paused', async () => {
-    const { relay, publisher, publish } = createFixture();
+  it('leaves commits to the poller while publishing is paused, without warning', async () => {
+    const { relay, publisher, publish, wakePollerAt } = createFixture();
     jest.spyOn(publisher, 'isPaused').mockReturnValue(true);
 
     relay.enqueue(rows(2));
     await settle();
 
     expect(publish).not.toHaveBeenCalled();
+    expect(wakePollerAt).toHaveBeenCalledWith(startedAt.addMs(5_000));
+    expect(Logger.prototype.warn).not.toHaveBeenCalled();
+  });
+
+  it('leaves buffered rows to the poller when publishing pauses before they are sent', async () => {
+    const { relay, publisher, publish, wakePollerAt } = createFixture();
+
+    relay.enqueue(rows(2));
+    jest.spyOn(publisher, 'isPaused').mockReturnValue(true);
+    await settle();
+
+    expect(publish).not.toHaveBeenCalled();
+    expect(wakePollerAt).toHaveBeenCalledWith(startedAt.addMs(5_000));
   });
 
   it('waits for requests in flight and their marks on shutdown, then accepts nothing', async () => {

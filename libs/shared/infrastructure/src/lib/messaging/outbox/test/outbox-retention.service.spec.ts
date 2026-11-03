@@ -2,12 +2,20 @@ import { Logger } from '@nestjs/common';
 import { Clock } from '@investflow/shared-application';
 import { CalendarDate, UtcInstant } from '@investflow/shared-domain';
 import { PrismaService } from '../../../persistence/prisma/prisma.service';
+import type { OutboxConfig } from '../outbox.config';
 import { OutboxRetentionService } from '../outbox-retention.service';
 
 jest.mock('jwks-rsa', () => ({ passportJwtSecret: jest.fn() }));
 
 const startedAt = UtcInstant.ofIso('2026-01-09T03:04:05Z');
-const INTERVAL_MS = 5 * 60_000;
+const FIRST_RUN_MS = 5 * 60_000;
+const INTERVAL_MS = 6 * 60 * 60_000;
+const config: OutboxConfig = {
+  pollMinIntervalMs: 1_000,
+  pollMaxIntervalMs: 60_000,
+  retentionIntervalMs: INTERVAL_MS,
+  retentionMs: 7 * 24 * 60 * 60_000,
+};
 
 function createFixture(...deletedPerBatch: number[]) {
   const executeRaw = jest.fn();
@@ -23,7 +31,7 @@ function createFixture(...deletedPerBatch: number[]) {
     today: () => CalendarDate.of('2026-01-09'),
   };
   return {
-    retention: new OutboxRetentionService(prisma, clock),
+    retention: new OutboxRetentionService(prisma, clock, config),
     executeRaw,
   };
 }
@@ -48,15 +56,17 @@ describe('OutboxRetentionService', () => {
     expect(values).toEqual([new Date('2026-01-02T03:04:05Z'), 1_000]);
   });
 
-  it('first deletes one interval after start, then once per interval', async () => {
+  it('first deletes 5 minutes after start, then once per interval', async () => {
     const { retention, executeRaw } = createFixture();
 
     retention.onApplicationBootstrap();
-    await jest.advanceTimersByTimeAsync(INTERVAL_MS - 1);
+    await jest.advanceTimersByTimeAsync(FIRST_RUN_MS - 1);
     expect(executeRaw).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(1);
     expect(executeRaw).toHaveBeenCalledTimes(1);
-    await jest.advanceTimersByTimeAsync(INTERVAL_MS);
+    await jest.advanceTimersByTimeAsync(INTERVAL_MS - 1);
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
     expect(executeRaw).toHaveBeenCalledTimes(2);
 
     await retention.onModuleDestroy();
@@ -66,7 +76,7 @@ describe('OutboxRetentionService', () => {
     const { retention, executeRaw } = createFixture(1_000, 1_000, 10);
 
     retention.onApplicationBootstrap();
-    await jest.advanceTimersByTimeAsync(INTERVAL_MS);
+    await jest.advanceTimersByTimeAsync(FIRST_RUN_MS);
     expect(executeRaw).toHaveBeenCalledTimes(1);
     await jest.advanceTimersByTimeAsync(100);
     expect(executeRaw).toHaveBeenCalledTimes(2);
@@ -84,7 +94,7 @@ describe('OutboxRetentionService', () => {
     executeRaw.mockRejectedValueOnce(new Error('connection lost'));
 
     retention.onApplicationBootstrap();
-    await jest.advanceTimersByTimeAsync(INTERVAL_MS);
+    await jest.advanceTimersByTimeAsync(FIRST_RUN_MS);
     expect(error).toHaveBeenCalledWith(
       'Outbox retention failed',
       expect.any(Error),
@@ -99,7 +109,7 @@ describe('OutboxRetentionService', () => {
     const { retention, executeRaw } = createFixture(1_000);
 
     retention.onApplicationBootstrap();
-    await jest.advanceTimersByTimeAsync(INTERVAL_MS);
+    await jest.advanceTimersByTimeAsync(FIRST_RUN_MS);
     await retention.onModuleDestroy();
     await jest.advanceTimersByTimeAsync(INTERVAL_MS);
 

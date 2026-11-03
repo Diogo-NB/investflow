@@ -8,7 +8,8 @@ description: Run, interpret, and report InvestFlow's outbox publishing benchmark
 `pnpm bench:outbox` drives the real `UnitOfWork`, `DomainEventRecorder`,
 `OutboxRelay`, `OutboxPublisher`, and `OutboxPollerService` in-process. It
 replaces only the `MessageBroker` with a timing wrapper around Floci or a
-simulated broker. Its events use the context `benchmark`, which no
+simulated broker, and observes the poller through a subclass that records
+each poll. Its events use the context `benchmark`, which no
 EventBridge rule matches, so nothing reaches a queue. It deletes its rows
 before and after a run. How publishing works, and why its numbers are what they are, is in
 `docs/architecture/messaging.md`; use `investflow-eventing` to change it.
@@ -33,17 +34,23 @@ All flags are optional; defaults are in parentheses. `--help` prints the same li
 
 - `--broker floci|simulated`: `floci`: real `EventBridgeMessageBroker` against Floci (~1 ms per call), so it isolates the outbox's own pickup delay. `simulated`: sleeps `--rtt-ms` ±30% per call, closer to AWS, so it also shows throughput limits (`simulated`)
 - `--rtt-ms <n>`: Simulated round trip per call, in ms (30)
-- `--loads <list>`: Any of `steady,concurrent,fanout`, run in that order (all)
+- `--reject-rate <0..1>`: Simulated broker only: rejects a message's first call with this probability, so the relay records a failure and the poller retries it (0)
+- `--loads <list>`: Any of `steady,concurrent,fanout,stranded`, run in that order (all)
 - `--rate <n>`: steady: transactions per second, with exponential gaps like independent users (20)
 - `--events-min/--events-max <n>`: steady: events per transaction, uniform (1/3)
 - `--duration-s <n>`: steady: seconds of traffic (15)
 - `--transactions <n>`: concurrent: single-event transactions (500)
 - `--parallel <n>`: concurrent: transactions in flight, at most the pool size of 10 (10)
 - `--events <n>`: fanout: events recorded in one transaction, like a premise fan-out (3000)
+- `--stranded-rate <n>`: stranded: single-event transactions per second, committed through a second module without `OutboxModule` (like the seed), so only polls find them (2)
+- `--stranded-duration-s <n>`: stranded: seconds of traffic (15)
 - `--idle-s <n>`: Whole seconds to measure idle database use before the loads (3)
 - `--timeout-s <n>`: Seconds to wait for a load to be published before reporting `TIMED OUT` (300)
 
-A full default run takes about 1 minute per broker. Code that publishes
+Poll intervals and retention come from the `OUTBOX_*` variables of the
+outbox config, as in the API; the header prints the values in effect.
+
+A full default run takes about 1.5 minutes per broker. Code that publishes
 slowly takes longer: the old 1-second poller needed about 2.5 minutes for the
 simulated fan-out alone. Run commands with a timeout of at least 10 minutes,
 and save each output: `pnpm -s bench:outbox ... 2>&1 | grep -v dotenv | tee <scratchpad>/<name>.txt`.
@@ -63,24 +70,41 @@ and save each output: `pnpm -s bench:outbox ... 2>&1 | grep -v dotenv | tee <scr
   drain ≈ duration; latency explodes after the point where it does not.
 - **Relay limits:** a fan-out above 5,000 events exceeds the relay buffer, so
   the excess waits for the poller's 5 s grace period: expect two clusters
-  of pickup times. `--rtt-ms 100` shows how throughput scales down with a
-  slower broker.
+  of pickup times, and a timeline whose hinted poll claims full batches
+  (`2.4:100 0.0:100×29`). `--rtt-ms 100` shows how throughput scales down
+  with a slower broker.
+- **Retries:** `--broker simulated --reject-rate 0.05` makes the relay
+  record failures; `Retry wait max` shows how long a rejected event waits
+  for its retry.
+- **Poller backoff in seconds:**
+  `OUTBOX_POLL_MAX_INTERVAL_SECONDS=4 pnpm bench:outbox --idle-s 10 --loads stranded`
+  shows the gaps growing while idle (`1.0 2.0 4.0`) and returning to 1 s
+  once stranded rows appear. With the default 60 s maximum, a default
+  run's `stranded` load meets a poller at 16 s or more.
 
 ## Reading the output
 
-The header names the broker, idle database calls per second, and the
-definitions. One row per load, with the healthy ranges measured locally on
-2026-10-27:
+The header names the broker, the outbox config, idle database calls per
+second, the idle poll gaps, and the definitions. One row per load, with the
+healthy ranges measured locally on 2026-11-02:
 
-- **Pickup avg/p50/p95/p99/max (ms):** COMMIT acknowledged → first publish call, per event. The headline metric. Healthy: steady under 1 ms on both brokers; concurrent max ~5 ms (Floci) / ~12 ms (simulated); fan-out max ~185 ms / ~1.1 s
-- **Drain (s):** Load start → last event accepted. Healthy: steady ≈ `--duration-s`; concurrent ~0.4 s; fan-out ~0.5 s / ~1.4 s
+- **Pickup avg/p50/p95/p99/max (ms):** COMMIT acknowledged → first publish call, per event. The headline metric. Healthy: steady under 1 ms on both brokers; concurrent max ~6 ms (Floci) / ~21 ms (simulated); fan-out max ~175 ms / ~1.1 s; stranded p50 ~5.4–6.0 s and max ~11.5 s (the grace period plus the poller's gap when the load starts; at most the maximum interval plus 5 s)
+- **Drain (s):** Load start → last event accepted. Healthy: steady ≈ `--duration-s`; concurrent ~0.4–0.5 s; fan-out ~0.5 s / ~1.5 s; stranded ≈ `--stranded-duration-s` + 5–6 s
 - **Publish calls:** `PutEvents` calls for the load. Healthy: well below the event count (up to 10 events per call)
+- **Polls / Poller claims:** polls during the load, and the rows they claimed. Healthy: claims 0 for steady, concurrent, and a fan-out up to 5,000 (the relay published everything); stranded claims every row
+- **Retry wait max (ms):** first rejection → acceptance, with `--reject-rate`; `—` without rejections. Healthy: ~1.0–2.1 s: the 1 s retry backoff plus up to the 1 s minimum between polls
 - **run() p50/p99 (ms):** `UnitOfWork.run()` per transaction, which is what a request pays. Healthy: about 2–3 ms steady; concurrent p50 ~6–9 ms and p99 ~20–30 ms, because 10 writers in flight hold all 10 pool connections and the rest wait for one; fan-out ~300 ms (inserting 3,000 rows)
 - **After commit p99 (µs):** COMMIT acknowledged → `run()` resolved: work on the request's path after commit. Healthy: tens to low hundreds of µs
 - **Published:** `all`, or `TIMED OUT` (exit code 1). Healthy: `all`
 
-Idle should be about 1.0 database calls/s: one poll per second. The outbox
-retention first runs 5 minutes after start, so a default run never sees it.
+Below the table, the poller timeline lists each load's polls as the gap
+since the previous poll, with `:<rows>` when it claimed rows; repeats
+collapse (`1.0×18`).
+
+Idle with the default `--idle-s 3` is about 0.7 database calls/s, with gaps
+`1.0 2.0`: each empty poll doubles the wait up to the maximum interval. The
+outbox retention first runs 5 minutes after start, so a default run never
+sees it.
 
 Before the relay (the 1-second poller only), the same simulated loads
 waited up to 9.8 s (steady), 18.5 s (concurrent), and 115.7 s (fan-out).
@@ -95,7 +119,9 @@ waited up to 9.8 s (steady), 18.5 s (concurrent), and 115.7 s (fan-out).
   publishing does not keep up with the rate.
 - Publish calls ≈ events: batching is broken.
 - After commit in milliseconds: something heavy moved onto the request path.
-- Idle well above 1/s: the poller loop is spinning.
+- Idle poll gaps not growing (`1.0 1.0 1.0`): the poller is not backing off.
+- Poller claims above 0 on steady, concurrent, or a fan-out under 5,000: the
+  relay is leaving rows to the poller.
 - `TIMED OUT`: the API was running, the broker rejected events (look for
   `OutboxPublisher` warnings in the output), or `--timeout-s` was too short
   for the code under test.

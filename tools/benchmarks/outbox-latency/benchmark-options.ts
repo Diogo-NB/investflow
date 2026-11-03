@@ -3,13 +3,21 @@ import { parseArgs } from 'node:util';
 export const brokerKinds = ['floci', 'simulated'] as const;
 export type BrokerKind = (typeof brokerKinds)[number];
 
-export const loadNames = ['steady', 'concurrent', 'fanout'] as const;
+// stranded runs last so it meets a poller that has backed off.
+export const loadNames = [
+  'steady',
+  'concurrent',
+  'fanout',
+  'stranded',
+] as const;
 export type LoadName = (typeof loadNames)[number];
 
 export interface BenchmarkOptions {
   readonly broker: BrokerKind;
   // Round trip of the simulated broker, varied by ±30% per call.
   readonly rttMs: number;
+  // Probability that the simulated broker rejects a message's first call.
+  readonly rejectRate: number;
   readonly loads: readonly LoadName[];
   readonly steady: {
     readonly transactionsPerSecond: number;
@@ -22,6 +30,10 @@ export interface BenchmarkOptions {
     readonly inFlight: number;
   };
   readonly fanout: { readonly events: number };
+  readonly stranded: {
+    readonly transactionsPerSecond: number;
+    readonly durationMs: number;
+  };
   readonly idleMs: number;
   readonly timeoutMs: number;
 }
@@ -30,7 +42,8 @@ export const usage = `Usage: pnpm bench:outbox [options]
 
   --broker floci|simulated   Publish to Floci or to a simulated broker (simulated)
   --rtt-ms <n>               Simulated broker round trip in ms, ±30% (30)
-  --loads <list>             Comma-separated: steady,concurrent,fanout (all)
+  --reject-rate <0..1>       Simulated broker: rejects a message's first call with this probability (0)
+  --loads <list>             Comma-separated: steady,concurrent,fanout,stranded (all)
   --rate <n>                 steady: transactions per second (20)
   --events-min <n>           steady: fewest events per transaction (1)
   --events-max <n>           steady: most events per transaction (3)
@@ -38,9 +51,14 @@ export const usage = `Usage: pnpm bench:outbox [options]
   --transactions <n>         concurrent: single-event transactions (500)
   --parallel <n>             concurrent: transactions in flight (10)
   --events <n>               fanout: events in one transaction (3000)
+  --stranded-rate <n>        stranded: transactions per second committed without a relay (2)
+  --stranded-duration-s <n>  stranded: seconds of load (15)
   --idle-s <n>               Whole seconds of idle database use to measure (3)
   --timeout-s <n>            Seconds to wait for a load to be published (300)
-  --help                     Show this help`;
+  --help                     Show this help
+
+Poll intervals and retention come from the OUTBOX_* environment variables,
+for example OUTBOX_POLL_MAX_INTERVAL_SECONDS=4.`;
 
 // Returns undefined when help was asked for.
 export function parseBenchmarkOptions(
@@ -52,6 +70,7 @@ export function parseBenchmarkOptions(
     options: {
       broker: { type: 'string', default: 'simulated' },
       'rtt-ms': { type: 'string', default: '30' },
+      'reject-rate': { type: 'string', default: '0' },
       loads: { type: 'string', default: loadNames.join(',') },
       rate: { type: 'string', default: '20' },
       'events-min': { type: 'string', default: '1' },
@@ -60,6 +79,8 @@ export function parseBenchmarkOptions(
       transactions: { type: 'string', default: '500' },
       parallel: { type: 'string', default: '10' },
       events: { type: 'string', default: '3000' },
+      'stranded-rate': { type: 'string', default: '2' },
+      'stranded-duration-s': { type: 'string', default: '15' },
       'idle-s': { type: 'string', default: '3' },
       'timeout-s': { type: 'string', default: '300' },
       help: { type: 'boolean', default: false },
@@ -73,9 +94,21 @@ export function parseBenchmarkOptions(
     throw new Error('--events-min must not exceed --events-max');
   }
 
+  const broker = oneOf('broker', values.broker, brokerKinds);
+  const rejectRate = Number(values['reject-rate']);
+  if (!(rejectRate >= 0 && rejectRate <= 1)) {
+    throw new Error(
+      `--reject-rate must be between 0 and 1, got "${values['reject-rate']}"`,
+    );
+  }
+  if (rejectRate > 0 && broker !== 'simulated') {
+    throw new Error('--reject-rate needs --broker simulated');
+  }
+
   return {
-    broker: oneOf('broker', values.broker, brokerKinds),
+    broker,
     rttMs: positiveNumber('rtt-ms', values['rtt-ms']),
+    rejectRate,
     loads: values.loads
       .split(',')
       .map((name) => oneOf('loads', name.trim(), loadNames)),
@@ -90,6 +123,15 @@ export function parseBenchmarkOptions(
       inFlight: positiveInteger('parallel', values.parallel),
     },
     fanout: { events: positiveInteger('events', values.events) },
+    stranded: {
+      transactionsPerSecond: positiveNumber(
+        'stranded-rate',
+        values['stranded-rate'],
+      ),
+      durationMs:
+        positiveNumber('stranded-duration-s', values['stranded-duration-s']) *
+        1_000,
+    },
     idleMs: positiveInteger('idle-s', values['idle-s']) * 1_000,
     timeoutMs: positiveNumber('timeout-s', values['timeout-s']) * 1_000,
   };
