@@ -31,16 +31,18 @@ export class EventDispatcher {
         skipDuplicates: true,
       });
       if (count === 0) {
-        this.logger.warn(
-          `Duplicate event ${event.eventId} for ${consumerName}, skipping`,
+        this.logger.debug(
+          `Duplicate ${event.eventType} eventId=${event.eventId} for ${consumerName}, skipping`,
         );
         return;
       }
 
       const handler = handlers.get(event.eventType);
       if (!handler) {
-        this.logger.warn(
-          `No @OnEvent('${event.eventType}') on ${consumerName}, skipping`,
+        // The event is acknowledged unhandled: the queue's pattern routes an
+        // event the consumer does not handle.
+        this.logger.error(
+          `No @OnEvent('${event.eventType}') on ${consumerName}, dropping eventId=${event.eventId}`,
         );
         return;
       }

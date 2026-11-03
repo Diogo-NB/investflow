@@ -12,6 +12,7 @@ const RECEIVE_ERROR_BACKOFF_MS = 1_000;
 
 export class SqsEventListener {
   private readonly logger: Logger;
+  private readonly queueName: string;
   private abortController: AbortController | undefined;
   private loop: Promise<void> | undefined;
 
@@ -24,9 +25,11 @@ export class SqsEventListener {
     this.logger = new Logger(
       `${SqsEventListener.name}:${consumer.constructor.name}`,
     );
+    this.queueName = queueUrl.slice(queueUrl.lastIndexOf('/') + 1);
   }
 
   start(): void {
+    this.logger.log(`Listening on ${this.queueName}`);
     this.abortController = new AbortController();
     this.loop = this.receiveUntilStopped(this.abortController.signal);
   }
@@ -44,6 +47,7 @@ export class SqsEventListener {
             QueueUrl: this.queueUrl,
             MaxNumberOfMessages: 10,
             WaitTimeSeconds: 20,
+            MessageSystemAttributeNames: ['ApproximateReceiveCount'],
           }),
           { abortSignal: signal },
         );
@@ -53,7 +57,7 @@ export class SqsEventListener {
         }
       } catch (error) {
         if (signal.aborted) return;
-        this.logger.error(`Failed to receive from ${this.queueUrl}`, error);
+        this.logger.error(`Failed to receive from ${this.queueName}`, error);
         await new Promise((resolve) =>
           setTimeout(resolve, RECEIVE_ERROR_BACKOFF_MS),
         );
@@ -67,25 +71,46 @@ export class SqsEventListener {
   async process(message: Message): Promise<void> {
     if (!message.ReceiptHandle) return;
 
+    const receiveCount = message.Attributes?.ApproximateReceiveCount ?? '?';
     const event = this.parse(message.Body);
     if (!event) {
-      this.logger.error(`Malformed message ${message.MessageId}, not handled`);
+      this.logger.error(
+        `Malformed message messageId=${message.MessageId} receive=${receiveCount}, not handled`,
+      );
       return;
     }
 
+    const described = `${event.eventType} eventId=${event.eventId} aggregateId=${String(event.payload['aggregateId'])} receive=${receiveCount}`;
+    const startedAt = performance.now();
     try {
       await this.dispatcher.dispatch(this.consumer, event);
     } catch (error) {
-      this.logger.error(`Failed handling event ${event.eventId}`, error);
+      // A thrown handler asks for a retry; the dead-letter queue is final.
+      this.logger.warn(
+        `Failed handling ${described}, the queue will retry it`,
+        error,
+      );
       return;
     }
-
-    await this.sqsClient.send(
-      new DeleteMessageCommand({
-        QueueUrl: this.queueUrl,
-        ReceiptHandle: message.ReceiptHandle,
-      }),
+    this.logger.debug(
+      `Handled ${described} in ${Math.round(performance.now() - startedAt)}ms`,
     );
+
+    // Caught here so a failed delete skips neither the rest of the batch nor
+    // reports as a receive failure.
+    try {
+      await this.sqsClient.send(
+        new DeleteMessageCommand({
+          QueueUrl: this.queueUrl,
+          ReceiptHandle: message.ReceiptHandle,
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete handled ${described}; it will be redelivered and skipped as a duplicate`,
+        error,
+      );
+    }
   }
 
   private parse(body: string | undefined): ReceivedEvent | undefined {

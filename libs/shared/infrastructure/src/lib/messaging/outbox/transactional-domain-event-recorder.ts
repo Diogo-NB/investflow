@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Clock } from '@investflow/shared-application';
 import { DomainEvent, DomainEventRecorder } from '@investflow/shared-domain';
 import {
@@ -12,6 +12,7 @@ import { OutboxRow, OutboxWriter } from './outbox-writer';
 // wait for a publishing host's poller.
 @Injectable()
 export class TransactionalDomainEventRecorder extends DomainEventRecorder {
+  private readonly logger = new Logger(TransactionalDomainEventRecorder.name);
   private readonly outbox = new OutboxWriter();
   private readonly rowsByScope = new WeakMap<UnitOfWorkScope, OutboxRow[]>();
 
@@ -48,6 +49,19 @@ export class TransactionalDomainEventRecorder extends DomainEventRecorder {
         rows.map((row) => ({ ...row, createdAt })),
       );
     });
-    scope.afterCommit.push(() => this.relay?.enqueue(rows));
+    scope.afterCommit.push(() => {
+      this.logCommitted(rows);
+      this.relay?.enqueue(rows);
+    });
+  }
+
+  // After commit, because a rolled-back event never existed. Where an event's
+  // trace starts.
+  private logCommitted(rows: readonly OutboxRow[]): void {
+    for (const row of rows) {
+      this.logger.debug(
+        `Committed ${row.eventType} eventId=${row.id} aggregateId=${row.aggregateId}`,
+      );
+    }
   }
 }

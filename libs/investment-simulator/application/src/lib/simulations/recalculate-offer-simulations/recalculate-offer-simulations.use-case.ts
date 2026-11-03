@@ -12,9 +12,10 @@ import { RecalculateOfferSimulationsCommand } from './recalculate-offer-simulati
 // Runs when an offer's terms changed or it was deleted. Requests one calculation
 // per simulation using it without loading them or marking them pending; each
 // calculation reads the current offer, and finds it missing after a deletion.
+// Returns how many calculations it requested.
 @Injectable()
 export class RecalculateOfferSimulationsUseCase
-  implements CommandHandler<RecalculateOfferSimulationsCommand, void>
+  implements CommandHandler<RecalculateOfferSimulationsCommand, number>
 {
   constructor(
     private readonly simulationRepository: SimulationRepository,
@@ -24,13 +25,13 @@ export class RecalculateOfferSimulationsUseCase
 
   async execute(
     command: RecalculateOfferSimulationsCommand,
-  ): Promise<Result<void, AppError>> {
+  ): Promise<Result<number, AppError>> {
     const ids = await this.simulationRepository.findIdsByOffer(command.offerId);
     if (ids.isErr()) return ids;
     const now = this.clock.now();
     this.events.record(
       ...ids.value.map((id) => new SimulationCalculationRequested(id, now)),
     );
-    return Result.ok(undefined);
+    return Result.ok(ids.value.length);
   }
 }
