@@ -2,8 +2,11 @@
 
 # InvestFlow
 
-**Simulador de renda fixa brasileira construído como exemplo de Event-Driven
-Architecture e DDD em escala de produção.**
+**Simulador de Investimentos em Renda Fixa: planeje, simule e compare CDB,
+LCI e LCA.**
+
+Construído como exemplo de Event-Driven Architecture e DDD em escala de
+produção.
 
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -11,6 +14,8 @@ Architecture e DDD em escala de produção.**
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Nx](https://img.shields.io/badge/monorepo-Nx-143055?logo=nx&logoColor=white)](https://nx.dev/)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
+
+**[investflow.diogo-nb.com.br](https://investflow.diogo-nb.com.br)**
 
 [Funcionalidades](#funcionalidades) ·
 [Arquitetura](#arquitetura) ·
@@ -23,14 +28,25 @@ Architecture e DDD em escala de produção.**
 
 ## Sobre
 
-O InvestFlow responde à pergunta de quem vai investir em renda fixa: **quanto
-recebo líquido no vencimento e quão bom isso é?** O usuário escolhe uma oferta
-(CDB, LCI ou LCA, prefixada ou atrelada ao CDI ou à SELIC), informa o valor e a
-data da aplicação, escolhe uma curva com a trajetória do índice e recebe o
-resultado dia útil a dia útil, com IOF, imposto de renda e rentabilidade
-líquida.
+O InvestFlow é uma aplicação web para planejar, simular e comparar
+investimentos brasileiros de renda fixa. Ele responde à pergunta de quem vai
+investir: **quanto recebo líquido no vencimento e quão bom isso é?** O usuário
+escolhe uma oferta (CDB, LCI ou LCA, prefixada ou atrelada ao CDI ou à SELIC),
+informa o valor e a data da aplicação, escolhe uma curva com a trajetória do
+índice e recebe o resultado dia útil a dia útil, com IOF, imposto de renda e
+rentabilidade líquida.
 
-O que torna o problema interessante é que **as premissas mudam**. Ofertas e
+O rendimento líquido depende da combinação de índices variáveis, prazos e
+regras tributárias diferentes para cada título. Calculadoras comuns fazem
+cálculos isolados; o InvestFlow reúne as simulações em planos de investimento
+(a reserva de emergência, a aposentadoria), compara alternativas lado a lado e
+mantém os resultados em dia quando as premissas mudam. É feito para
+investidores pessoa física, especialmente iniciantes, e para educadores
+financeiros, assessores e consultores que precisam simular e comparar
+cenários.
+
+Do ponto de vista técnico, o que torna o problema interessante é que **as
+premissas mudam**. Ofertas e
 curvas são editáveis, e cada mudança precisa recalcular, de forma assíncrona e
 confiável, todas as simulações que dependem dela, sem perder nenhuma e sem
 deixar um cálculo antigo sobrescrever um novo. Uma curva do sistema pode
@@ -40,6 +56,10 @@ O projeto existe para mostrar Event-Driven Architecture e Domain-Driven Design
 resolvendo esse tipo de problema como em produção: cada decisão é julgada pelo
 comportamento em escala, e não pelo volume de dados de hoje, usa padrões
 conhecidos e registra seus custos.
+
+O sistema está em produção em
+[investflow.diogo-nb.com.br](https://investflow.diogo-nb.com.br). Não há
+autocadastro: as contas são criadas por um administrador.
 
 > [!NOTE]
 > Simulador educacional: não executa transações financeiras nem recomenda
