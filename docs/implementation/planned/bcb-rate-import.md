@@ -10,6 +10,12 @@ effective SELIC curves from the Banco Central (BCB) with the last published
 rate kept onwards. In production the BCB curves are the only system curves;
 the seeded system curves exist only in the development environment.
 
+Production's CDI and SELIC system curves come from a one-off load of the
+published values from 2024-01-02 to 2026-10-30 (see "Load the BCB system
+curves" in the [runbook](../../../infra/dokploy/README.md)). The import takes
+over those curves instead of creating new ones, so simulations keep following
+them, and continues from their last interval.
+
 It builds on curves holding their last value after their end (built
 2026-10-28).
 
