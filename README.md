@@ -15,6 +15,8 @@ produção.
 [![Nx](https://img.shields.io/badge/monorepo-Nx-143055?logo=nx&logoColor=white)](https://nx.dev/)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 
+**[investflow.diogo-nb.com.br](https://investflow.diogo-nb.com.br)**
+
 [Funcionalidades](#funcionalidades) ·
 [Arquitetura](#arquitetura) ·
 [Como executar](#como-executar) ·
@@ -54,6 +56,10 @@ O projeto existe para mostrar Event-Driven Architecture e Domain-Driven Design
 resolvendo esse tipo de problema como em produção: cada decisão é julgada pelo
 comportamento em escala, e não pelo volume de dados de hoje, usa padrões
 conhecidos e registra seus custos.
+
+O sistema está em produção em
+[investflow.diogo-nb.com.br](https://investflow.diogo-nb.com.br). Não há
+autocadastro: as contas são criadas por um administrador.
 
 > [!NOTE]
 > Simulador educacional: não executa transações financeiras nem recomenda
