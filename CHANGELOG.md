@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Diogo-NB/investflow/compare/v0.4.0...v0.5.0) (2026-11-03)
+
+
+### Features
+
+* add one-off load of BCB system curves ([#15](https://github.com/Diogo-NB/investflow/issues/15)) ([5075756](https://github.com/Diogo-NB/investflow/commit/5075756ef1cbeeff267e1f530e9404bb30e754b6))
+
 ## [0.4.0](https://github.com/Diogo-NB/investflow/compare/v0.3.0...v0.4.0) (2026-11-03)
 
 
