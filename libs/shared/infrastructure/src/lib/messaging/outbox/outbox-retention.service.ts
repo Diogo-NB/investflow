@@ -76,6 +76,11 @@ export class OutboxRetentionService
         this.logger.error('Outbox retention failed', error);
         return 0;
       });
+      if (deleted > 0) {
+        this.logger.debug(
+          `Deleted ${deleted} published outbox event(s) past retention`,
+        );
+      }
       await this.sleep(
         deleted < DELETE_BATCH_SIZE
           ? this.intervalMs

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   FailSimulationCalculationCommand,
   FailSimulationCalculationUseCase,
@@ -10,6 +10,10 @@ import { aggregateIdOf } from './simulation-calculation.consumer';
 // whose calculation exhausted its retries.
 @Injectable()
 export class SimulationCalculationFailureConsumer {
+  private readonly logger = new Logger(
+    SimulationCalculationFailureConsumer.name,
+  );
+
   constructor(
     private readonly failSimulationCalculation: FailSimulationCalculationUseCase,
   ) {}
@@ -30,8 +34,12 @@ export class SimulationCalculationFailureConsumer {
   }
 
   private async fail(payload: Record<string, unknown>): Promise<void> {
+    const simulationId = aggregateIdOf(payload);
+    this.logger.error(
+      `Calculation of simulationId=${simulationId} exhausted its retries (${String(payload['eventType'])} eventId=${String(payload['eventId'])}); marking it failed`,
+    );
     const result = await this.failSimulationCalculation.execute(
-      FailSimulationCalculationCommand.of(aggregateIdOf(payload)),
+      FailSimulationCalculationCommand.of(simulationId),
     );
     if (result.isErr()) throw result.error;
   }

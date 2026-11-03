@@ -100,7 +100,7 @@ skill.
 | `eventBridge` | `EVENT_BUS_NAME`                                                                                                                     | `messaging/eventbridge` (`OutboxModule`) |
 | `outbox`      | `OUTBOX_POLL_MIN_INTERVAL_SECONDS`, `OUTBOX_POLL_MAX_INTERVAL_SECONDS`, `OUTBOX_RETENTION_INTERVAL_SECONDS`, `OUTBOX_RETENTION_DAYS` | `messaging/outbox` (`OutboxModule`)      |
 | `sqsQueues`   | the queue URL variables named by the host's consumer bindings                                                                        | `messaging/sqs` (`SqsConsumersModule`)   |
-| `server`      | `PORT` (default 3000)                                                                                                                | `apps/api`                               |
+| `server`      | `PORT` (default 3000), `LOG_LEVEL` (default `log`)                                                                                   | `apps/api`                               |
 
 AWS credentials and `AWS_ENDPOINT_URL` are left to the AWS SDK's provider
 chain, which also resolves profiles and IAM Roles Anywhere. The Prisma CLI

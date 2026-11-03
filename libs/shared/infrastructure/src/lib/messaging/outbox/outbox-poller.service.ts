@@ -42,6 +42,7 @@ export class OutboxPollerService
   ) {}
 
   onApplicationBootstrap(): void {
+    this.logger.log('Outbox poller started');
     this.loop = this.run();
   }
 
@@ -85,6 +86,10 @@ export class OutboxPollerService
       // the locks it holds.
       await this.publisher.markPublished(client, published);
       await this.publisher.recordFailures(client, failed);
+      // Rare: the poller finds rows only after the relay could not publish.
+      this.logger.log(
+        `Claimed ${rows.length} outbox event(s): published ${published.length}, failed ${failed.length}, skipped while paused ${rows.length - published.length - failed.length}`,
+      );
       return rows.length;
     });
   }

@@ -151,6 +151,29 @@ This replaces the earlier SNS topic per context.
   pause the relay and the poller together for 1 second. While the broker
   stays down, the first call after each pause fails and starts a pause twice
   as long, up to 60 seconds; a successful call resumes publishing.
+- **Logging.** Decided and built 2026-11-03, with Nest's `Logger` and the
+  API's `LOG_LEVEL` (default `log`). Lines name an event as
+  `<eventType> eventId=… aggregateId=…`, so searching for an event ID
+  follows it from commit to handler.
+  - `error`: a person must act: publishing paused, an event at the longest
+    retry delay, a calculation dead-lettered, a malformed message, an event
+    a consumer's queue routes but it has no `@OnEvent` for, or a failed
+    receive, poll, or retention run.
+  - `warn`: the system recovers by itself: a failed publish below the
+    longest delay, events the relay left to the poller, a handler that threw
+    (the queue retries it, with its receive count), a failed message delete,
+    or a relay that shut down with requests in flight.
+  - `log`: rare facts: listeners and the poller starting, publishing
+    resumed, rows the poller claimed (it only finds work after the relay
+    could not publish), and how many calculations a fan-out requested.
+    Empty polls are not logged, so a quiet day stays quiet.
+  - `debug`: one line per committed event, published batch, handled or
+    duplicate event, and retention batch.
+
+  Postponed: structured JSON output (Nest's
+  `ConsoleLogger({ json: true })`) and a tracing setup; a log level was
+  enough to follow an event while traffic is low.
+
 - **Retention.** Decided and built 2026-10-28: published rows are kept
   `OUTBOX_RETENTION_DAYS` (7) days, long enough to check when an event went out or to resend it after an
   incident found days later, and then deleted. Nothing in the code reads

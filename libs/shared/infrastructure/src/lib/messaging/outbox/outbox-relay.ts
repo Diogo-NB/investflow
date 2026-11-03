@@ -90,11 +90,16 @@ export class OutboxRelay implements OnModuleDestroy {
       }
     })();
     let timer: NodeJS.Timeout | undefined;
-    const deadline = new Promise<void>((resolve) => {
-      timer = setTimeout(resolve, SHUTDOWN_DEADLINE_MS);
+    const deadline = new Promise<'deadline'>((resolve) => {
+      timer = setTimeout(() => resolve('deadline'), SHUTDOWN_DEADLINE_MS);
     });
-    await Promise.race([drained, deadline]);
+    const finished = await Promise.race([drained, deadline]);
     clearTimeout(timer);
+    if (finished === 'deadline') {
+      this.logger.warn(
+        `Shut down with ${this.requests.size} publish request(s) in flight; the poller will publish their events`,
+      );
+    }
   }
 
   private pump(): void {

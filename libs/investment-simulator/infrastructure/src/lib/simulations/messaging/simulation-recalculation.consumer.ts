@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   RecalculateCurveSimulationsCommand,
   RecalculateCurveSimulationsUseCase,
@@ -13,6 +13,8 @@ import { aggregateIdOf } from './simulation-calculation.consumer';
 // reads that dead-letter queue, since a failed fan-out wrote nothing.
 @Injectable()
 export class SimulationRecalculationConsumer {
+  private readonly logger = new Logger(SimulationRecalculationConsumer.name);
+
   constructor(
     private readonly recalculateOfferSimulations: RecalculateOfferSimulationsUseCase,
     private readonly recalculateCurveSimulations: RecalculateCurveSimulationsUseCase,
@@ -41,18 +43,26 @@ export class SimulationRecalculationConsumer {
   private async recalculateOffer(
     payload: Record<string, unknown>,
   ): Promise<void> {
+    const offerId = aggregateIdOf(payload);
     const result = await this.recalculateOfferSimulations.execute(
-      RecalculateOfferSimulationsCommand.of(aggregateIdOf(payload)),
+      RecalculateOfferSimulationsCommand.of(offerId),
     );
     if (result.isErr()) throw result.error;
+    this.logger.log(
+      `Requested ${result.value} calculation(s) for ${String(payload['eventType'])} offerId=${offerId}`,
+    );
   }
 
   private async recalculateCurve(
     payload: Record<string, unknown>,
   ): Promise<void> {
+    const curveId = aggregateIdOf(payload);
     const result = await this.recalculateCurveSimulations.execute(
-      RecalculateCurveSimulationsCommand.of(aggregateIdOf(payload)),
+      RecalculateCurveSimulationsCommand.of(curveId),
     );
     if (result.isErr()) throw result.error;
+    this.logger.log(
+      `Requested ${result.value} calculation(s) for ${String(payload['eventType'])} curveId=${curveId}`,
+    );
   }
 }

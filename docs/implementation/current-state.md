@@ -24,8 +24,9 @@ this file in the same change that ships or changes a built behavior.
   during broker outages. On a quiet day the poller backs off to one claim a
   minute and retention runs every 6 hours, both tunable through `OUTBOX_*`
   variables. The API binds the simulation calculation,
-  dead-letter, and recalculation consumers. `pnpm bench:outbox` measures
-  publishing latency. How it works, with its limits and timings, is in
+  dead-letter, and recalculation consumers. Each step logs at a level set by
+  `LOG_LEVEL`; `debug` traces every event by ID. `pnpm bench:outbox`
+  measures publishing latency. How it works, with its limits and timings, is in
   [Messaging Transport](../architecture/messaging.md); every event is in the
   [Event Catalog](../architecture/event-flow.md#event-catalog).
 - **Curves:** independent, revisioned `Curve` aggregates with owners; `null`

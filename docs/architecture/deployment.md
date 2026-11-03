@@ -45,9 +45,9 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
   `AWS_SECRET_ACCESS_KEY`, and `AWS_ACCOUNT_ID`, from which the file builds
   the queue URLs. The outbox's polling and retention variables
   (`OUTBOX_POLL_MIN_INTERVAL_SECONDS`, `OUTBOX_POLL_MAX_INTERVAL_SECONDS`,
-  `OUTBOX_RETENTION_INTERVAL_SECONDS`, `OUTBOX_RETENTION_DAYS`) pass through
-  from Dokploy when it sets them, so they can be tuned without a new image;
-  unset, the API's defaults apply. The API checks its variables when it starts and exits
+  `OUTBOX_RETENTION_INTERVAL_SECONDS`, `OUTBOX_RETENTION_DAYS`) and
+  `LOG_LEVEL` pass through from Dokploy when it sets them, so they can be
+  tuned without a new image; unset, the API's defaults apply. The API checks its variables when it starts and exits
   naming the ones missing or invalid
   ([Environment Configuration](./project-structure.md#environment-configuration)),
   so a bad value stops the container instead of failing a later request.

@@ -30,7 +30,7 @@ describe('RecalculateCurveSimulationsUseCase', () => {
   it('requests one calculation per simulation using the curve', async () => {
     const { simulations, events, execute } = setup(Result.ok(['a', 'b']));
 
-    expect((await execute()).isOk()).toBe(true);
+    expect((await execute()).value).toBe(2);
 
     expect(simulations.findIdsByCurve).toHaveBeenCalledWith('curve-id');
     expect(events.record).toHaveBeenCalledTimes(1);
@@ -46,7 +46,7 @@ describe('RecalculateCurveSimulationsUseCase', () => {
   it('requests nothing when no simulation uses the curve', async () => {
     const { events, execute } = setup(Result.ok([]));
 
-    expect((await execute()).isOk()).toBe(true);
+    expect((await execute()).value).toBe(0);
     expect(events.record).toHaveBeenCalledWith();
   });
 

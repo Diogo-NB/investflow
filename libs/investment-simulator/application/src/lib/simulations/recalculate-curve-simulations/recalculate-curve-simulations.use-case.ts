@@ -12,9 +12,10 @@ import { RecalculateCurveSimulationsCommand } from './recalculate-curve-simulati
 // Runs when a curve's values changed or it was deleted. Requests one calculation
 // per simulation using it without loading them or marking them pending; each
 // calculation reads the current curve, and finds it missing after a deletion.
+// Returns how many calculations it requested.
 @Injectable()
 export class RecalculateCurveSimulationsUseCase
-  implements CommandHandler<RecalculateCurveSimulationsCommand, void>
+  implements CommandHandler<RecalculateCurveSimulationsCommand, number>
 {
   constructor(
     private readonly simulationRepository: SimulationRepository,
@@ -24,13 +25,13 @@ export class RecalculateCurveSimulationsUseCase
 
   async execute(
     command: RecalculateCurveSimulationsCommand,
-  ): Promise<Result<void, AppError>> {
+  ): Promise<Result<number, AppError>> {
     const ids = await this.simulationRepository.findIdsByCurve(command.curveId);
     if (ids.isErr()) return ids;
     const now = this.clock.now();
     this.events.record(
       ...ids.value.map((id) => new SimulationCalculationRequested(id, now)),
     );
-    return Result.ok(undefined);
+    return Result.ok(ids.value.length);
   }
 }

@@ -21,6 +21,7 @@ const MAX_LAST_ERROR_LENGTH = 1_000;
 // so publishing pauses instead of failing every pending event.
 const FAILURES_BEFORE_PAUSE = 3;
 const MAX_PAUSE_MS = 60_000;
+const MAX_LOGGED_EVENT_IDS = 5;
 
 export interface OutboxEntry {
   readonly message: OutboxMessage;
@@ -44,6 +45,7 @@ export class OutboxPublisher {
   private readonly waitingForSlot: (() => void)[] = [];
   private consecutiveFailures = 0;
   private pausedUntil: UtcInstant | undefined;
+  private pausedSince: UtcInstant | undefined;
   private pauseMs = 0;
 
   constructor(
@@ -127,9 +129,11 @@ export class OutboxPublisher {
       const attempts = entry.attempts + 1;
       const delayMs = Math.min(1_000 * 2 ** (attempts - 1), MAX_RETRY_DELAY_MS);
       const retryAt = this.clock.now().addMs(delayMs);
-      this.logger.warn(
-        `Failed to publish ${group.length} outbox event(s) (attempt ${attempts}), retrying in ${delayMs / 1_000}s: ${reason}`,
-      );
+      const message = `Failed to publish ${group.length} outbox event(s) (attempt ${attempts}), retrying in ${delayMs / 1_000}s: ${reason} ${describeEvents(group.map((failure) => failure.entry))}`;
+      // Retries never stop, so reaching the longest delay is when someone
+      // has to look.
+      if (delayMs === MAX_RETRY_DELAY_MS) this.logger.error(message);
+      else this.logger.warn(message);
       await client.outboxEvent.updateMany({
         where: {
           id: { in: group.map((failure) => failure.entry.message.eventId) },
@@ -151,11 +155,15 @@ export class OutboxPublisher {
     try {
       if (this.isPaused()) return { published: [], failed: [] };
 
+      const startedAt = performance.now();
       const rejected = await this.messageBroker.publish(
         batch.map((entry) => entry.message),
         AbortSignal.timeout(PUBLISH_TIMEOUT_MS),
       );
       this.recordSuccess();
+      this.logger.debug(
+        `Published ${batch.length - rejected.length} of ${batch.length} outbox event(s) in ${Math.round(performance.now() - startedAt)}ms eventIds=${batch.map((entry) => entry.message.eventId).join(',')}`,
+      );
       const reasons = new Map(
         rejected.map((message) => [message.eventId, message.reason]),
       );
@@ -202,7 +210,8 @@ export class OutboxPublisher {
       return;
     }
 
-    if (this.pauseMs === 0) {
+    if (!this.pausedSince) {
+      this.pausedSince = this.clock.now();
       this.logger.error(
         `Outbox publishing paused after ${FAILURES_BEFORE_PAUSE} consecutive failures`,
       );
@@ -213,10 +222,26 @@ export class OutboxPublisher {
 
   private recordSuccess(): void {
     this.consecutiveFailures = 0;
-    if (this.pauseMs === 0) return;
+    if (!this.pausedSince) return;
 
-    this.logger.log('Outbox publishing resumed');
+    const pausedMs =
+      this.clock.now().epochMilliseconds - this.pausedSince.epochMilliseconds;
+    this.logger.log(
+      `Outbox publishing resumed after ${Math.round(pausedMs / 1_000)}s`,
+    );
     this.pauseMs = 0;
     this.pausedUntil = undefined;
+    this.pausedSince = undefined;
   }
+}
+
+function describeEvents(entries: readonly OutboxEntry[]): string {
+  const eventTypes = [
+    ...new Set(entries.map((entry) => entry.message.eventType)),
+  ];
+  const eventIds = entries
+    .slice(0, MAX_LOGGED_EVENT_IDS)
+    .map((entry) => entry.message.eventId);
+  const more = entries.length > MAX_LOGGED_EVENT_IDS ? ',…' : '';
+  return `eventTypes=${eventTypes.join(',')} eventIds=${eventIds.join(',')}${more}`;
 }

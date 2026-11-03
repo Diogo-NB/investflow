@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { DeleteMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { EventDispatcher } from '../consumers/event-dispatcher.service';
 import { SqsEventListener } from './sqs-event-listener';
@@ -26,6 +27,8 @@ function createFixture() {
 }
 
 describe('SqsEventListener', () => {
+  afterEach(() => jest.restoreAllMocks());
+
   it('dispatches the EventBridge detail and deletes the message', async () => {
     const { listener, send, dispatch } = createFixture();
 
@@ -50,6 +53,17 @@ describe('SqsEventListener', () => {
     await listener.process(message(eventBridgeBody()));
 
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it('resolves when deleting a handled message fails, leaving it to redelivery', async () => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const { listener, send } = createFixture();
+    send.mockRejectedValueOnce(new Error('delete failed'));
+
+    await expect(
+      listener.process(message(eventBridgeBody())),
+    ).resolves.toBeUndefined();
+    expect(Logger.prototype.warn).toHaveBeenCalled();
   });
 
   it.each([
