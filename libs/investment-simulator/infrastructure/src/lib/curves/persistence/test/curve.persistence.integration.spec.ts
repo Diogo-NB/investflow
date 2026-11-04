@@ -204,6 +204,45 @@ describe('Curve PostgreSQL persistence', () => {
     expect(otherIndex.error.code).toBe(EAppErrorCode.CURVE_NOT_FOUND);
   });
 
+  it('saves a moved end from unchanged published values with no event', async () => {
+    const repository = new PrismaCurveRepository(prisma, events);
+    const curve = Curve.create(
+      {
+        ownerId: null,
+        index: EEconomicIndex.CDI,
+        name: `CDI ${generateUuid()}`,
+        intervals: [interval('2026-09-17', '2026-10-30', '0.1365')],
+      },
+      AT,
+    ).value;
+    curveIds.push(curve.id);
+    await inUnitOfWork(unitOfWork, repository).save(curve);
+
+    const found = await repository.findById(curve.id);
+    found.value.applyPublishedValues(
+      [
+        {
+          referenceDate: CalendarDate.of('2026-11-03'),
+          value: IndexValue.of('0.1365'),
+        },
+      ],
+      AT,
+    );
+    await inUnitOfWork(unitOfWork, repository).save(found.value);
+
+    const stored = (await repository.findById(curve.id)).value;
+    expect(stored.intervals).toHaveLength(1);
+    expect(stored.lastInterval.range.end.toIsoString()).toBe('2026-11-03');
+    expect(stored.revision).toBe(2);
+    expect(stored.valuesRevision).toBe(1);
+    const outboxEvents = await prisma.client.outboxEvent.findMany({
+      where: { aggregateId: curve.id },
+    });
+    expect(outboxEvents.map(({ eventType }) => eventType)).toEqual([
+      'CurveCreated',
+    ]);
+  });
+
   it('hides a deleted curve from lookups', async () => {
     const curve = await savedCurve();
     const curves = inUnitOfWork(

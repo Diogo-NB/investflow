@@ -68,7 +68,7 @@ que eles possam ser trocados sem uma regra de negócio específica.
 | Competência         | Período econômico medido por um índice, como um mês de inflação.                           |
 | Cobertura           | Disponibilidade dos valores necessários para um cálculo específico.                        |
 | Revisão             | Número da curva incrementado a cada alteração salva.                                       |
-| Revisão dos valores | Número da curva incrementado somente quando seus intervalos ou valores mudam.              |
+| Revisão dos valores | Número incrementado quando intervalos ou valores mudam, salvo a extensão pela importação.  |
 | Oferta              | Título, emissor, remuneração, taxa, vencimento e liquidez de um investimento.              |
 | Simulação           | Hipótese de investir um valor em uma data sob uma oferta e, se indexada, uma curva.        |
 | Resultado           | Cálculo atual da simulação, com as revisões das premissas que usou.                        |
@@ -282,7 +282,9 @@ Editar uma curva altera a própria curva: o identificador permanece e a
 revisão é incrementada a cada alteração salva. Nome, descrição e intervalos são
 editáveis; dividir, substituir ou unir intervalos é uma edição como as demais.
 Somente mudanças de intervalos ou valores incrementam a revisão dos valores;
-renomear a curva ou mudar sua descrição não muda nenhum cálculo.
+renomear a curva ou mudar sua descrição não muda nenhum cálculo. A exceção é a
+importação que apenas estende o fim do último intervalo (ver
+[Curvas do BCB](#curvas-do-bcb)).
 
 - Cada resultado registra a revisão dos valores da curva que usou. Um
   resultado cuja revisão dos valores difere da atual está desatualizado e é
@@ -297,7 +299,8 @@ renomear a curva ou mudar sua descrição não muda nenhum cálculo.
   antes de editá-la.
 - Cada alteração gera um evento que identifica a curva alterada. Curvas do
   sistema mantidas por processos de importação geram os mesmos eventos, e as
-  simulações de todos os usuários que os usam são recalculadas.
+  simulações de todos os usuários que as usam são recalculadas, salvo quando a
+  importação apenas estende o fim do último intervalo.
 
 Resultados passados não são reproduzíveis: o produto não preserva a trajetória
 anterior de uma curva editada nem os resultados calculados com ela.
@@ -369,9 +372,10 @@ curvas do sistema são as criadas pelo seed.
   valor igual estende o fim do último intervalo. Um valor diferente abre um
   novo intervalo a partir da data desse valor.
   Dias consecutivos com o mesmo valor formam um único intervalo.
-- As simulações só devem ser recalculadas quando a taxa muda; no CDI, isso
-  acontece em torno das reuniões do Copom. Como estender o fim sem recalcular
-  está adiado (ver [Curve End Extension Recalculation](../implementation/planned/curve-end-extension-recalculation.md)).
+- As simulações só são recalculadas pela importação quando a taxa muda; no CDI,
+  isso acontece em torno das reuniões do Copom. Estender o fim não muda nenhum
+  resultado, pois o último valor já valia depois dele; as telas passam a
+  mostrar a nova data sem recálculo.
 - As telas da curva informam a data do último valor publicado e que a última
   taxa é mantida em diante. Informar a origem dos valores está planejado (ver
   [Curve Values Source Label](../implementation/planned/curve-values-source-label.md)).

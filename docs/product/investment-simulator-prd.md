@@ -64,7 +64,9 @@ Cada oferta e cada curva tem um número de revisão,
 incrementado a cada alteração salva. A revisão identifica quais premissas um
 resultado usou e revela quando ele ficou desatualizado. Cada alteração também
 gera um evento que identifica o item alterado e leva ao recálculo das
-simulações afetadas.
+simulações afetadas. A exceção é a importação do Banco Central que apenas
+estende o fim da curva com a mesma taxa: como nenhum resultado muda, ela não
+gera evento nem recálculo.
 
 ## Escopo do MVP
 

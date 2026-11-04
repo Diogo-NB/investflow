@@ -206,6 +206,3 @@ this file in the same change that ships or changes a built behavior.
 
 - Curve screens do not show the Banco Central as the source
   ([Curve Values Source Label](./planned/curve-values-source-label.md)).
-- Extending a curve's last end with an unchanged value recalculates its
-  simulations
-  ([Curve End Extension Recalculation](./planned/curve-end-extension-recalculation.md)).

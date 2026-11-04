@@ -305,7 +305,8 @@ sequenceDiagram
 Only facts that affect a calculation fan out: `OfferTermsChanged`,
 `OfferDeleted`, `CurveValuesChanged`, and `CurveDeleted`. Renaming an offer or
 describing a curve (`OfferDetailsChanged`, `CurveDetailsChanged`) reaches no
-consumer and leaves its simulations up to date. Fan-out never loads
+consumer and leaves its simulations up to date, and published values that only
+move a curve's end raise no event at all. Fan-out never loads
 simulations and writes no calculation rows: until each result lands, the
 screen shows "Desatualizado", derived from the term revisions. It records
 all its requests in one transaction, a simplification covered by
@@ -393,7 +394,7 @@ it adds.
 | `OfferDeleted`                   | `Offer`                                                               | An offer was deleted                                        | none              | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
 | `OfferMovedToCatalog`            | `Offer`                                                               | A simulation's own terms became an offer listed in Ofertas  | none              | none                                                                                                          |
 | `CurveCreated`                   | `Curve`                                                               | A curve was created                                         | none              | none                                                                                                          |
-| `CurveValuesChanged`             | `Curve`                                                               | Its intervals or values changed                             | none              | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
+| `CurveValuesChanged`             | `Curve`                                                               | An edit or a new published value changed its intervals      | none              | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
 | `CurveDetailsChanged`            | `Curve`                                                               | Its name or description changed                             | none              | none                                                                                                          |
 | `CurveDeleted`                   | `Curve`                                                               | A curve was deleted                                         | none              | `SimulationRecalculationConsumer` (`simulation-recalculations`)                                               |
 | `PublishedIndexValuesImported`   | `PublishedIndexSeries`                                                | The importer stored values the Banco Central published      | `index`, `values` | `PublishedIndexValuesConsumer` (`curve-published-index-values`)                                               |
