@@ -124,6 +124,15 @@ describe('FetchNewPublishedIndexValuesUseCase', () => {
     expect(fetchBetween).not.toHaveBeenCalled();
   });
 
+  it('returns no batches without calling the reader for a future start date', async () => {
+    const { useCase, fetchBetween } = createFixture(notFound);
+
+    const result = await useCase.execute(command('2027-01-06'));
+
+    expect(result.value).toEqual([]);
+    expect(fetchBetween).not.toHaveBeenCalled();
+  });
+
   it('returns one batch per year, oldest first', async () => {
     const values = ['2026-12-30', '2026-12-31', '2027-01-04'].map(published);
     const { useCase } = createFixture(

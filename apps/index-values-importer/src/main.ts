@@ -7,7 +7,7 @@ import { ImporterModule } from './app/importer.module';
 
 const INDEX_OPTION = '--index=';
 const START_DATE_OPTION = '--start-date=';
-const USAGE = `Usage: node main.js --index=CDI|SELIC [--start-date=YYYY-MM-DD]
+const USAGE = `Usage: node main.js --index=CDI|SELIC|SELIC_TARGET [--start-date=YYYY-MM-DD]
 
 Imports the values the Banco Central published for one index, through today.
 --start-date sets the first date to import. Without it, the import starts the
