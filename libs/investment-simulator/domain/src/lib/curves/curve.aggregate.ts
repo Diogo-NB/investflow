@@ -1,6 +1,7 @@
 import {
   BusinessDayCalendar,
   CalendarDate,
+  CalendarDateRange,
   AggregateRoot,
   generateUuid,
   Result,
@@ -56,6 +57,11 @@ export type ReconstituteCurveProps = CurveProps & {
 export type CurveEdit = Partial<CurveContent>;
 
 export type CurveContentError = InvalidCurveError | CurveIntervalGapError;
+
+export interface PublishedCurveValue {
+  readonly referenceDate: CalendarDate;
+  readonly value: IndexValue;
+}
 
 export class Curve extends AggregateRoot {
   private constructor(
@@ -210,6 +216,41 @@ export class Curve extends AggregateRoot {
     if (detailsChanged)
       this.apply(new CurveDetailsChanged(this.id, occurredAt));
     return Result.ok(this);
+  }
+
+  // Sorted by date. Dates up to the curve's end are ignored, so a redelivered
+  // or late value changes nothing. Closing the last interval the day before a
+  // new value also covers days with nothing published.
+  applyPublishedValues(
+    values: readonly PublishedCurveValue[],
+    occurredAt: UtcInstant,
+  ): Result<this, CurveContentError> {
+    const newer = values.filter(({ referenceDate }) =>
+      referenceDate.isAfter(this.lastInterval.range.end),
+    );
+    if (newer.length === 0) return Result.ok(this);
+
+    const intervals = [...this.props.intervals];
+    for (const { referenceDate, value } of newer) {
+      const last = intervals[intervals.length - 1];
+      const isSameValue = value.equals(last.value);
+      intervals[intervals.length - 1] = CurveInterval.create(
+        CalendarDateRange.of(
+          last.range.start,
+          isSameValue ? referenceDate : referenceDate.addDays(-1),
+        ),
+        last.value,
+      );
+      if (!isSameValue) {
+        intervals.push(
+          CurveInterval.create(
+            CalendarDateRange.of(referenceDate, referenceDate),
+            value,
+          ),
+        );
+      }
+    }
+    return this.edit({ intervals }, occurredAt);
   }
 
   delete(at: UtcInstant): this {

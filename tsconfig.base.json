@@ -36,6 +36,18 @@
       ],
       "@investflow/investment-simulator-web": [
         "libs/investment-simulator/web/src/index.ts"
+      ],
+      "@investflow/market-data-domain": [
+        "./libs/market-data/domain/src/index.ts"
+      ],
+      "@investflow/market-data-application": [
+        "./libs/market-data/application/src/index.ts"
+      ],
+      "@investflow/market-data-infrastructure": [
+        "./libs/market-data/infrastructure/src/index.ts"
+      ],
+      "@investflow/market-data-contracts": [
+        "./libs/market-data/contracts/src/index.ts"
       ]
     }
   },

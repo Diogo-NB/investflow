@@ -41,6 +41,7 @@ describe('InvestflowMessagingStack', () => {
     expect(consumerQueues.map(({ name }) => name)).toEqual([
       'simulation-calculations',
       'simulation-recalculations',
+      'curve-published-index-values',
     ]);
     const rules = Object.values(template.findResources('AWS::Events::Rule'));
     expect(
@@ -51,7 +52,11 @@ describe('InvestflowMessagingStack', () => {
     ).toEqual(consumerQueues);
   });
 
-  it.each(['simulation-calculations', 'simulation-recalculations'])(
+  it.each([
+    'simulation-calculations',
+    'simulation-recalculations',
+    'curve-published-index-values',
+  ])(
     'routes %s to a FIFO queue grouped by aggregate, with dead-letter queues',
     (name) => {
       const deadLetterQueueId = logicalId(template, 'AWS::SQS::Queue', {
@@ -105,7 +110,7 @@ describe('InvestflowMessagingStack', () => {
     });
   });
 
-  it('lets the API user, only from the VPS, publish to the bus and consume its three queues', () => {
+  it('lets the API user, only from the VPS, publish to the bus and consume its four queues', () => {
     const fromApiServer = {
       IpAddress: { 'aws:SourceIp': '187.41.107.80/32' },
     };
@@ -139,6 +144,7 @@ describe('InvestflowMessagingStack', () => {
           Condition: fromApiServer,
           Effect: 'Allow',
           Resource: [
+            queueArn('curve-published-index-values.fifo'),
             queueArn('simulation-calculations.fifo'),
             queueArn('simulation-calculations-dlq.fifo'),
             queueArn('simulation-recalculations.fifo'),

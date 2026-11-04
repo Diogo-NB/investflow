@@ -15,8 +15,8 @@ The deployment these build on is in
   integration tests would have caught.
 - **Dead-letter alarms.** Alarms (CloudWatch, with a notification) when
   `simulation-calculations-dlq.fifo`, `simulation-recalculations-dlq.fifo`,
-  or `event-delivery-dlq` receives a message; today they are only seen by
-  looking. Revisit before anyone else depends on the site.
+  `curve-published-index-values-dlq.fifo`, or `event-delivery-dlq` receives a
+  message; today they are only seen by looking. Revisit before anyone else depends on the site.
 - **IAM Roles Anywhere** instead of the `investflow-api` access key: a
   certificate from a self-managed CA, exchanged for one-hour credentials by
   AWS's signing helper in the API image. Revisit if the key's IP restriction
@@ -27,6 +27,9 @@ The deployment these build on is in
   in the VPS memory budget.
 - **A Content Security Policy** in `apps/web/nginx.conf`, allowing the site
   itself and `auth.diogo-nb.com.br` for the Keycloak login.
+- **Publishing independent of the API.** Hosts without `OutboxModule` rely on
+  the API to publish their events; the reasoning and triggers are in "Hosts"
+  in [Messaging Transport](../../architecture/messaging.md).
 
 ## Done when
 

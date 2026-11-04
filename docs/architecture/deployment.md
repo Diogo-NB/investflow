@@ -24,7 +24,7 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
 
 - **One Dokploy compose service** reads
   [`infra/dokploy/compose.yaml`](../../infra/dokploy/compose.yaml) from
-  `main`, with three services on the shared `dokploy-network`. Their names
+  `main`, with four services on the shared `dokploy-network`. Their names
   carry the project because every project on the host shares that network.
   Traefik routes `/` to `investflow-web` and `/api` to `investflow-api`
   without stripping the prefix, since Nest serves under `/api`. The backend
@@ -53,11 +53,12 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
   so a bad value stops the container instead of failing a later request.
 - **Memory.** Every container has a limit, and Node caps its heap below it:
 
-  | Service              | Limit  | Heap   | Measured                              |
-  | -------------------- | ------ | ------ | ------------------------------------- |
-  | `investflow-migrate` | 256 MB | 128 MB | 117 MiB peak applying every migration |
-  | `investflow-api`     | 384 MB | 256 MB | 153 MiB after a calculation           |
-  | `investflow-web`     | 32 MB  | —      | 10 MiB                                |
+  | Service                            | Limit  | Heap   | Measured                              |
+  | ---------------------------------- | ------ | ------ | ------------------------------------- |
+  | `investflow-migrate`               | 256 MB | 128 MB | 117 MiB peak applying every migration |
+  | `investflow-api`                   | 384 MB | 256 MB | 153 MiB after a calculation           |
+  | `investflow-web`                   | 32 MB  | —      | 10 MiB                                |
+  | `investflow-index-values-importer` | 256 MB | 128 MB | 173 MiB peak in a run                 |
 
   The API and web limits are the platform's memory budget. The API's
   `stop_grace_period` is 30 s because SQS long polls last up to 20 s and
@@ -68,10 +69,20 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
   and with the `pg` driver adapter a `connection_limit` URL parameter has no
   effect.
 
+- **Index values importer.** `investflow-index-values-importer` idles on
+  `sleep infinity`, because a Dokploy Compose schedule job runs its command
+  with `docker exec` and needs a running container. That keeps its environment
+  and image version in this file, following releases and rollbacks, which a
+  Server job calling `docker run` would not. It holds only `DATABASE_URL`: the
+  API publishes its events (see "Hosts" in
+  [Messaging Transport](./messaging.md)). A failed run is only in the job's
+  logs and waits for the next run. Procedures are in the
+  [runbook](../../infra/dokploy/README.md).
+
 ## Images
 
-- **Build once.** A release runs `pnpm check` and `pnpm nx run api:prune`
-  in CI, and the Dockerfiles only copy `dist/` and install production
+- **Build once.** A release runs `pnpm check` and prunes the API and the
+  importer in CI, and the Dockerfiles only copy `dist/` and install production
   dependencies, so the shipped build is the tested one. A local
   `docker build` needs the prune (or `web:build`) first. A root
   `postinstall` generates the Prisma client, so a fresh clone passes
@@ -82,8 +93,8 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
   runs install scripts only for an allowlist read at a workspace root, so
   the Dockerfile writes its own `pnpm-workspace.yaml` allowing `prisma` and
   `@prisma/engines`, which download the schema engine.
-- **Public images** in GHCR, `ghcr.io/diogo-nb/investflow-api` and
-  `-web`. The repository is public and the images hold no secret, so the
+- **Public images** in GHCR, `ghcr.io/diogo-nb/investflow-api`,
+  `-web`, and `-index-values-importer`. The repository is public and the images hold no secret, so the
   VPS pulls without registry credentials; a private image would need a
   classic token that reads every package of the account.
 - **Base images** match `.nvmrc` (`node:22.22.1-bookworm-slim`, with
@@ -113,10 +124,11 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
   so nothing deploys outside Release Please. Before 1.0 a breaking change
   bumps the minor version.
 - **Trigger.** A published `vX.Y.Z` release on `main` runs `release.yml`: one job checks,
-  prunes, and pushes both images as `:vX.Y.Z` (one job, because artifact
+  prunes, and pushes all images as `:vX.Y.Z` (one job, because artifact
   uploads drop the pruned output's empty `workspace_modules`), then
   `deploy-production.yml` deploys. `rollback.yml` deploys an earlier
-  version. Both share one non-cancelling concurrency group, so deploys never
+  version, but not one older than the importer image, whose tag would be
+  missing. Both share one non-cancelling concurrency group, so deploys never
   overlap. Actions are pinned to commit SHAs.
 - **Source archive** (2026-11-03). A published release also runs
   `source-archive.yml`, which attaches `investflow-vX.Y.Z-source.zip`

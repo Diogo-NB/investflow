@@ -59,6 +59,10 @@ it.
 - **Prefer the smallest model.** A column or a derived value before a new
   aggregate, status, or table (an issuer is an `issuerName`, not an
   aggregate with its own CRUD). Delete behavior nothing uses.
+- **Persist through an aggregate root.** Persisted state always belongs to a
+  root, even append-only data: never store value objects through a port with
+  no root. A root whose collection grows without limit is split into natural
+  buckets (`PublishedIndexSeries` per index and year).
 
 When planning, state the model before the file list: the types, the
 vocabulary mapping, what is stored versus derived, and which pattern (if any)
@@ -217,6 +221,7 @@ Review your own diff for the mistakes this codebase has had to correct:
 - The same discriminant checked twice in one flow, or Results re-wrapped.
 - A boolean success flag where a `Result` says why it failed.
 - Behavior added for later that nothing uses.
+- Persisted state with no aggregate root.
 
 ## Tests
 

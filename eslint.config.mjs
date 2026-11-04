@@ -47,6 +47,30 @@ export default [
               ],
             },
             {
+              sourceTag: 'scope:investment-simulator',
+              onlyDependOnLibsWithTags: [
+                'scope:investment-simulator',
+                'scope:market-data-contracts',
+                'scope:shared',
+              ],
+            },
+            {
+              sourceTag: 'scope:market-data',
+              onlyDependOnLibsWithTags: [
+                'scope:market-data',
+                'scope:market-data-contracts',
+                'scope:shared',
+              ],
+            },
+            {
+              sourceTag: 'scope:market-data-contracts',
+              onlyDependOnLibsWithTags: ['scope:market-data-contracts'],
+            },
+            {
+              sourceTag: 'scope:index-values-importer',
+              onlyDependOnLibsWithTags: ['scope:market-data', 'scope:shared'],
+            },
+            {
               sourceTag: 'scope:api',
               onlyDependOnLibsWithTags: [
                 'layer:infrastructure',

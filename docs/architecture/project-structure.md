@@ -37,7 +37,17 @@ apps/api
 apps/web
 └── Keycloak authentication, shell, and welcome page
     └── lazy context routes from libs/investment-simulator/web (simulations; offers and curves next)
+
+apps/index-values-importer (one run per schedule, exits when done)
+└── ImporterModule
+    ├── PrismaModule, ClockModule (no OutboxModule)
+    └── MarketDataInfrastructureModule
 ```
+
+`libs/market-data` is a second bounded context: what the market published,
+as facts. `investment-simulator` knows it only through
+`libs/market-data/contracts`, tagged `scope:market-data-contracts` and
+`layer:types`, and lint rejects any other import between the two.
 
 `apps/api` is the system composition root. It chooses the contexts deployed in
 the process and configures global concerns. Each imported bounded-context Nest

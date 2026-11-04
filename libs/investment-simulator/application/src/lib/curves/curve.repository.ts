@@ -1,5 +1,10 @@
-import { Curve } from '@investflow/investment-simulator-domain';
-import { Repository } from '@investflow/shared-domain';
+import { Curve, EEconomicIndex } from '@investflow/investment-simulator-domain';
+import { AppError, Repository, Result } from '@investflow/shared-domain';
 
 // A deleted curve is reported as missing.
-export abstract class CurveRepository extends Repository<Curve> {}
+export abstract class CurveRepository extends Repository<Curve> {
+  abstract findSystemCurve(
+    index: EEconomicIndex,
+    name: string,
+  ): Promise<Result<Curve, AppError>>;
+}

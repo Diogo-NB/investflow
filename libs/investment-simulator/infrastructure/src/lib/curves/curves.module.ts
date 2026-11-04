@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import {
+  ApplyPublishedIndexValuesUseCase,
   CreateCurveUseCase,
   CurveRepository,
   DeleteCurveUseCase,
@@ -7,6 +8,7 @@ import {
   EditCurveUseCase,
 } from '@investflow/investment-simulator-application';
 import { CurveController } from './http/curve.controller';
+import { PublishedIndexValuesConsumer } from './messaging/published-index-values.consumer';
 import { PrismaCurveRepository } from './persistence/prisma-curve.repository';
 import { GetCurveQueryHandler } from './queries/get-curve.query-handler';
 import { ListCurvesQueryHandler } from './queries/list-curves.query-handler';
@@ -17,6 +19,8 @@ import { ListCurvesQueryHandler } from './queries/list-curves.query-handler';
   controllers: [CurveController],
   providers: [
     { provide: CurveRepository, useClass: PrismaCurveRepository },
+    ApplyPublishedIndexValuesUseCase,
+    PublishedIndexValuesConsumer,
     CreateCurveUseCase,
     EditCurveUseCase,
     DuplicateCurveUseCase,

@@ -1,0 +1,27 @@
+{
+  "name": "market-data-application",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/market-data/application/src",
+  "projectType": "library",
+  "tags": ["scope:market-data", "layer:application", "platform:server"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/market-data/application",
+        "main": "libs/market-data/application/src/index.ts",
+        "tsConfig": "libs/market-data/application/tsconfig.lib.json",
+        "assets": ["libs/market-data/application/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "tsc -p libs/market-data/application/tsconfig.spec.json --noEmit"
+      }
+    }
+  }
+}

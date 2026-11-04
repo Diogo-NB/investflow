@@ -1,0 +1,28 @@
+{
+  "name": "market-data-contracts",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/market-data/contracts/src",
+  "projectType": "library",
+  "tags": ["scope:market-data-contracts", "layer:types", "platform:server"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/market-data/contracts",
+        "tsConfig": "libs/market-data/contracts/tsconfig.lib.json",
+        "packageJson": "libs/market-data/contracts/package.json",
+        "main": "libs/market-data/contracts/src/index.ts",
+        "assets": ["libs/market-data/contracts/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "tsc -p libs/market-data/contracts/tsconfig.spec.json --noEmit"
+      }
+    }
+  }
+}

@@ -32,6 +32,17 @@ export function curveFixture(spy: Spy) {
         ? Result.ok(curve)
         : Result.err(new CurveNotFoundError(id));
     }),
+    findSystemCurve: spy(async (index: EEconomicIndex, name: string) => {
+      const curve = [...curves.values()].find(
+        (stored) =>
+          stored.ownerId === null &&
+          stored.index === index &&
+          stored.name === name,
+      );
+      return curve
+        ? Result.ok(curve)
+        : Result.err(new CurveNotFoundError(name));
+    }),
     save: spy(async (curve: Curve) => {
       curves.set(curve.id, curve);
       curve.markPersisted();

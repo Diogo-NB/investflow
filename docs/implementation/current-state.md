@@ -192,9 +192,20 @@ this file in the same change that ships or changes a built behavior.
   existing simulation and plan lists, four requests in all; a single
   overview query is in [Home Overview Query](./planned/home-overview-query.md).
 
+- **Market data.** The `libs/market-data` context stores what the Banco Central
+  publishes for the CDI and the effective SELIC in `PublishedIndexSeries`, one
+  aggregate per index and year, from 2026-10-31 onwards.
+  `apps/index-values-importer`, run by one Dokploy schedule job per index, stores new values
+  and records `PublishedIndexValuesImported`; a consumer in the API applies them
+  to the system curves named `CDI` and `SELIC`, whose values up to 2026-10-30 came
+  from a one-off load, run once and since removed. See the
+  [runbook](../../infra/dokploy/README.md) and "Published index values" in
+  [Messaging Transport](../architecture/messaging.md).
+
 ## Differs From the Target Model
 
-- The CDI and SELIC curves imported from the Banco Central are not built
-  ([BCB Rate Import](./planned/bcb-rate-import.md)). Production gets those
-  system curves from a one-off load of the values published up to 2026-10-30,
-  run once and since removed, and they do not update on their own.
+- Curve screens do not show the Banco Central as the source
+  ([Curve Values Source Label](./planned/curve-values-source-label.md)).
+- Extending a curve's last end with an unchanged value recalculates its
+  simulations
+  ([Curve End Extension Recalculation](./planned/curve-end-extension-recalculation.md)).

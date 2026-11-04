@@ -539,3 +539,117 @@ describe('Curve', () => {
     expect(error.metadata?.['curveId']).toBe(curve.id);
   });
 });
+
+describe('Curve.applyPublishedValues', () => {
+  const published = (date: string, value = '0.12') => ({
+    referenceDate: CalendarDate.of(date),
+    value: IndexValue.of(value),
+  });
+
+  function systemCurve() {
+    return Curve.reconstitute({
+      id: 'curve-1',
+      index: EEconomicIndex.CDI,
+      ownerId: null,
+      name: 'CDI',
+      description: null,
+      revision: 1,
+      valuesRevision: 1,
+      deletedAt: null,
+      intervals: [interval('2026-09-17', '2026-10-30')],
+    });
+  }
+
+  function rangesOf(curve: Curve) {
+    return curve.intervals.map(({ range, value }) => [
+      range.start.toIsoString(),
+      range.end.toIsoString(),
+      value.value.toFixed(),
+    ]);
+  }
+
+  it('moves the last end for an unchanged value', () => {
+    const curve = systemCurve();
+
+    const result = curve.applyPublishedValues([published('2026-11-03')], LATER);
+
+    expect(result.isOk()).toBe(true);
+    expect(rangesOf(curve)).toEqual([['2026-09-17', '2026-11-03', '0.12']]);
+  });
+
+  it('closes the last interval the day before a new value and opens one', () => {
+    const curve = systemCurve();
+
+    curve.applyPublishedValues([published('2026-11-03', '0.13')], LATER);
+
+    expect(rangesOf(curve)).toEqual([
+      ['2026-09-17', '2026-11-02', '0.12'],
+      ['2026-11-03', '2026-11-03', '0.13'],
+    ]);
+  });
+
+  it('merges consecutive equal values within one call', () => {
+    const curve = systemCurve();
+
+    curve.applyPublishedValues(
+      [
+        published('2026-11-03', '0.13'),
+        published('2026-11-04', '0.13'),
+        published('2026-11-05', '0.12'),
+      ],
+      LATER,
+    );
+
+    expect(rangesOf(curve)).toEqual([
+      ['2026-09-17', '2026-11-02', '0.12'],
+      ['2026-11-03', '2026-11-04', '0.13'],
+      ['2026-11-05', '2026-11-05', '0.12'],
+    ]);
+  });
+
+  it('repeats the previous value over business days with nothing published', () => {
+    const curve = systemCurve();
+
+    const result = curve.applyPublishedValues(
+      [published('2026-11-10', '0.13')],
+      LATER,
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(rangesOf(curve)[0]).toEqual(['2026-09-17', '2026-11-09', '0.12']);
+  });
+
+  it('ignores dates up to the end, so a repeated event changes nothing', () => {
+    const curve = systemCurve();
+
+    const result = curve.applyPublishedValues(
+      [published('2026-10-29', '0.5'), published('2026-10-30', '0.5')],
+      LATER,
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(rangesOf(curve)).toEqual([['2026-09-17', '2026-10-30', '0.12']]);
+    expect(curve.revision).toBe(1);
+    expect(curve.getDomainEvents()).toEqual([]);
+  });
+
+  it('applies only the dates after the end', () => {
+    const curve = systemCurve();
+
+    curve.applyPublishedValues(
+      [published('2026-10-30', '0.5'), published('2026-11-03', '0.13')],
+      LATER,
+    );
+
+    expect(rangesOf(curve)[1]).toEqual(['2026-11-03', '2026-11-03', '0.13']);
+  });
+
+  it('raises values changed for an extension until extensions stop recalculating', () => {
+    const curve = systemCurve();
+
+    curve.applyPublishedValues([published('2026-11-03')], LATER);
+
+    expect(curve.valuesRevision).toBe(2);
+    expect(curve.getDomainEvents()).toEqual([expect.any(CurveValuesChanged)]);
+  });
+});

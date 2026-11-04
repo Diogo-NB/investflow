@@ -52,9 +52,16 @@ export class InvestflowMessagingStack extends Stack {
         'CurveDeleted',
       ],
     });
+    const publishedIndexValues = this.consumerQueue(
+      'curve-published-index-values',
+      {
+        source: ['investflow.market-data'],
+        detailType: ['PublishedIndexValuesImported'],
+      },
+    );
 
-    // The API publishes to the bus and consumes three queues; no consumer reads
-    // the recalculations dead-letter queue.
+    // The API publishes to the bus and consumes four queues; no consumer reads
+    // the recalculations or published index values dead-letter queues.
     const apiUser = new User(this, 'ApiUser', { userName: 'investflow-api' });
     const fromApiServer = { IpAddress: { 'aws:SourceIp': API_SOURCE_IP } };
     apiUser.addToPrincipalPolicy(
@@ -71,6 +78,7 @@ export class InvestflowMessagingStack extends Stack {
           calculations.queue.queueArn,
           calculations.deadLetterQueue.queueArn,
           recalculations.queue.queueArn,
+          publishedIndexValues.queue.queueArn,
         ],
         conditions: fromApiServer,
       }),
@@ -85,6 +93,9 @@ export class InvestflowMessagingStack extends Stack {
     });
     new CfnOutput(this, 'SimulationRecalculationsQueueUrl', {
       value: recalculations.queue.queueUrl,
+    });
+    new CfnOutput(this, 'CurvePublishedIndexValuesQueueUrl', {
+      value: publishedIndexValues.queue.queueUrl,
     });
     new CfnOutput(this, 'ApiUserName', { value: apiUser.userName });
   }

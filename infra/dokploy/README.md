@@ -30,6 +30,51 @@ The same workflow with the current version redeploys without a release, for
 example after changing the Dokploy environment or domains. The compose
 service's **Deploy** button in Dokploy does the same.
 
+## Import the index values
+
+`investflow-index-values-importer` stores what the Banco Central published and
+updates the `CDI` and `SELIC` system curves through the API. Before its first
+release, run `pnpm nx run infra-aws:deploy` for its queue, and confirm `/curvas`
+lists both curves, named exactly that, under "Do sistema"; without them, every
+event dead-letters.
+
+1. Once for each index, after the release, from a shell on the VPS, starting
+   the day after the curves end (2026-10-30):
+
+   ```sh
+   docker exec <importer container> node main.js --index=CDI --start-date=2026-10-31
+   docker exec <importer container> node main.js --index=SELIC --start-date=2026-10-31
+   ```
+
+   A run without `--start-date` starts the day after the last stored date. A
+   start date already stored fails the run, and a later one leaves a gap: the
+   curve keeps the previous rate over the missing days.
+
+2. In Dokploy, add one **Compose** schedule job per index on the service
+   `investflow-index-values-importer`, on weekdays, at the hours in São Paulo
+   below. The crons assume UTC; confirm the timezone from the first runs.
+
+   | Index | Command                      | Time  | Cron           |
+   | ----- | ---------------------------- | ----- | -------------- |
+   | SELIC | `node main.js --index=SELIC` | 09:00 | `0 12 * * 1-5` |
+   | CDI   | `node main.js --index=CDI`   | 12:00 | `0 15 * * 1-5` |
+
+   Both values appear in the API the morning after their date: SELIC was there
+   by 08:36 and the CDI by 11:26 in the one day sampled. A value that arrives
+   after its job's run waits for the next day's run, so check the first runs and
+   move a job later if needed. A run before step 1 fails with
+   "Informe a data inicial" and writes nothing.
+
+3. Check that a run logs `SELIC: imported` or `CDI: imported`, and that a new
+   value appears in `published_index_value` and moves the curve's end within
+   about a minute, once the API's poller publishes it.
+
+A failed run exits with 1, shows only in the job's logs, and the next run
+catches up. A message in `curve-published-index-values-dlq.fifo` can be moved
+back with an SQS redrive within its 14-day retention, but changes nothing if a
+later value was already applied (see "Published index values" in
+[Messaging Transport](../../docs/architecture/messaging.md)).
+
 ## Dokploy setup
 
 The `investflow` project holds one **Compose** service (type Docker
