@@ -14,12 +14,6 @@ module.exports = {
       target: 'node',
       compiler: 'tsc',
       main: './src/main.ts',
-      additionalEntryPoints: [
-        {
-          entryName: 'load-bcb-system-curves',
-          entryPath: './src/load-bcb-system-curves/load-bcb-system-curves.ts',
-        },
-      ],
       tsConfig: './tsconfig.app.json',
       assets: ['./src/assets'],
       optimization: false,

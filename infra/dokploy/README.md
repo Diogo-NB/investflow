@@ -30,46 +30,6 @@ The same workflow with the current version redeploys without a release, for
 example after changing the Dokploy environment or domains. The compose
 service's **Deploy** button in Dokploy does the same.
 
-## Load the BCB system curves
-
-A one-off that creates the CDI and SELIC system curves, until the
-[BCB rate import](../../docs/implementation/planned/bcb-rate-import.md) keeps
-them current. Remove `apps/api/src/load-bcb-system-curves` and its entry in
-`apps/api/webpack.config.js` once it has run, along with this section.
-
-From a shell on the VPS, after the release containing it is deployed:
-
-1. Set `DATABASE_URL` from Dokploy's environment and back up. Its host
-   resolves only on `dokploy-network`, and `pg_dump` rejects Prisma's
-   `schema` parameter:
-
-   ```sh
-   docker run --rm --network dokploy-network postgres:17 \
-     pg_dump -Fc "${DATABASE_URL%%\?*}" > investflow-before-curves.dump
-   ```
-
-2. Dry run, which applies the domain rules and writes the curves, then rolls
-   back before the outbox rows are written:
-
-   ```sh
-   docker run --rm --network dokploy-network -e DATABASE_URL="$DATABASE_URL" \
-     ghcr.io/diogo-nb/investflow-api:vX.Y.Z node load-bcb-system-curves.js
-   ```
-
-   Expect 16 intervals per curve, 2024-01-02 to 2026-10-30.
-
-3. Repeat with `--commit` after `load-bcb-system-curves.js`. A later run
-   refuses to write while the curves exist.
-4. Check that `/curvas` lists both under "Do sistema" for a normal user, and
-   that their two `CurveCreated` rows in `outbox_events` get a `published_at`
-   from the running API.
-
-Delete the dump once the curves are confirmed. System curves are read-only on
-the screens and no tool edits or deletes them, so review the values before
-committing. Fixing one afterwards needs a change released through the edit or
-delete use case as the system actor; restoring the dump also discards everything
-written since it was taken.
-
 ## Dokploy setup
 
 The `investflow` project holds one **Compose** service (type Docker

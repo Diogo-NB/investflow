@@ -196,7 +196,5 @@ this file in the same change that ships or changes a built behavior.
 
 - The CDI and SELIC curves imported from the Banco Central are not built
   ([BCB Rate Import](./planned/bcb-rate-import.md)). Production gets those
-  system curves from a one-off load of the values published up to 2026-10-30
-  (`apps/api/src/load-bcb-system-curves`, see the
-  [runbook](../../infra/dokploy/README.md)), and they do not update on their
-  own.
+  system curves from a one-off load of the values published up to 2026-10-30,
+  run once and since removed, and they do not update on their own.
