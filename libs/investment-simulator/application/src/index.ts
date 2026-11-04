@@ -6,6 +6,8 @@ export * from './lib/curves/create/create-curve.command';
 export * from './lib/curves/create/create-curve.use-case';
 export * from './lib/curves/edit/edit-curve.command';
 export * from './lib/curves/edit/edit-curve.use-case';
+export * from './lib/curves/apply-published-values/apply-published-index-values.command';
+export * from './lib/curves/apply-published-values/apply-published-index-values.use-case';
 export * from './lib/curves/duplicate/duplicate-curve.command';
 export * from './lib/curves/duplicate/duplicate-curve.use-case';
 export * from './lib/curves/delete/delete-curve.command';

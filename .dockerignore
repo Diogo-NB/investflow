@@ -3,6 +3,7 @@
 *
 !package.json
 !dist/apps/api/
+!dist/apps/index-values-importer/
 !dist/apps/web/
 !libs/shared/infrastructure/prisma/
 !apps/web/nginx.conf

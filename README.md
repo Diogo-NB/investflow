@@ -280,8 +280,7 @@ quando lê-lo.
   [consultas](docs/architecture/queries.md) e
   [frontend](docs/architecture/frontend-patterns.md).
 - **Implementação:** o que [já está construído](docs/implementation/current-state.md)
-  e o que [está planejado](docs/implementation/planned/), como a importação
-  das taxas do Banco Central.
+  e o que [está planejado](docs/implementation/planned/).
 - **Design visual:** [DESIGN.md](DESIGN.md).
 
 ## Desenvolvimento com agentes de IA

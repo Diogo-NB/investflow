@@ -11,6 +11,7 @@ import {
 } from '@investflow/shared-infrastructure';
 import {
   InvestmentSimulatorInfrastructureModule,
+  PublishedIndexValuesConsumer,
   SimulationCalculationConsumer,
   SimulationCalculationFailureConsumer,
   SimulationRecalculationConsumer,
@@ -38,6 +39,10 @@ import { serverConfig } from './server.config';
       {
         consumer: SimulationRecalculationConsumer,
         queueUrlConfigKey: 'SIMULATION_RECALCULATIONS_QUEUE_URL',
+      },
+      {
+        consumer: PublishedIndexValuesConsumer,
+        queueUrlConfigKey: 'CURVE_PUBLISHED_INDEX_VALUES_QUEUE_URL',
       },
     ]),
     TerminusModule,

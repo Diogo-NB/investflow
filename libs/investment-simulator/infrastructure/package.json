@@ -17,6 +17,8 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "decimal.js": "^10.6.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "@investflow/market-data-contracts": "*",
+    "zod": "^4.6.5"
   }
 }

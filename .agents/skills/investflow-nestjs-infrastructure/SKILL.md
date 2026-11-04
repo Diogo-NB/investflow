@@ -51,6 +51,10 @@ screen reads.
 - Controllers and consumers inject use-case and query-handler classes
   directly. Handlers are plain classes with one `execute(input)` method: no
   command or query buses and no `@nestjs/cqrs`.
+- A job is a controller: it delegates to use cases and owns only the
+  transaction boundary, wrapping each with `UnitOfWork.run()` because no
+  interceptor or dispatcher does it for a job. Fetching, resuming, and
+  grouping are application logic (`PublishedIndexValuesImportJob`).
 
 ## Persistence
 

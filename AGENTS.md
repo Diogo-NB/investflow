@@ -26,7 +26,7 @@ Claude Code a hook blocks edits to matching files until their skill is
 loaded; nothing enforces it for planning.
 
 - `investflow-domain-application`: `libs/*/domain/**`, `libs/*/application/**`.
-- `investflow-nestjs-infrastructure`: `libs/*/infrastructure/**`, `apps/api/**`.
+- `investflow-nestjs-infrastructure`: `libs/*/infrastructure/**`, `apps/api/**`, `apps/index-values-importer/**`.
 - `investflow-eventing`: `*.events.ts`, `*.event.ts`, `*.consumer.ts`, `libs/shared/infrastructure/src/lib/messaging/**`, `unit-of-work*`, `infra/floci/**`, `infra/aws/**`, or code that raises, records, or consumes an event (`apply(new`, `.record(`, `@OnEvent`).
 - `investflow-react`: `apps/web/**`, `libs/*/web/**`.
 - `investflow-outbox-benchmark`: `tools/benchmarks/**`.
@@ -114,6 +114,7 @@ prohibited, prefix Nx commands with `NX_DAEMON=false`. Run tasks through
 - `pnpm test`: all unit tests (Jest for backend, Vitest for frontend).
 - `pnpm check`: lint, unit test, typecheck, and build every project. Needs nothing but the repository, so it runs anywhere, including CI.
 - `pnpm check:integration`: `pnpm check`, then the integration tests (`*.integration.spec.ts`) against a migrated test database (`INTEGRATION_TEST_DATABASE_URL`) and Floci. Needs `pnpm db:up`; fails, never skips.
+- `pnpm import:index-values`: build and run the importer once for one index (`--index=CDI|SELIC`, plus `--start-date=YYYY-MM-DD`, required while it has no stored values); needs the API running to publish its events.
 - `pnpm bench:outbox`: measure how long committed events wait to be published (API stopped).
 - `pnpm nx run infra-aws:diff` / `infra-aws:deploy`: preview or deploy the production EventBridge, SQS, and IAM stack; needs credentials for the AWS account.
 

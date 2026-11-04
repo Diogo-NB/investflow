@@ -37,7 +37,7 @@ jobs:
       - name: Point :production at ${{ inputs.version }}
         run: |
           set -euo pipefail
-          for image in api web; do
+          for image in api web index-values-importer; do
             docker buildx imagetools create \
               --tag "$IMAGE_PREFIX-$image:production" \
               "$IMAGE_PREFIX-$image:$VERSION"

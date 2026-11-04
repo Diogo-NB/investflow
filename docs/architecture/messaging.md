@@ -219,15 +219,47 @@ This replaces the earlier SNS topic per context.
   event is recorded: events carry identifiers and changed fields, not documents.
   The limit is not derived from the transport; every broker adapter must
   accept payloads of that size (EventBridge accepts 256 KB per entry).
+- **Published index values (decided 2026-11-04).** One Dokploy schedule job per
+  index runs `apps/index-values-importer`, at the hour its index is published:
+  on the morning after its date, SELIC at 09:00 and CDI at noon. Each
+  run fetches new Banco Central values outside
+  any transaction, then stores each year's series and records
+  `PublishedIndexValuesImported` in one unit of work.
+  `PublishedIndexValuesConsumer` applies the event's values to the system curve
+  and ignores dates up to its end. It carries values because contexts cannot
+  read each other's tables.
+  - **Year boundary.** Groups are per aggregate, so a catch-up across a new year
+    can run two series of one index in parallel, the one place a curve is not
+    protected by FIFO exclusivity. The curve's conditional save makes the loser
+    throw and retry, and if January applies first, December's dates are ignored.
+  - **No gap check.** A dead-lettered event followed by a later success leaves
+    those days on the old rate with no error, and redriving it changes nothing,
+    since its dates are then before the curve's end. Accepted because it takes
+    five failed deliveries followed by a success, and a check would add a field
+    to the series, the event, and the consumer.
 - **Hosts.** A host publishes by importing `OutboxModule`, which runs its
   relay, poller, and retention. A host without it, such as the seed, records
   events that a publishing host's poller sends after the grace period. A Lambda
   host would freeze the relay's work after returning, so it would await the
   relay or rely on the poller. Long synchronous work delays the relay like
   any other callback of its process. Consumers run in the API today and can
-  become SQS-triggered Lambdas later. The future index-curve update Lambdas use EventBridge
-  Scheduler and deliver data by publishing events or calling the API, so the
-  database never needs to accept connections from outside the backend.
+  become SQS-triggered Lambdas later. The database never accepts connections
+  from outside the backend.
+  - **The API publishes for every host (decided 2026-11-04, known not to be
+    optimal).** It is the only production host importing `OutboxModule`, so
+    events recorded by a host without it, such as
+    `apps/index-values-importer`, leave the
+    outbox only while the API runs, up to about a minute later after a quiet
+    period, and the API runs their retention too. A host's publishing should
+    not depend on another host's availability and deployments. It is accepted
+    because the API is also the only consumer of those events, so its downtime
+    would block them anyway, and either alternative costs more today: a host
+    publishing its own rows needs a module with only the relay and publisher,
+    plus AWS credentials; a dedicated publishing worker loses the relay's
+    in-process wake-ups of the poller and adds an always-on process.
+    Revisit with the first: when a host other than the API consumes events
+    from such a host. Revisit with the second: when publishing has to scale
+    apart from the API.
 - **Hosting is not tied to AWS.** EventBridge and SQS are public HTTPS APIs. A
   backend on a VPS needs outbound HTTPS to AWS and credentials: a scoped IAM
   user key in the environment, or IAM Roles Anywhere.

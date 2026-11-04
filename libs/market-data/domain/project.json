@@ -1,0 +1,27 @@
+{
+  "name": "market-data-domain",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/market-data/domain/src",
+  "projectType": "library",
+  "tags": ["scope:market-data", "layer:domain", "platform:server"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/market-data/domain",
+        "main": "libs/market-data/domain/src/index.ts",
+        "tsConfig": "libs/market-data/domain/tsconfig.lib.json",
+        "assets": ["libs/market-data/domain/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "options": {
+        "command": "tsc -p libs/market-data/domain/tsconfig.spec.json --noEmit"
+      }
+    }
+  }
+}

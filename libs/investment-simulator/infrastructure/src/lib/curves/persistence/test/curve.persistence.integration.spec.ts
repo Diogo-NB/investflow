@@ -8,6 +8,7 @@ import {
   CalendarDate,
   CalendarDateRange,
   EAppErrorCode,
+  generateUuid,
   UtcInstant,
 } from '@investflow/shared-domain';
 import { Clock } from '@investflow/shared-application';
@@ -160,6 +161,47 @@ describe('Curve PostgreSQL persistence', () => {
     expect(stored.name).toBe('IPCA');
     expect(stored.intervals).toHaveLength(1);
     expect(stored.intervals[0].range.start.toIsoString()).toBe('2024-04-01');
+  });
+
+  it('finds a system curve only by its index and name', async () => {
+    const repository = new PrismaCurveRepository(prisma, events);
+    const name = `CDI ${generateUuid()}`;
+    const curve = Curve.create(
+      {
+        ownerId: null,
+        index: EEconomicIndex.CDI,
+        name,
+        intervals: [interval('2026-09-17', '2026-10-30', '0.1365')],
+      },
+      AT,
+    ).value;
+    curveIds.push(curve.id);
+    await inUnitOfWork(unitOfWork, repository).save(curve);
+
+    const found = await repository.findSystemCurve(EEconomicIndex.CDI, name);
+    expect(found.value.id).toBe(curve.id);
+
+    found.value.applyPublishedValues(
+      [
+        {
+          referenceDate: CalendarDate.of('2026-11-03'),
+          value: IndexValue.of('0.14'),
+        },
+      ],
+      AT,
+    );
+    await inUnitOfWork(unitOfWork, repository).save(found.value);
+    const applied = await repository.findById(curve.id);
+    expect(applied.value.intervals).toHaveLength(2);
+    expect(applied.value.lastInterval.range.end.toIsoString()).toBe(
+      '2026-11-03',
+    );
+
+    const otherIndex = await repository.findSystemCurve(
+      EEconomicIndex.SELIC,
+      name,
+    );
+    expect(otherIndex.error.code).toBe(EAppErrorCode.CURVE_NOT_FOUND);
   });
 
   it('hides a deleted curve from lookups', async () => {

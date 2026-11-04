@@ -33,6 +33,28 @@ services:
         limits:
           memory: 256M
 
+  # Idle: one Dokploy schedule job per index runs `node main.js` in it with docker exec,
+  # which needs a running container. A kill mid-run rolls back, and the next
+  # run resumes. The API's poller publishes the events it records.
+  investflow-index-values-importer:
+    image: ghcr.io/diogo-nb/investflow-index-values-importer:production
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    command: ['sleep', 'infinity']
+    depends_on:
+      investflow-migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?}
+      NODE_OPTIONS: --max-old-space-size=128 --enable-source-maps
+    networks: [dokploy-network]
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   investflow-api:
     image: ghcr.io/diogo-nb/investflow-api:production
     pull_policy: always
@@ -53,6 +75,7 @@ services:
       SIMULATION_CALCULATIONS_QUEUE_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-calculations.fifo
       SIMULATION_CALCULATIONS_DLQ_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-calculations-dlq.fifo
       SIMULATION_RECALCULATIONS_QUEUE_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/simulation-recalculations.fifo
+      CURVE_PUBLISHED_INDEX_VALUES_QUEUE_URL: https://sqs.sa-east-1.amazonaws.com/${AWS_ACCOUNT_ID:?}/curve-published-index-values.fifo
       # Optional tuning set in Dokploy; empty keeps the API's default.
       OUTBOX_POLL_MIN_INTERVAL_SECONDS: ${OUTBOX_POLL_MIN_INTERVAL_SECONDS:-}
       OUTBOX_POLL_MAX_INTERVAL_SECONDS: ${OUTBOX_POLL_MAX_INTERVAL_SECONDS:-}

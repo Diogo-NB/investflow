@@ -23,7 +23,7 @@ import {
   PrismaService,
   UnitOfWork,
 } from '@investflow/shared-infrastructure';
-import { curveRange, curves, offers } from './investment-simulator/fixtures';
+import { curves, offers } from './investment-simulator/fixtures';
 
 // Provides what the host normally makes global, without authentication,
 // HTTP, or the outbox poller.
@@ -101,7 +101,7 @@ async function seedSystemContent(): Promise<{
         index: curve.index as EEconomicIndex,
         name: curve.name,
         description: curve.description,
-        intervals: [{ ...curveRange, value: curve.value }],
+        intervals: [{ ...curve.range, value: curve.value }],
       });
       await run(() => createCurve.execute(command));
       curvesCreated++;
@@ -115,7 +115,7 @@ async function seedSystemContent(): Promise<{
 async function main(): Promise<void> {
   const created = await seedSystemContent();
   console.log(
-    `Seeded ${created.offers} of ${offers.length} system offers and ${created.curves} of ${curves.length} system curves for 2024–2028.`,
+    `Seeded ${created.offers} of ${offers.length} system offers and ${created.curves} of ${curves.length} system curves.`,
   );
 }
 

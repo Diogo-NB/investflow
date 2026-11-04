@@ -12,7 +12,7 @@ import sys
 
 ROUTES = [
     ('investflow-domain-application', [r'^libs/[^/]+/(domain|application)/']),
-    ('investflow-nestjs-infrastructure', [r'^libs/[^/]+/infrastructure/', r'^apps/api/']),
+    ('investflow-nestjs-infrastructure', [r'^libs/[^/]+/infrastructure/', r'^apps/api/', r'^apps/index-values-importer/']),
     (
         'investflow-eventing',
         [

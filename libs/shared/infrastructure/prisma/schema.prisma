@@ -251,6 +251,35 @@ model CurveInterval {
   @@map("curve_interval")
 }
 
+enum PublishedIndex {
+  CDI
+  SELIC
+
+  @@map("published_index")
+}
+
+model PublishedIndexSeries {
+  id       String                @id @db.Uuid
+  index    PublishedIndex
+  year     Int
+  revision Int
+  values   PublishedIndexValue[]
+
+  @@unique([index, year])
+  @@map("published_index_series")
+}
+
+model PublishedIndexValue {
+  seriesId      String               @map("series_id") @db.Uuid
+  referenceDate DateTime             @map("reference_date") @db.Date
+  // A fraction: 13.65% is 0.1365.
+  value         Decimal              @db.Decimal(65, 30)
+  series        PublishedIndexSeries @relation(fields: [seriesId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([seriesId, referenceDate])
+  @@map("published_index_value")
+}
+
 model OutboxEvent {
   id            String    @id @default(uuid()) @db.Uuid
   aggregateType String    @map("aggregate_type")

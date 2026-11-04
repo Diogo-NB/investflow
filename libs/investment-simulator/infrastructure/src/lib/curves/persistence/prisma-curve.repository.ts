@@ -5,6 +5,7 @@ import {
 import {
   Curve,
   CurveRevisionConflictError,
+  EEconomicIndex,
 } from '@investflow/investment-simulator-domain';
 import { DomainEventRecorder, Result } from '@investflow/shared-domain';
 import {
@@ -14,7 +15,8 @@ import {
   TransactionalPrismaClient,
 } from '@investflow/shared-infrastructure';
 import { Injectable } from '@nestjs/common';
-import { curveInclude, CurveMapper } from './curve.mapper';
+import { EconomicIndex as PersistedEconomicIndex } from '@prisma/client';
+import { curveInclude, CurveMapper, CurveRecord } from './curve.mapper';
 
 @Injectable()
 export class PrismaCurveRepository
@@ -29,21 +31,51 @@ export class PrismaCurveRepository
     super(prisma, events);
   }
 
-  async findById(
+  findById(
     id: string,
+  ): Promise<Result<Curve, CurveNotFoundError | RepositoryFindError>> {
+    return this.findOne(
+      () =>
+        this.prisma.client.curve.findUnique({
+          where: { id, deletedAt: null },
+          include: curveInclude,
+        }),
+      id,
+    );
+  }
+
+  findSystemCurve(
+    index: EEconomicIndex,
+    name: string,
+  ): Promise<Result<Curve, CurveNotFoundError | RepositoryFindError>> {
+    return this.findOne(
+      () =>
+        this.prisma.client.curve.findFirst({
+          where: {
+            ownerId: null,
+            index: index as PersistedEconomicIndex,
+            name,
+            deletedAt: null,
+          },
+          include: curveInclude,
+        }),
+      name,
+    );
+  }
+
+  private async findOne(
+    find: () => Promise<CurveRecord | null>,
+    identity: string,
   ): Promise<Result<Curve, CurveNotFoundError | RepositoryFindError>> {
     const result = await Result.fromPromise(
       async () => {
-        const record = await this.prisma.client.curve.findUnique({
-          where: { id, deletedAt: null },
-          include: curveInclude,
-        });
+        const record = await find();
         return record ? CurveMapper.toDomain(record) : null;
       },
-      (error) => new RepositoryFindError('Curve', id, error),
+      (error) => new RepositoryFindError('Curve', identity, error),
     );
     if (result.isErr()) return result;
-    if (!result.value) return Result.err(new CurveNotFoundError(id));
+    if (!result.value) return Result.err(new CurveNotFoundError(identity));
     this.storedRevisions.set(result.value, result.value.revision);
     return Result.ok(result.value);
   }

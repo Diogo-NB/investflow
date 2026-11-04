@@ -59,3 +59,6 @@ consumer_queue simulation-calculations \
 
 consumer_queue simulation-recalculations \
   '{"source":["investflow.investment-simulator"],"detail-type":["OfferTermsChanged","OfferDeleted","CurveValuesChanged","CurveDeleted"]}'
+
+consumer_queue curve-published-index-values \
+  '{"source":["investflow.market-data"],"detail-type":["PublishedIndexValuesImported"]}'

@@ -1,0 +1,34 @@
+# Packages the build that CI tested: run `pnpm nx run index-values-importer:prune`
+# first, then build from the repository root. The Prisma CLI generates the client.
+
+# Prisma picks its schema engine by the OpenSSL it detects, at download and at
+# run time; the slim image has the library but not the binary it probes.
+FROM node:22.22.1-bookworm-slim AS base
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends openssl && \
+  rm -rf /var/lib/apt/lists/*
+
+FROM base AS dependencies
+WORKDIR /app
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+COPY package.json /tmp/workspace-package.json
+RUN corepack enable && \
+  corepack prepare "$(node -p "require('/tmp/workspace-package.json').packageManager")" --activate
+COPY dist/apps/index-values-importer/package.json dist/apps/index-values-importer/pnpm-lock.yaml ./
+COPY dist/apps/index-values-importer/workspace_modules ./workspace_modules
+# pnpm skips install scripts outside this list; @prisma/engines downloads the
+# schema engine in one.
+RUN printf 'onlyBuiltDependencies:\n  - "@prisma/engines"\n  - prisma\n' > pnpm-workspace.yaml && \
+  pnpm install --prod --frozen-lockfile
+COPY libs/shared/infrastructure/prisma ./prisma
+RUN pnpm exec prisma generate --config=prisma/prisma.config.ts
+
+FROM base
+WORKDIR /app
+ENV NODE_ENV=production \
+  CHECKPOINT_DISABLE=1
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY libs/shared/infrastructure/prisma ./prisma
+COPY dist/apps/index-values-importer ./
+USER node
+CMD ["node", "main.js"]

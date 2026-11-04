@@ -79,27 +79,27 @@ seja uma curva de juros a termo extraída de preços de mercado.
 
 ## Decisões Confirmadas
 
-| Decisão                      | Regra                                                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Representação por intervalos | Os valores possuem início e fim explícitos; depois do último fim, o último valor vale em diante.                    |
-| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.                     |
-| Convenção única              | Todos os valores de uma curva utilizam a convenção do seu índice.                                                   |
-| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                                    |
-| Curvas independentes         | Cada curva fixa seu índice e é editável por seu dono; não há grupo de curvas no modelo.                             |
-| Edição                       | Editar uma curva altera a própria curva; mudar intervalos ou valores recalcula as simulações que a usam.            |
-| Visibilidade                 | Curvas de usuários são privadas; curvas do sistema são públicas e somente leitura para usuários.                    |
-| Duplicação                   | Duplicar cria uma curva privada com o mesmo índice e o mesmo conteúdo, inclusive de curvas do sistema.              |
-| Exclusão                     | Excluir é definitivo para o usuário; simulações que usavam a curva passam a "Requer ação".                          |
-| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                                            |
-| Cadastro completo            | Sem dias úteis (ou meses, no IPCA) faltando entre o primeiro e o último intervalo (decisão 2026-10-13).             |
-| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                                                |
-| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                                    |
-| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.                               |
-| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                               |
-| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                            |
-| Cadastro de intervalos       | Tabela editável com uma linha por intervalo (início, fim e valor), mantida contígua; no IPCA, meses.                |
-| Último valor mantido         | Depois do fim do último intervalo, seu valor vale em diante, sempre identificado (decisão 2026-10-28).              |
-| Curvas do BCB                | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante (planejado). |
+| Decisão                      | Regra                                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Representação por intervalos | Os valores possuem início e fim explícitos; depois do último fim, o último valor vale em diante.         |
+| Capacidade diária            | Início igual ao fim representa um intervalo de um único dia, quando compatível com a convenção.          |
+| Convenção única              | Todos os valores de uma curva utilizam a convenção do seu índice.                                        |
+| Ausência de cobertura        | A falta de um valor necessário impede o cálculo.                                                         |
+| Curvas independentes         | Cada curva fixa seu índice e é editável por seu dono; não há grupo de curvas no modelo.                  |
+| Edição                       | Editar uma curva altera a própria curva; mudar intervalos ou valores recalcula as simulações que a usam. |
+| Visibilidade                 | Curvas de usuários são privadas; curvas do sistema são públicas e somente leitura para usuários.         |
+| Duplicação                   | Duplicar cria uma curva privada com o mesmo índice e o mesmo conteúdo, inclusive de curvas do sistema.   |
+| Exclusão                     | Excluir é definitivo para o usuário; simulações que usavam a curva passam a "Requer ação".               |
+| Limites dos intervalos       | Início e fim inclusivos, sem sobreposição entre trechos.                                                 |
+| Cadastro completo            | Sem dias úteis (ou meses, no IPCA) faltando entre o primeiro e o último intervalo (decisão 2026-10-13).  |
+| Convenções iniciais          | CDI e SELIC efetiva em taxa anual base 252; IPCA em variação mensal.                                     |
+| Valores                      | Juros não negativos; inflação maior que −100%; zero é permitido.                                         |
+| Resultado diário             | O cálculo fornece rendimento e acumulação brutos para todos os dias úteis do período.                    |
+| Tributos                     | IOF e IR são apurados e apresentados somente no resumo do vencimento.                                    |
+| Horizonte atual              | O cálculo não considera saída ou recebimento antecipado.                                                 |
+| Cadastro de intervalos       | Tabela editável com uma linha por intervalo (início, fim e valor), mantida contígua; no IPCA, meses.     |
+| Último valor mantido         | Depois do fim do último intervalo, seu valor vale em diante, sempre identificado (decisão 2026-10-28).   |
+| Curvas do BCB                | O sistema mantém CDI e SELIC efetiva com os valores do Banco Central e a última taxa mantida em diante.  |
 
 ## Curva e Responsabilidades
 
@@ -354,12 +354,9 @@ Decisão de 2026-10-28, que substitui o intervalo sem fim de 2026-10-17.
 
 ### Curvas do BCB
 
-Esta seção e a seguinte descrevem a regra decidida; a importação ainda não
-existe (ver [BCB Rate Import](../implementation/planned/bcb-rate-import.md)). Hoje, em produção, as
-curvas do sistema de CDI e SELIC efetiva têm os valores publicados pelo Banco
-Central de 02/01/2024 a 30/10/2026, carregados uma única vez, e não são
-atualizadas sozinhas; depois do último fim, a última taxa é mantida. No ambiente
-de desenvolvimento, as curvas do sistema são as criadas pelo seed.
+Em produção, os valores de 02/01/2024 a 30/10/2026 foram carregados uma única
+vez; daí em diante, a importação os mantém. No ambiente de desenvolvimento, as
+curvas do sistema são as criadas pelo seed.
 
 - O sistema mantém uma curva de CDI e uma de SELIC efetiva com os valores
   publicados pelo Banco Central do Brasil (BCB), na convenção desses índices (taxa anual
@@ -374,9 +371,10 @@ de desenvolvimento, as curvas do sistema são as criadas pelo seed.
   Dias consecutivos com o mesmo valor formam um único intervalo.
 - As simulações só devem ser recalculadas quando a taxa muda; no CDI, isso
   acontece em torno das reuniões do Copom. Como estender o fim sem recalcular
-  é uma decisão pendente (ver [BCB Rate Import](../implementation/planned/bcb-rate-import.md)).
-- As telas da curva informam a origem dos valores, a data do último valor
-  publicado e que a última taxa é mantida em diante.
+  está adiado (ver [Curve End Extension Recalculation](../implementation/planned/curve-end-extension-recalculation.md)).
+- As telas da curva informam a data do último valor publicado e que a última
+  taxa é mantida em diante. Informar a origem dos valores está planejado (ver
+  [Curve Values Source Label](../implementation/planned/curve-values-source-label.md)).
 - Quem quiser outra premissa para o futuro duplica a curva e edita os
   intervalos futuros. A cópia é independente e não recebe os novos valores
   publicados.
