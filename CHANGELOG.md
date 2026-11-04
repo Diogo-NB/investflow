@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/Diogo-NB/investflow/compare/v0.5.0...v0.6.0) (2026-11-04)
+
+
+### Features
+
+* import CDI and SELIC values from the Banco Central ([#18](https://github.com/Diogo-NB/investflow/issues/18)) ([f2f6796](https://github.com/Diogo-NB/investflow/commit/f2f67965c978a2e9e44eb5fb2ceb178070260dab))
+
 ## [0.5.0](https://github.com/Diogo-NB/investflow/compare/v0.4.0...v0.5.0) (2026-11-03)
 
 
