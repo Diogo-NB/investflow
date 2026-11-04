@@ -84,7 +84,8 @@ below was settled on 2026-10-12 and revised on 2026-10-26.
   for seed and import processes), and use cases report content the actor
   cannot see as not found and visible content they cannot change as
   `forbidden`.
-- Every change to an offer or curve raises a past-tense domain
+- Every change to an offer or curve, except a curve end moved by published
+  values (see below), raises a past-tense domain
   event persisted through the transactional outbox (see
   `$investflow-eventing`). Events carry identifiers only. Consumers read
   current state, so events never carry revisions or values, and their size
@@ -101,6 +102,17 @@ below was settled on 2026-10-12 and revised on 2026-10-26.
   `termsRevision` on offers and `valuesRevision` on curves, raised only by
   changes that affect a calculation, are what results record. Renaming an
   offer or describing a curve therefore leaves its simulations up to date.
+- **Published values that only move a curve's end (decided 2026-11-04)** raise
+  `revision` alone, with no `valuesRevision` increment and no event: the last
+  value already held after the end, so no result can change. About 98% of
+  imports are of this kind, so fanning them out would recalculate every
+  simulation on the curve almost every business day. `Curve.edit()` keeps
+  comparing interval structure, so a user moving an end or splitting an
+  interval causes a harmless recalculation; it can adopt the same rule if that
+  ever matters. Without the daily fan-out, a dead-lettered fan-out for a rate
+  change leaves results "Desatualizado" until the next rate change, a save, or
+  a redrive, which raises the value of the
+  [dead-letter alarms](../implementation/planned/production-hardening.md).
 
 ### Input fingerprint
 

@@ -68,6 +68,8 @@ Every change increments the revision once and raises past-tense events
 only the curve's identity; an edit of both raises both. `valuesRevision`
 rises only with the intervals, so results stay current when a curve is
 renamed. An edit that changes nothing keeps the revisions and raises nothing.
+Published values that only move the last end raise the revision alone, with no
+event, since the last value already held after that end.
 `assertRevision()` reports a stale client revision as
 `CURVE_REVISION_CONFLICT`.
 

@@ -644,11 +644,28 @@ describe('Curve.applyPublishedValues', () => {
     expect(rangesOf(curve)[1]).toEqual(['2026-11-03', '2026-11-03', '0.13']);
   });
 
-  it('raises values changed for an extension until extensions stop recalculating', () => {
+  it('raises only the revision when unchanged values just move the end', () => {
     const curve = systemCurve();
 
-    curve.applyPublishedValues([published('2026-11-03')], LATER);
+    curve.applyPublishedValues(
+      [published('2026-11-03'), published('2026-11-04')],
+      LATER,
+    );
 
+    expect(curve.revision).toBe(2);
+    expect(curve.valuesRevision).toBe(1);
+    expect(curve.getDomainEvents()).toEqual([]);
+  });
+
+  it('raises values changed once when a call opens an interval', () => {
+    const curve = systemCurve();
+
+    curve.applyPublishedValues(
+      [published('2026-11-03'), published('2026-11-04', '0.13')],
+      LATER,
+    );
+
+    expect(curve.revision).toBe(2);
     expect(curve.valuesRevision).toBe(2);
     expect(curve.getDomainEvents()).toEqual([expect.any(CurveValuesChanged)]);
   });

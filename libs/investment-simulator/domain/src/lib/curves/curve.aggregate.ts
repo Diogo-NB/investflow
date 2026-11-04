@@ -250,6 +250,14 @@ export class Curve extends AggregateRoot {
         );
       }
     }
+
+    // No new interval means only the last end moved. Its value already held
+    // after the end, so no date's value changed and results stay current.
+    if (intervals.length === this.props.intervals.length) {
+      this.props.intervals = intervals;
+      this.revisionTracker.increment();
+      return Result.ok(this);
+    }
     return this.edit({ intervals }, occurredAt);
   }
 
