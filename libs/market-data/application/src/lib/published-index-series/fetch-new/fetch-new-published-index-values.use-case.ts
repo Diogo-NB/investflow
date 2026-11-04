@@ -35,6 +35,7 @@ export class FetchNewPublishedIndexValuesUseCase
     const start = await this.startDate(command);
     if (start.isErr()) return start;
 
+    // A publisher may list dates ahead of today, whose values can still change.
     const today = this.clock.today();
     if (start.value.isAfter(today)) return Result.ok([]);
 

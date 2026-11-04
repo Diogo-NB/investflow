@@ -254,6 +254,7 @@ model CurveInterval {
 enum PublishedIndex {
   CDI
   SELIC
+  SELIC_TARGET
 
   @@map("published_index")
 }

@@ -39,6 +39,17 @@ describe('PublishedIndexValuesConsumer', () => {
     expect(command.values[0].value.value.toFixed()).toBe('0.1365');
   });
 
+  it('applies nothing for the target SELIC, which feeds no curve', async () => {
+    const { useCase, consumer } = setup();
+
+    await consumer.onPublishedIndexValuesImported({
+      ...payload,
+      index: 'SELIC_TARGET',
+    });
+
+    expect(useCase.execute).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['an unknown index', { ...payload, index: 'IPCA' }],
     ['no values', { index: 'CDI' }],

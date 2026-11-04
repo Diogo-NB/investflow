@@ -25,6 +25,7 @@ describe('BcbPublishedIndexValuesReader', () => {
   it.each([
     [EPublishedIndex.CDI, 4389],
     [EPublishedIndex.SELIC, 1178],
+    [EPublishedIndex.SELIC_TARGET, 432],
   ])('asks for the series and dates of %s', async (index, series) => {
     const fetchMock = respondWith(200, []);
 

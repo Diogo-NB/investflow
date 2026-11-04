@@ -221,7 +221,8 @@ This replaces the earlier SNS topic per context.
   accept payloads of that size (EventBridge accepts 256 KB per entry).
 - **Published index values (decided 2026-11-04).** One Dokploy schedule job per
   index runs `apps/index-values-importer`, at the hour its index is published:
-  on the morning after its date, SELIC at 09:00 and CDI at noon. Each
+  on the morning after its date, SELIC at 09:00 and CDI at noon. The target
+  SELIC runs on Mondays at 09:30 instead (see "Target SELIC"). Each
   run fetches new Banco Central values outside
   any transaction, then stores each year's series and records
   `PublishedIndexValuesImported` in one unit of work.
@@ -237,6 +238,26 @@ This replaces the earlier SNS topic per context.
     since its dates are then before the curve's end. Accepted because it takes
     five failed deliveries followed by a success, and a check would add a field
     to the series, the event, and the consumer.
+  - **Target SELIC.** SGS 432 is stored like the other indexes and raises the
+    same event, because the fact is the same; the consumer returns without
+    applying it, since it feeds no curve. That costs one no-op message a week,
+    and nobody reads its `values`. The job is weekly because the rate changes
+    only at about eight Copom meetings a year, nothing reads it yet, and each
+    run catches up on every day since the last, so stored values can be up to
+    a week behind. Revisit when something reads them. Rejected: filtering it in the EventBridge
+    rule, where a wrong pattern silently drops CDI and SELIC; and its own
+    aggregate and event, which would duplicate the import with no difference in
+    behavior.
+  - **Dates ahead of today.** SGS 432 lists dates up to the next Copom decision
+    (observed 2026-11-04: an archived capture from 10-24 ended on the 11-04
+    decision, and it now ends on the 12-09 one). A date after a decision has no
+    row until the outcome is published, so a run cannot read an outdated rate.
+    Each run fetches only through `Clock.today()`, which is the UTC date: a run
+    between 21:00 and midnight in São Paulo stores tomorrow's value, so the
+    job runs in the morning.
+  - **Ten-year limit.** SGS rejects a daily query over 10 years (HTTP 406). The
+    reader does not split ranges because no import reaches that far, so an older
+    `--start-date` fails the run before writing anything.
 - **Hosts.** A host publishes by importing `OutboxModule`, which runs its
   relay, poller, and retention. A host without it, such as the seed, records
   events that a publishing host's poller sends after the grace period. A Lambda

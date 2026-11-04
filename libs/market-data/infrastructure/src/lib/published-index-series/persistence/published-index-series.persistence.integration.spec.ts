@@ -123,6 +123,27 @@ describe('PublishedIndexSeries PostgreSQL persistence', () => {
     });
   });
 
+  it('stores the target SELIC as its own series', async () => {
+    const effective = PublishedIndexSeries.create(EPublishedIndex.SELIC, YEAR);
+    effective.append([published('2099-11-03', '0.1365')], AT);
+    await save(effective);
+    const target = PublishedIndexSeries.create(
+      EPublishedIndex.SELIC_TARGET,
+      YEAR,
+    );
+    target.append([published('2099-11-03', '0.1375')], AT);
+    await save(target);
+
+    const found = await repository.findByIndexAndYear(
+      EPublishedIndex.SELIC_TARGET,
+      YEAR,
+    );
+
+    expect(found.value.id).toBe(target.id);
+    expect(found.value.index).toBe(EPublishedIndex.SELIC_TARGET);
+    expect(found.value.values[0].value.toFixed()).toBe('0.1375');
+  });
+
   it('rolls back the values and the event together', async () => {
     const series = PublishedIndexSeries.create(EPublishedIndex.CDI, YEAR);
     series.append([published('2099-11-03')], AT);

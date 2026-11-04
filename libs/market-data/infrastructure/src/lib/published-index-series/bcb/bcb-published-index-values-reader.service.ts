@@ -15,10 +15,12 @@ import { z } from 'zod';
 const SGS_URL = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs';
 const FETCH_TIMEOUT_MS = 10_000;
 
-// The annualized, base-252 series, in the convention of the curves.
+// CDI and SELIC are the annualized, base-252 series, in the convention of the
+// curves. SELIC_TARGET lists every calendar day, up to the next Copom decision.
 const SGS_SERIES_BY_INDEX: Readonly<Record<EPublishedIndex, number>> = {
   [EPublishedIndex.CDI]: 4389,
   [EPublishedIndex.SELIC]: 1178,
+  [EPublishedIndex.SELIC_TARGET]: 432,
 };
 
 const sgsResponse = z.array(

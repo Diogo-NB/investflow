@@ -201,6 +201,8 @@ this file in the same change that ships or changes a built behavior.
   from a one-off load, run once and since removed. See the
   [runbook](../../infra/dokploy/README.md) and "Published index values" in
   [Messaging Transport](../architecture/messaging.md).
+  It also stores the target SELIC (SGS 432), imported weekly, from its first
+  production run onwards, with no earlier history; nothing reads it yet, and it feeds no curve.
 
 ## Differs From the Target Model
 

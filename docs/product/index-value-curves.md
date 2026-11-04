@@ -199,6 +199,13 @@ e [meta SELIC — Banco Central](https://bcb.gov.br/estatisticas/detalhamentoGra
 Usar uma trajetória de meta SELIC para remunerar uma aplicação exigiria uma
 regra explícita de transformação. Essa transformação não está definida.
 
+O sistema importa e guarda a meta SELIC (série 432, em percentual ao ano) como
+referência, a partir de sua primeira importação em produção, sem histórico
+anterior. Ela não alimenta nenhuma curva, não entra em nenhum cálculo e não
+aparece em nenhuma tela. O Banco Central publica um valor para cada dia corrido
+e antecipa os dias até a próxima decisão do Copom; só são guardados os dias até
+a data da importação, pois os seguintes ainda não estão em vigor.
+
 Valores negativos de inflação precisam ser representáveis. Limites numéricos
 e validações respeitam a convenção: CDI e SELIC efetiva admitem taxas iguais
 ou superiores a zero; IPCA admite variações maiores que −100%, incluindo
@@ -549,8 +556,9 @@ depois do fim é regra da curva, sempre identificada.
 ## Fora do Escopo Atual
 
 - Detalhamento técnico de classes, APIs e persistência neste documento.
-- Importação de outros índices e fontes além do CDI e da SELIC efetiva do
-  Banco Central.
+- Importação de outros índices e fontes além do CDI, da SELIC efetiva e da meta
+  SELIC do Banco Central.
+- Exibição da meta SELIC.
 - Construção automática de previsões ou curvas a termo.
 - Preenchimento automático de dados ausentes.
 - Substituição automática de um índice por outro.

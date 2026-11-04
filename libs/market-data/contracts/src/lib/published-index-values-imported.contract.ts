@@ -8,7 +8,7 @@ export interface PublishedIndexValuesImportedContract {
   readonly aggregateType: 'PublishedIndexSeries';
   readonly aggregateId: string;
   readonly occurredAt: string;
-  readonly index: 'CDI' | 'SELIC';
+  readonly index: 'CDI' | 'SELIC' | 'SELIC_TARGET';
   // Oldest first. A value is a decimal string in fractions: 13.65% is 0.1365.
   readonly values: readonly {
     readonly referenceDate: string;

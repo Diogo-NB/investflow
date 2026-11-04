@@ -11,7 +11,7 @@ import { OnEvent } from '@investflow/shared-infrastructure';
 import { z } from 'zod';
 
 const publishedIndexValuesImported = z.object({
-  index: z.enum(['CDI', 'SELIC']),
+  index: z.enum(['CDI', 'SELIC', 'SELIC_TARGET']),
   values: z.array(
     z.object({ referenceDate: z.iso.date(), value: z.string().min(1) }),
   ),
@@ -30,10 +30,12 @@ export class PublishedIndexValuesConsumer {
 
   @OnEvent(PUBLISHED_INDEX_VALUES_IMPORTED)
   async onPublishedIndexValuesImported(payload: unknown): Promise<void> {
+    const { index, values } = publishedIndexValuesImported.parse(payload);
+    // The target SELIC feeds no curve.
+    if (index === 'SELIC_TARGET') return;
+
     const result = await this.applyPublishedIndexValues.execute(
-      ApplyPublishedIndexValuesCommand.fromRequest(
-        publishedIndexValuesImported.parse(payload),
-      ),
+      ApplyPublishedIndexValuesCommand.fromRequest({ index, values }),
     );
     if (result.isErr()) throw result.error;
   }

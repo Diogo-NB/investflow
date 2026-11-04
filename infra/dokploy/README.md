@@ -33,7 +33,8 @@ service's **Deploy** button in Dokploy does the same.
 ## Import the index values
 
 `investflow-index-values-importer` stores what the Banco Central published and
-updates the `CDI` and `SELIC` system curves through the API. Before its first
+updates the `CDI` and `SELIC` system curves through the API; the target SELIC
+(`SELIC_TARGET`) is only stored. Before its first
 release, run `pnpm nx run infra-aws:deploy` for its queue, and confirm `/curvas`
 lists both curves, named exactly that, under "Do sistema"; without them, every
 event dead-letters.
@@ -46,28 +47,40 @@ event dead-letters.
    docker exec <importer container> node main.js --index=SELIC --start-date=2026-10-31
    ```
 
+   The target SELIC has no earlier history to load, so its first run starts on
+   the day it runs. Run it in the morning, São Paulo time (see "Dates ahead of
+   today" in [Messaging Transport](../../docs/architecture/messaging.md)):
+
+   ```sh
+   docker exec <importer container> node main.js --index=SELIC_TARGET --start-date=<today>
+   ```
+
    A run without `--start-date` starts the day after the last stored date. A
    start date already stored fails the run, and a later one leaves a gap: the
    curve keeps the previous rate over the missing days.
 
 2. In Dokploy, add one **Compose** schedule job per index on the service
-   `investflow-index-values-importer`, on weekdays, at the hours in São Paulo
-   below. The crons assume UTC; confirm the timezone from the first runs.
+   `investflow-index-values-importer`, on the days and at the hours below, in São Paulo time.
 
-   | Index | Command                      | Time  | Cron           |
-   | ----- | ---------------------------- | ----- | -------------- |
-   | SELIC | `node main.js --index=SELIC` | 09:00 | `0 12 * * 1-5` |
-   | CDI   | `node main.js --index=CDI`   | 12:00 | `0 15 * * 1-5` |
+   | Index        | Command                             | Days     | Time  | Cron           |
+   | ------------ | ----------------------------------- | -------- | ----- | -------------- |
+   | SELIC        | `node main.js --index=SELIC`        | Weekdays | 09:00 | `0 9 * * 1-5`  |
+   | SELIC_TARGET | `node main.js --index=SELIC_TARGET` | Mondays  | 09:30 | `30 9 * * 1`   |
+   | CDI          | `node main.js --index=CDI`          | Weekdays | 12:00 | `0 12 * * 1-5` |
 
-   Both values appear in the API the morning after their date: SELIC was there
+   The SELIC and CDI values appear in the API the morning after their date: SELIC was there
    by 08:36 and the CDI by 11:26 in the one day sampled. A value that arrives
    after its job's run waits for the next day's run, so check the first runs and
-   move a job later if needed. A run before step 1 fails with
+   move a job later if needed, but keep the jobs apart: they share one 256 MB
+   container and a run peaks at 173 MiB. Each `SELIC_TARGET` run stores the
+   seven days since the last one, so a failed run waits for the next Monday
+   unless it is run again by hand. A run before step 1 fails with
    "Informe a data inicial" and writes nothing.
 
 3. Check that a run logs `SELIC: imported` or `CDI: imported`, and that a new
    value appears in `published_index_value` and moves the curve's end within
-   about a minute, once the API's poller publishes it.
+   about a minute, once the API's poller publishes it. A `SELIC_TARGET` run moves
+   no curve.
 
 A failed run exits with 1, shows only in the job's logs, and the next run
 catches up. A message in `curve-published-index-values-dlq.fifo` can be moved
