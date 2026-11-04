@@ -16,6 +16,7 @@ import {
   SimulationCalculationFailureConsumer,
   SimulationRecalculationConsumer,
 } from '@investflow/investment-simulator-infrastructure';
+import { PublishedIndexValuesHttpModule } from '@investflow/market-data-infrastructure';
 import { AppController } from './app.controller';
 import { AppHealth } from './app.health';
 import { HTTP_INTERCEPTOR_PROVIDERS } from './http-interceptors.providers';
@@ -27,6 +28,7 @@ import { serverConfig } from './server.config';
     ConfigModule.forFeature(serverConfig),
     OutboxModule,
     InvestmentSimulatorInfrastructureModule,
+    PublishedIndexValuesHttpModule,
     SqsConsumersModule.register([
       {
         consumer: SimulationCalculationConsumer,

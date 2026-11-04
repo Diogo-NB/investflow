@@ -27,7 +27,11 @@ nenhum agrupamento é guardado. As regras estão no
 - Excluir pede confirmação, informa que a exclusão é definitiva e que "N
   simulações ficarão sem oferta (Sem oferta, escolha outra)".
 - No editor, o tipo de título aparece como informação fixa. Mudar o tipo de
-  remuneração limpa a taxa, porque sua unidade mudou. Enquanto a edição muda
+  remuneração limpa a taxa, porque sua unidade mudou. Abaixo da taxa, o último
+  valor publicado serve de referência ("CDI em 03/11/2026: 13,65% a.a."): o CDI
+  em "% do CDI" e em "Prefixado", a SELIC em "% da SELIC" e nada em "IPCA+". É só
+  informativo: não preenche nem valida a taxa, e não aparece se não puder ser
+  carregado. Enquanto a edição muda
   os termos (vencimento ou remuneração; uma taxa ainda inválida conta como
   mudança), o editor informa antes de salvar: "As N simulações que usam esta
   oferta serão recalculadas." ("A simulação que usa esta oferta será

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Link, useParams } from 'react-router';
 import { BusinessDateField } from '../../business-calendar/business-date-field';
+import { useRateReferenceHint } from '../../published-index-values/feature/use-rate-reference-hint';
 import { ConfirmDialog } from '../../ui/confirm-dialog';
 import { DecimalInput } from '../../ui/decimal-input';
 import { FormField } from '../../ui/form-field';
@@ -95,6 +96,7 @@ function OfferEditorForm({
     mode: 'onTouched',
   });
   const kind = useWatch({ control: form.control, name: 'remunerationKind' });
+  const rateReferenceHint = useRateReferenceHint(kind);
   // Only changes a calculation reads recalculate the simulations.
   const recalculates = useWatch({
     control: form.control,
@@ -226,6 +228,7 @@ function OfferEditorForm({
             <FormField
               label={`Taxa (${RATE_UNITS[kind]})`}
               error={errors.rate?.message}
+              hint={rateReferenceHint}
             >
               {(control) => (
                 <DecimalInput

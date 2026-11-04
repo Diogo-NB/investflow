@@ -23,7 +23,9 @@ The compact white header establishes the workspace on an off-white canvas.
 Identity and logout stay together; content is left-aligned on the same rail.
 One horizontal rule extends the small route label across available space.
 The signature is the lowercase green `if` brand square, aligned with the
-wordmark and the content rail. The home follows the greeting with the
+wordmark and the content rail. Beside the greeting from the `lg` breakpoint,
+and below it on narrower screens, the home shows a plain strip of the latest
+index values, with no surface. The home follows the greeting with the
 primary actions, then the user's simulations and plans; offers and curves
 are secondary text links at the end. No nested surfaces or gradients.
 

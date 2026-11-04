@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { MarketDataInfrastructureModule } from '@investflow/market-data-infrastructure';
+import { PublishedIndexValuesImportModule } from '@investflow/market-data-infrastructure';
 import { ClockModule, PrismaModule } from '@investflow/shared-infrastructure';
 
 // Without OutboxModule: the job exits right after committing, so the API's
@@ -17,6 +17,6 @@ import { ClockModule, PrismaModule } from '@investflow/shared-infrastructure';
 class ImporterInfrastructureModule {}
 
 @Module({
-  imports: [ImporterInfrastructureModule, MarketDataInfrastructureModule],
+  imports: [ImporterInfrastructureModule, PublishedIndexValuesImportModule],
 })
 export class ImporterModule {}

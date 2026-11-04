@@ -14,7 +14,10 @@ function pageRoutes(): RouteObject[] {
 
 describe('createAppRoutes', () => {
   it('opens the welcome page at the root, with the simulator home inside', () => {
-    const welcome = pageRoutes().find((route) => route.Component === Welcome);
+    const welcome = pageRoutes().find(
+      (route) =>
+        isValidElement(route.element) && route.element.type === Welcome,
+    );
 
     expect(welcome?.path).toBeUndefined();
     expect(welcome?.children?.[0]?.children?.[0]?.index).toBe(true);

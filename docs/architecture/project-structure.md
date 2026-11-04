@@ -32,6 +32,7 @@ apps/api
 └── AppModule
     ├── SharedInfrastructureModule
     ├── InvestmentSimulatorInfrastructureModule
+    ├── PublishedIndexValuesHttpModule (market-data's endpoint)
     └── future bounded-context modules
 
 apps/web
@@ -41,13 +42,15 @@ apps/web
 apps/index-values-importer (one run per schedule, exits when done)
 └── ImporterModule
     ├── PrismaModule, ClockModule (no OutboxModule)
-    └── MarketDataInfrastructureModule
+    └── PublishedIndexValuesImportModule
 ```
 
 `libs/market-data` is a second bounded context: what the market published,
 as facts. `investment-simulator` knows it only through
 `libs/market-data/contracts`, tagged `scope:market-data-contracts` and
-`layer:types`, and lint rejects any other import between the two.
+`layer:types`, and lint rejects any other import between the two. Market data
+has one Nest module per host, so the API never loads the import job and the
+importer never registers the endpoint.
 
 `apps/api` is the system composition root. It chooses the contexts deployed in
 the process and configures global concerns. Each imported bounded-context Nest
