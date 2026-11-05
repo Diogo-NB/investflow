@@ -147,6 +147,16 @@ the greeting and renders the home through an `Outlet`. The factory returns top-l
 context, which its API adapters read. Features never import Keycloak or app
 modules, and they use relative `/api` URLs.
 
+The library also exports `latestPublishedIndexValuesElement(deps)`, which the
+app passes to its welcome page as `aside`, beside the greeting. Decided
+2026-11-04: the home's strip and the forms' rate hint live in
+`libs/investment-simulator/web`, reading
+`/api/market-data/published-index-values/latest` through one adapter with their
+own transport types. A `libs/market-data/web` project would own them more
+strictly, but would duplicate the request and formatting helpers, since frontend
+libraries are never shared, for one read of three numbers. Revisit if market
+data gets screens of its own.
+
 ## Toasts
 
 Decided 2026-10-27 with investment plans: a toast reports the outcome of something that

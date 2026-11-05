@@ -25,7 +25,7 @@
         }
       ],
       "options": {
-        "command": "env -u AWS_PROFILE NODE_OPTIONS=--experimental-vm-modules pnpm exec jest --config libs/market-data/infrastructure/jest.config.cts --testPathIgnorePatterns=/node_modules/ --testMatch='**/*.integration.spec.ts'"
+        "command": "env -u AWS_PROFILE NODE_OPTIONS=--experimental-vm-modules pnpm exec jest --config libs/market-data/infrastructure/jest.config.cts --testPathIgnorePatterns=/node_modules/ --testMatch='**/*.integration.spec.ts' --runInBand"
       }
     },
     "typecheck": {

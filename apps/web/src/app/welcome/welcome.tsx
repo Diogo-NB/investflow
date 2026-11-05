@@ -1,8 +1,9 @@
+import type { ReactNode } from 'react';
 import { Outlet } from 'react-router';
 import { useGivenName } from '../auth/auth-context';
 
 // The bounded contexts render their part of the home below the greeting.
-export function Welcome() {
+export function Welcome({ aside }: { readonly aside: ReactNode }) {
   const givenName = useGivenName();
   return (
     <section aria-labelledby="welcome-title" className="grid gap-6">
@@ -11,16 +12,19 @@ export function Welcome() {
         <span>Início</span>
         <span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
-      <div className="max-w-2xl">
-        <h1
-          id="welcome-title"
-          className="m-0 text-2xl/tight font-semibold tracking-tight text-fg sm:text-3xl/tight"
-        >
-          {givenName ? `Olá, ${givenName}.` : 'Olá.'}
-        </h1>
-        <p className="mt-2 mb-0 max-w-prose text-lg/relaxed text-muted">
-          Simule, compare e acompanhe seus investimentos.
-        </p>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-2xl">
+          <h1
+            id="welcome-title"
+            className="m-0 text-2xl/tight font-semibold tracking-tight text-fg sm:text-3xl/tight"
+          >
+            {givenName ? `Olá, ${givenName}.` : 'Olá.'}
+          </h1>
+          <p className="mt-2 mb-0 max-w-prose text-lg/relaxed text-muted">
+            Simule, compare e acompanhe seus investimentos.
+          </p>
+        </div>
+        {aside}
       </div>
       <Outlet />
     </section>

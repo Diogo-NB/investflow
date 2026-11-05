@@ -381,7 +381,7 @@ saldo_bruto = saldo_bruto_anterior * fator_diario_aplicacao
 ```
 
 Usar a mesma convenção de datas do CDI. A remuneração exige uma curva de SELIC;
-uma curva de CDI não pode substituí-la. Não há conversão implícita da meta SELIC, que o sistema apenas guarda como referência.
+uma curva de CDI não pode substituí-la. Não há conversão implícita da meta SELIC, que o sistema guarda e mostra apenas como referência.
 
 ### Imposto de Renda
 

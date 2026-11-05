@@ -26,4 +26,4 @@ import { PrismaPublishedIndexSeriesRepository } from './persistence/prisma-publi
   ],
   exports: [PublishedIndexValuesImportJob],
 })
-export class MarketDataInfrastructureModule {}
+export class PublishedIndexValuesImportModule {}

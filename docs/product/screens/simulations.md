@@ -125,8 +125,10 @@ valor aplicado, o período e a origem da oferta.
       em Minhas", com "Ver oferta").
   - Uma oferta excluída mostra "Oferta excluída. Escolha outra ou salve para
     manter estes termos só nesta simulação."
-  - Mudar o tipo de remuneração limpa a taxa e a curva. A liquidez começa em
-    "No vencimento".
+  - Abaixo da taxa, o último valor publicado serve de referência, como no editor
+    de [ofertas](./offers.md).
+- Mudar o tipo de remuneração limpa a taxa e a curva. A liquidez começa em
+  "No vencimento".
 - "Investimento": valor aplicado, data da aplicação e a curva, nos tipos
   indexados. As curvas são filtradas pelo índice da oferta e agrupadas por
   origem ("Do sistema", "Minhas"); uma curva única é escolhida sozinha e

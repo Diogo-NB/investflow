@@ -1,6 +1,7 @@
 import {
   investmentSimulatorHomeRoute,
   investmentSimulatorRoutes,
+  latestPublishedIndexValuesElement,
   type InvestmentSimulatorDeps,
 } from '@investflow/investment-simulator-web';
 import { Navigate, type RouteObject } from 'react-router';
@@ -28,7 +29,9 @@ export function createAppRoutes(deps: InvestmentSimulatorDeps): RouteObject[] {
           ErrorBoundary: RouteError,
           children: [
             {
-              Component: Welcome,
+              element: (
+                <Welcome aside={latestPublishedIndexValuesElement(deps)} />
+              ),
               children: [investmentSimulatorHomeRoute(deps)],
             },
             ...investmentSimulatorRoutes(deps),

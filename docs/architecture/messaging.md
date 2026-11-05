@@ -221,8 +221,8 @@ This replaces the earlier SNS topic per context.
   accept payloads of that size (EventBridge accepts 256 KB per entry).
 - **Published index values (decided 2026-11-04).** One Dokploy schedule job per
   index runs `apps/index-values-importer`, at the hour its index is published:
-  on the morning after its date, SELIC at 09:00 and CDI at noon. The target
-  SELIC runs on Mondays at 09:30 instead (see "Target SELIC"). Each
+  on the morning after its date, SELIC at 09:00 and CDI at noon, and the target
+  SELIC at 09:30, whose value is out by then. Each
   run fetches new Banco Central values outside
   any transaction, then stores each year's series and records
   `PublishedIndexValuesImported` in one unit of work.
@@ -240,11 +240,8 @@ This replaces the earlier SNS topic per context.
     to the series, the event, and the consumer.
   - **Target SELIC.** SGS 432 is stored like the other indexes and raises the
     same event, because the fact is the same; the consumer returns without
-    applying it, since it feeds no curve. That costs one no-op message a week,
-    and nobody reads its `values`. The job is weekly because the rate changes
-    only at about eight Copom meetings a year, nothing reads it yet, and each
-    run catches up on every day since the last, so stored values can be up to
-    a week behind. Revisit when something reads them. Rejected: filtering it in the EventBridge
+    applying it, since it feeds no curve. That costs one no-op message a day,
+    and nobody reads its `values`. Rejected: filtering it in the EventBridge
     rule, where a wrong pattern silently drops CDI and SELIC; and its own
     aggregate and event, which would duplicate the import with no difference in
     behavior.

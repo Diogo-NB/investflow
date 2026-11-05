@@ -60,21 +60,21 @@ event dead-letters.
    curve keeps the previous rate over the missing days.
 
 2. In Dokploy, add one **Compose** schedule job per index on the service
-   `investflow-index-values-importer`, on the days and at the hours below, in São Paulo time.
+   `investflow-index-values-importer`, on weekdays, at the hours below, in São Paulo time.
 
-   | Index        | Command                             | Days     | Time  | Cron           |
-   | ------------ | ----------------------------------- | -------- | ----- | -------------- |
-   | SELIC        | `node main.js --index=SELIC`        | Weekdays | 09:00 | `0 9 * * 1-5`  |
-   | SELIC_TARGET | `node main.js --index=SELIC_TARGET` | Mondays  | 09:30 | `30 9 * * 1`   |
-   | CDI          | `node main.js --index=CDI`          | Weekdays | 12:00 | `0 12 * * 1-5` |
+   | Index        | Command                             | Time  | Cron           |
+   | ------------ | ----------------------------------- | ----- | -------------- |
+   | SELIC        | `node main.js --index=SELIC`        | 09:00 | `0 9 * * 1-5`  |
+   | SELIC_TARGET | `node main.js --index=SELIC_TARGET` | 09:30 | `30 9 * * 1-5` |
+   | CDI          | `node main.js --index=CDI`          | 12:00 | `0 12 * * 1-5` |
 
    The SELIC and CDI values appear in the API the morning after their date: SELIC was there
    by 08:36 and the CDI by 11:26 in the one day sampled. A value that arrives
    after its job's run waits for the next day's run, so check the first runs and
    move a job later if needed, but keep the jobs apart: they share one 256 MB
-   container and a run peaks at 173 MiB. Each `SELIC_TARGET` run stores the
-   seven days since the last one, so a failed run waits for the next Monday
-   unless it is run again by hand. A run before step 1 fails with
+   container and a run peaks at 173 MiB. Monday's `SELIC_TARGET` run also stores
+   the weekend, and a value after a Copom decision waits for the Banco Central
+   to publish it. A run before step 1 fails with
    "Informe a data inicial" and writes nothing.
 
 3. Check that a run logs `SELIC: imported` or `CDI: imported`, and that a new

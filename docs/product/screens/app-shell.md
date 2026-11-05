@@ -24,6 +24,12 @@ autenticação estão em "Screen mechanics" em
   {primeiro nome}." ("Olá." sem primeiro nome) e o subtítulo "Simule, compare
   e acompanhe seus investimentos.". Um erro inesperado mostra uma mensagem
   segura, com a opção de recarregar, dentro da estrutura.
+- Ao lado da saudação (abaixo dela em telas estreitas), "Índices do Banco
+  Central, ao ano" mostra o último valor publicado de CDI, SELIC e Meta SELIC,
+  cada um com sua data, pois as publicações não coincidem. Um índice ainda sem
+  valor mostra "—". Enquanto carrega, reserva o espaço; se falhar, mostra "Não
+  foi possível carregar os índices." com "Tentar novamente", e o restante do
+  Início não é afetado. Aparece também para quem não tem simulações.
 - Abaixo da saudação, o Início reúne o que o usuário mais faz, cada bloco
   carregado e, se falhar, tentado de novo por conta própria:
   - "Nova simulação" e "Comparar simulações", que abre a lista.

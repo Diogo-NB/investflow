@@ -48,6 +48,7 @@ import type {
 } from '../models/simulation.types';
 import type { useSimulationForm } from './use-simulation-form';
 import type { useSimulationTermsActions } from './use-simulation-terms-actions';
+import { useRateReferenceHint } from '../../published-index-values/feature/use-rate-reference-hint';
 
 type SimulationForm = ReturnType<typeof useSimulationForm>;
 
@@ -396,6 +397,7 @@ function OfferTermFields({
   const { form, values } = simulation;
   const { errors } = form.formState;
   const kind = values.remunerationKind;
+  const rateReferenceHint = useRateReferenceHint(kind);
   // Kinds the calculator cannot price stay visible but cannot be chosen.
   const kindOptions: SelectOption[] = options.remunerations.map((option) => ({
     value: option.kind,
@@ -453,6 +455,7 @@ function OfferTermFields({
         <FormField
           label={`Taxa (${RATE_UNITS[kind]})`}
           error={errors.rate?.message}
+          hint={rateReferenceHint}
         >
           {(control) => (
             <DecimalInput

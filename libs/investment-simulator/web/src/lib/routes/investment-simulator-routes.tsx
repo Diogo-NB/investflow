@@ -1,4 +1,5 @@
 import { Outlet, type RouteObject } from 'react-router';
+import { LatestPublishedIndexValuesStrip } from '../published-index-values/feature/latest-published-index-values-strip';
 import {
   InvestmentSimulatorDepsContext,
   type InvestmentSimulatorDeps,
@@ -28,6 +29,17 @@ const curveEditor = () =>
   import('../curves/feature/curve-editor-page').then((module) => ({
     Component: module.CurveEditorPage,
   }));
+
+/** The latest index values, which the app's welcome places beside its greeting. */
+export function latestPublishedIndexValuesElement(
+  deps: InvestmentSimulatorDeps,
+) {
+  return (
+    <InvestmentSimulatorDepsContext value={deps}>
+      <LatestPublishedIndexValuesStrip />
+    </InvestmentSimulatorDepsContext>
+  );
+}
 
 /** The context's part of the home page, rendered inside the app's welcome. */
 export function investmentSimulatorHomeRoute(

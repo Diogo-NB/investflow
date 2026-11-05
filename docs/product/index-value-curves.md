@@ -201,8 +201,9 @@ regra explícita de transformação. Essa transformação não está definida.
 
 O sistema importa e guarda a meta SELIC (série 432, em percentual ao ano) como
 referência, a partir de sua primeira importação em produção, sem histórico
-anterior. Ela não alimenta nenhuma curva, não entra em nenhum cálculo e não
-aparece em nenhuma tela. O Banco Central publica um valor para cada dia corrido
+anterior. Ela não alimenta nenhuma curva e não entra em nenhum cálculo; o Início
+mostra seu último valor (ver [Estrutura do Aplicativo](./screens/app-shell.md)).
+O Banco Central publica um valor para cada dia corrido
 e antecipa os dias até a próxima decisão do Copom; só são guardados os dias até
 a data da importação, pois os seguintes ainda não estão em vigor.
 
@@ -558,7 +559,6 @@ depois do fim é regra da curva, sempre identificada.
 - Detalhamento técnico de classes, APIs e persistência neste documento.
 - Importação de outros índices e fontes além do CDI, da SELIC efetiva e da meta
   SELIC do Banco Central.
-- Exibição da meta SELIC.
 - Construção automática de previsões ou curvas a termo.
 - Preenchimento automático de dados ausentes.
 - Substituição automática de um índice por outro.
