@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/Diogo-NB/investflow/compare/v0.6.0...v0.7.0) (2026-11-05)
+
+
+### Features
+
+* import and store the target SELIC ([#22](https://github.com/Diogo-NB/investflow/issues/22)) ([c2f39c1](https://github.com/Diogo-NB/investflow/commit/c2f39c1505ddf91925cb6003028ae314d8109748))
+* show the latest published index values ([#23](https://github.com/Diogo-NB/investflow/issues/23)) ([d6b8c8a](https://github.com/Diogo-NB/investflow/commit/d6b8c8ab1fe9eefcf9b5262475f59fa8edd34ba4))
+
+
+### Bug Fixes
+
+* stop recalculating simulations when an import only extends a curve ([#20](https://github.com/Diogo-NB/investflow/issues/20)) ([ca7e7c4](https://github.com/Diogo-NB/investflow/commit/ca7e7c42f16c2b5f1825d9444887f2be0db1e190))
+
 ## [0.6.0](https://github.com/Diogo-NB/investflow/compare/v0.5.0...v0.6.0) (2026-11-04)
 
 
