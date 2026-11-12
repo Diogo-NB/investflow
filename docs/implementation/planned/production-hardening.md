@@ -24,7 +24,8 @@ The deployment these build on is in
 - **A `staging` environment**, a second Dokploy environment and AWS stack
   that a release deploys to before production. Revisit when changes need
   testing on real infrastructure before users see them; it also needs room
-  in the VPS memory budget.
+  in the VPS memory budget. [Fault Injection and Integrity Experiments](./fault-injection-experiments.md)
+  needs it first.
 - **A Content Security Policy** in `apps/web/nginx.conf`, allowing the site
   itself and `auth.diogo-nb.com.br` for the Keycloak login.
 - **Publishing independent of the API.** Hosts without `OutboxModule` rely on
