@@ -43,8 +43,9 @@ path:
 
 1. Which faults exist only because events are notifications, and which only
    because they carry state?
-2. When events carry state, do FIFO exclusivity per aggregate and the
-   revision guard become necessary again?
+2. When events carry state, do the revision guard and deduplication become
+   necessary again? (FIFO exclusivity per aggregate stays on; see
+   "Protections turned off one at a time".)
 3. Does a retained log repair faults that recalculation from current state
    cannot, and how much of that survives finite retention, deduplication,
    and a schema change?
@@ -99,15 +100,15 @@ and the calculation consumer.
 Every fault is applied by a switch (see "Fault switches"), the same for every
 variant.
 
-| Fault         | What happens                                                    | How it is injected                                                                                                     |
-| ------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| F1            | An event is lost and a later one of the same aggregate succeeds | Dead-letter one event and let the next pass                                                                            |
-| F2            | A late event arrives after a newer one                          | Delay one message, or redrive an old event from the dead-letter queue; needs FIFO exclusivity off or an injected delay |
-| F3            | A message is delivered twice                                    | Repeat a message, with deduplication on and off                                                                        |
-| F4            | The read lags the event (a dependency across channels)          | Staging only: the consumer reads state as it was X seconds ago; X is a parameter of the run                            |
-| F5            | A logic error in the consumer, fixed later                      | Swap the calculation for a faulty one, then restore it                                                                 |
-| F6            | The producer's database and its event disagree                  | Publish an event whose state differs from what was saved (a dual write without the outbox)                             |
-| F7 (optional) | An old consumer receives an event with a new schema             | Publish a new version of an event before updating the consumer                                                         |
+| Fault         | What happens                                                    | How it is injected                                                                              |
+| ------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| F1            | An event is lost and a later one of the same aggregate succeeds | Dead-letter one event and let the next pass                                                     |
+| F2            | A late event arrives after a newer one                          | Delay one message, or redrive an old event from the dead-letter queue, with FIFO exclusivity on |
+| F3            | A message is delivered twice                                    | Repeat a message, with deduplication on and off                                                 |
+| F4            | The read lags the event (a dependency across channels)          | Staging only: the consumer reads state as it was X seconds ago; X is a parameter of the run     |
+| F5            | A logic error in the consumer, fixed later                      | Swap the calculation for a faulty one, then restore it                                          |
+| F6            | The producer's database and its event disagree                  | Publish an event whose state differs from what was saved (a dual write without the outbox)      |
+| F7 (optional) | An old consumer receives an event with a new schema             | Publish a new version of an event before updating the consumer                                  |
 
 F4 does not happen today: the database is one PostgreSQL instance on the
 Dokploy server, with no replica. The delay is injected in the read rather
@@ -119,9 +120,17 @@ setting checked in the PostgreSQL documentation.
 
 ### Protections turned off one at a time
 
-Against F2 and F3 only: the revision guard, FIFO exclusivity per aggregate,
-and deduplication, turned off one at a time in each variant. This answers
-question 2.
+Against F2 and F3 only: the revision guard and deduplication, turned off one
+at a time in each variant. This answers question 2.
+
+FIFO exclusivity per aggregate stays on in every run (decided 2026-11-15).
+It was the only protection whose outcome, once off, depends on two messages
+of the same aggregate coinciding, which needed a pilot, many runs, and a
+statistical analysis; without it every run is deterministic. What is lost:
+the effect of processing two events of the same aggregate at once is not
+measured, and is recorded as a limitation. To confirm when building it: that
+F3 with deduplication off (the same message delivered twice) gives a
+deterministic outcome.
 
 ### Fault switches
 
@@ -134,7 +143,6 @@ API refuses to start with any switch on unless the environment is staging
 | Event content                    | Selects V1, V2, V3, or V4 for the recalculation path                                        | Variants        |
 | Publish without the outbox       | Commits, then publishes directly, with an optional crash between the two                    | F6              |
 | Write without the revision guard | The worker saves its outcome without the `simulation_revision` condition                    | Protections     |
-| Standard queues                  | A stack variant with standard instead of FIFO queues                                        | F2, protections |
 | Skip deduplication               | `EventDispatcher` runs the handler without recording `processed_events`                     | F3, protections |
 | Drop, duplicate, or delay        | The listener drops, repeats, or holds selected messages before dispatching                  | F1, F2, F3      |
 | Lagging read                     | The calculation reads offers, curves, and simulations as they were a set time ago           | F4              |
@@ -223,14 +231,12 @@ A traffic generator in `tools/` produces background load, and a runner
 script applies a scenario (variant, switches, faults, repair), waits, runs
 the oracle, and writes the results as CSV, so every run can be repeated.
 
-**Repetitions (decided 2026-11-14).** Deterministic runs (F1, F4, F5, F6, F7,
-and F2 when the old event comes from a redrive or an injected delay) run 3
-times, to confirm the outcome repeats; if it varies, that is a finding and
-the run is treated as probabilistic. Probabilistic runs (F2 and F3 with a
-protection off, where the outcome depends on messages coinciding) inject many
-faults per run and measure the share that ends wrong. Their number of runs
-and faults per run come from a pilot that measures the variation, and are
-recorded here before the measured runs.
+**Repetitions (decided 2026-11-14, revised 2026-11-15).** Every run is
+deterministic: F1 to F7, with or without the revision guard or deduplication
+off, and F2 with the old event coming from a redrive or an injected delay.
+Each runs 3 times, to confirm the outcome repeats. If a run varies, that is a
+finding: it is treated as probabilistic, and its number of runs comes from a
+pilot that measures the variation, recorded here before the measured runs.
 
 ## Decisions needed first
 
