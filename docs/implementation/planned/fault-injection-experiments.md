@@ -100,14 +100,14 @@ and the calculation consumer.
 Every fault is applied by a switch (see "Fault switches"), the same for every
 variant.
 
-| Fault         | What happens                                                    | How it is injected                                                                              |
-| ------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| F1            | An event is lost and a later one of the same aggregate succeeds | Dead-letter one event and let the next pass                                                     |
-| F2            | A late event arrives after a newer one                          | Delay one message, or redrive an old event from the dead-letter queue, with FIFO exclusivity on |
-| F3            | A message is delivered twice                                    | Repeat a message, with deduplication on and off                                                 |
-| F4            | The read lags the event (a dependency across channels)          | Staging only: the consumer reads state as it was X seconds ago; X is a parameter of the run     |
-| F5            | A logic error in the consumer, fixed later                      | Swap the calculation for a faulty one, then restore it                                          |
-| F6            | The producer's database and its event disagree                  | Publish an event whose state differs from what was saved (a dual write without the outbox)      |
+| Fault | What happens                                                    | How it is injected                                                                              |
+| ----- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| F1    | An event is lost and a later one of the same aggregate succeeds | Dead-letter one event and let the next pass                                                     |
+| F2    | A late event arrives after a newer one                          | Delay one message, or redrive an old event from the dead-letter queue, with FIFO exclusivity on |
+| F3    | A message is delivered twice                                    | Repeat a message, with deduplication on and off                                                 |
+| F4    | The read lags the event (a dependency across channels)          | Staging only: the consumer reads state as it was X seconds ago; X is a parameter of the run     |
+| F5    | A logic error in the consumer, fixed later                      | Swap the calculation for a faulty one, then restore it                                          |
+| F6    | The producer's database and its event disagree                  | Publish an event whose state differs from what was saved (a dual write without the outbox)      |
 
 A schema change (an old consumer receiving a new event version) is out of
 scope (decided 2026-11-16): the schema cost of each style is still measured,
@@ -200,14 +200,14 @@ after the fix, not detection.
 Written before any run so a run can contradict them; a difference is a
 finding.
 
-| Fault | V1 Notification                                                    | V2 Delta                                                                                         | V3 State                                                          |
-| ----- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| F1    | the next event reads current state: corrects itself                | the lost change never comes back: wrong and silent, for good                                     | the next event carries the whole state: corrects itself           |
-| F2    | immune, since it reads current state                               | the old delta rewrites fields with old values, unless versions are checked                       | the old state overwrites the new one, unless versions are checked |
-| F3    | harmless                                                           | harmless when the delta sets values; applied twice if it is incremental and deduplication is off | harmless                                                          |
-| F4    | wrong for good and silent (V4 waits for the revision and is right) | immune, since it does not read the producer                                                      | immune, since it does not read the producer                       |
-| F5    | R1 repairs the current result                                      | R1 and R2 repair; R2 only if the log covers the origin                                           | R1 and R2 repair; R2 also rebuilds the history                    |
-| F6    | follows the database                                               | follows the event, silently diverging from the system of record                                  | follows the event, silently diverging from the system of record   |
+| Fault | V1 Notification                                                    | V2 Delta                                                                                                                                                                                            | V3 State                                                          |
+| ----- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| F1    | the next event reads current state: corrects itself                | the lost change never comes back: wrong and silent, for good                                                                                                                                        | the next event carries the whole state: corrects itself           |
+| F2    | immune, since it reads current state                               | with the revision guard (default), a late delta that changed another field is dropped and the change is lost; without it, one that changed the same field rewrites the old value; silent either way | the old state overwrites the new one, unless versions are checked |
+| F3    | harmless                                                           | harmless when the delta sets values; applied twice if it is incremental and deduplication is off                                                                                                    | harmless                                                          |
+| F4    | wrong for good and silent (V4 waits for the revision and is right) | immune, since it does not read the producer                                                                                                                                                         | immune, since it does not read the producer                       |
+| F5    | R1 repairs the current result                                      | R1 and R2 repair; R2 only if the log covers the origin                                                                                                                                              | R1 and R2 repair; R2 also rebuilds the history                    |
+| F6    | follows the database                                               | follows the event, silently diverging from the system of record                                                                                                                                     | follows the event, silently diverging from the system of record   |
 
 The deltas in this system set values (the index import applies the dates
 after the curve's end), so F3 probably separates no variant with
