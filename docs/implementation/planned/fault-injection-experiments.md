@@ -195,6 +195,18 @@ the gap of a dropped index import. Against F5 it runs the correct
 calculation, which is legitimate there because the fault measures repair
 after the fix, not detection.
 
+When it compares (decided 2026-11-16): once the fault is applied, the traffic
+stops and the runner waits for the system to settle: empty queues, retry
+queues included, no simulation in `PENDING`, and 60 seconds with no change
+(longer than the longest retry delay; to be checked against the queue
+settings). Only then does the final comparison run. During the run the
+oracle samples every 5 seconds, to measure time in each state. A result that
+differs at the final comparison is an error: silent if shown as settled with
+no alarm, with an alarm if there is a dead-lettered message or `FAILED`. One
+that differed and converged before the end is a delay. A dead-lettered
+message does not come back on its own and counts as settled; redrive (E1) is
+measured separately, as a repair.
+
 ### Expected outcomes, to be checked
 
 Written before any run so a run can contradict them; a difference is a
