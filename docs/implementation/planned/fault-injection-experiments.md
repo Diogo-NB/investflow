@@ -249,8 +249,8 @@ the oracle, and writes the results as CSV, so every run can be repeated.
 deterministic: F1 to F6, with or without the revision guard or deduplication
 off, and F2 with the old event coming from a redrive or an injected delay.
 Each runs 3 times, to confirm the outcome repeats. If a run varies, that is a
-finding: it is treated as probabilistic, and its number of runs comes from a
-pilot that measures the variation, recorded here before the measured runs.
+finding and is reported as such, with what varied; there is no pilot and no
+statistical analysis (decided 2026-11-16).
 
 ## Decisions needed first
 
