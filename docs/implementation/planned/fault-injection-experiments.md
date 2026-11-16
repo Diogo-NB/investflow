@@ -47,8 +47,8 @@ path:
    necessary again? (FIFO exclusivity per aggregate stays on; see
    "Protections turned off one at a time".)
 3. Does a retained log repair faults that recalculation from current state
-   cannot, and how much of that survives finite retention, deduplication,
-   and a schema change?
+   cannot, and how much of that survives finite retention and
+   deduplication?
 4. When the producer's database and its events disagree, which one does the
    consumer follow, and is the disagreement silent?
 5. In which faults do reprocessing the log and recalculating from current
@@ -108,7 +108,10 @@ variant.
 | F4            | The read lags the event (a dependency across channels)          | Staging only: the consumer reads state as it was X seconds ago; X is a parameter of the run     |
 | F5            | A logic error in the consumer, fixed later                      | Swap the calculation for a faulty one, then restore it                                          |
 | F6            | The producer's database and its event disagree                  | Publish an event whose state differs from what was saved (a dual write without the outbox)      |
-| F7 (optional) | An old consumer receives an event with a new schema             | Publish a new version of an event before updating the consumer                                  |
+
+A schema change (an old consumer receiving a new event version) is out of
+scope (decided 2026-11-16): the schema cost of each style is still measured,
+but no run injects a new version.
 
 F4 does not happen today: the database is one PostgreSQL instance on the
 Dokploy server, with no replica. The delay is injected in the read rather
@@ -147,7 +150,6 @@ API refuses to start with any switch on unless the environment is staging
 | Drop, duplicate, or delay        | The listener drops, repeats, or holds selected messages before dispatching                  | F1, F2, F3      |
 | Lagging read                     | The calculation reads offers, curves, and simulations as they were a set time ago           | F4              |
 | Logic error                      | The worker uses a calculation with a deliberate error; the input fingerprint stays the same | F5              |
-| New event version                | The producer raises a new `version` of an event the consumer does not know yet              | F7              |
 
 "Publish without the outbox" breaks "never publish from a use case" in
 `investflow-eventing` on purpose, which is why it must stay confined to
@@ -232,7 +234,7 @@ script applies a scenario (variant, switches, faults, repair), waits, runs
 the oracle, and writes the results as CSV, so every run can be repeated.
 
 **Repetitions (decided 2026-11-14, revised 2026-11-15).** Every run is
-deterministic: F1 to F7, with or without the revision guard or deduplication
+deterministic: F1 to F6, with or without the revision guard or deduplication
 off, and F2 with the old event coming from a redrive or an injected delay.
 Each runs 3 times, to confirm the outcome repeats. If a run varies, that is a
 finding: it is treated as probabilistic, and its number of runs comes from a
