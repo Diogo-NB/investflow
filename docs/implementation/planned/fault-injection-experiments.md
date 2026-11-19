@@ -75,6 +75,15 @@ to production.
 Applied to the recalculation path: the offer, curve, and simulation events
 and the calculation consumer.
 
+Only this path varies (decided 2026-11-19). The index import cannot run V1:
+its consumer is in another context and cannot read the market-data tables,
+so a notification there breaks the rule between contexts. The recalculation
+path runs all variants inside one context, V1 as built and V2 and V3 with
+the producer's tables forbidden. Its V2 against F1 reproduces the lost delta
+of "No gap check", so varying the import too adds conditions without a new
+mechanism, and faults on the import would reach the simulations through the
+system curves and mix two paths in one result. The import runs unchanged.
+
 | Variant                                  | The event carries                                                   | The consumer calculates from                                              |
 | ---------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | V1 Notification (current)                | identifiers                                                         | current state read from the database                                      |
