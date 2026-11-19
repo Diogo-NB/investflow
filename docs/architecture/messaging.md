@@ -128,12 +128,20 @@ This replaces the earlier SNS topic per context.
   SQS never delivers a second message of a group while one is in flight,
   across every consumer instance, and a failing message holds its group until
   it succeeds or is dead-lettered. Correctness relies on that exclusivity, not
-  on delivery order (EventBridge does not guarantee order, and the outbox
+  on delivery order (the Classic event bus delivers in arbitrary order, and the outbox
   publishes rows of one transaction in no particular order): consumers read
   current state, so the last message of a group always works from the latest
   state. This covers any state derived asynchronously per aggregate, so no
-  consumer needs generation counters or a condition per input. Two rules come
-  with it:
+  consumer needs generation counters or a condition per input.
+  Rejected (2026-11-19): ordered delivery through the newer EventBridge
+  Custom Event Bus, whose FIFO subscribers deliver each `EventGroupId` in
+  publish order
+  ([ordering](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-custom-bus-ordering.html)).
+  It needs a bus migration and an outbox that publishes each aggregate in
+  order, holding later rows behind a failed one, and a failed delivery holds
+  every group of the subscriber while EventBridge retries. Exclusivity
+  already makes the last message work from the latest state, so order adds
+  nothing to correctness. Exclusivity brings two rules:
   - A listener may handle messages of different groups concurrently, but
     messages of one group strictly in the order received.
   - A handler must finish within the visibility timeout, or extend it while
