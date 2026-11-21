@@ -72,9 +72,13 @@ account's spending limit is far above what the runs cost. The API, the
 database, and the runner run on a local machine, against the local Docker
 PostgreSQL.
 
-- **Credentials.** The experiment user's access key is created by hand, like
-  `investflow-api`'s (see "AWS" in Production Deployment), and its policy
-  covers only the experiment stack's resources. It has no `aws:SourceIp`
+- **Credentials.** The experiment stack's `investflow-api-homolog` user
+  serves both the API and the runner. Its access key is created by hand,
+  like `investflow-api`'s (see "AWS" in Production Deployment). Besides the
+  API's permissions, the stack's `experimentAccess` gives it what the runner
+  needs on the stack's own queues (count, send, purge, redrive) and the
+  account's get, list, and describe calls for queues, alarms, metrics, and
+  rules, which take no narrower resource. It has no `aws:SourceIp`
   condition, since the local machine's address is not fixed; the key is
   deleted with the stack.
 - **Why not Floci.** It treats every queue as one FIFO group (see "Local

@@ -28,6 +28,10 @@ export interface InvestflowMessagingStackProps extends StackProps {
   // The only address the API user's key works from; without it the key
   // works from anywhere.
   readonly apiSourceIp?: string;
+  // Lets the API user also drive the fault injection experiments: inspect,
+  // send to, purge, and redrive the stack's queues, and read alarms,
+  // metrics, and rules. Never set for production.
+  readonly experimentAccess?: boolean;
 }
 
 interface ConsumerQueue {
@@ -151,6 +155,14 @@ export class InvestflowMessagingStack extends Stack {
         conditions: fromApiServer,
       }),
     );
+    if (props.experimentAccess) {
+      this.grantExperimentAccess(apiUser, [
+        this.deliveryDeadLetterQueue,
+        ...[calculations, recalculations, publishedIndexValues].flatMap(
+          ({ queue, deadLetterQueue }) => [queue, deadLetterQueue],
+        ),
+      ]);
+    }
 
     new CfnOutput(this, 'EventBusName', { value: this.bus.eventBusName });
     new CfnOutput(this, 'SimulationCalculationsQueueUrl', {
@@ -166,6 +178,50 @@ export class InvestflowMessagingStack extends Stack {
       value: publishedIndexValues.queue.queueUrl,
     });
     new CfnOutput(this, 'ApiUserName', { value: apiUser.userName });
+  }
+
+  // The experiment runner counts, drains, and redrives the queues itself; the
+  // reads cover the whole account because listing queues, alarms, metrics,
+  // and rules takes no narrower resource.
+  private grantExperimentAccess(user: User, queues: Queue[]): void {
+    user.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'sqs:SendMessage',
+          'sqs:ReceiveMessage',
+          'sqs:DeleteMessage',
+          'sqs:ChangeMessageVisibility',
+          'sqs:PurgeQueue',
+          'sqs:StartMessageMoveTask',
+          'sqs:CancelMessageMoveTask',
+          'sqs:ListMessageMoveTasks',
+          'sqs:GetQueueAttributes',
+          'sqs:GetQueueUrl',
+          'sqs:ListDeadLetterSourceQueues',
+          'sqs:ListQueueTags',
+        ],
+        resources: queues.map(({ queueArn }) => queueArn),
+      }),
+    );
+    user.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'sqs:ListQueues',
+          'cloudwatch:DescribeAlarms',
+          'cloudwatch:DescribeAlarmHistory',
+          'cloudwatch:DescribeAlarmsForMetric',
+          'cloudwatch:GetMetricData',
+          'cloudwatch:GetMetricStatistics',
+          'cloudwatch:ListMetrics',
+          'events:DescribeEventBus',
+          'events:ListEventBuses',
+          'events:DescribeRule',
+          'events:ListRules',
+          'events:ListTargetsByRule',
+        ],
+        resources: ['*'],
+      }),
+    );
   }
 
   // A FIFO queue with its FIFO dead-letter queue, fed by a rule. Messages are

@@ -241,7 +241,7 @@ describe('InvestflowMessagingStack', () => {
 
   describe('in another environment', () => {
     const homolog = synthesize(
-      { nameSuffix: 'homolog' },
+      { nameSuffix: 'homolog', experimentAccess: true },
       'InvestflowMessagingStack-homolog',
     );
     const withSuffix = (name: string) =>
@@ -284,10 +284,38 @@ describe('InvestflowMessagingStack', () => {
       const statements = policies.flatMap(
         ({ Properties }) => Properties.PolicyDocument.Statement,
       );
-      expect(statements).toHaveLength(2);
+      expect(statements).toHaveLength(4);
       expect(statements.every(({ Condition }) => Condition === undefined)).toBe(
         true,
       );
+    });
+
+    it('lets its API user drive the experiments on its own queues only', () => {
+      const statements = Object.values(
+        homolog.findResources('AWS::IAM::Policy'),
+      ).flatMap(({ Properties }) => Properties.PolicyDocument.Statement);
+      const [queueAccess, accountReads] = statements.slice(2);
+      const queueIds = Object.keys(homolog.findResources('AWS::SQS::Queue'));
+
+      expect(queueAccess.Action).toEqual(
+        expect.arrayContaining([
+          'sqs:GetQueueAttributes',
+          'sqs:PurgeQueue',
+          'sqs:SendMessage',
+          'sqs:StartMessageMoveTask',
+        ]),
+      );
+      expect(
+        queueAccess.Resource.map(
+          ({ 'Fn::GetAtt': [id] }: { 'Fn::GetAtt': [string] }) => id,
+        ).sort(),
+      ).toEqual(queueIds.sort());
+      expect(accountReads.Resource).toBe('*');
+      expect(
+        accountReads.Action.every((action: string) =>
+          /^[a-z]+:(Describe|Get|List)/.test(action),
+        ),
+      ).toBe(true);
     });
   });
 });

@@ -32,5 +32,6 @@ if (environment === PRODUCTION) {
   new InvestflowMessagingStack(app, `InvestflowMessagingStack-${environment}`, {
     env,
     nameSuffix: environment,
+    experimentAccess: true,
   });
 }
