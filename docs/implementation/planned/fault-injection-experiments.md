@@ -103,10 +103,11 @@ production and the experiment stack get the same ones. There is one per
 dead-letter queue, each with an email notification; the metrics are in
 "Dead-letter alarms" in Messaging Transport. Without them, a dead-lettered
 message is only a trace someone finds by looking, and "wrong with an alarm"
-could not be told from "wrong and silent". The calculations queue's alarm
-clears a minute after it fires, so the oracle reads whether an alarm entered
-`ALARM` during the run from its history, not its state at the end. The
-notification address is a stack parameter, as "Alarm address" in Production
+could not be told from "wrong and silent". Whether CloudWatch fires an
+alarm is not under test (decided 2026-11-21): every dead-letter queue has
+one, and each metric counts messages the redrive policy moves, so a fault
+that sent a message to a dead-letter queue counts as alarmed, which is what
+the runner already checks. The notification address is a stack parameter, as "Alarm address" in Production
 Deployment describes.
 
 ### Variants: what an event carries
@@ -266,6 +267,12 @@ schema or the attack surface of decision 1's runtime endpoint.
   - **How long.** In the experiment environment, `OUTBOX_RETENTION_DAYS` is
     set to years; the retention code, which production shares, does not
     change.
+  - **What is replayed (decided 2026-11-21).** The offer and curve events
+    together, interleaved in outbox order, then one recalculation of each
+    affected simulation. Replaying one stream at a time would pass the copy
+    through offer and curve pairs that never existed (see the finding of
+    2026-11-21). The single outbox gives every event one order; separate
+    services would have no common order to replay by.
   - **Retention as a level.** Against F5, R2 runs with the full log and with a
     truncated one, shorter than the time since the affected change. The
     truncated level is what answers finite retention in question 3.
@@ -299,10 +306,9 @@ queues included, no simulation in `PENDING`, and 60 seconds with no change
 settings). Only then does the final comparison run. During the run the
 oracle samples every 5 seconds, to measure time in each state. A result that
 differs at the final comparison is an error: silent if shown as settled with
-no alarm, with an alarm if a dead-letter alarm entered the `ALARM` state during the
-run or the simulation is `FAILED`, and visible if it shows `PENDING` or
-"Desatualizado". The runner reads
-the alarms' state, which also gives the time until detection. One
+no alarm, with an alarm if the fault sent a message to a dead-letter queue
+(see "Dead-letter alarms first") or the simulation is `FAILED`, and visible
+if it shows `PENDING` or "Desatualizado". One
 that differed and converged before the end is a delay. A dead-lettered
 message does not come back on its own and counts as settled; redrive (E1) is
 measured separately, as a repair.
@@ -316,7 +322,8 @@ scheduled, and V1 against F4 is visible rather than silent, because the
 worker records the fingerprint of the revisions it read and the screen
 compares it with the current ones (see "Input fingerprint" in
 Recalculation). The lagging read must lag the revisions with the values for
-this to hold.
+this to hold. Revised again 2026-11-21: V3 against F5 no longer
+"rebuilds the history", since a simulation keeps only its current result.
 
 | Fault | V1 Notification                                     | V2 Delta                                                                                                                                                                                                      | V3 State                                                                        |
 | ----- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -324,7 +331,7 @@ this to hold.
 | F2    | immune, since it reads current state                | with the revision guard (default), a late delta that changed another field is dropped and the change is lost; without it, one that changed the same field rewrites the old value; silent either way           | the old state silently overwrites the new one, since the copy checks no version |
 | F3    | harmless                                            | harmless when the delta sets values; applied twice if it is incremental and deduplication is off                                                                                                              | harmless                                                                        |
 | F4    | wrong for good, but visible as "Desatualizado"      | immune, since it does not read the producer                                                                                                                                                                   | immune, since it does not read the producer                                     |
-| F5    | R1 repairs the current result                       | R1 and R2 repair; R2 only if the log covers the origin                                                                                                                                                        | R1 and R2 repair; R2 also rebuilds the history                                  |
+| F5    | R1 repairs the current result                       | R1 and R2 repair; R2 only if the log covers the origin                                                                                                                                                        | R1 and R2 repair the current result                                             |
 | F6    | follows the database                                | follows the event, silently diverging from the system of record                                                                                                                                               | follows the event, silently diverging from the system of record                 |
 
 The deltas in this system set values (the index import applies the dates
@@ -338,9 +345,9 @@ while V3 needs only each entity's last state event.
 Per variant and fault, and per protection turned off where there is one:
 
 - **The derived result's final state:** correct; visible (`PENDING` or
-  "Desatualizado"); wrong with an alarm (a dead-letter alarm that entered
-  `ALARM` during the run, or the simulation `FAILED`); or wrong and silent, shown as settled with no
-  alarm.
+  "Desatualizado"); wrong with an alarm (a message of the fault in a
+  dead-letter queue, or the simulation `FAILED`); or wrong and silent, shown
+  as settled with no alarm.
 - **Time in each state** until it converges or the run ends.
 - **Repair:** whether R1, R2, and E1 restore the correct value, and how
   fast.
@@ -391,13 +398,41 @@ statistical analysis (decided 2026-11-16).
    better, decide which variant production adopts and whether retention
    grows for R2. Under V1 retaining events does not help; by what Messaging
    Transport documents, its cost would be mostly storage.
-5. **How V2 and V3 reach the calculation consumer.** Today offer and curve
-   events go to `SimulationRecalculationConsumer`, which records one
-   identifier-only `SimulationCalculationRequested` per simulation. With
-   state, either the fan-out carries the premises' state to each simulation,
-   or the calculation consumer subscribes to offer and curve events to keep
-   its copy. Check that a whole curve's intervals fit the outbox's 200 KB
-   payload limit before choosing. Decide when V3 is built.
+5. **How V2 and V3 reach the calculation consumer.** Decided 2026-11-21:
+   the fan-out keeps the copy. Offer and curve events carry the delta (V2) or
+   the whole state (V3) and go to `SimulationRecalculationConsumer`, which, in
+   one unit of work, applies the event to the copy and records one
+   `SimulationCalculationRequested` per affected simulation, as today. The
+   request still carries only the simulation id in every variant; the worker
+   reads the simulation, which references its offer and curve, and reads both
+   from the copy. No request exists before the copy reflects the change that
+   caused it, and the requests of one simulation share its FIFO group, so the
+   last one runs with both copies current.
+   - **The copy** keeps one row per offer and per curve, the latest version
+     only, with its revision and the id of the last event applied. An event
+     is applied only if its revision is newer (the revision guard).
+   - **Creation.** There is no `OfferCreated` or `CurveCreated` today; the
+     variant modules add them, so the copy learns of new premises. A
+     calculation that finds no row for its offer or curve throws and is
+     retried, since a retry can fix it.
+   - **What the screen compares.** Under V2 and V3 the fingerprint and the
+     screen use the copy's revisions, as a separate service that knows only
+     its copy would; comparing with the producer's would need the read the
+     variant forbids.
+   - **The boundary is checked, not assumed.** The V2 and V3 modules get an
+     Nx tag that forbids depending on the offer and curve repositories, the
+     mechanism that already separates `market-data` from the simulator, and a
+     test runs their calculation with no access to those tables. The
+     contexts are not split: a simulation's own terms are a
+     `SIMULATION`-scoped `Offer`, and splitting would change V1 too.
+   - **Why a copy at all.** Offer, curve, and simulation share one context
+     and database, so the copy buys nothing here; it stands for a consumer in
+     another service, where it avoids depending on the source being up,
+     the round trip, and the load. Reading the source (V1, or a query to the
+     source's API across services) leaves nothing to diverge, so the runs
+     measure what the copy costs in integrity, not what it gains.
+   - Still to check: that a whole curve's intervals fit the outbox's 200 KB
+     payload limit.
 
 ## Findings
 
@@ -405,6 +440,16 @@ Record each finding with its date in the doc that owns the area (a changed
 decision in Messaging Transport or Recalculation, a new failure row in Event
 Flow), and list it here with a link until this file is deleted.
 
+- **2026-11-21, state events do not make a result derived from several
+  premises reproducible.** Under V3 each event carries only its own
+  aggregate's state; a simulation's result also needs the other premise,
+  read from the copy as it is when the calculation runs, not as it was when
+  the event was emitted. The current result is right (the last request runs
+  with both copies current), but replaying the curve's events alone would
+  join old curves with today's offer, a pair that never existed. Hence R2
+  replays every premise together in outbox order. Making the join itself
+  reproducible would take a versioned copy, with each event naming the
+  version of the other premises: a fourth variant, out of scope.
 - **2026-11-12, a dropped index import is invisible to recalculation.** After
   a dropped `PublishedIndexValuesImported` and a later success, the stored
   index series is correct and the system curve is not; nothing else changes.
