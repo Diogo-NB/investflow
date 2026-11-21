@@ -1,9 +1,34 @@
-import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
+import {
+  CfnOutput,
+  CfnParameter,
+  Duration,
+  Stack,
+  StackProps,
+} from 'aws-cdk-lib';
+import {
+  Alarm,
+  ComparisonOperator,
+  IMetric,
+  TreatMissingData,
+} from 'aws-cdk-lib/aws-cloudwatch';
+import { SnsAction } from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { EventBus, EventPattern, Rule } from 'aws-cdk-lib/aws-events';
 import { SqsQueue } from 'aws-cdk-lib/aws-events-targets';
 import { PolicyStatement, User } from 'aws-cdk-lib/aws-iam';
+import { Topic } from 'aws-cdk-lib/aws-sns';
+import { EmailSubscription } from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
+
+export interface InvestflowMessagingStackProps extends StackProps {
+  // Appended to every resource name so a second environment can live in the
+  // same account; production has none, so its names stay those it was first
+  // deployed with.
+  readonly nameSuffix?: string;
+  // The only address the API user's key works from; without it the key
+  // works from anywhere.
+  readonly apiSourceIp?: string;
+}
 
 interface ConsumerQueue {
   readonly queue: Queue;
@@ -11,26 +36,43 @@ interface ConsumerQueue {
 }
 
 const DEAD_LETTER_RETENTION = Duration.days(14);
-// The VPS's public IPv4, the address of vps.diogo-nb.com.br. The API user's
-// key works only from it, so a leaked key is useless elsewhere; moving the
-// API to another server means changing this first.
-const API_SOURCE_IP = '187.41.107.80/32';
+const ALARM_PERIOD = Duration.minutes(1);
 
-// Production counterpart of infra/floci/init/provision.sh; its spec keeps the
-// consumer queues and their event patterns identical to that script's. Names
-// are fixed because the API's configuration builds the queue URLs from them.
+// AWS counterpart of infra/floci/init/provision.sh; its spec keeps the
+// consumer queues and their event patterns identical to that script's.
 export class InvestflowMessagingStack extends Stack {
+  private readonly nameSuffix: string;
   private readonly bus: EventBus;
   private readonly deliveryDeadLetterQueue: Queue;
+  private readonly alarmAction: SnsAction;
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: InvestflowMessagingStackProps = {},
+  ) {
     super(scope, id, props);
+    this.nameSuffix = props.nameSuffix ? `-${props.nameSuffix}` : '';
 
-    this.bus = new EventBus(this, 'EventBus', { eventBusName: 'investflow' });
+    // A parameter, not a prop, so the address never enters the repository
+    // or the synthesized template; deploys after the first reuse its value.
+    const alarmEmail = new CfnParameter(this, 'AlarmEmail', {
+      type: 'String',
+      description: 'Address notified when a dead-letter queue holds messages',
+    });
+    const alarmTopic = new Topic(this, 'DeadLetterAlarmTopic', {
+      topicName: this.resourceName('investflow-dead-letter-alarms'),
+    });
+    alarmTopic.addSubscription(new EmailSubscription(alarmEmail.valueAsString));
+    this.alarmAction = new SnsAction(alarmTopic);
+
+    this.bus = new EventBus(this, 'EventBus', {
+      eventBusName: this.resourceName('investflow'),
+    });
     // Keeps the events EventBridge fails to deliver to a queue, which would
     // otherwise be dropped. EventBridge only accepts a standard queue here.
     this.deliveryDeadLetterQueue = new Queue(this, 'EventDeliveryDlq', {
-      queueName: 'event-delivery-dlq',
+      queueName: this.resourceName('event-delivery-dlq'),
       retentionPeriod: DEAD_LETTER_RETENTION,
       encryption: QueueEncryption.SQS_MANAGED,
     });
@@ -60,10 +102,36 @@ export class InvestflowMessagingStack extends Stack {
       },
     );
 
+    // Messages wait in the dead-letter queues no consumer reads until someone
+    // redrives them, so the alarm stays on until then. The calculations one
+    // is read by SimulationCalculationFailureConsumer, which deletes each
+    // message within seconds, before a one-minute sample of the visible
+    // count may see it; its receives are counted instead.
+    this.alarmWhenMessagesWait(
+      'event-delivery-dlq',
+      this.deliveryDeadLetterQueue,
+    );
+    this.alarmWhenMessagesReceived(
+      'simulation-calculations-dlq',
+      calculations.deadLetterQueue,
+    );
+    this.alarmWhenMessagesWait(
+      'simulation-recalculations-dlq',
+      recalculations.deadLetterQueue,
+    );
+    this.alarmWhenMessagesWait(
+      'curve-published-index-values-dlq',
+      publishedIndexValues.deadLetterQueue,
+    );
+
     // The API publishes to the bus and consumes four queues; no consumer reads
     // the recalculations or published index values dead-letter queues.
-    const apiUser = new User(this, 'ApiUser', { userName: 'investflow-api' });
-    const fromApiServer = { IpAddress: { 'aws:SourceIp': API_SOURCE_IP } };
+    const apiUser = new User(this, 'ApiUser', {
+      userName: this.resourceName('investflow-api'),
+    });
+    const fromApiServer = props.apiSourceIp
+      ? { IpAddress: { 'aws:SourceIp': props.apiSourceIp } }
+      : undefined;
     apiUser.addToPrincipalPolicy(
       new PolicyStatement({
         actions: ['events:PutEvents'],
@@ -109,14 +177,14 @@ export class InvestflowMessagingStack extends Stack {
     eventPattern: EventPattern,
   ): ConsumerQueue {
     const deadLetterQueue = new Queue(this, `${name}-dlq`, {
-      queueName: `${name}-dlq.fifo`,
+      queueName: this.resourceName(`${name}-dlq.fifo`),
       fifo: true,
       contentBasedDeduplication: true,
       retentionPeriod: DEAD_LETTER_RETENTION,
       encryption: QueueEncryption.SQS_MANAGED,
     });
     const queue = new Queue(this, name, {
-      queueName: `${name}.fifo`,
+      queueName: this.resourceName(`${name}.fifo`),
       fifo: true,
       contentBasedDeduplication: true,
       visibilityTimeout: Duration.seconds(30),
@@ -136,5 +204,53 @@ export class InvestflowMessagingStack extends Stack {
     );
 
     return { queue, deadLetterQueue };
+  }
+
+  private alarmWhenMessagesWait(name: string, deadLetterQueue: Queue): void {
+    // ApproximateNumberOfMessagesVisible, because messages the redrive policy
+    // moves are not counted in NumberOfMessagesSent.
+    this.deadLetterAlarm(
+      name,
+      deadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: ALARM_PERIOD,
+        statistic: 'Maximum',
+      }),
+    );
+  }
+
+  private alarmWhenMessagesReceived(
+    name: string,
+    deadLetterQueue: Queue,
+  ): void {
+    this.deadLetterAlarm(
+      name,
+      deadLetterQueue.metricNumberOfMessagesReceived({
+        period: ALARM_PERIOD,
+        statistic: 'Sum',
+      }),
+    );
+  }
+
+  // An idle queue emits no data points, which must read as no messages. The
+  // address is notified both when the alarm fires and when it clears.
+  private deadLetterAlarm(name: string, metric: IMetric): void {
+    const alarm = new Alarm(this, `${name}-alarm`, {
+      alarmName: this.resourceName(`${name}-messages`),
+      metric,
+      threshold: 1,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      evaluationPeriods: 1,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+    alarm.addAlarmAction(this.alarmAction);
+    alarm.addOkAction(this.alarmAction);
+  }
+
+  // A FIFO queue's name must end in .fifo, so the suffix goes before it.
+  private resourceName(name: string): string {
+    const fifo = '.fifo';
+    return name.endsWith(fifo)
+      ? `${name.slice(0, -fifo.length)}${this.nameSuffix}${fifo}`
+      : `${name}${this.nameSuffix}`;
   }
 }

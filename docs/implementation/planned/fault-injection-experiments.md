@@ -65,8 +65,9 @@ Decided 2026-11-20: only the messaging runs on AWS. A second
 `InvestflowMessagingStack` with production's topology (EventBridge, the same
 FIFO queues and dead-letter queues) and its own IAM user, in the same
 account and region, deployed with the same credentials as production's; the
-stack takes the environment name so its bus, queues, and user do not
-collide with production's, and is destroyed once the experiments end. The
+stack is the `homolog` environment, whose resource names end in `-homolog`
+so they do not collide with production's (see "Environments" in Production
+Deployment), and is destroyed once the experiments end. The
 account's spending limit is far above what the runs cost. The API, the
 database, and the runner run on a local machine, against the local Docker
 PostgreSQL.
@@ -92,19 +93,17 @@ PostgreSQL.
 Each variant below is selected by a switch in this environment, never
 deployed to production.
 
-**Dead-letter alarms first (decided 2026-11-20).** The "Dead-letter alarms"
-item of Production Hardening is built before the experiments, in
-`InvestflowMessagingStack`, so production and the experiment stack get the
-same alarms: one CloudWatch alarm per dead-letter queue (the three consumer
-queues' and `event-delivery-dlq`) with an SNS notification. Without it, a
-dead-lettered message is only a trace someone finds by looking, and "wrong
-with an alarm" could not be told from "wrong and silent". To confirm when
-building it: the metric (`ApproximateNumberOfMessagesVisible`, since
-messages the redrive policy moves are not counted as sent) and how the alarm
-treats missing data on an idle queue. The notification address is a
-parameter given when the stack is deployed, never written in the
-repository; the stack is deployed by hand and CI holds no AWS credentials,
-so neither Dokploy nor GitHub Actions takes part.
+**Dead-letter alarms first (decided 2026-11-20, built 2026-11-21).** The
+alarms are built before the experiments, in `InvestflowMessagingStack`, so
+production and the experiment stack get the same ones. There is one per
+dead-letter queue, each with an email notification; the metrics are in
+"Dead-letter alarms" in Messaging Transport. Without them, a dead-lettered
+message is only a trace someone finds by looking, and "wrong with an alarm"
+could not be told from "wrong and silent". The calculations queue's alarm
+clears a minute after it fires, so the oracle reads whether an alarm entered
+`ALARM` during the run from its history, not its state at the end. The
+notification address is a stack parameter, as "Alarm address" in Production
+Deployment describes.
 
 ### Variants: what an event carries
 
@@ -296,8 +295,8 @@ queues included, no simulation in `PENDING`, and 60 seconds with no change
 settings). Only then does the final comparison run. During the run the
 oracle samples every 5 seconds, to measure time in each state. A result that
 differs at the final comparison is an error: silent if shown as settled with
-no alarm, with an alarm if a dead-letter alarm is in the `ALARM` state or
-the simulation is `FAILED`, and visible if it shows `PENDING` or
+no alarm, with an alarm if a dead-letter alarm entered the `ALARM` state during the
+run or the simulation is `FAILED`, and visible if it shows `PENDING` or
 "Desatualizado". The runner reads
 the alarms' state, which also gives the time until detection. One
 that differed and converged before the end is a delay. A dead-lettered
@@ -335,8 +334,8 @@ while V3 needs only each entity's last state event.
 Per variant and fault, and per protection turned off where there is one:
 
 - **The derived result's final state:** correct; visible (`PENDING` or
-  "Desatualizado"); wrong with an alarm (a dead-letter alarm in `ALARM`, or
-  the simulation `FAILED`); or wrong and silent, shown as settled with no
+  "Desatualizado"); wrong with an alarm (a dead-letter alarm that entered
+  `ALARM` during the run, or the simulation `FAILED`); or wrong and silent, shown as settled with no
   alarm.
 - **Time in each state** until it converges or the run ends.
 - **Repair:** whether R1, R2, and E1 restore the correct value, and how
