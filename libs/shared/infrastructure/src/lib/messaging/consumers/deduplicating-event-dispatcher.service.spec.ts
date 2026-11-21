@@ -1,6 +1,6 @@
 import { PrismaService } from '../../persistence/prisma/prisma.service';
 import { UnitOfWork } from '../../persistence/unit-of-work';
-import { EventDispatcher } from './event-dispatcher.service';
+import { DeduplicatingEventDispatcher } from './deduplicating-event-dispatcher.service';
 import { OnEvent } from './on-event.decorator';
 
 class TestConsumer {
@@ -26,10 +26,13 @@ function createFixture(insertedCount = 1) {
   const prisma = {
     client: { processedEvent: { createMany } },
   } as unknown as PrismaService;
-  return { dispatcher: new EventDispatcher(unitOfWork, prisma), createMany };
+  return {
+    dispatcher: new DeduplicatingEventDispatcher(unitOfWork, prisma),
+    createMany,
+  };
 }
 
-describe('EventDispatcher', () => {
+describe('DeduplicatingEventDispatcher', () => {
   it('records the event for the consumer and calls its handler', async () => {
     const { dispatcher, createMany } = createFixture();
     const consumer = new TestConsumer();

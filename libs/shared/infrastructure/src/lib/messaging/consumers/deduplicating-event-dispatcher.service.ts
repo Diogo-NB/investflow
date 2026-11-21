@@ -1,14 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../persistence/prisma/prisma.service';
 import { UnitOfWork } from '../../persistence/unit-of-work';
+import { EventDispatcher } from './event-dispatcher';
 import { ON_EVENT_KEY } from './on-event.decorator';
 import { ReceivedEvent } from './received-event';
 
 type EventHandler = (payload: Record<string, unknown>) => Promise<void>;
 
 @Injectable()
-export class EventDispatcher {
-  private readonly logger = new Logger(EventDispatcher.name);
+export class DeduplicatingEventDispatcher extends EventDispatcher {
+  private readonly logger = new Logger(DeduplicatingEventDispatcher.name);
   private readonly handlersByConsumer = new WeakMap<
     object,
     Map<string, EventHandler>
@@ -17,20 +18,20 @@ export class EventDispatcher {
   constructor(
     private readonly unitOfWork: UnitOfWork,
     private readonly prisma: PrismaService,
-  ) {}
+  ) {
+    super();
+  }
 
   async dispatch(consumer: object, event: ReceivedEvent): Promise<void> {
     const handlers = this.handlersOf(consumer);
     const consumerName = consumer.constructor.name;
 
     await this.unitOfWork.run(async () => {
-      // Skipping duplicates inside the transaction makes concurrent
-      // deliveries of the same event wait for the first one to commit.
-      const { count } = await this.prisma.client.processedEvent.createMany({
-        data: [{ consumer: consumerName, eventId: event.eventId }],
-        skipDuplicates: true,
-      });
-      if (count === 0) {
+      const isFirstDelivery = await this.recordFirstDelivery(
+        consumerName,
+        event.eventId,
+      );
+      if (!isFirstDelivery) {
         this.logger.debug(
           `Duplicate ${event.eventType} eventId=${event.eventId} for ${consumerName}, skipping`,
         );
@@ -49,6 +50,20 @@ export class EventDispatcher {
 
       await handler(event.payload);
     });
+  }
+
+  // Runs in the handler's transaction, so a rollback forgets the delivery,
+  // and concurrent deliveries of the same event wait for the first one to
+  // commit. A method so the deduplication experiment can drop it.
+  protected async recordFirstDelivery(
+    consumerName: string,
+    eventId: string,
+  ): Promise<boolean> {
+    const { count } = await this.prisma.client.processedEvent.createMany({
+      data: [{ consumer: consumerName, eventId }],
+      skipDuplicates: true,
+    });
+    return count > 0;
   }
 
   private handlersOf(consumer: object): Map<string, EventHandler> {

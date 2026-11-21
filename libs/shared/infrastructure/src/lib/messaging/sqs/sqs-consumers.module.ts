@@ -12,7 +12,9 @@ import { SQSClient } from '@aws-sdk/client-sqs';
 import { z } from 'zod';
 import { awsConfig, type AwsConfig } from '../../aws/aws.config';
 import { environmentConfig } from '../../config/environment-config';
-import { EventDispatcher } from '../consumers/event-dispatcher.service';
+import { experimentsConfig } from '../../experiments/experiments.config';
+import { eventDispatcherBinding } from '../../experiments/messaging-experiment-bindings';
+import { EventDispatcher } from '../consumers/event-dispatcher';
 import { SqsEventListener } from './sqs-event-listener';
 
 export interface SqsConsumerBinding {
@@ -62,11 +64,12 @@ export class SqsConsumersModule
       imports: [
         ConfigModule.forFeature(awsConfig),
         ConfigModule.forFeature(queueUrlsConfig),
+        ConfigModule.forFeature(experimentsConfig),
       ],
       providers: [
         { provide: SQS_CONSUMER_BINDINGS, useValue: bindings },
         { provide: SQS_QUEUE_URLS, useExisting: queueUrlsConfig.KEY },
-        EventDispatcher,
+        eventDispatcherBinding,
       ],
     };
   }

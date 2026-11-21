@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import {
   AddInvestmentPlanSimulationsUseCase,
   BuildInvestmentPlanStatusesUseCase,
@@ -9,10 +10,10 @@ import {
   InvestmentPlanMemberReader,
   InvestmentPlanRepository,
   RemoveInvestmentPlanSimulationUseCase,
-  SimulationRepository,
 } from '@investflow/investment-simulator-application';
 import { InvestmentPlanTotalsCalculator } from '@investflow/investment-simulator-domain';
-import { PrismaSimulationRepository } from '../simulations/persistence/prisma-simulation.repository';
+import { experimentsConfig } from '@investflow/shared-infrastructure';
+import { simulationRepositoryBinding } from '../experiments/simulation-experiment-bindings';
 import { InvestmentPlanController } from './http/investment-plan.controller';
 import { PrismaInvestmentPlanMemberReader } from './persistence/prisma-investment-plan-member-reader';
 import { PrismaInvestmentPlanRepository } from './persistence/prisma-investment-plan.repository';
@@ -22,13 +23,14 @@ import { ListInvestmentPlansQueryHandler } from './queries/list-investment-plans
 // Needs Clock and PrismaService from the host. Binds the simulation
 // repository itself: an imported module cannot see its importer's providers.
 @Module({
+  imports: [ConfigModule.forFeature(experimentsConfig)],
   controllers: [InvestmentPlanController],
   providers: [
     {
       provide: InvestmentPlanRepository,
       useClass: PrismaInvestmentPlanRepository,
     },
-    { provide: SimulationRepository, useClass: PrismaSimulationRepository },
+    simulationRepositoryBinding,
     {
       provide: InvestmentPlanMemberReader,
       useClass: PrismaInvestmentPlanMemberReader,

@@ -5,3 +5,4 @@ export * from './lib/curves/messaging/published-index-values.consumer';
 export * from './lib/simulations/messaging/simulation-calculation.consumer';
 export * from './lib/simulations/messaging/simulation-calculation-failure.consumer';
 export * from './lib/simulations/messaging/simulation-recalculation.consumer';
+export * from './lib/experiments/simulation-reference.module';

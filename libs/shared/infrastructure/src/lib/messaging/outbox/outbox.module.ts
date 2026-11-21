@@ -2,9 +2,10 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { awsConfig } from '../../aws/aws.config';
 import { ClockModule } from '../../clocks/clock.module';
+import { experimentsConfig } from '../../experiments/experiments.config';
+import { messageBrokerBinding } from '../../experiments/messaging-experiment-bindings';
 import { EventBridgeMessageBroker } from '../eventbridge/eventbridge-message-broker';
 import { eventBridgeConfig } from '../eventbridge/eventbridge.config';
-import { MessageBroker } from './message-broker.port';
 import { outboxConfig } from './outbox.config';
 import { OutboxPollSchedule } from './outbox-poll-schedule';
 import { OutboxPollerService } from './outbox-poller.service';
@@ -22,6 +23,7 @@ import { OutboxRetentionService } from './outbox-retention.service';
     ConfigModule.forFeature(awsConfig),
     ConfigModule.forFeature(eventBridgeConfig),
     ConfigModule.forFeature(outboxConfig),
+    ConfigModule.forFeature(experimentsConfig),
   ],
   providers: [
     OutboxPollSchedule,
@@ -29,7 +31,8 @@ import { OutboxRetentionService } from './outbox-retention.service';
     OutboxRelay,
     OutboxPollerService,
     OutboxRetentionService,
-    { provide: MessageBroker, useClass: EventBridgeMessageBroker },
+    EventBridgeMessageBroker,
+    messageBrokerBinding,
   ],
   exports: [OutboxRelay],
 })

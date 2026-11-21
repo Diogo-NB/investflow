@@ -35,7 +35,8 @@ testem.log
 /typings
 
 # Environment
-.env
+.env*
+!.env.example
 
 # System Files
 .DS_Store

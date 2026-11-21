@@ -30,6 +30,7 @@ loaded; nothing enforces it for planning.
 - `investflow-eventing`: `*.events.ts`, `*.event.ts`, `*.consumer.ts`, `libs/shared/infrastructure/src/lib/messaging/**`, `unit-of-work*`, `infra/floci/**`, `infra/aws/**`, or code that raises, records, or consumes an event (`apply(new`, `.record(`, `@OnEvent`).
 - `investflow-react`: `apps/web/**`, `libs/*/web/**`.
 - `investflow-outbox-benchmark`: `tools/benchmarks/**`.
+- `investflow-fault-experiments`: `tools/experiments/**`, `libs/*/infrastructure/src/lib/experiments/**`.
 - `investflow-environment-config`: `*.config.ts` under `libs/*/infrastructure/src` or `apps/api/src`, `libs/shared/infrastructure/src/lib/config/**`, `.env.example`, `infra/dokploy/compose.yaml`, or code that reads the environment (`environmentConfig(`, `ConfigService`, `process.env`, `registerAs(`).
 
 Skills for kinds of work rather than files:
@@ -41,6 +42,8 @@ Skills for kinds of work rather than files:
   and browser testing.
 - `investflow-outbox-benchmark` to run, interpret, and report the outbox
   publishing benchmark (`pnpm bench:outbox`).
+- `investflow-fault-experiments` to run, verify, and report the fault
+  injection experiments (`pnpm experiment:run`).
 
 Vendored frontend skills (tracked in `skills-lock.json`) supplement
 `investflow-react`, which takes precedence over them: `react-router` for
@@ -115,6 +118,7 @@ prohibited, prefix Nx commands with `NX_DAEMON=false`. Run tasks through
 - `pnpm check`: lint, unit test, typecheck, and build every project. Needs nothing but the repository, so it runs anywhere, including CI.
 - `pnpm check:integration`: `pnpm check`, then the integration tests (`*.integration.spec.ts`) against a migrated test database (`INTEGRATION_TEST_DATABASE_URL`) and Floci. Needs `pnpm db:up`; fails, never skips.
 - `pnpm import:index-values`: build and run the importer once for one index (`--index=CDI|SELIC`, plus `--start-date=YYYY-MM-DD`, required while it has no stored values); needs the API running to publish its events.
+- `pnpm experiment:run`: build the API and run the fault injection experiments, which start and stop their own API (`--help`).
 - `pnpm bench:outbox`: measure how long committed events wait to be published (API stopped).
 - `pnpm nx run infra-aws:diff` / `infra-aws:deploy`: preview or deploy the production EventBridge, SQS, IAM, and dead-letter alarm stack (`-- -c environment=homolog` for the experiments' copy); needs credentials for the AWS account.
 

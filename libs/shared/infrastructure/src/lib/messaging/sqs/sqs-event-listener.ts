@@ -5,7 +5,7 @@ import {
   ReceiveMessageCommand,
   SQSClient,
 } from '@aws-sdk/client-sqs';
-import { EventDispatcher } from '../consumers/event-dispatcher.service';
+import { EventDispatcher } from '../consumers/event-dispatcher';
 import { ReceivedEvent } from '../consumers/received-event';
 
 const RECEIVE_ERROR_BACKOFF_MS = 1_000;

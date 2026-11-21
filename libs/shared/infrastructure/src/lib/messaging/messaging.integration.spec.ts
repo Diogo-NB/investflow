@@ -27,7 +27,7 @@ import { BaseRepository } from '../persistence/base.repository';
 import { PrismaModule } from '../persistence/prisma/prisma.module';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { UnitOfWork } from '../persistence/unit-of-work';
-import { EventDispatcher } from './consumers/event-dispatcher.service';
+import { EventDispatcher } from './consumers/event-dispatcher';
 import { OnEvent } from './consumers/on-event.decorator';
 import { MessageBroker, OutboxMessage } from './outbox/message-broker.port';
 import { outboxConfig, type OutboxConfig } from './outbox/outbox.config';

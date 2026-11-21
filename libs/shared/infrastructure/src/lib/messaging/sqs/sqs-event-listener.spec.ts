@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { DeleteMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
-import { EventDispatcher } from '../consumers/event-dispatcher.service';
+import { EventDispatcher } from '../consumers/event-dispatcher';
 import { SqsEventListener } from './sqs-event-listener';
 
 const detail = { eventId: 'event-1', eventType: 'TestHappened', value: 1 };

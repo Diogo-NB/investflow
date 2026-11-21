@@ -21,6 +21,7 @@
     "db:migrate": "nx run shared-infrastructure:prisma-migrate-dev",
     "db:seed": "nx run shared-infrastructure:prisma-seed",
     "import:index-values": "nx run index-values-importer:build:development && node dist/apps/index-values-importer/main.js",
+    "experiment:run": "nx run api:build && SWC_NODE_PROJECT=tools/experiments/tsconfig.json node -r @swc-node/register tools/experiments/run-experiment.ts",
     "bench:outbox": "SWC_NODE_PROJECT=tools/benchmarks/tsconfig.json node -r @swc-node/register tools/benchmarks/outbox-latency.ts",
     "lint": "nx run-many -t lint",
     "build": "nx run-many -t build",

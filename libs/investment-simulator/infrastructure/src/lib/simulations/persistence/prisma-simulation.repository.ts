@@ -157,7 +157,7 @@ export class PrismaSimulationRepository
     const { count } = await client.simulationCalculation.updateMany({
       where: {
         simulationId,
-        simulationRevision,
+        ...this.calculatedRevisionCondition(simulationRevision),
         ...(calculation.status === ESimulationCalculationStatus.FAILED && {
           status: stored.calculation.status,
           changedAt: stored.calculation.changedAt.date,
@@ -171,6 +171,14 @@ export class PrismaSimulationRepository
         simulationRevision,
       );
     }
+  }
+
+  // The revision guard: an outcome lands only on the revision it was
+  // calculated for. A method so the revision-guard experiment can drop it.
+  protected calculatedRevisionCondition(
+    simulationRevision: number,
+  ): Prisma.SimulationCalculationWhereInput {
+    return { simulationRevision };
   }
 
   private findIdsWhere(

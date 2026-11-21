@@ -27,6 +27,10 @@ ROUTES = [
     ('investflow-react', [r'^apps/web/', r'^libs/[^/]+/web/']),
     ('investflow-outbox-benchmark', [r'^tools/benchmarks/']),
     (
+        'investflow-fault-experiments',
+        [r'^tools/experiments/', r'^libs/[^/]+/infrastructure/src/lib/experiments/'],
+    ),
+    (
         'investflow-environment-config',
         [
             r'^(libs/[^/]+/infrastructure|apps/api)/src/.*\.config\.ts$',

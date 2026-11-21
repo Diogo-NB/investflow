@@ -11,7 +11,8 @@
       "options": {
         "commands": [
           "tsc -p tools/database/tsconfig.json",
-          "tsc -p tools/benchmarks/tsconfig.json"
+          "tsc -p tools/benchmarks/tsconfig.json",
+          "tsc -p tools/experiments/tsconfig.json"
         ],
         "parallel": false
       }

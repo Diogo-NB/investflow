@@ -5,6 +5,10 @@ export { awsConfig, type AwsConfig } from './lib/aws/aws.config';
 export { JwtAuthGuard } from './lib/authentication/jwt-auth.guard';
 export { Public } from './lib/authentication/public.decorator';
 export { CurrentUser } from './lib/authentication/current-user.decorator';
+export {
+  keycloakConfig,
+  type KeycloakConfig,
+} from './lib/authentication/keycloak.config';
 export { BaseRepository } from './lib/persistence/base.repository';
 export {
   RepositoryFindError,
@@ -59,3 +63,9 @@ export {
   IsCalendarDate,
   isCalendarDate,
 } from './lib/dates/calendar-date.validator';
+export {
+  EExperimentMessageFault,
+  experimentsConfig,
+  type ExperimentsConfig,
+  type ExperimentTarget,
+} from './lib/experiments/experiments.config';
