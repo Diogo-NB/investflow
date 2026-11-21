@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Diogo-NB/investflow/compare/v0.7.0...v0.8.0) (2026-11-21)
+
+
+### Features
+
+* **infra:** alarm on dead-letter queues and add a homolog stack ([#25](https://github.com/Diogo-NB/investflow/issues/25)) ([47c4bed](https://github.com/Diogo-NB/investflow/commit/47c4bed07d2dfe3134ea63e5bfc17a0bede0d9cf))
+
 ## [0.7.0](https://github.com/Diogo-NB/investflow/compare/v0.6.0...v0.7.0) (2026-11-05)
 
 
