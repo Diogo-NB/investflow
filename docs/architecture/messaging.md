@@ -297,6 +297,23 @@ This replaces the earlier SNS topic per context.
   which may only publish to the bus and receive and delete messages on the
   queues the API consumes; how it authenticates is in
   [Production Deployment](./deployment.md#aws).
+- **Dead-letter alarms (decided 2026-11-21).** The stack has one CloudWatch
+  alarm per dead-letter queue, which notifies an SNS email topic when it
+  fires and when it clears. Before it, a dead-lettered message was only seen
+  by looking at the queue. The metric depends on whether a consumer reads the
+  queue:
+  - `event-delivery-dlq` and the recalculations and published index values
+    dead-letter queues alarm on `ApproximateNumberOfMessagesVisible` (maximum
+    over one minute, at least 1), as AWS recommends for dead-letter queues.
+    `NumberOfMessagesSent` misses the messages that the redrive policy moves.
+    The alarm stays on until the messages are redriven or deleted.
+  - `simulation-calculations-dlq.fifo` alarms on `NumberOfMessagesReceived`
+    (sum over one minute, at least 1).
+    `SimulationCalculationFailureConsumer` deletes each message within
+    seconds, before a one-minute sample of the visible count may see it. The
+    alarm fires for each failed calculation and clears a minute later.
+  - An idle queue emits no data points, so missing data counts as not
+    breaching.
 - **Local emulation.** Floci needs no account or auth token, unlike LocalStack
   since its 2026.03 release. `infra/floci/init/provision.sh` runs on every
   container start (Floci keeps state in memory) and creates the bus and each

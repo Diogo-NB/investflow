@@ -112,7 +112,7 @@ below was settled on 2026-10-12 and revised on 2026-10-26.
   ever matters. Without the daily fan-out, a dead-lettered fan-out for a rate
   change leaves results "Desatualizado" until the next rate change, a save, or
   a redrive, which raises the value of the
-  [dead-letter alarms](../implementation/planned/production-hardening.md).
+  [dead-letter alarms](./messaging.md).
 
 ### Input fingerprint
 

@@ -167,6 +167,24 @@ PR ─▶ CI ─▶ main ─▶ release PR ─▶ release vX.Y.Z ─▶ GHCR :vX
   no AWS credentials. What it creates, and how its spec keeps it identical to
   local provisioning, is in "Production provisioning" in
   [Messaging Transport](./messaging.md).
+- **Environments.** The CDK context `environment` picks the stack, and
+  defaults to `production`: `InvestflowMessagingStack`, with the names it was
+  first deployed with, termination protection, and the API user's
+  `aws:SourceIp` condition. Any other name, such as `-c environment=homolog`
+  (decided 2026-11-21, for the
+  [fault injection experiments](../implementation/planned/fault-injection-experiments.md)),
+  synthesizes `InvestflowMessagingStack-homolog`, a copy in the same account
+  whose resource names all end in `-homolog` (before `.fifo` on FIFO
+  queues). The copy has no termination protection, so it can be destroyed,
+  and no source IP condition, since it serves a machine without a fixed
+  address. Pass the context to every target:
+  `pnpm nx run infra-aws:diff -- -c environment=homolog`.
+- **Alarm address.** The dead-letter alarms email the address in the
+  `AlarmEmail` stack parameter, kept out of the repository and the template.
+  The first deploy of each stack passes it
+  (`pnpm nx run infra-aws:deploy -- --parameters AlarmEmail=<address>`), and
+  later deploys reuse the stored value. AWS emails a confirmation link first;
+  until it is clicked, no alarm reaches the address.
 - **Credentials.** The API authenticates as the IAM user `investflow-api`
   with an access key stored only in Dokploy, created by hand so the secret
   never enters CloudFormation. Its policy works only from the VPS's public
