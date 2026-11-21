@@ -502,21 +502,12 @@ Record each finding with its date in the doc that owns the area (a changed
 decision in Messaging Transport or Recalculation, a new failure row in Event
 Flow), and list it here with a link until this file is deleted.
 
-- **2026-11-21, a failed message does not hold back the rest of its group
-  in a batch.** In the F1 smoke tests, on Floci and on homolog alike, the
-  target's second change was handled on the first message's second receive,
-  two and a half minutes before the first was dead-lettered.
-  `SqsEventListener` receives up to 10 messages and handles each one on its
-  own, so when SQS FIFO returns the failed message together with the next
-  one of the same group, the next one is handled and deleted. The group is
-  exclusive while a message is in flight, but not ordered across a retry,
-  against what "Exclusivity per aggregate" in
-  [Messaging Transport](../../architecture/messaging.md) relies on. It
-  changes no F1 outcome (V1 reads current state, V2 never gets the rate
-  back, V3's second event carries the whole state), but it reorders events
-  in F2 and in any retried delta. A fix would skip the rest of a group's
-  messages in a batch after one fails, leaving them to return in order; not
-  applied yet.
+- **2026-11-21, a retried message can be handled after a newer one of its
+  group.** In the F1 smoke tests the target's second change was handled
+  while the first was still being retried, since a batch can hold both and
+  each message is handled on its own. Expected: correctness relies on
+  exclusivity, not order ([Messaging Transport](../../architecture/messaging.md)),
+  and it changes no F1 outcome.
 - **2026-11-21, state events do not make a result derived from several
   premises reproducible.** Under V3 each event carries only its own
   aggregate's state; a simulation's result also needs the other premise,
