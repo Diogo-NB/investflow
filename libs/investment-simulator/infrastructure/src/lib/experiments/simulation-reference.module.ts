@@ -1,20 +1,25 @@
-import { SimulationRepository } from '@investflow/investment-simulator-application';
+import {
+  CurveRepository,
+  OfferRepository,
+  SimulationRepository,
+} from '@investflow/investment-simulator-application';
 import {
   InvestmentCalculator,
   SimulationCalculationService,
 } from '@investflow/investment-simulator-domain';
 import { Module } from '@nestjs/common';
-import { CurvesModule } from '../curves/curves.module';
-import { OffersModule } from '../offers/offers.module';
+import { PrismaCurveRepository } from '../curves/persistence/prisma-curve.repository';
+import { PrismaOfferRepository } from '../offers/persistence/prisma-offer.repository';
 import { PrismaSimulationRepository } from '../simulations/persistence/prisma-simulation.repository';
 
 // What the experiments' oracle reads simulations and recalculates them with.
 // Always the production implementations, never the experiment bindings: the
 // oracle's reference must not carry the fault under test.
 @Module({
-  imports: [CurvesModule, OffersModule],
   providers: [
     { provide: SimulationRepository, useClass: PrismaSimulationRepository },
+    { provide: OfferRepository, useClass: PrismaOfferRepository },
+    { provide: CurveRepository, useClass: PrismaCurveRepository },
     {
       provide: SimulationCalculationService,
       useFactory: () =>
@@ -24,8 +29,8 @@ import { PrismaSimulationRepository } from '../simulations/persistence/prisma-si
   exports: [
     SimulationRepository,
     SimulationCalculationService,
-    CurvesModule,
-    OffersModule,
+    OfferRepository,
+    CurveRepository,
   ],
 })
 export class SimulationReferenceModule {}

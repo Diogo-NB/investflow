@@ -91,9 +91,13 @@ export class InvestflowMessagingStack extends Stack {
     });
     const recalculations = this.consumerQueue('simulation-recalculations', {
       source: ['investflow.investment-simulator'],
+      // The creations reach the copy of the V2 and V3 fault injection
+      // experiments; this branch is never deployed to production.
       detailType: [
+        'OfferCreated',
         'OfferTermsChanged',
         'OfferDeleted',
+        'CurveCreated',
         'CurveValuesChanged',
         'CurveDeleted',
       ],

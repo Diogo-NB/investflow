@@ -14,7 +14,14 @@ import {
   SimulationCalculationService,
   SimulationResultValidity,
 } from '@investflow/investment-simulator-domain';
-import { AppError, Result, UtcInstant } from '@investflow/shared-domain';
+import { PremiseCopyRevisions } from '@investflow/investment-simulator-infrastructure';
+import {
+  AppError,
+  InputFingerprint,
+  Result,
+  UtcInstant,
+} from '@investflow/shared-domain';
+import type { PrismaService } from '@investflow/shared-infrastructure';
 import Decimal from 'decimal.js';
 
 export enum ESimulationVerdict {
@@ -63,13 +70,16 @@ const comparedFields: readonly {
 // calculates from the simulation's current premises. Reads only: the
 // reference stays in memory, so the judged database is left as it was.
 // Offers and curves are read once per judgement, since many simulations
-// share them.
+// share them. Whether a result is settled is judged as the screen shows it:
+// under V2 and V3 against the simulations' copy of the premises, given as
+// premiseCopies; the reference always comes from the offer and curve tables.
 export class SimulationResultOracle {
   constructor(
     private readonly simulations: SimulationRepository,
     private readonly offers: OfferRepository,
     private readonly curves: CurveRepository,
     private readonly calculation: SimulationCalculationService,
+    private readonly premiseCopies: PrismaService | null,
   ) {}
 
   async judge(
@@ -79,16 +89,42 @@ export class SimulationResultOracle {
   ): Promise<SimulationJudgement[]> {
     const offers = new Map<string, Promise<Offer | null>>();
     const curves = new Map<string, Promise<Curve | null>>();
-    const judgements: SimulationJudgement[] = [];
+    const found: Simulation[] = [];
     for (const simulationId of simulationIds) {
       const simulation = this.foundOrNull(
         await this.simulations.findById(simulationId),
       );
       // A deleted simulation has nothing to judge.
-      if (!simulation) continue;
+      if (simulation) found.push(simulation);
+    }
+    const copies = this.premiseCopies
+      ? await PremiseCopyRevisions.load(
+          this.premiseCopies.client,
+          found.map((simulation) => ({
+            revision: simulation.revision,
+            offerId: simulation.offerId,
+            curveId: simulation.investment.curveId,
+          })),
+        )
+      : null;
+    const judgements: SimulationJudgement[] = [];
+    for (const simulation of found) {
       const premises = await this.premisesOf(simulation, offers, curves);
+      const currentInputFingerprint = copies
+        ? copies.currentInputFingerprintOf({
+            revision: simulation.revision,
+            offerId: simulation.offerId,
+            curveId: simulation.investment.curveId,
+          })
+        : SimulationCalculationService.inputFingerprintOf(simulation, premises);
       judgements.push(
-        this.judgement(simulation, premises, deadLetteredAggregateIds, at),
+        this.judgement(
+          simulation,
+          premises,
+          currentInputFingerprint,
+          deadLetteredAggregateIds,
+          at,
+        ),
       );
     }
     return judgements;
@@ -97,6 +133,7 @@ export class SimulationResultOracle {
   private judgement(
     simulation: Simulation,
     premises: SimulationCalculationPremises | null,
+    currentInputFingerprint: InputFingerprint,
     deadLetteredAggregateIds: ReadonlySet<string>,
     at: UtcInstant,
   ): SimulationJudgement {
@@ -109,8 +146,6 @@ export class SimulationResultOracle {
         )
       : null;
     const divergentFields = this.divergentFields(simulation, reference);
-    const currentInputFingerprint =
-      SimulationCalculationService.inputFingerprintOf(simulation, premises);
     const resultInputFingerprint = simulation.result?.inputFingerprint ?? null;
     const { isSettled } = SimulationResultValidity.create({
       calculationStatus: simulation.calculation.status,

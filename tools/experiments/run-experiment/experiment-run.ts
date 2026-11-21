@@ -19,7 +19,7 @@ import {
   EOfferRole,
   populateScenario,
   type ScenarioPopulation,
-  targetRemunerationChanges,
+  targetTermsChanges,
 } from './scenario-population';
 import { type Scenario, setupSwitches } from './scenarios';
 import type { StageObservation, StageObserver } from './stage-observer';
@@ -135,9 +135,9 @@ export class ExperimentRun {
         ordinal: 1,
       };
       await this.api.start(scenario.faulted, target, runDirectory, logPath);
-      for (const [position, terms] of targetRemunerationChanges.entries()) {
+      for (const [position, terms] of targetTermsChanges.entries()) {
         if (position > 0) await sleep(CHANGE_GAP_MS);
-        await this.client.changeOfferRemuneration(
+        await this.client.changeOfferTerms(
           population.targetOffer.offerId,
           terms,
         );

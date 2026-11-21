@@ -1,6 +1,7 @@
 import {
   AggregateRoot,
   AppError,
+  DomainEvent,
   DomainEventRecorder,
   Result,
 } from '@investflow/shared-domain';
@@ -30,9 +31,15 @@ export abstract class BaseRepository<T extends AggregateRoot> {
 
     // Throws rather than returning an error: a change whose events cannot be
     // recorded must abort the whole unit of work, not commit without them.
-    this.events.record(...aggregate.getDomainEvents());
+    this.events.record(...this.eventsToRecord(aggregate));
     aggregate.markPersisted();
     return persisted;
+  }
+
+  // The fault injection experiments replace the events with ones that carry
+  // the aggregate's content; production records them as raised.
+  protected eventsToRecord(aggregate: T): DomainEvent[] {
+    return aggregate.getDomainEvents();
   }
 
   protected abstract persistAggregate(

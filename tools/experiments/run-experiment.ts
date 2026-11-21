@@ -16,6 +16,7 @@ import {
   type AwsConfig,
   awsConfig,
   ClockModule,
+  EExperimentEventContent,
   type KeycloakConfig,
   keycloakConfig,
   PrismaModule,
@@ -92,6 +93,9 @@ async function main(): Promise<void> {
       app.get(OfferRepository),
       app.get(CurveRepository),
       app.get(SimulationCalculationService),
+      options.variant === EExperimentEventContent.NOTIFICATION
+        ? null
+        : app.get(PrismaService),
     );
     const experimentRun = new ExperimentRun(
       options,

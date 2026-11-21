@@ -2,16 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import {
   BuildSimulationComparisonUseCase,
-  ComparedSimulationReader,
   CreateSimulationUseCase,
   DeleteSimulationUseCase,
   EditSimulationUseCase,
-  CalculateSimulationUseCase,
-  FailSimulationCalculationUseCase,
   RecalculateCurveSimulationsUseCase,
   RecalculateOfferSimulationsUseCase,
   RecalculateSimulationUseCase,
-  SimulationResultValidityReader,
   SimulationPremisesService,
 } from '@investflow/investment-simulator-application';
 import {
@@ -23,17 +19,15 @@ import { BusinessCalendarController } from './business-calendar/http/business-ca
 import { GetBusinessCalendarQueryHandler } from './business-calendar/queries/get-business-calendar.query-handler';
 import {
   investmentCalculatorBinding,
+  premiseCopyBindings,
   simulationRepositoryBinding,
 } from './experiments/simulation-experiment-bindings';
 import { SimulationController } from './simulations/http/simulation.controller';
 import { SimulationCalculationFailureConsumer } from './simulations/messaging/simulation-calculation-failure.consumer';
-import { SimulationRecalculationConsumer } from './simulations/messaging/simulation-recalculation.consumer';
 import { SimulationCalculationConsumer } from './simulations/messaging/simulation-calculation.consumer';
-import { PrismaSimulationResultValidityReader } from './simulations/persistence/prisma-simulation-result-validity-reader';
 import { ListSimulationMonthlyBalancesQueryHandler } from './simulations/queries/list-simulation-monthly-balances.query-handler';
 import { ListSimulationsQueryHandler } from './simulations/queries/list-simulations.query-handler';
 import { SimulationComparisonController } from './simulation-comparisons/http/simulation-comparison.controller';
-import { PrismaComparedSimulationReader } from './simulation-comparisons/persistence/prisma-compared-simulation-reader';
 import { GetSimulationComparisonQueryHandler } from './simulation-comparisons/queries/get-simulation-comparison.query-handler';
 import { SimulationWorkspaceController } from './simulation-workspaces/http/simulation-workspace.controller';
 import { GetSimulationOptionsQueryHandler } from './simulation-workspaces/queries/get-simulation-options.query-handler';
@@ -70,25 +64,15 @@ import { OffersModule } from './offers/offers.module';
     EditSimulationUseCase,
     DeleteSimulationUseCase,
     RecalculateSimulationUseCase,
-    CalculateSimulationUseCase,
-    FailSimulationCalculationUseCase,
     SimulationCalculationConsumer,
     SimulationCalculationFailureConsumer,
     RecalculateOfferSimulationsUseCase,
     RecalculateCurveSimulationsUseCase,
-    SimulationRecalculationConsumer,
-    {
-      provide: SimulationResultValidityReader,
-      useClass: PrismaSimulationResultValidityReader,
-    },
+    ...premiseCopyBindings,
     ListSimulationsQueryHandler,
     ListSimulationMonthlyBalancesQueryHandler,
     GetSimulationOptionsQueryHandler,
     GetSimulationWorkspaceQueryHandler,
-    {
-      provide: ComparedSimulationReader,
-      useClass: PrismaComparedSimulationReader,
-    },
     BuildSimulationComparisonUseCase,
     GetSimulationComparisonQueryHandler,
   ],

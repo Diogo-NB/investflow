@@ -7,15 +7,16 @@ import {
   CreateInvestmentPlanUseCase,
   DeleteInvestmentPlanUseCase,
   EditInvestmentPlanUseCase,
-  InvestmentPlanMemberReader,
   InvestmentPlanRepository,
   RemoveInvestmentPlanSimulationUseCase,
 } from '@investflow/investment-simulator-application';
 import { InvestmentPlanTotalsCalculator } from '@investflow/investment-simulator-domain';
 import { experimentsConfig } from '@investflow/shared-infrastructure';
-import { simulationRepositoryBinding } from '../experiments/simulation-experiment-bindings';
+import {
+  investmentPlanMemberReaderBinding,
+  simulationRepositoryBinding,
+} from '../experiments/simulation-experiment-bindings';
 import { InvestmentPlanController } from './http/investment-plan.controller';
-import { PrismaInvestmentPlanMemberReader } from './persistence/prisma-investment-plan-member-reader';
 import { PrismaInvestmentPlanRepository } from './persistence/prisma-investment-plan.repository';
 import { GetInvestmentPlanQueryHandler } from './queries/get-investment-plan.query-handler';
 import { ListInvestmentPlansQueryHandler } from './queries/list-investment-plans.query-handler';
@@ -31,10 +32,7 @@ import { ListInvestmentPlansQueryHandler } from './queries/list-investment-plans
       useClass: PrismaInvestmentPlanRepository,
     },
     simulationRepositoryBinding,
-    {
-      provide: InvestmentPlanMemberReader,
-      useClass: PrismaInvestmentPlanMemberReader,
-    },
+    investmentPlanMemberReaderBinding,
     {
       provide: InvestmentPlanTotalsCalculator,
       useValue: new InvestmentPlanTotalsCalculator(),

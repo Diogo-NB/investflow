@@ -2,7 +2,7 @@ import { BusinessDayCalendar, CalendarDate } from '@investflow/shared-domain';
 import type {
   CreateOfferRequest,
   InvestflowApiClient,
-  RemunerationTerms,
+  OfferTermsChange,
 } from './investflow-api-client';
 
 export enum EOfferRole {
@@ -33,10 +33,11 @@ export interface ScenarioPopulation {
 }
 
 // The target's two term changes while the fault is active; each changes the
-// result of every simulation of the offer.
-export const targetRemunerationChanges: readonly RemunerationTerms[] = [
-  { kind: 'CDI_PERCENTAGE', rate: '1.15' },
-  { kind: 'CDI_PERCENTAGE', rate: '1.20' },
+// result of every simulation of the offer. They change different fields, so
+// a V2 delta lost before the other one is not repaired by it.
+export const targetTermsChanges: readonly OfferTermsChange[] = [
+  { remunerationTerms: { kind: 'CDI_PERCENTAGE', rate: '1.15' } },
+  { maturityDate: '2027-12-30' },
 ];
 
 // Maturities are business days the curve covers. Investments start in

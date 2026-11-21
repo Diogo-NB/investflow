@@ -41,6 +41,12 @@ export interface CreateSimulationRequest {
 
 // The API as a user reaches it: every write goes through its endpoints, so
 // it obeys the domain rules and raises the events a user's would.
+// Only the fields that change are sent; the offer keeps the others.
+export interface OfferTermsChange {
+  readonly maturityDate?: string;
+  readonly remunerationTerms?: RemunerationTerms;
+}
+
 export class InvestflowApiClient {
   private token: { readonly value: string; readonly fetchedAt: number } | null =
     null;
@@ -78,9 +84,9 @@ export class InvestflowApiClient {
   }
 
   // Reads the revision first, as the offer screen does before saving.
-  async changeOfferRemuneration(
+  async changeOfferTerms(
     offerId: string,
-    remunerationTerms: RemunerationTerms,
+    terms: OfferTermsChange,
   ): Promise<void> {
     const { revision } = await this.send<{ revision: number }>(
       'GET',
@@ -88,7 +94,7 @@ export class InvestflowApiClient {
     );
     await this.send('PATCH', `/investment-simulator/offers/${offerId}`, {
       revision,
-      remunerationTerms,
+      ...terms,
     });
   }
 

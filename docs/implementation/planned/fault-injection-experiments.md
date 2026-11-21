@@ -340,6 +340,14 @@ deduplication on; turning deduplication off is what makes it informative.
 Without the first delta, V2 cannot rebuild an entity from a truncated log,
 while V3 needs only each entity's last state event.
 
+**The target's two changes touch different fields (decided 2026-11-21).**
+The first sets the rate (CDI 110% to 115%), the second the maturity
+(2027-06-30 to 2027-12-30). Two rate changes would let V2's second delta
+carry the rate again and repair a lost first one, so F1 would separate no
+variant. The unguarded F2 row ("one that changed the same field rewrites the
+old value") needs two changes of the same field, so F2 is to get its own
+pair of changes when it runs.
+
 ### Measurements
 
 Per variant and fault, and per protection turned off where there is one:
@@ -411,20 +419,65 @@ statistical analysis (decided 2026-11-16).
    - **The copy** keeps one row per offer and per curve, the latest version
      only, with its revision and the id of the last event applied. An event
      is applied only if its revision is newer (the revision guard).
-   - **Creation.** There is no `OfferCreated` or `CurveCreated` today; the
-     variant modules add them, so the copy learns of new premises. A
-     calculation that finds no row for its offer or curve throws and is
-     retried, since a retry can fix it.
+   - **Creation.** `OfferCreated` and `CurveCreated` exist but carry only
+     the id and are routed to no queue (corrected 2026-11-21). The variant
+     modules give them content and the `simulation-recalculations` pattern
+     routes them, in Floci and in the stack, so the copy learns of new
+     premises; production never gets that rule, since this branch is not
+     deployed there, but the homolog stack needs a deploy. Under V1 the
+     production consumer acknowledges them unhandled with its "No
+     `@OnEvent`" log, one extra message per created offer or curve that
+     changes no result. A calculation that finds no row for its offer or
+     curve throws and is retried, since a retry can fix it; so does the
+     dead-letter consumer.
    - **What the screen compares.** Under V2 and V3 the fingerprint and the
      screen use the copy's revisions, as a separate service that knows only
      its copy would; comparing with the producer's would need the read the
      variant forbids.
-   - **The boundary is checked, not assumed.** The V2 and V3 modules get an
-     Nx tag that forbids depending on the offer and curve repositories, the
-     mechanism that already separates `market-data` from the simulator, and a
-     test runs their calculation with no access to those tables. The
-     contexts are not split: a simulation's own terms are a
-     `SIMULATION`-scoped `Offer`, and splitting would change V1 too.
+   - **The boundary is checked by a test.** A test runs the V2 and V3
+     calculation with no access to the offer and curve tables. The Nx tag
+     first planned is dropped (2026-11-21): tags apply to whole projects,
+     and the copy side needs the simulation repository, which shares
+     `investment-simulator-infrastructure` with the offer and curve
+     repositories, so a tag would have meant moving production code into a
+     new project for a check the test already makes. The contexts are not
+     split: a simulation's own terms are a `SIMULATION`-scoped `Offer`, and
+     splitting would change V1 too.
+   - **How it is built (decided 2026-11-21).** Everything lives under the
+     simulator's `infrastructure/src/lib/experiments/`, bound from
+     `EXPERIMENT_EVENT_CONTENT` in its bindings file.
+     - _Producer._ Subclasses of the Prisma offer and curve repositories
+       replace the identifier-only `OfferCreated`, `OfferTermsChanged`,
+       `OfferDeleted`, `CurveCreated`, `CurveValuesChanged`, and
+       `CurveDeleted` with events of the same type carrying `revision`,
+       `termsRevision` or `valuesRevision`, and the content, through one
+       protected `BaseRepository` method. V3 carries the calculation's
+       fields whole (title type, maturity, redemption, remuneration; index
+       and intervals) and whether it is deleted; V2 carries only the fields
+       that differ from the state the aggregate was read with, all of them
+       on creation. A curve's intervals are one field, so a V2
+       `CurveValuesChanged` carries them whole: no scenario changes a
+       curve, and a per-interval delta would add a merge rule nothing
+       measures. Payload versions are 2 (V2) and 3 (V3).
+     - _Copy._ `offer_copy` and `curve_copy` (intervals as JSON), each with
+       `revision`, the calculation revision, `is_deleted`, and
+       `last_event_id`. The guard compares `revision`. A V2 delta for an
+       offer or curve with no row throws, so it dead-letters: nothing can
+       rebuild it. "Write without the revision guard" also drops the copy's
+       guard under V2 and V3, since it is the revision guard those variants
+       have against a late event (F2).
+     - _Consumer._ The recalculation queue gets a copy consumer, under the
+       production consumer's token, that applies the event and, when it was
+       applied and is not a creation, records the requests through the
+       production fan-out use cases. The worker and the dead-letter use case
+       get copy-backed `OfferRepository` and `CurveRepository`.
+     - _Screens and oracle._ Copy-backed implementations of the three
+       readers that build a current fingerprint (result validity,
+       comparison, plan members) take the revisions and title type from the
+       copy. Requests that create or edit a simulation still validate
+       against the offer and curve they name. The oracle judges "settled"
+       from the copy too, as the screen shows it, and still recalculates
+       the reference from the producer's tables.
    - **Why a copy at all.** Offer, curve, and simulation share one context
      and database, so the copy buys nothing here; it stands for a consumer in
      another service, where it avoids depending on the source being up,

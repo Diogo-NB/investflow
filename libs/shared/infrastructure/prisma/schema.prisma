@@ -281,6 +281,40 @@ model PublishedIndexValue {
   @@map("published_index_value")
 }
 
+// Experiments only (V2 and V3 in docs/implementation/planned/
+// fault-injection-experiments.md): the simulations' own copy of an offer's
+// calculation fields, updated by the offer's events and never by reading
+// offer. No foreign key, since the copy may lag or lead the offer.
+model OfferCopy {
+  offerId          String                     @id @map("offer_id") @db.Uuid
+  titleType        InvestmentTitleType        @map("title_type")
+  maturityDate     DateTime                   @map("maturity_date") @db.Date
+  redemptionType   InvestmentRedemptionType   @map("redemption_type")
+  remunerationType InvestmentRemunerationType @map("remuneration_type")
+  rateValue        Decimal                    @map("rate_value") @db.Decimal(65, 30)
+  isDeleted        Boolean                    @map("is_deleted")
+  // The offer's revision the copy is at; an event applies only above it.
+  revision         Int
+  termsRevision    Int                        @map("terms_revision")
+  lastEventId      String                     @map("last_event_id") @db.Uuid
+
+  @@map("offer_copy")
+}
+
+// Experiments only, as OfferCopy, for a curve. Intervals are
+// [{ startDate, endDate, value }], dates as YYYY-MM-DD and values as strings.
+model CurveCopy {
+  curveId        String        @id @map("curve_id") @db.Uuid
+  index          EconomicIndex
+  intervals      Json
+  isDeleted      Boolean       @map("is_deleted")
+  revision       Int
+  valuesRevision Int           @map("values_revision")
+  lastEventId    String        @map("last_event_id") @db.Uuid
+
+  @@map("curve_copy")
+}
+
 model OutboxEvent {
   id            String    @id @default(uuid()) @db.Uuid
   aggregateType String    @map("aggregate_type")
