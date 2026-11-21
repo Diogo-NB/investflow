@@ -16,16 +16,25 @@ first change of the offer's terms dead-lettered").
 
 - **Local (Floci):** you run it. Docker must be up (`pnpm db:up`); if it is
   not, ask the user to start it. The local database is disposable;
-  `pnpm db:setup` resets it when runs have piled up data.
-- **Homolog (real AWS):** only the user runs it. Never run it, any `aws`
-  command, or anything that resolves credentials, and never read
-  `.env.homolog`. Give the user the command:
+  `pnpm db:setup` resets it when runs have piled up data. Floci runs one
+  FIFO group per queue (see "Experiment environment" in the plan doc), so
+  use it for smoke tests; the batches that count run on homolog.
+- **Homolog (real AWS):** you may run it, always with the
+  `investflow-homolog` profile, whose access keys reach only the
+  experiment stack:
 
   ```bash
   AWS_PROFILE=investflow-homolog pnpm experiment:run --env-file .env.homolog --scenarios <list>
   ```
 
-  Then read the output folder they point you to.
+  You may read `.env.homolog`; it holds no production credential. With the
+  same profile, `aws` is allowed only for read-only calls (`get-*`,
+  `list-*`, `describe-*`, such as `sqs get-queue-attributes` or
+  `cloudwatch describe-alarm-history`). Nothing that changes state:
+  no `sqs receive-message` (it hides the message from the consumer), no
+  purge, redrive, send, or delete, and no `infra-aws:deploy` or `cdk`
+  command; the runner does its own redrives. Never use another profile or
+  the shell's default credentials against AWS.
 
 ## Before running
 
