@@ -63,7 +63,9 @@ export class ExperimentRun {
     mkdirSync(runDirectory, { recursive: true });
     const logPath = join(runDirectory, 'api.log');
     const log = (message: string) =>
-      console.log(`[${scenario.name} run ${run}] ${message}`);
+      console.log(
+        `[${this.options.variant} ${scenario.name} run ${run}] ${message}`,
+      );
 
     const summaries: StageSummary[] = [];
     const simulations: JudgedSimulation[] = [];
@@ -87,6 +89,7 @@ export class ExperimentRun {
         ...observation.timeline.map((sample) => ({ stage, sample })),
       );
       const summary: StageSummary = {
+        variant: this.options.variant,
         scenario: scenario.name,
         run,
         stage,

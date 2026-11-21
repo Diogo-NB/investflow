@@ -3,7 +3,10 @@ import { once } from 'node:events';
 import { openSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import type { ExperimentTarget } from '@investflow/shared-infrastructure';
+import type {
+  EExperimentEventContent,
+  ExperimentTarget,
+} from '@investflow/shared-infrastructure';
 import type { ExperimentSwitches } from './scenarios';
 
 const API_ENTRY = resolve('dist/apps/api/main.js');
@@ -14,14 +17,18 @@ const STOP_TIMEOUT_MS = 30_000;
 // after the process is gone.
 const AFTER_STOP_MS = 21_000;
 
-// One API process, started with the switches of a stage. It runs from the
+// One API process, started with the batch's variant and the switches of a
+// stage. It runs from the
 // run's folder, which has no .env, so it gets exactly the runner's
 // environment and every switch set explicitly, never one left in a file.
 export class ApiProcess {
   private child: ChildProcess | null = null;
   private logFd: number | null = null;
 
-  constructor(private readonly apiUrl: string) {}
+  constructor(
+    private readonly apiUrl: string,
+    private readonly variant: EExperimentEventContent,
+  ) {}
 
   async assertStopped(): Promise<void> {
     if (await this.isAnswering()) {
@@ -42,7 +49,10 @@ export class ApiProcess {
     this.logFd = openSync(logPath, 'a');
     const child = spawn(process.execPath, [API_ENTRY], {
       cwd: workingDirectory,
-      env: { ...process.env, ...apiVariables(switches, target) },
+      env: {
+        ...process.env,
+        ...apiVariables(this.variant, switches, target),
+      },
       stdio: ['ignore', this.logFd, this.logFd],
     });
     this.child = child;
@@ -100,6 +110,7 @@ export class ApiProcess {
 }
 
 function apiVariables(
+  variant: EExperimentEventContent,
   switches: ExperimentSwitches,
   target: ExperimentTarget | null,
 ): Record<string, string> {
@@ -107,6 +118,7 @@ function apiVariables(
     // Traces every handled event (type, event and aggregate ids, receive
     // count), so api.log shows which delivery a fault hit.
     LOG_LEVEL: 'debug',
+    EXPERIMENT_EVENT_CONTENT: variant,
     EXPERIMENT_MESSAGE_FAULT: switches.messageFault,
     EXPERIMENT_SKIP_DEDUPLICATION: String(switches.isDeduplicationSkipped),
     EXPERIMENT_SKIP_REVISION_GUARD: String(switches.isRevisionGuardSkipped),

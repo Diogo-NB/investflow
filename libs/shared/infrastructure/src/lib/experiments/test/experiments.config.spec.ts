@@ -26,6 +26,18 @@ describe('experimentsEnvironment', () => {
     ]);
   });
 
+  it('refuses an event content other than notifications against the production bus', () => {
+    const parsed = experimentsEnvironment.safeParse({
+      EXPERIMENT_EVENT_CONTENT: 'v3',
+      EVENT_BUS_NAME: 'investflow',
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues).toEqual([
+      expect.objectContaining({ path: ['EVENT_BUS_NAME'] }),
+    ]);
+  });
+
   it('accepts a switch against the homolog bus', () => {
     const parsed = experimentsEnvironment.safeParse({
       EXPERIMENT_MESSAGE_FAULT: 'dead-letter',

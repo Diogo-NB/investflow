@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, writeFileSync } from 'node:fs';
+import type { EExperimentEventContent } from '@investflow/shared-infrastructure';
 import type { ExperimentOptions } from './experiment-options';
 import type { EOfferRole } from './scenario-population';
 import type { SimulationJudgement } from './simulation-result-oracle';
@@ -32,6 +33,7 @@ export interface StagedSample {
 }
 
 export interface StageSummary {
+  readonly variant: EExperimentEventContent;
   readonly scenario: string;
   readonly run: number;
   readonly stage: EExperimentStage;
@@ -95,6 +97,7 @@ const timelineColumns: readonly Column<StagedSample>[] = [
 ];
 
 const summaryColumns: readonly Column<StageSummary>[] = [
+  { header: 'variant', of: (row) => row.variant },
   { header: 'scenario', of: (row) => row.scenario },
   { header: 'run', of: (row) => row.run },
   { header: 'stage', of: (row) => row.stage },

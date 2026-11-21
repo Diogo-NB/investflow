@@ -95,7 +95,7 @@ async function main(): Promise<void> {
     );
     const experimentRun = new ExperimentRun(
       options,
-      new ApiProcess(runner.apiUrl),
+      new ApiProcess(runner.apiUrl, options.variant),
       new InvestflowApiClient(
         runner,
         app.get<KeycloakConfig>(keycloakConfig.KEY),
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
       new StageObserver(app.get(PrismaService), queues, oracle, app.get(Clock)),
     );
 
-    const batchLabel = new Date().toISOString().replace(/[:.]/g, '-');
+    const batchLabel = `${new Date().toISOString().replace(/[:.]/g, '-')}-${options.variant}`;
     const summaryPath = join(
       options.outputDirectory,
       `${batchLabel}-summary.csv`,

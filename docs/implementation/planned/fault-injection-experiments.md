@@ -218,7 +218,7 @@ experiment stack's bus, so a production deploy cannot turn one on (see
 
 | Switch                           | What it does                                                                                | Used for        |
 | -------------------------------- | ------------------------------------------------------------------------------------------- | --------------- |
-| Event content                    | Selects V1, V2, or V3 for the recalculation path                                            | Variants        |
+| Event content                    | Selects V1, V2, or V3 for the recalculation path (`--variant v1\|v2\|v3` in the runner)     | Variants        |
 | Publish without the outbox       | Commits, then publishes directly, with an optional crash between the two                    | F6              |
 | Write without the revision guard | The worker saves its outcome without the `simulation_revision` condition                    | Protections     |
 | Skip deduplication               | `EventDispatcher` runs the handler without recording `processed_events`                     | F3, protections |
@@ -431,8 +431,17 @@ statistical analysis (decided 2026-11-16).
      the round trip, and the load. Reading the source (V1, or a query to the
      source's API across services) leaves nothing to diverge, so the runs
      measure what the copy costs in integrity, not what it gains.
-   - Still to check: that a whole curve's intervals fit the outbox's 200 KB
-     payload limit.
+   - **A whole curve fits the payload limit (checked 2026-11-21).** An
+     interval serializes to about 70 bytes (a daily rate) to 100 bytes (a
+     monthly IPCA value at 30 decimal places), so the outbox's 200 KB hold
+     about 2,000 to 3,000 intervals. A system curve gains one interval per
+     change of the published rate: SGS 4389 (CDI) had 49 runs of equal
+     values from 2016 to 2025, and production's curves start on
+     2026-09-17, so they stay far below. Only a curve typed with thousands
+     of intervals would not fit (the API caps none; all of CDI since 1996,
+     3,061 runs, is about 200 KB); its edit then fails at `record()` and
+     rolls back, loudly, so no run is affected. The runner's curves have one
+     interval.
 
 ## Findings
 

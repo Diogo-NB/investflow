@@ -1,7 +1,9 @@
 import { parseArgs } from 'node:util';
+import { EExperimentEventContent } from '@investflow/shared-infrastructure';
 import { scenarioNames } from './scenarios';
 
 export interface ExperimentOptions {
+  readonly variant: EExperimentEventContent;
   readonly scenarios: readonly string[];
   readonly runs: number;
   readonly simulations: number;
@@ -15,6 +17,8 @@ export interface ExperimentOptions {
 
 export const usage = `Usage: pnpm experiment:run [options]
 
+  --variant <v>       What offer and curve events carry: v1 identifiers, v2 the
+                      changed fields, v3 the whole state (v1)
   --scenarios <list>  Comma-separated scenario names, or all (all)
   --runs <n>          Runs of each scenario (3)
   --simulations <n>   Simulations created for each run (1000)
@@ -33,6 +37,12 @@ Build the API first (pnpm experiment:run does) and stop any API already
 running: the runner starts and stops its own. Against Floci, run it without
 a shell AWS_PROFILE (env -u AWS_PROFILE), since .env holds Floci's key pair.`;
 
+const variants: readonly string[] = Object.values(EExperimentEventContent);
+
+function isVariant(value: string): value is EExperimentEventContent {
+  return variants.includes(value);
+}
+
 function positiveInteger(name: string, value: string): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -48,6 +58,10 @@ export function parseExperimentOptions(
   const { values } = parseArgs({
     args: [...args],
     options: {
+      variant: {
+        type: 'string',
+        default: EExperimentEventContent.NOTIFICATION,
+      },
       scenarios: { type: 'string', default: 'all' },
       runs: { type: 'string', default: '3' },
       simulations: { type: 'string', default: '1000' },
@@ -71,7 +85,13 @@ export function parseExperimentOptions(
   if (unknown.length > 0) {
     throw new Error(`Unknown scenarios: ${unknown.join(', ')}\n\n${usage}`);
   }
+  if (!isVariant(values.variant)) {
+    throw new Error(
+      `--variant must be one of ${variants.join(', ')}.\n\n${usage}`,
+    );
+  }
   return {
+    variant: values.variant,
     scenarios,
     runs: positiveInteger('runs', values.runs),
     simulations: positiveInteger('simulations', values.simulations),

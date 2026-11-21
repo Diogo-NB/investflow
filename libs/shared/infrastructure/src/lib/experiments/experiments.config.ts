@@ -9,6 +9,17 @@ export enum EExperimentMessageFault {
   REJECT_UNTIL_NEWER = 'reject-until-newer',
 }
 
+// What offer and curve events carry on the recalculation path, and what the
+// calculation reads its offer and curve from.
+export enum EExperimentEventContent {
+  // Identifiers; the calculation reads the producer's tables (production).
+  NOTIFICATION = 'v1',
+  // The changed fields, applied to the consumer's copy.
+  DELTA = 'v2',
+  // The whole state, applied to the consumer's copy.
+  STATE = 'v3',
+}
+
 const EXPERIMENT_BUS_SUFFIX = '-homolog';
 
 const flag = z
@@ -17,6 +28,9 @@ const flag = z
   .transform((value) => value === 'true');
 
 const experimentSwitches = z.object({
+  EXPERIMENT_EVENT_CONTENT: z
+    .enum(EExperimentEventContent)
+    .default(EExperimentEventContent.NOTIFICATION),
   EXPERIMENT_MESSAGE_FAULT: z
     .enum(EExperimentMessageFault)
     .default(EExperimentMessageFault.NONE),
@@ -36,6 +50,8 @@ function isAnySwitchOn(
   environment: z.output<typeof experimentSwitches>,
 ): boolean {
   return (
+    environment.EXPERIMENT_EVENT_CONTENT !==
+      EExperimentEventContent.NOTIFICATION ||
     environment.EXPERIMENT_MESSAGE_FAULT !== EExperimentMessageFault.NONE ||
     environment.EXPERIMENT_SKIP_DEDUPLICATION ||
     environment.EXPERIMENT_SKIP_REVISION_GUARD ||
@@ -76,6 +92,7 @@ export const experimentsConfig = environmentConfig(
   'experiments',
   experimentsEnvironment,
   (environment) => ({
+    eventContent: environment.EXPERIMENT_EVENT_CONTENT,
     messageFault: environment.EXPERIMENT_MESSAGE_FAULT,
     target:
       environment.EXPERIMENT_TARGET_AGGREGATE_ID &&

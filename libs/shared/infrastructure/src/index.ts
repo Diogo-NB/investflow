@@ -64,6 +64,7 @@ export {
   isCalendarDate,
 } from './lib/dates/calendar-date.validator';
 export {
+  EExperimentEventContent,
   EExperimentMessageFault,
   experimentsConfig,
   type ExperimentsConfig,
