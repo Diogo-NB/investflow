@@ -16,7 +16,10 @@ The deployment these build on is in
 - **Dead-letter alarms.** Alarms (CloudWatch, with a notification) when
   `simulation-calculations-dlq.fifo`, `simulation-recalculations-dlq.fifo`,
   `curve-published-index-values-dlq.fifo`, or `event-delivery-dlq` receives a
-  message; today they are only seen by looking. Revisit before anyone else depends on the site.
+  message; today they are only seen by looking. Scheduled (2026-11-20) as
+  the first step of [Fault Injection and Integrity Experiments](./fault-injection-experiments.md),
+  which needs them to tell an alarmed error from a silent one; built in
+  production too.
 - **IAM Roles Anywhere** instead of the `investflow-api` access key: a
   certificate from a self-managed CA, exchanged for one-hour credentials by
   AWS's signing helper in the API image. Revisit if the key's IP restriction
